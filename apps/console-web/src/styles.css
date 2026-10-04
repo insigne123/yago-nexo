@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+/*
+ * Tokens de la Consola Nexo. Paleta neutra con un solo color de acento (azul institucional).
+ * Modo oscuro por prefers-color-scheme. Los colores de gráficos (--viz-*) siguen la paleta
+ * categórica validada para daltonismo (orden fijo, nunca ciclado).
+ */
+
+@theme {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+:root {
+  color-scheme: light;
+  --nx-canvas: #f4f6f8;
+  --nx-surface: #ffffff;
+  --nx-subtle: #eef1f4;
+  --nx-line: #d6dce3;
+  --nx-line-strong: #b4bdc8;
+  --nx-fg: #131a23;
+  --nx-fg-muted: #4b5767;
+  --nx-fg-subtle: #5f6b7a;
+  --nx-accent: #0b5cad;
+  --nx-accent-strong: #084a8c;
+  --nx-accent-soft: #e6eff9;
+  --nx-accent-fg: #ffffff;
+  --nx-ok: #146c2e;
+  --nx-ok-soft: #e4f3e8;
+  --nx-warn: #8a5300;
+  --nx-warn-soft: #fcf1dc;
+  --nx-bad: #b3261e;
+  --nx-bad-soft: #fcebe9;
+  --nx-banner: #0f2740;
+  --nx-banner-fg: #e9f0f7;
+  --nx-focus: #0b5cad;
+  --nx-overlay: rgb(15 23 33 / 0.45);
+
+  /* Gráficos */
+  --viz-surface: #ffffff;
+  --viz-grid: #e3e6ea;
+  --viz-axis: #c3c8cf;
+  --viz-label: #5f6b7a;
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  --viz-6: #008300;
+  --viz-7: #4a3aa7;
+  --viz-8: #e34948;
+  --viz-good: #0ca30c;
+  --viz-warning: #fab219;
+  --viz-critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --nx-canvas: #0e1217;
+    --nx-surface: #161b22;
+    --nx-subtle: #1c222b;
+    --nx-line: #2b333e;
+    --nx-line-strong: #3d4754;
+    --nx-fg: #e7ebf0;
+    --nx-fg-muted: #b0bac6;
+    --nx-fg-subtle: #97a2af;
+    --nx-accent: #62a8f0;
+    --nx-accent-strong: #8cc0f5;
+    --nx-accent-soft: #14273b;
+    --nx-accent-fg: #08131f;
+    --nx-ok: #6fcf8a;
+    --nx-ok-soft: #12261a;
+    --nx-warn: #eab25a;
+    --nx-warn-soft: #2a2010;
+    --nx-bad: #f29389;
+    --nx-bad-soft: #321615;
+    --nx-banner: #0a1a2b;
+    --nx-banner-fg: #d9e4ef;
+    --nx-focus: #8cc0f5;
+    --nx-overlay: rgb(0 0 0 / 0.6);
+
+    --viz-surface: #161b22;
+    --viz-grid: #262d36;
+    --viz-axis: #3a434e;
+    --viz-label: #97a2af;
+    --viz-1: #3987e5;
+    --viz-2: #d95926;
+    --viz-3: #199e70;
+    --viz-4: #c98500;
+    --viz-5: #d55181;
+    --viz-6: #008300;
+    --viz-7: #9085e9;
+    --viz-8: #e66767;
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--nx-canvas);
+  --color-surface: var(--nx-surface);
+  --color-subtle: var(--nx-subtle);
+  --color-line: var(--nx-line);
+  --color-line-strong: var(--nx-line-strong);
+  --color-fg: var(--nx-fg);
+  --color-fg-muted: var(--nx-fg-muted);
+  --color-fg-subtle: var(--nx-fg-subtle);
+  --color-accent: var(--nx-accent);
+  --color-accent-strong: var(--nx-accent-strong);
+  --color-accent-soft: var(--nx-accent-soft);
+  --color-accent-fg: var(--nx-accent-fg);
+  --color-ok: var(--nx-ok);
+  --color-ok-soft: var(--nx-ok-soft);
+  --color-warn: var(--nx-warn);
+  --color-warn-soft: var(--nx-warn-soft);
+  --color-bad: var(--nx-bad);
+  --color-bad-soft: var(--nx-bad-soft);
+  --color-banner: var(--nx-banner);
+  --color-banner-fg: var(--nx-banner-fg);
+  --color-overlay: var(--nx-overlay);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--nx-canvas);
+    color: var(--nx-fg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--nx-focus);
+    outline-offset: 2px;
+  }
+
+  dialog::backdrop {
+    background: var(--nx-overlay);
+  }
+
+  .boot-message {
+    margin: 4rem auto;
+    text-align: center;
+    color: var(--nx-fg-muted);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+}
