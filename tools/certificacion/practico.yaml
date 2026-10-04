@@ -1,0 +1,188 @@
+# Evaluación práctica · Certificación Yago Nexo (Administrador/Integrador de la plataforma)
+#
+# Se rinde en el laboratorio propio del participante (deploy/compose), con la documentación del curso abierta.
+# Los comandos suponen la raíz del repositorio como carpeta de trabajo y las ayudas del curso cargadas:
+#   source tools/lab-bootstrap/ayudas-curso.sh      (tok, consola, consola_estado, app_llaves, app_tok, nexo-ctl, mi_api, caos)
+# Cada tarea indica cómo se verifica: con los scripts de verificación que ya trae el laboratorio
+# (pnpm --filter @nexo/lab-bootstrap <check>), con objetivos del Makefile o con consultas puntuales.
+# El evaluador registra el estado de cada tarea (aprobada o reprobada) en la hoja de respuestas.
+version: "1.0.0"
+duracion_minutos: 150
+aprobacion:
+  porcentaje_minimo: 70
+  obligatorias: [P1]
+reglas:
+  - "Cada participante trabaja solo en su laboratorio. Se puede consultar la documentación del curso y el repositorio; no se puede recibir ayuda de otra persona."
+  - "La terminal se graba desde el inicio con: script -q -f practico-$(date +%F).log. El archivo es la evidencia principal."
+  - "El evaluador entrega el laboratorio con las imágenes construidas y los volúmenes limpios (make -C deploy/compose clean y make -C deploy/compose up), para que la tarea P1 no dependa del tiempo de descarga."
+  - "Las tareas P2 a P5 dependen de P1. Si P1 no se logra en su tiempo, el evaluador prepara el laboratorio y la tarea P1 queda reprobada."
+  - "Una verificación automática que falla por una causa ajena al participante (por ejemplo, falta de memoria del equipo) se repite una vez; si vuelve a fallar, el evaluador decide con la evidencia de la terminal."
+tareas:
+  - id: P1
+    titulo: "Preparar y comprobar el laboratorio"
+    modulos: [M0, M1]
+    puntos: 20
+    tiempo_minutos: 35
+    obligatoria: true
+    preparacion:
+      - "Laboratorio con contenedores arriba y volúmenes recién creados (make status muestra apim y keycloak sanos)."
+    enunciado: >
+      Deje el laboratorio listo para operar: configure WSO2 y Keycloak con el arranque, aplique la plataforma como
+      código, despliegue la API Concesiones en las tres etapas, despliegue en producción las APIs
+      SolicitudesConcesion, ConsultaPublica, ConcesionesGraphQL y EventosRed, y siembre la plataforma existente
+      simulada. Demuestre que la llamada de punta a punta funciona con token y se rechaza sin él, y que cada
+      audiencia recibe solo sus APIs.
+    entregables:
+      - "Grabación de la terminal con make bootstrap, make platform, make deploy-apis, los cuatro nexo-ctl api deploy y make legado."
+      - "Salida de nexo-ctl api list -s prod con las cinco APIs."
+    criterios:
+      - "El arranque termina con la prueba de punta a punta correcta (200 con token y 401 sin token)."
+      - "check:audiencias termina sin error."
+      - "Las cinco APIs aparecen publicadas (PUBLISHED)."
+    verificacion:
+      - descripcion: "Arranque idempotente con prueba de punta a punta"
+        make: bootstrap
+        esperado: "Las líneas «PRUEBA DE PUNTA A PUNTA OK: gateway → backend» con status 200 y «Sin token el gateway rechaza la llamada» con status 401."
+      - descripcion: "Separación de audiencias"
+        check: "check:audiencias"
+        esperado: "Tabla con cuatro casos que cumplen y la línea «verificado: cada audiencia recibe solo sus APIs»; código de salida 0."
+      - descripcion: "APIs publicadas en producción"
+        comando: "nexo-ctl api list -s prod"
+        esperado: "Concesiones, SolicitudesConcesion, ConsultaPublica, ConcesionesGraphQL y EventosRed en estado PUBLISHED."
+
+  - id: P2
+    titulo: "Gobierno de contratos, promoción y reversa"
+    modulos: [M3]
+    puntos: 20
+    tiempo_minutos: 30
+    obligatoria: false
+    preparacion:
+      - "P1 completada."
+    enunciado: >
+      Copie wso2/apim/apis/_ejemplos/contrato-incumple.yaml a out/examen/reportes-internos.yaml y corríjalo hasta
+      que la guía de estilo no informe errores ni advertencias, sin cambiar el propósito de la API. Luego despliegue
+      la API Concesiones en la etapa de desarrollo, revierta esa etapa a la revisión anterior y exporte las APIs de
+      producción con su manifiesto de hashes.
+    entregables:
+      - "out/examen/reportes-internos.yaml corregido."
+      - "Grabación de la terminal con el lint antes y después, el deploy en dev, la reversa y la exportación."
+      - "out/examen/export/manifiesto.json."
+    criterios:
+      - "El contrato original falla (código de salida 2) y el corregido pasa con 0 errores y 0 advertencias."
+      - "La reversa informa de qué revisión a qué revisión volvió la etapa."
+      - "La suma SHA-256 de un zip exportado coincide con la del manifiesto."
+    verificacion:
+      - descripcion: "Contrato corregido"
+        comando: "nexo-ctl api lint out/examen/reportes-internos.yaml"
+        esperado: "«Resultado: 0 errores, 0 advertencias» y código de salida 0. El original da 8 errores y código 2."
+      - descripcion: "Promoción y reversa en desarrollo"
+        comando: 'nexo-ctl api deploy wso2/apim/apis/concesiones -s dev -m "examen" && nexo-ctl api rollback Concesiones 1.0.0 -s dev'
+        esperado: "«Revisión … desplegada en: Desarrollo (dev.nexo.lab)» y luego «Reversa: Concesiones 1.0.0 vuelve de la revisión … a …»."
+      - descripcion: "Exportación con manifiesto"
+        comando: 'nexo-ctl api export -s prod -o out/examen/export && sha256sum out/examen/export/Concesiones-1.0.0.zip && jq -r ''.items[] | select(.archivo=="Concesiones-1.0.0.zip") | .sha256'' out/examen/export/manifiesto.json'
+        esperado: "Las dos sumas SHA-256 son iguales."
+      - descripcion: "Generación de SDK desde el contrato publicado (comprobación complementaria)"
+        check: "check:d07"
+        esperado: "«verificado: N lenguajes generados» con N de 3 o más."
+
+  - id: P3
+    titulo: "Integración: idempotencia, falla del destino y reproceso autorizado"
+    modulos: [M4]
+    puntos: 20
+    tiempo_minutos: 30
+    obligatoria: false
+    preparacion:
+      - "P1 completada (API SolicitudesConcesion desplegada y aplicación OperadorDemo suscrita: check:integracion la suscribe si falta)."
+    enunciado: >
+      Envíe una solicitud de concesión al flujo de Micro Integrator a través del gateway con el token de
+      OperadorDemo y demuestre el 202, la repetición idempotente (200) y el rechazo de una solicitud inválida (422).
+      Después simule la caída del sistema de destino, siga el mensaje por las colas de reintento hasta la cola de
+      fallidos, restablezca el destino y reprocese el mensaje con el rol aprobador, con un motivo. Muestre que un
+      desarrollador no puede reprocesar.
+    entregables:
+      - "Grabación de la terminal con las respuestas 202, 200 y 422, la activación y desactivación de la falla simulada y el reproceso."
+      - "Correlación del mensaje reprocesado."
+    criterios:
+      - "Respuestas 202, 200 (con repeticion true) y 422 en el orden pedido."
+      - "El mensaje llega a la cola de fallidos después de 3 reintentos (attempts 4: el intento original y 3 reintentos) y figura pendiente en la Consola."
+      - "El desarrollador recibe 403; el aprobador reprocesa con motivo y el mensaje no vuelve a la cola."
+      - "La falla simulada queda desactivada al terminar (caos 0)."
+    verificacion:
+      - descripcion: "Flujo a través del gateway con idempotencia y traza"
+        check: "check:integracion"
+        esperado: "«primera llamada: 202», «repetición con la misma Idempotency-Key: 200», «solicitud inválida: 422» y la traza con spans del gateway y del integrador."
+      - descripcion: "Reproceso auditado hecho por el participante"
+        comando: "consola pedro.auditoria GET '/audit-events?action=mensajes.reprocesar&limit=5' | jq '.[] | {actor, resource, details}'"
+        esperado: "Un evento con actor luis.aprobador, el recurso mensaje/<correlación del participante> y el motivo escrito."
+      - descripcion: "Estado del mensaje"
+        comando: "consola luis.aprobador GET /dead-letters | jq '.[] | {id, status, attempts, reprocessedBy}'"
+        esperado: "El mensaje del participante con status reprocesado y reprocessedBy luis.aprobador."
+      - descripcion: "Comprobación integral de mensajes fallidos y reproceso (al final, la corre el evaluador)"
+        check: "check:consola"
+        esperado: "Las filas de mensajes fallidos cumplen y la última línea dice «N verificaciones cumplen»."
+
+  - id: P4
+    titulo: "Roles, cuatro ojos y bloqueo de un consumidor anómalo"
+    modulos: [M2, M5]
+    puntos: 20
+    tiempo_minutos: 30
+    obligatoria: false
+    preparacion:
+      - "P1 completada; perfil obs arriba (el guardián lee la analítica del gateway en OpenSearch)."
+    enunciado: >
+      Demuestre la matriz rol-permiso con tokens de distintas personas (un 200 y un 403 con el permiso que falta).
+      Como admin.nexo cree una regla del guardián sobre la API Concesiones con acción bloquear_con_aprobacion,
+      genere tráfico normal y luego una ráfaga con la aplicación OperadorDemo, y gestione la anomalía: intente
+      aprobar el bloqueo como desarrollador, apruébelo como aprobador, compruebe el 403 en el gateway, libere el
+      bloqueo con motivo y compruebe que el acceso vuelve. Al final, desactive su regla y verifique la cadena de
+      auditoría como auditor.
+    entregables:
+      - "Grabación de la terminal con las llamadas a la Consola y la carga."
+      - "Identificador de la regla creada y de la anomalía gestionada."
+    criterios:
+      - "Se muestra un 403 por permiso y un 200 de la misma ruta con el rol correcto."
+      - "La anomalía pasa por bloqueo_propuesto y bloqueada; el desarrollador recibe 403 al intentar aprobar."
+      - "El gateway responde 403 mientras dura el bloqueo y 200 después de liberarlo."
+      - "La regla queda desactivada y la verificación de la cadena responde ok: true."
+    verificacion:
+      - descripcion: "Acciones auditadas del participante"
+        comando: 'for a in anomalias.regla.crear anomalias.bloqueo.aprobar anomalias.bloqueo.liberar; do consola pedro.auditoria GET "/audit-events?action=$a&limit=3" | jq -c ''.[0] | {action, actor, resource}''; done'
+        esperado: "Tres eventos: regla creada por admin.nexo, bloqueo aprobado y liberado por luis.aprobador."
+      - descripcion: "Cadena de auditoría íntegra"
+        comando: "consola pedro.auditoria GET /audit-events/verify | jq"
+        esperado: '"ok": true.'
+      - descripcion: "Detección, bloqueo automático y con aprobación, vencimiento y liberación (la corre el evaluador al final; desactiva y restaura las reglas existentes)"
+        check: "check:d02"
+        esperado: "Todas las filas cumplen y la línea «verificado: detección, bloqueo automático y con aprobación, vencimiento y liberación»."
+
+  - id: P5
+    titulo: "Operación: severidad, simulacro de conmutación y auditoría en el SIEM"
+    modulos: [M6]
+    puntos: 20
+    tiempo_minutos: 25
+    obligatoria: false
+    preparacion:
+      - "P1 completada; perfil obs arriba; laboratorio de continuidad arriba (make -C deploy/compose continuidad)."
+    enunciado: >
+      Clasifique con la regla de severidades de Nexo el caso que entrega el evaluador y justifique el resultado.
+      Como operador inicie un simulacro de conmutación desde la API de la Consola y explique sus pasos. Ejecute la
+      verificación de continuidad e informe el RTO medido y por qué la primera caída no provocó conmutación.
+      Ejecute la verificación del SIEM y explique qué demuestra cada una de sus tres filas.
+    entregables:
+      - "Severidad obtenida con classifySeverity y su regla."
+      - "Evento de simulacro (GET /continuity/events) con sus pasos."
+      - "RTO medido y explicación del quórum; explicación de las filas de check:siem."
+    criterios:
+      - "La severidad coincide con la regla (preguntas cerradas, en orden)."
+      - "El simulacro queda completado y auditado con actor carla.operacion."
+      - "check:d05 y check:siem terminan sin error y el participante explica correctamente sus resultados."
+    verificacion:
+      - descripcion: "Simulacro hecho por el participante"
+        comando: "consola pedro.auditoria GET '/audit-events?action=continuidad.simulacro&limit=5' | jq -c '.[] | {actor, resource, result}'"
+        esperado: "Un evento con actor carla.operacion (el que pidió el simulacro) y otro del agente de continuidad con el resultado."
+      - descripcion: "Quórum, conmutación automática con RTO medido y retorno guiado"
+        check: "check:d05"
+        esperado: "Todas las filas cumplen y la línea «verificado: quórum, conmutación automática con RTO/RPO medidos y retorno guiado»."
+      - descripcion: "Auditoría entregada al SIEM sin pérdida, en orden y sin duplicados"
+        check: "check:siem"
+        esperado: "Tres filas que cumplen y la línea «verificado: auditoría entregada sin pérdida, en orden y verificable en el SIEM»."

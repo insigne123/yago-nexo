@@ -60,6 +60,7 @@ Los estados provienen de un único archivo de datos del sitio, que se revisa en 
 - [Laboratorio](./laboratorio.md): cómo levantar la base de Nexo en un equipo con Docker.
 - [Seguridad](./seguridad.md): identidad, roles, auditoría, TLS, secretos y reporte de vulnerabilidades.
 - [Ciclo de vida y soporte](./ciclo-de-vida-y-soporte.md): versiones, política de soporte y niveles de servicio.
+- [Capacitación](./capacitacion/index.md): programa por rol, laboratorio por participante y certificación del fabricante.
 - [API de la Consola](./api-consola.md): contrato OpenAPI y referencia por sección.
 - [Hoja de ruta](./hoja-de-ruta.md): todas las capacidades con su estado.
 - [Licencia y avisos](./licencia-y-avisos.md): licencia de Nexo, avisos de terceros y marcas.
