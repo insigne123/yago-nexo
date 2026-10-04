@@ -104,10 +104,10 @@ remote_tracer.url = "http://otel-collector:4317"
 
 # Generación de SDK (D-07): al menos tres lenguajes.
 [apim.sdk]
-group_id = "cl.subtel"
-artifact_id = "cl.subtel.client."
-model_package = "cl.subtel.client.model."
-api_package = "cl.subtel.client.api."
+group_id = "cl.yago.nexo"
+artifact_id = "cl.yago.nexo.client."
+model_package = "cl.yago.nexo.client.model."
+api_package = "cl.yago.nexo.client.api."
 supported_languages = ["java", "javascript", "python", "csharp", "android"]
 
 [apim.cors]
