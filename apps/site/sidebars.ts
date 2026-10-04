@@ -6,6 +6,13 @@ const sidebars: SidebarsConfig = {
     "arquitectura",
     "componentes-y-licencias",
     "laboratorio",
+    {
+      type: "category",
+      label: "Instalación",
+      link: { type: "doc", id: "instalacion/index" },
+      collapsed: true,
+      items: ["instalacion/cpd-rke2", "instalacion/gcp-gke", "instalacion/valores-por-ambiente"],
+    },
     "seguridad",
     "ciclo-de-vida-y-soporte",
     {
