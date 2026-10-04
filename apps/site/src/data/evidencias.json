@@ -1,21 +1,22 @@
 {
   "$comment": "Índice de las demostraciones registradas de Yago Nexo. Lo genera tools/evidencias (pnpm --filter @nexo/evidencias grabar). Los videos se publican junto al sitio en /evidencias/<archivo>.",
-  "generado": "2026-10-04T17:47:07.368Z",
+  "generado": "2026-10-04T18:25:34.958Z",
   "evidencias": [
     {
       "id": "D-01",
       "title": "Descubrimiento automático de APIs no gobernadas",
       "claim": "El motor de descubrimiento recorre el perímetro (gateway APISIX y NGINX heredados, y servicios de la red autorizada), detecta las APIs que no están en el catálogo gobernado de WSO2, calcula su exposición y entrega el reporte en CSV y PDF.",
       "file": "D-01_descubrimiento.webm",
-      "duration_seconds": 69.3,
-      "frames": 1733,
-      "sha256": "982b09ca7ce2157ca8df6b1d29c530d2017159e46b1d3124ed127774ac2c749b",
-      "size_bytes": 11407190,
+      "poster": "D-01_descubrimiento.jpg",
+      "duration_seconds": 65,
+      "frames": 975,
+      "sha256": "c3eaa330609702fcc5b75f0d688adefe4d9245fbdf8c129170d8a0f75d65b1f0",
+      "size_bytes": 1705240,
       "version": "1.0.0",
-      "commit": "e768f4c",
-      "recorded_at": "2026-10-04T13:43:46-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T14:51:41-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "9 endpoints detectados en 3 s: 5 no gobernados y 6 de riesgo alto, con reporte CSV y PDF",
+      "result": "9 endpoints detectados en 7 s: 5 no gobernados y 6 de riesgo alto, con reporte CSV y PDF",
       "checks": [
         {
           "texto": "inventario vacío antes del escaneo",
@@ -25,7 +26,7 @@
         {
           "texto": "escaneo terminado",
           "ok": true,
-          "detalle": "terminado en 2.8 s"
+          "detalle": "terminado en 6.9 s"
         },
         {
           "texto": "NGINX: reporte con datos personales sin autenticación",
@@ -67,7 +68,7 @@
         }
       ],
       "data": {
-        "segundosEscaneo": 2.83,
+        "segundosEscaneo": 6.92,
         "endpoints": 9,
         "noGobernados": 5,
         "riesgoAlto": 6,
@@ -79,15 +80,16 @@
       "title": "Detección de anomalías de consumo con alerta y bloqueo configurable",
       "claim": "El guardián compara el consumo de cada consumidor con su línea base; ante una ráfaga anómala alerta y, según la regla configurada, bloquea al consumidor en el gateway de WSO2 hasta que un aprobador lo libere o venza el bloqueo.",
       "file": "D-02_anomalias.webm",
-      "duration_seconds": 114.9,
-      "frames": 1724,
-      "sha256": "2f854d59474f59ebf38c52036563ad09b52da3d4d69ab9de82db8234973c1b5b",
-      "size_bytes": 2029554,
+      "poster": "D-02_anomalias.jpg",
+      "duration_seconds": 112.5,
+      "frames": 1687,
+      "sha256": "9e781232adca7478e8db5d37ae08fd0b38f0631ad18025f831f1bbf281109096",
+      "size_bytes": 2002349,
       "version": "1.0.0",
-      "commit": "e1d0aac",
-      "recorded_at": "2026-10-04T14:00:15-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T14:53:46-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "ráfaga bloqueada en el gateway a los 43 s, con alerta; acceso restablecido 1 s después de la liberación",
+      "result": "ráfaga bloqueada en el gateway a los 42 s, con alerta; acceso restablecido 1 s después de la liberación",
       "checks": [
         {
           "texto": "regla creada y activa",
@@ -102,12 +104,12 @@
         {
           "texto": "ráfaga bloqueada en el gateway (HTTP 403)",
           "ok": true,
-          "detalle": "a los 43 s de iniciada"
+          "detalle": "a los 42 s de iniciada"
         },
         {
           "texto": "evento registrado como bloqueado",
           "ok": true,
-          "detalle": "174 llamadas en la ventana frente a línea base 0 · puntaje 11.6"
+          "detalle": "161 llamadas en la ventana frente a línea base 0 · puntaje 10.73"
         },
         {
           "texto": "alerta enviada a Alertmanager",
@@ -136,10 +138,10 @@
         }
       ],
       "data": {
-        "segundosHastaBloqueo": 43,
-        "respuestas403": 105,
-        "segundosHastaAcceso": 1.067,
-        "observado": 174,
+        "segundosHastaBloqueo": 42,
+        "respuestas403": 87,
+        "segundosHastaAcceso": 1.115,
+        "observado": 161,
         "lineaBase": 0
       }
     },
@@ -148,13 +150,14 @@
       "title": "Validación de contratos OpenAPI contra la guía de estilo, bloqueante en el pipeline",
       "claim": "Cada contrato OpenAPI se valida automáticamente contra la guía de estilo institucional, configurable por la institución: el pipeline bloquea la promoción si no cumple y la política de gobierno de WSO2 bloquea su despliegue aunque se cargue a mano.",
       "file": "D-03_contratos_pipeline.webm",
-      "duration_seconds": 45,
-      "frames": 675,
-      "sha256": "82246b2badecbc8b233060670561e03ace7315b7f96fd1badb823c0091ab84ec",
-      "size_bytes": 1370325,
+      "poster": "D-03_contratos_pipeline.jpg",
+      "duration_seconds": 56.1,
+      "frames": 841,
+      "sha256": "65cfdcd28cb5521218659084fa2059dac0a80f3ea3e50283a77a6672f3a10c82",
+      "size_bytes": 1418878,
       "version": "1.0.0",
-      "commit": "6efb183",
-      "recorded_at": "2026-10-04T14:37:12-03:00",
+      "commit": "2065c2c",
+      "recorded_at": "2026-10-04T15:20:58-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "contrato no conforme bloqueado por el pipeline (código 2, nada llegó a WSO2) y por la política de gobierno de WSO2 (8 violaciones); corregido, se publicó; con la guía endurecida, se rechazó",
       "checks": [
@@ -198,20 +201,21 @@
       "title": "Despliegue canary y blue-green con reversión automática y sin corte",
       "claim": "Con consumidores llamando sin pausa por el gateway, una versión defectuosa se revierte sola durante su fase sombra, la versión corregida avanza en canary 5 → 25 → 50 → 100 % y un blue-green devuelve el tráfico de una vez, sin que ningún consumidor reciba un error.",
       "file": "D-04_canary_blue_green.webm",
-      "duration_seconds": 137.5,
-      "frames": 2063,
-      "sha256": "830fa7a01276ef358498f5cf4fcc65e14b7cc3a22241b968e6b58257bf22b6b5",
-      "size_bytes": 2022673,
+      "poster": "D-04_canary_blue_green.jpg",
+      "duration_seconds": 126.9,
+      "frames": 1903,
+      "sha256": "ca31fb1a3d345e5107aa6637203ecff6cfa75aaec3c610cb165ca29a3d1366cd",
+      "size_bytes": 1969677,
       "version": "1.0.0",
-      "commit": "60dce1f",
-      "recorded_at": "2026-10-04T14:19:05-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T14:58:20-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "2060 llamadas de consumidores, 0 errores: reversión automática en 6 s, canary completo en 61 s y blue-green en 14 s",
+      "result": "2180 llamadas de consumidores, 0 errores: reversión automática en 4 s, canary completo en 60 s y blue-green en 16 s",
       "checks": [
         {
           "texto": "versión defectuosa revertida automáticamente en la sombra",
           "ok": true,
-          "detalle": "revertido a los 6 s"
+          "detalle": "revertido a los 4 s"
         },
         {
           "texto": "ningún error para los consumidores durante la reversión",
@@ -221,7 +225,7 @@
         {
           "texto": "canary completado: la versión nueva recibe el 100 %",
           "ok": true,
-          "detalle": "sombra → 5% → 25% → 50% → 100% en 61 s"
+          "detalle": "sombra → 5% → 25% → 50% → 100% en 60 s"
         },
         {
           "texto": "sin errores para los consumidores durante el canary",
@@ -231,7 +235,7 @@
         {
           "texto": "blue-green completado",
           "ok": true,
-          "detalle": "en 14 s"
+          "detalle": "en 16 s"
         },
         {
           "texto": "sin errores durante el blue-green",
@@ -241,19 +245,19 @@
         {
           "texto": "ambas versiones atendieron y el servicio no se cortó",
           "ok": true,
-          "detalle": "2060 llamadas, 0 errores"
+          "detalle": "2180 llamadas, 0 errores"
         }
       ],
       "data": {
-        "llamadas": 2060,
+        "llamadas": 2180,
         "errores": 0,
         "porVersion": {
-          "1.0.0": 1469,
-          "1.1.0": 591
+          "1.0.0": 1575,
+          "1.1.0": 605
         },
-        "segReversion": 6,
-        "segCanary": 61,
-        "segBlueGreen": 14,
+        "segReversion": 4,
+        "segCanary": 60,
+        "segBlueGreen": 16,
         "motivoReversion": "tasa de error del candidato 100.0 % supera el umbral de 2.0 % (estable: 0.0 %), en tráfico sombra (ningún consumidor recibió sus respuestas)"
       }
     },
@@ -262,15 +266,16 @@
       "title": "Conmutación automática CPD ↔ Google Cloud sin intervención manual",
       "claim": "Cuando el sitio principal cae, los agentes de continuidad conmutan solos al sitio de respaldo si 2 de 3 votos coinciden: promueven la réplica, reapuntan el DNS y registran el RTO; sin quórum no conmutan (evita dos sitios activos) y el retorno lo aprueba una persona.",
       "file": "D-05_conmutacion.webm",
-      "duration_seconds": 65.5,
-      "frames": 982,
-      "sha256": "9ad79e2de2fe0191f4c44719086fb074a2123bcb47a8d875ba636a8d2e92f84c",
-      "size_bytes": 1287725,
+      "poster": "D-05_conmutacion.jpg",
+      "duration_seconds": 85.3,
+      "frames": 1279,
+      "sha256": "541a9acb605d560ae06112b581cd6d44d82cc398631fd386e12df55564cb2bf3",
+      "size_bytes": 1537953,
       "version": "1.0.0",
-      "commit": "60dce1f",
-      "recorded_at": "2026-10-04T14:13:37-03:00",
+      "commit": "2065c2c",
+      "recorded_at": "2026-10-04T15:22:48-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "conmutación automática en 1 s desde que hubo quórum (2 de 3 votos), sin pérdida del dato confirmado; sin quórum no conmutó",
+      "result": "conmutación automática 7,0 s después de formarse el quórum (2 de 3 votos), sin pérdida del dato confirmado; con un solo voto vigente no conmutó en 30 s",
       "checks": [
         {
           "texto": "CPD activo con tres votos sanos y DNS en 10.80.0.1",
@@ -279,27 +284,27 @@
         {
           "texto": "sin quórum no hay conmutación (anti split brain)",
           "ok": true,
-          "detalle": "activo cpd · réplica en espera"
+          "detalle": "30 s con un solo voto vigente · activo cpd · réplica en espera"
         },
         {
           "texto": "conmutación automática a GCP con quórum",
           "ok": true,
-          "detalle": "1.0 s desde que hubo quórum · réplica promovida · DNS 10.80.0.2"
+          "detalle": "7.0 s desde que volvieron los agentes · réplica promovida · DNS 10.80.0.2"
         },
         {
           "texto": "el dato confirmado sigue en el respaldo (sin pérdida)",
           "ok": true,
-          "detalle": "marca-1791134031449"
+          "detalle": "marca-1791138180643"
         },
         {
           "texto": "evento automático con RTO medido",
           "ok": true,
-          "detalle": "RTO del motor 0.37 s · RPO estimado 0 s"
+          "detalle": "RTO del motor 0.21 s · RPO estimado 0 s"
         },
         {
           "texto": "retorno al CPD aprobado por una persona",
           "ok": true,
-          "detalle": "5 s · DNS 10.80.0.1"
+          "detalle": "8 s · DNS 10.80.0.1"
         },
         {
           "texto": "réplica del respaldo reconstruida y en espera",
@@ -308,10 +313,10 @@
         }
       ],
       "data": {
-        "segundosConmutacion": 1,
-        "rtoMotorSeg": 0.371,
+        "segundosConmutacion": 7,
+        "rtoMotorSeg": 0.21,
         "rpoEstimadoSeg": 0,
-        "segundosRetorno": 5
+        "segundosRetorno": 8
       }
     },
     {
@@ -319,15 +324,16 @@
       "title": "GraphQL y APIs de eventos con contratos AsyncAPI",
       "claim": "La plataforma publica y protege APIs GraphQL y APIs dirigidas por eventos descritas con AsyncAPI (WebSocket), en el mismo gateway, portal y control de acceso que las APIs REST y SOAP.",
       "file": "D-06_graphql_asyncapi.webm",
-      "duration_seconds": 51.5,
-      "frames": 772,
-      "sha256": "86e61ae456a963ed59e7ce3ea8e98365b921df8af2d0d9fa2fc5dc8c5b1e0f41",
-      "size_bytes": 1141939,
+      "poster": "D-06_graphql_asyncapi.jpg",
+      "duration_seconds": 48.8,
+      "frames": 732,
+      "sha256": "e6ed033695257169a5da89b7f574deedaf4ab22d26cdae06444058b15600766b",
+      "size_bytes": 1138971,
       "version": "1.0.0",
-      "commit": "60dce1f",
-      "recorded_at": "2026-10-04T14:23:15-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T15:03:29-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "consulta GraphQL respondida por el gateway en 161 ms y 3 eventos AsyncAPI recibidos por WebSocket, ambos con token OAuth",
+      "result": "consulta GraphQL respondida por el gateway en 74 ms y 3 eventos AsyncAPI recibidos por WebSocket, ambos con token OAuth",
       "checks": [
         {
           "texto": "consulta GraphQL respondida por el gateway",
@@ -350,7 +356,7 @@
         }
       ],
       "data": {
-        "msGraphQL": 161,
+        "msGraphQL": 74,
         "eventos": 3
       }
     },
@@ -359,13 +365,14 @@
       "title": "Generación automática de SDK desde el contrato OpenAPI publicado",
       "claim": "El portal de desarrolladores genera al momento, desde el contrato OpenAPI publicado, kits de desarrollo en Java, JavaScript, Python, C# y Android; cada uno trae las operaciones del contrato y el cliente generado funciona contra el gateway.",
       "file": "D-07_sdk.webm",
-      "duration_seconds": 49.1,
-      "frames": 736,
-      "sha256": "07d181ac4a99743d181518526d95c53bcd8a1bae1db2c179866f795f6b15927c",
-      "size_bytes": 868458,
+      "poster": "D-07_sdk.jpg",
+      "duration_seconds": 49.5,
+      "frames": 742,
+      "sha256": "d7decb49ed90ad14caccede8f5639d7511490b027a31e896efb734991c04b107",
+      "size_bytes": 870487,
       "version": "1.0.0",
-      "commit": "6efb183",
-      "recorded_at": "2026-10-04T14:38:38-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T15:05:04-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "5 SDK generados desde el contrato publicado (Java, JavaScript, Python, C# y Android), con sus 3 operaciones; el cliente JavaScript generado consultó la API por el gateway",
       "checks": [
@@ -400,19 +407,79 @@
       }
     },
     {
+      "id": "D-08",
+      "title": "Autoservicio en el portal de desarrolladores con aprobación institucional",
+      "claim": "Una persona externa se registra sola en el portal de desarrolladores, solicita una aplicación, sus credenciales y la suscripción a una API; cada paso queda pendiente hasta que la institución lo aprueba, y solo entonces puede consumir la API.",
+      "file": "D-08_autoservicio_aprobacion.webm",
+      "poster": "D-08_autoservicio_aprobacion.jpg",
+      "duration_seconds": 123.4,
+      "frames": 1851,
+      "sha256": "8b0d448636ead5208a7d8c8ae980b100949b35217daa3a234d6805fde995ee88",
+      "size_bytes": 2463078,
+      "version": "1.0.0",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T15:06:40-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "registro, aplicación, credenciales en Keycloak y suscripción: cada paso esperó la aprobación institucional; sin ella, sin acceso al portal (403) ni a la API (401); con ella, 200",
+      "checks": [
+        {
+          "texto": "registro pendiente: la persona no entra al portal",
+          "ok": true,
+          "detalle": "Error 403 en el Dev Portal"
+        },
+        {
+          "texto": "registro aprobado por la institución",
+          "ok": true,
+          "detalle": "operador.180640"
+        },
+        {
+          "texto": "creación de la aplicación aprobada",
+          "ok": true,
+          "detalle": "Reportes 180640"
+        },
+        {
+          "texto": "credenciales de producción emitidas en Keycloak tras la aprobación",
+          "ok": true,
+          "detalle": "61e95b1c…"
+        },
+        {
+          "texto": "con la suscripción pendiente el gateway la rechaza",
+          "ok": true,
+          "detalle": "HTTP 401"
+        },
+        {
+          "texto": "suscripción aprobada: acceso a la API",
+          "ok": true,
+          "detalle": "HTTP 200"
+        },
+        {
+          "texto": "cuatro aprobaciones institucionales resueltas: registro, aplicación, credenciales y suscripción",
+          "ok": true,
+          "detalle": "0 pendientes"
+        }
+      ],
+      "data": {
+        "usuario": "operador.180640",
+        "aplicacion": "Reportes 180640",
+        "antes": 401,
+        "despues": 200
+      }
+    },
+    {
       "id": "BT-005",
       "title": "Publicar, proteger y enrutar una API en el gateway",
       "claim": "Una API definida por su contrato OpenAPI se publica en el gateway desde el pipeline, queda protegida con OAuth (Keycloak), suscripción y límite del plan, y enruta cada llamada al sistema de destino.",
       "file": "BT-005_publicar_proteger.webm",
-      "duration_seconds": 47.5,
-      "frames": 713,
-      "sha256": "6e999ece9632bde1c1c4c1230130959977a46cfef29a63028d4db1c8b68d1409",
-      "size_bytes": 1087835,
+      "poster": "BT-005_publicar_proteger.jpg",
+      "duration_seconds": 46.8,
+      "frames": 702,
+      "sha256": "124e719ccef55bf7760bfc1a0f72586855f521570abca62323738dfc33d407af",
+      "size_bytes": 1011058,
       "version": "1.0.0",
-      "commit": "60dce1f",
-      "recorded_at": "2026-10-04T14:25:56-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T15:10:17-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "API publicada por el pipeline y protegida: 401 sin token, 403 sin suscripción, 200 suscrita y 40 de 60 llamadas limitadas (429) por el plan",
+      "result": "API publicada por el pipeline y protegida: 401 sin token, 403 sin suscripción, 200 suscrita y 35 de 60 llamadas limitadas (429) por el plan",
       "checks": [
         {
           "texto": "pipeline terminó sin errores",
@@ -442,12 +509,12 @@
         {
           "texto": "el gateway aplica el límite del plan (429)",
           "ok": true,
-          "detalle": "20 atendidas · 40 limitadas"
+          "detalle": "25 atendidas · 35 limitadas"
         },
         {
           "texto": "las llamadas autorizadas llegaron al sistema de destino",
           "ok": true,
-          "detalle": "http://ocultas:7001/legacy · 21 llamadas"
+          "detalle": "http://ocultas:7001/legacy · 26 llamadas"
         }
       ],
       "data": {
@@ -455,9 +522,69 @@
         "sinSuscripcion": 403,
         "suscrita": 200,
         "limite": {
-          "200": 20,
-          "429": 40
+          "200": 25,
+          "429": 35
         }
+      }
+    },
+    {
+      "id": "BT-008",
+      "title": "Flujo de integración con validación, transformación y orquestación",
+      "claim": "El flujo de solicitudes de concesión valida cada mensaje contra su contrato, evita duplicados, orquesta una consulta SOAP 1.2 y una cola de mensajería, transforma los datos, trata las fallas del destino con reintentos y cola de fallidos, y registra cada etapa con su correlación.",
+      "file": "BT-008_flujo_integracion.webm",
+      "poster": "BT-008_flujo_integracion.jpg",
+      "duration_seconds": 69.8,
+      "frames": 1047,
+      "sha256": "4c4e9dcd303cd3f6532dbb1c99d91244a5aaa8bdb35429c55ee4c1452b8bfd76",
+      "size_bytes": 1717873,
+      "version": "1.0.0",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T15:11:48-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "solicitud válida aceptada y trazada etapa por etapa, repetición sin duplicar, inválida rechazada (422) y falla del destino derivada a fallidos en 15 s tras 3 reintentos",
+      "checks": [
+        {
+          "texto": "solicitud aceptada (202) con correlación",
+          "ok": true,
+          "detalle": "urn:uuid:30d813ba-0ab6-4aef-8dee-07d3cb75672c"
+        },
+        {
+          "texto": "repetición idempotente: misma correlación, sin reprocesar",
+          "ok": true,
+          "detalle": "HTTP 200"
+        },
+        {
+          "texto": "solicitud inválida rechazada por el esquema",
+          "ok": true,
+          "detalle": "HTTP 422"
+        },
+        {
+          "texto": "mensaje en la cola de fallidos tras agotar los reintentos",
+          "ok": true,
+          "detalle": "15 s después de aceptado"
+        },
+        {
+          "texto": "reproceso aprobado y entregado al destino",
+          "ok": true,
+          "detalle": "reprocesado"
+        },
+        {
+          "texto": "traza con el gateway y el integrador",
+          "ok": true,
+          "detalle": "WSO2-SYNAPSE, API:Gateway"
+        },
+        {
+          "texto": "check-integracion: gateway → integrador → cola → destino",
+          "ok": true
+        }
+      ],
+      "data": {
+        "correlacion": "urn:uuid:30d813ba-0ab6-4aef-8dee-07d3cb75672c",
+        "segundosHastaFallidos": 15.232,
+        "servicios": [
+          "WSO2-SYNAPSE",
+          "API:Gateway"
+        ]
       }
     },
     {
@@ -465,13 +592,14 @@
       "title": "Catálogo de APIs con dueño, contrato, versión y dependencias",
       "claim": "El catálogo de la Consola reúne, para cada API, su propósito, propietario, contrato, versión, autenticación, consumidores, dependencias y estado, sincronizado con WSO2 y consistente con lo que corre en el gateway.",
       "file": "BT-018_catalogo.webm",
-      "duration_seconds": 50.3,
-      "frames": 755,
-      "sha256": "bf4a1805e39c3f5b9a70050729b10aa994a5deaef07992313279d221e5556b14",
-      "size_bytes": 1291966,
+      "poster": "BT-018_catalogo.jpg",
+      "duration_seconds": 51.2,
+      "frames": 768,
+      "sha256": "011aa1765c1c365f5f9eb2ffa661253435357f100e685bc293146f4dcc4ed6ed",
+      "size_bytes": 1239154,
       "version": "1.0.0",
-      "commit": "6efb183",
-      "recorded_at": "2026-10-04T14:43:06-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T15:14:03-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "ficha de Concesiones completa al 100 % y 9 campos idénticos a lo que informa WSO2",
       "checks": [
@@ -528,7 +656,7 @@
         {
           "texto": "consumidores coinciden con las suscripciones activas",
           "ok": true,
-          "detalle": "1 suscripción(es): OperadorDemo"
+          "detalle": "2 suscripción(es): FiscalizacionDemo, OperadorDemo"
         }
       ],
       "data": {
@@ -541,13 +669,14 @@
       "title": "Medición de consumo por consumidor y endpoint, sin cobro",
       "claim": "Cada llamada que pasa por el gateway se atribuye a su aplicación consumidora, a la API y al endpoint; la Consola lo muestra y exporta, los planes limitan el exceso y la facturación permanece desactivada.",
       "file": "BT-021_consumo.webm",
-      "duration_seconds": 45.3,
-      "frames": 680,
-      "sha256": "3d381998e811ec0c6bd89a004a18cc8c14bd57591752c69b6940b39527266a45",
-      "size_bytes": 991075,
+      "poster": "BT-021_consumo.jpg",
+      "duration_seconds": 42.5,
+      "frames": 638,
+      "sha256": "2707105172584c97c4efdc3d127e54968438c1a3591305846e8866b662beed61",
+      "size_bytes": 1034701,
       "version": "1.0.0",
-      "commit": "6efb183",
-      "recorded_at": "2026-10-04T14:44:41-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T15:15:40-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "80 llamadas atribuidas sin diferencias a 2 consumidores y 2 endpoints, exportadas en CSV; el plan limitó 25 de 45 llamadas en exceso; facturación desactivada",
       "checks": [
@@ -579,7 +708,7 @@
         {
           "texto": "CSV con consumidores y endpoints",
           "ok": true,
-          "detalle": "11 filas"
+          "detalle": "12 filas"
         },
         {
           "texto": "el plan limita el exceso (429), sin cobro",
@@ -607,15 +736,16 @@
       "title": "Exportación de APIs, contratos, políticas, configuración y metadatos",
       "claim": "La plataforma exporta sus APIs con contratos y políticas, los flujos de integración, el catálogo y el grafo de dependencias, la configuración de la plataforma y los datos de gestión, en formatos abiertos que se leen con herramientas estándar y con un manifiesto de sumas SHA-256.",
       "file": "BT-049_exportacion.webm",
-      "duration_seconds": 29.7,
-      "frames": 445,
-      "sha256": "bb63788d9bf14a5050b8b0a7f2b24b9433fb1848b5f3393bf5c4cfc212adbae0",
-      "size_bytes": 1089011,
+      "poster": "BT-049_exportacion.jpg",
+      "duration_seconds": 48.4,
+      "frames": 726,
+      "sha256": "aaf0a3bc7c373986dd270772b5c744c18a9923ccd9b25e29a79fa49b20ab2a22",
+      "size_bytes": 1454180,
       "version": "1.0.0",
-      "commit": "6efb183",
-      "recorded_at": "2026-10-04T14:46:07-03:00",
+      "commit": "1e1589b",
+      "recorded_at": "2026-10-04T15:17:03-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "paquete con 8 artefactos (APIs con contrato y políticas, flujos, catálogo y grafo), 8 sumas SHA-256 coincidentes y lectura con herramientas estándar; auditoría (303 eventos) y consumo exportados",
+      "result": "paquete con 8 artefactos (APIs con contrato y políticas, flujos, catálogo y grafo), 8 sumas SHA-256 coincidentes y lectura con herramientas estándar; auditoría (345 eventos) y consumo exportados",
       "checks": [
         {
           "texto": "paquete con manifiesto",
@@ -640,12 +770,12 @@
         {
           "texto": "auditoría exportable y verificable",
           "ok": true,
-          "detalle": "303 eventos"
+          "detalle": "345 eventos"
         },
         {
           "texto": "consumo exportable en CSV",
           "ok": true,
-          "detalle": "11 filas"
+          "detalle": "12 filas"
         },
         {
           "texto": "configuración de la plataforma legible (YAML)",
@@ -660,7 +790,7 @@
           "flujo",
           "metadatos"
         ],
-        "eventosAuditoria": 303
+        "eventosAuditoria": 345
       }
     }
   ]
