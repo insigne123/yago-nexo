@@ -37,6 +37,9 @@ export const config = {
     password: env("NEXO_MI_PASSWORD"),
   },
   opensearchUrl: env("NEXO_OPENSEARCH_URL", "http://opensearch:9200"),
+  /** Credenciales de OpenSearch cuando tiene la seguridad activa (producción); las mismas variables que usan los motores. */
+  opensearchUser: opt("NEXO_OPENSEARCH_USER"),
+  opensearchPassword: opt("NEXO_OPENSEARCH_PASSWORD"),
   opensearchMetricsIndex: env("NEXO_OPENSEARCH_METRICS_INDEX", "nexo-apim-metrics-*"),
   prometheusUrl: env("NEXO_PROMETHEUS_URL", "http://prometheus:9090"),
   rabbitmq: {

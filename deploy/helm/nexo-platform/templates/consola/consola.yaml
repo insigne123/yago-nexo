@@ -109,6 +109,10 @@ spec:
             - { name: NEXO_MI_USER, value: "admin" }
             {{- include "nexo.envSecreto" (dict "nombre" "NEXO_MI_PASSWORD" "secreto" .Values.secretos.mi.existingSecret "clave" .Values.secretos.mi.claves.adminPassword) | nindent 12 }}
             - { name: NEXO_OPENSEARCH_URL, value: "{{ ternary "https" "http" $os.tls }}://{{ $os.host }}:{{ $os.puerto }}" }
+            {{- if .Values.secretos.opensearch.existingSecret }}
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_OPENSEARCH_USER" "secreto" .Values.secretos.opensearch.existingSecret "clave" .Values.secretos.opensearch.claves.usuario) | nindent 12 }}
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_OPENSEARCH_PASSWORD" "secreto" .Values.secretos.opensearch.existingSecret "clave" .Values.secretos.opensearch.claves.password) | nindent 12 }}
+            {{- end }}
             - { name: NEXO_PROMETHEUS_URL, value: {{ .Values.global.dependencias.prometheus.url | quote }} }
             - { name: NEXO_RABBITMQ_API, value: {{ .Values.global.dependencias.rabbitmq.urlAdmin | quote }} }
             - { name: NEXO_RABBITMQ_USER, value: {{ .Values.global.dependencias.rabbitmq.usuario | quote }} }

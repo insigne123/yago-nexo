@@ -173,7 +173,9 @@ services:
 
   # ------------------------------------------------------------------ motores de Nexo y división de tráfico (D-04)
   motores:
-    build: ../../services/engines
+    build:
+      context: ../../services/engines
+      args: { NSUPDATE: "0" } # el laboratorio cambia el DNS por etcd/CoreDNS, no por RFC 2136
     image: nexo-lab/motores:0.1.0
     hostname: motores
     command: ["despliegues", "guardian", "descubrimiento", "siem"]

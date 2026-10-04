@@ -78,9 +78,7 @@ El script revisa, sin conectarse a ningún clúster ni a Google Cloud:
 
 Lo que falta para la primera instalación real, además de ejecutarla:
 
-- **Imágenes de producción.** Las imágenes `nexo/*` siguen la receta de los Dockerfile del laboratorio, pero todavía no hay una tarea que las construya, firme y publique en cada versión.
-- **Credenciales de OpenSearch en la API de la Consola.** Los motores y Fluent Bit ya las usan; la API de la Consola todavía consulta OpenSearch sin usuario, así que con la seguridad de OpenSearch activa sus vistas de consumo no cargan.
-- **DNS de la institución.** El agente de continuidad cambia el DNS institucional con `nsupdate` (RFC 2136), que la imagen `nexo/motores` todavía no incluye. Con Cloud DNS no hace falta.
+- **Imágenes de producción derivadas de WSO2.** El workflow de versión ya construye, firma (Sigstore) y publica `nexo-console-api`, `nexo-console-web` y `nexo-motores`; las imágenes de API Manager, gateway y Micro Integrator siguen la receta de los Dockerfile del laboratorio y todavía no se publican en cada versión.
 - **Coordinación del integrador.** Con dos o más réplicas de Micro Integrator, los consumidores de colas marcados como coordinados corren en todas las réplicas, porque la coordinación de clúster del integrador aún no se configura.
 - **Artefactos de integración por ambiente.** Los de ejemplo apuntan a nombres del laboratorio; en cada ambiente se parametrizan con variables.
 - **Promoción con CloudNativePG** en el sitio de respaldo (ver [Google Cloud con GKE](./gcp-gke.md#pendiente)).

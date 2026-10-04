@@ -3,13 +3,18 @@ import { Injectable } from "@nestjs/common";
 import { fetch } from "undici";
 import { config } from "../config.js";
 
+/** Autenticación básica de OpenSearch, solo si hay credenciales configuradas (en el laboratorio no las hay). */
+export function autorizacionOpenSearch(user = config.opensearchUser, password = config.opensearchPassword): Record<string, string> {
+  return user && password ? { authorization: `Basic ${Buffer.from(`${user}:${password}`).toString("base64")}` } : {};
+}
+
 /** OpenSearch: analítica del gateway (consumo, errores y latencias). */
 @Injectable()
 export class OpenSearchService {
   async search<T = unknown>(index: string, body: unknown): Promise<T> {
     const res = await fetch(`${config.opensearchUrl}/${index}/_search`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...autorizacionOpenSearch() },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`OpenSearch ${res.status}: ${(await res.text()).slice(0, 300)}`);
