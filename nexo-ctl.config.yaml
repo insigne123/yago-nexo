@@ -26,4 +26,4 @@ stages:
     gateways:
       - { name: Default, vhost: apim }
       - { name: Operadores, vhost: operadores.nexo.lab }
-      - { name: Publico, vhost: publico.nexo.lab }
+      - { name: Publico, vhost: publico.nexo.lab } # atendido por gw-publico

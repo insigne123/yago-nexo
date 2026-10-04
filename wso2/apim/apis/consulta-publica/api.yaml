@@ -1,0 +1,27 @@
+# API pública autorizada (BT-020): solo se despliega en el gateway de la audiencia pública.
+name: ConsultaPublica
+version: 1.0.0
+context: /publico/concesiones
+description: Consulta pública de una concesión por su identificador (datos sintéticos de laboratorio).
+type: HTTP
+contract: openapi.yaml
+owner:
+  business: Unidad de Transparencia (sintético)
+  businessEmail: transparencia@ejemplo.invalid
+  technical: Equipo DevOps (sintético)
+  technicalEmail: devops@ejemplo.invalid
+metadata:
+  proposito: Consulta ciudadana del estado de una concesión
+  audiencia: publica
+  clasificacion: publica
+security: [oauth2, oauth_basic_auth_api_key_mandatory]
+keyManagers: [Keycloak]
+policies: [Publico, Unlimited]
+endpoints:
+  dev: http://concesiones-v1:7001
+  qa: http://concesiones-v1:7001
+  prod: http://concesiones-v1:7001
+environments:
+  dev: [Desarrollo]
+  qa: [QA]
+  prod: [Publico]

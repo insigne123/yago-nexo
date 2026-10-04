@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: Consulta Pública de Concesiones
+  version: 1.0.0
+  description: Consulta pública autorizada del estado de una concesión de telecomunicaciones por su identificador.
+  contact:
+    name: Unidad de Transparencia (sintético)
+    email: transparencia@ejemplo.invalid
+servers:
+  - url: https://publico.nexo.lab:8243/publico/concesiones/1.0.0
+    x-internal: false
+tags:
+  - name: consulta
+    description: Consulta pública
+paths:
+  /concesiones/{id}:
+    get:
+      tags: [consulta]
+      operationId: consultarConcesion
+      summary: Consulta una concesión
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Concesión }
+        "404": { description: No existe }
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: http://keycloak:8080/realms/nexo/protocol/openid-connect/token
+          scopes: {}
+security:
+  - oauth2: []

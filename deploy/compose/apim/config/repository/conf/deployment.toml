@@ -71,7 +71,8 @@ websub_event_receiver_http_endpoint = "http://apim:9021"
 websub_event_receiver_https_endpoint = "https://apim:8021"
 
 [apim.sync_runtime_artifacts.gateway]
-gateway_labels = ["Default", "Desarrollo", "QA", "Operadores", "Publico"]
+# "Publico" lo atiende un gateway dedicado (gw-publico), separado de las demás audiencias (BT-020).
+gateway_labels = ["Default", "Desarrollo", "QA", "Operadores"]
 
 [[oauth.extensions.token_types]]
 name = "JWT"

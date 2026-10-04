@@ -103,6 +103,19 @@ services:
       retries: 40
       start_period: 60s
 
+  gw-publico:
+    build: ./gateway-publico
+    image: nexo-lab/gw-publico:4.7.0
+    hostname: gw-publico
+    environment: *wso2-env
+    ports:
+      - "18243:8243" # gateway HTTPS de la audiencia pública
+      - "18280:8280"
+    volumes:
+      - gwpublogs:/home/wso2carbon/wso2am-universal-gw-4.7.0/repository/logs
+    depends_on:
+      apim: { condition: service_healthy }
+
   mi:
     build: ./mi
     image: nexo-lab/mi:4.6.0
@@ -266,6 +279,7 @@ services:
       opensearch: { condition: service_healthy }
 
 volumes:
+  gwpublogs:
   pgdata:
   mqdata:
   apimlogs:
