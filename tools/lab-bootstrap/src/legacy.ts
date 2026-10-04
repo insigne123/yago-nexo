@@ -1,5 +1,5 @@
 /**
- * Plataforma "actual" de SUBTEL simulada (para D-01 y la migración): una ruta en APISIX protegida con
+ * Plataforma "actual" de la institución simulada (para D-01 y la migración): una ruta en APISIX protegida con
  * key-auth hacia un sistema departamental y algo de tráfico por el NGINX heredado, para que su registro
  * de accesos muestre las rutas que se usan de verdad. Idempotente.
  */
@@ -27,7 +27,7 @@ async function main() {
   let n = 0;
   for (let i = 0; i < 5; i++) {
     for (const p of paths) {
-      const res = await fetch(`${NGINX}${p}`, { headers: { host: "legacy.subtel.lab" } });
+      const res = await fetch(`${NGINX}${p}`, { headers: { host: "legado.institucion.lab" } });
       await res.arrayBuffer();
       n++;
     }
