@@ -28,5 +28,5 @@ supabase/**/.temp/
 # Respaldos de bases de datos y claves de cifrado (tools/respaldo): nunca al repositorio
 /release/respaldos/
 deploy/compose/respaldo-lab.key
-*.key
+deploy/compose/*.key
 tools/respaldo/respaldo.config.json
