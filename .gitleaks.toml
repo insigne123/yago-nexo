@@ -8,3 +8,11 @@ paths = [
   '''deploy/compose/\.env\.example''',
   '''deploy/compose/keycloak/realm-nexo\.json''',
 ]
+# Falsos positivos revisados uno a uno:
+#  - URL JDBC sin contraseña (la contraseña viene de una variable de entorno).
+#  - Clave publicable inventada en las pruebas de la mesa de soporte (formato sb_publishable_, no existe).
+regexTarget = "line"
+regexes = [
+  '''jdbc:postgresql://[a-z0-9.-]+:\d+/[a-z_]+''',
+  '''sb_publishable_0123456789abcdef''',
+]

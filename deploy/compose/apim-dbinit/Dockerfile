@@ -5,4 +5,6 @@ COPY --from=wso2 /home/wso2carbon/wso2am-4.7.0/dbscripts/postgresql.sql /dbscrip
 COPY --from=wso2 /home/wso2carbon/wso2am-4.7.0/dbscripts/apimgt/postgresql.sql /dbscripts/apim_db.sql
 COPY init.sh /init.sh
 RUN chmod +x /init.sh
+# Solo ejecuta psql contra el servidor de base de datos: no necesita privilegios de root.
+USER postgres
 ENTRYPOINT ["/init.sh"]

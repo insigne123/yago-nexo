@@ -2,7 +2,8 @@
 #   pnpm --filter @nexo/console-web build
 # y luego, desde apps/console-web:
 #   docker build -t nexo/console-web:1.0.0 .
-FROM nginx:1.29-alpine
+# Variante oficial sin privilegios de nginx (usuario nginx, uid 101): escucha en 8080 y admite plantillas.
+FROM nginxinc/nginx-unprivileged:1.29-alpine
 
 LABEL org.opencontainers.image.title="Consola Nexo (web)" \
       org.opencontainers.image.vendor="Sociedad de Inversiones Yago SpA" \
@@ -19,9 +20,12 @@ COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY dist/ /usr/share/nginx/html/
 
 # Configuración por defecto; en cada ambiente se monta otra en /etc/nexo/config.json.
+USER root
 RUN mkdir -p /etc/nexo \
     && cp /usr/share/nginx/html/config.json /etc/nexo/config.json \
-    && rm /usr/share/nginx/html/config.json
+    && rm /usr/share/nginx/html/config.json \
+    && chown -R 101:101 /etc/nexo
+USER 101
 
 EXPOSE 8080
 
