@@ -1,6 +1,6 @@
 {
   "apiBaseUrl": "/api/v1",
-  "environmentLabel": "Laboratorio Yago",
+  "environmentLabel": "Demostración Nexo",
   "version": "1.0.0",
   "auth": {
     "provider": "mock",

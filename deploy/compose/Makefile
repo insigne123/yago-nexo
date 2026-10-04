@@ -40,7 +40,7 @@ logs:
 bootstrap:
 	cd ../.. && pnpm --filter @nexo/lab-bootstrap start
 
-## Siembra la plataforma "actual" (APISIX y tráfico por el NGINX heredado) para D-01 (perfil legacy)
+## Siembra la plataforma "actual" (APISIX y tráfico por el NGINX heredado) para el descubrimiento (perfil legacy)
 legado:
 	cd ../.. && set -a && . deploy/compose/.env && set +a && pnpm --filter @nexo/lab-bootstrap legado
 
@@ -52,7 +52,7 @@ platform:
 deploy-apis:
 	cd ../../tools/nexo-ctl && set -a && . ../../deploy/compose/.env && set +a && for st in dev qa prod; do npx tsx src/cli.ts -c ../../nexo-ctl.config.yaml api deploy ../../wso2/apim/apis/concesiones -s $$st -m "make deploy-apis"; done
 
-## Levanta el laboratorio de continuidad de dos sitios (D-05)
+## Levanta el laboratorio de continuidad de dos sitios
 continuidad:
 	$(COMPOSE) --profile cont up -d --build
 	@echo "Agentes de continuidad CPD, GCP y testigo arriba"
