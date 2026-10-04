@@ -19,7 +19,7 @@ import { chromium, type Browser, type BrowserContext, type CDPSession, type Loca
 import { desdeRaiz, fechaSantiago, isoSantiago, PAQUETE, SALIDA, type Meta } from "./entorno.js";
 import { Estudio } from "./estudio.js";
 import { CLAVE_LAB, dormir } from "./lab.js";
-import { analizarVideo, transcodificar, type InfoVideo } from "./video.js";
+import { analizarVideo, portada, transcodificar, type InfoVideo } from "./video.js";
 
 export type Vista = "dividido" | "app" | "terminal" | "panel" | "terminal-panel" | "panel-completo";
 export type TipoLinea = "cmd" | "ok" | "mal" | "aviso" | "tenue" | "titulo" | undefined;
@@ -444,6 +444,7 @@ export interface Evidencia {
   title: string;
   claim: string;
   file: string;
+  poster?: string;
   duration_seconds: number;
   frames: number;
   sha256: string;
@@ -598,6 +599,7 @@ export async function grabar(demo: Demo, o: OpcionesGrabacion): Promise<Evidenci
   const destino = join(SALIDA, `${demo.archivo}.webm`);
   await transcodificar(crudo, destino, recorte);
   const info: InfoVideo = await analizarVideo(destino);
+  await portada(destino, join(SALIDA, `${demo.archivo}.jpg`)).catch(() => undefined);
   rmSync(trabajo, { recursive: true, force: true });
   if (info.duracion > 180 || info.cuadros === 0) {
     rmSync(destino, { force: true });
@@ -608,6 +610,7 @@ export async function grabar(demo: Demo, o: OpcionesGrabacion): Promise<Evidenci
     title: demo.nombre,
     claim: demo.afirmacion,
     file: `${demo.archivo}.webm`,
+    poster: `${demo.archivo}.jpg`,
     duration_seconds: Math.round(info.duracion * 10) / 10,
     frames: info.cuadros,
     sha256: sha256(destino),

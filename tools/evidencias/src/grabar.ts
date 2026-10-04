@@ -5,9 +5,13 @@
  *   pnpm --filter @nexo/evidencias grabar -- D-01 BT-005  # solo algunas
  *   pnpm --filter @nexo/evidencias grabar -- --permitir-cambios   # con cambios sin confirmar (pruebas)
  *
+ * Requisitos: laboratorio arriba (make up, make legado, make continuidad) y el bootstrap aplicado. Compila la
+ * Consola antes de grabar (--sin-compilar lo omite).
+ *
  * Salida: release/evidencias/<ID>_<tema>.webm, evidencias.json y SHA256SUMS.txt; copia del índice y de las
  * sumas en apps/site/src/data/ para la página /evidencias del sitio.
  */
+import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEMOS } from "./demos/index.js";
@@ -33,6 +37,12 @@ const sucios = m.cambiosLocales.filter((f) => !f.startsWith("release/evidencias"
 if (sucios.length && !permitirCambios) {
   console.error(`Hay cambios sin confirmar; el commit del video no los incluiría:\n  ${sucios.join("\n  ")}\nConfirme los cambios o use --permitir-cambios (solo para pruebas).`);
   process.exit(2);
+}
+
+// La Consola que se graba se compila desde el mismo commit (apps/console-web/dist).
+if (!args.includes("--sin-compilar")) {
+  console.log("Compilando la Consola (apps/console-web)…");
+  execFileSync("pnpm", ["--filter", "@nexo/console-web", "build"], { cwd: desdeRaiz(), stdio: ["ignore", "ignore", "inherit"] });
 }
 
 const INDICE = join(SALIDA, "evidencias.json");

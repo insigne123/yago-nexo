@@ -16,7 +16,8 @@
     "pg": "^8.23.1",
     "playwright-core": "1.56.1",
     "undici": "^8.11.2",
-    "ws": "^8.22.0"
+    "ws": "^8.22.0",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/pg": "^8.15.6",

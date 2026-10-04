@@ -1,6 +1,6 @@
 {
   "$comment": "Índice de las demostraciones registradas de Yago Nexo. Lo genera tools/evidencias (pnpm --filter @nexo/evidencias grabar). Los videos se publican junto al sitio en /evidencias/<archivo>.",
-  "generado": "2026-10-04T17:27:30.658Z",
+  "generado": "2026-10-04T17:47:07.368Z",
   "evidencias": [
     {
       "id": "D-01",
@@ -141,6 +141,56 @@
         "segundosHastaAcceso": 1.067,
         "observado": 174,
         "lineaBase": 0
+      }
+    },
+    {
+      "id": "D-03",
+      "title": "Validación de contratos OpenAPI contra la guía de estilo, bloqueante en el pipeline",
+      "claim": "Cada contrato OpenAPI se valida automáticamente contra la guía de estilo institucional, configurable por la institución: el pipeline bloquea la promoción si no cumple y la política de gobierno de WSO2 bloquea su despliegue aunque se cargue a mano.",
+      "file": "D-03_contratos_pipeline.webm",
+      "duration_seconds": 45,
+      "frames": 675,
+      "sha256": "82246b2badecbc8b233060670561e03ace7315b7f96fd1badb823c0091ab84ec",
+      "size_bytes": 1370325,
+      "version": "1.0.0",
+      "commit": "6efb183",
+      "recorded_at": "2026-10-04T14:37:12-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "contrato no conforme bloqueado por el pipeline (código 2, nada llegó a WSO2) y por la política de gobierno de WSO2 (8 violaciones); corregido, se publicó; con la guía endurecida, se rechazó",
+      "checks": [
+        {
+          "texto": "el paso de CI valida los contratos versionados",
+          "ok": true,
+          "detalle": "5 contratos cumplen"
+        },
+        {
+          "texto": "pipeline bloqueado (código de salida 2)",
+          "ok": true,
+          "detalle": "código 2"
+        },
+        {
+          "texto": "nada llegó a WSO2",
+          "ok": true,
+          "detalle": "0 APIs ReportesInternos"
+        },
+        {
+          "texto": "WSO2 API Governance bloquea el despliegue del contrato no conforme",
+          "ok": true,
+          "detalle": "8 violaciones bloqueantes"
+        },
+        {
+          "texto": "contrato corregido: promovido y publicado",
+          "ok": true,
+          "detalle": "PUBLISHED en Desarrollo"
+        },
+        {
+          "texto": "con la regla endurecida el mismo contrato se rechaza",
+          "ok": true,
+          "detalle": "código 2"
+        }
+      ],
+      "data": {
+        "violacionesWso2": 8
       }
     },
     {
@@ -305,6 +355,51 @@
       }
     },
     {
+      "id": "D-07",
+      "title": "Generación automática de SDK desde el contrato OpenAPI publicado",
+      "claim": "El portal de desarrolladores genera al momento, desde el contrato OpenAPI publicado, kits de desarrollo en Java, JavaScript, Python, C# y Android; cada uno trae las operaciones del contrato y el cliente generado funciona contra el gateway.",
+      "file": "D-07_sdk.webm",
+      "duration_seconds": 49.1,
+      "frames": 736,
+      "sha256": "07d181ac4a99743d181518526d95c53bcd8a1bae1db2c179866f795f6b15927c",
+      "size_bytes": 868458,
+      "version": "1.0.0",
+      "commit": "6efb183",
+      "recorded_at": "2026-10-04T14:38:38-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "5 SDK generados desde el contrato publicado (Java, JavaScript, Python, C# y Android), con sus 3 operaciones; el cliente JavaScript generado consultó la API por el gateway",
+      "checks": [
+        {
+          "texto": "contrato publicado con operaciones",
+          "ok": true,
+          "detalle": "3 operaciones"
+        },
+        {
+          "texto": "SDK generados con todas las operaciones del contrato",
+          "ok": true,
+          "detalle": "5 de 5 lenguajes"
+        },
+        {
+          "texto": "SDK JavaScript instalado y compilado",
+          "ok": true,
+          "detalle": "código 0"
+        },
+        {
+          "texto": "el cliente JavaScript generado consulta la API por el gateway",
+          "ok": true,
+          "detalle": "total vigentes: 142"
+        }
+      ],
+      "data": {
+        "lenguajes": 5,
+        "operaciones": [
+          "listarConcesiones",
+          "registrarSolicitud",
+          "obtenerConcesion"
+        ]
+      }
+    },
+    {
       "id": "BT-005",
       "title": "Publicar, proteger y enrutar una API en el gateway",
       "claim": "Una API definida por su contrato OpenAPI se publica en el gateway desde el pipeline, queda protegida con OAuth (Keycloak), suscripción y límite del plan, y enruta cada llamada al sistema de destino.",
@@ -363,6 +458,209 @@
           "200": 20,
           "429": 40
         }
+      }
+    },
+    {
+      "id": "BT-018",
+      "title": "Catálogo de APIs con dueño, contrato, versión y dependencias",
+      "claim": "El catálogo de la Consola reúne, para cada API, su propósito, propietario, contrato, versión, autenticación, consumidores, dependencias y estado, sincronizado con WSO2 y consistente con lo que corre en el gateway.",
+      "file": "BT-018_catalogo.webm",
+      "duration_seconds": 50.3,
+      "frames": 755,
+      "sha256": "bf4a1805e39c3f5b9a70050729b10aa994a5deaef07992313279d221e5556b14",
+      "size_bytes": 1291966,
+      "version": "1.0.0",
+      "commit": "6efb183",
+      "recorded_at": "2026-10-04T14:43:06-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "ficha de Concesiones completa al 100 % y 9 campos idénticos a lo que informa WSO2",
+      "checks": [
+        {
+          "texto": "catálogo sincronizado",
+          "ok": true,
+          "detalle": "5 APIs"
+        },
+        {
+          "texto": "ficha completa: los campos comprometidos tienen valor",
+          "ok": true,
+          "detalle": "completitud 100 %"
+        },
+        {
+          "texto": "nombre y versión coincide con WSO2",
+          "ok": true,
+          "detalle": "Concesiones 1.0.0"
+        },
+        {
+          "texto": "contexto coincide con WSO2",
+          "ok": true,
+          "detalle": "/concesiones"
+        },
+        {
+          "texto": "estado coincide con WSO2",
+          "ok": true,
+          "detalle": "PUBLISHED"
+        },
+        {
+          "texto": "propietario coincide con WSO2",
+          "ok": true,
+          "detalle": "División de Concesiones (sintético)"
+        },
+        {
+          "texto": "contacto coincide con WSO2",
+          "ok": true,
+          "detalle": "concesiones@ejemplo.invalid"
+        },
+        {
+          "texto": "contrato coincide con WSO2",
+          "ok": true,
+          "detalle": "wso2/apim/apis/concesiones/openapi.yaml"
+        },
+        {
+          "texto": "propósito coincide con WSO2",
+          "ok": true,
+          "detalle": "Consultar y registrar concesiones de servicios de "
+        },
+        {
+          "texto": "autenticación coincide con WSO2",
+          "ok": true,
+          "detalle": "oauth_basic_auth_api_key_mandatory, oauth2"
+        },
+        {
+          "texto": "consumidores coinciden con las suscripciones activas",
+          "ok": true,
+          "detalle": "1 suscripción(es): OperadorDemo"
+        }
+      ],
+      "data": {
+        "apis": 5,
+        "completitud": 100
+      }
+    },
+    {
+      "id": "BT-021",
+      "title": "Medición de consumo por consumidor y endpoint, sin cobro",
+      "claim": "Cada llamada que pasa por el gateway se atribuye a su aplicación consumidora, a la API y al endpoint; la Consola lo muestra y exporta, los planes limitan el exceso y la facturación permanece desactivada.",
+      "file": "BT-021_consumo.webm",
+      "duration_seconds": 45.3,
+      "frames": 680,
+      "sha256": "3d381998e811ec0c6bd89a004a18cc8c14bd57591752c69b6940b39527266a45",
+      "size_bytes": 991075,
+      "version": "1.0.0",
+      "commit": "6efb183",
+      "recorded_at": "2026-10-04T14:44:41-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "80 llamadas atribuidas sin diferencias a 2 consumidores y 2 endpoints, exportadas en CSV; el plan limitó 25 de 45 llamadas en exceso; facturación desactivada",
+      "checks": [
+        {
+          "texto": "todos los planes sin cobro (FREE)",
+          "ok": true,
+          "detalle": "22 planes"
+        },
+        {
+          "texto": "OperadorDemo: llamadas atribuidas = enviadas",
+          "ok": true,
+          "detalle": "56 de 56"
+        },
+        {
+          "texto": "FiscalizacionDemo: llamadas atribuidas = enviadas",
+          "ok": true,
+          "detalle": "24 de 24"
+        },
+        {
+          "texto": "endpoint /concesiones atribuido",
+          "ok": true,
+          "detalle": "40 de 40"
+        },
+        {
+          "texto": "endpoint /concesiones/{id} atribuido",
+          "ok": true,
+          "detalle": "40 de 40"
+        },
+        {
+          "texto": "CSV con consumidores y endpoints",
+          "ok": true,
+          "detalle": "11 filas"
+        },
+        {
+          "texto": "el plan limita el exceso (429), sin cobro",
+          "ok": true,
+          "detalle": "25 limitadas"
+        }
+      ],
+      "data": {
+        "esperado": {
+          "OperadorDemo": 56,
+          "FiscalizacionDemo": 24
+        },
+        "endpoints": {
+          "/concesiones": 40,
+          "/concesiones/{id}": 40
+        },
+        "exceso": {
+          "200": 20,
+          "429": 25
+        }
+      }
+    },
+    {
+      "id": "BT-049",
+      "title": "Exportación de APIs, contratos, políticas, configuración y metadatos",
+      "claim": "La plataforma exporta sus APIs con contratos y políticas, los flujos de integración, el catálogo y el grafo de dependencias, la configuración de la plataforma y los datos de gestión, en formatos abiertos que se leen con herramientas estándar y con un manifiesto de sumas SHA-256.",
+      "file": "BT-049_exportacion.webm",
+      "duration_seconds": 29.7,
+      "frames": 445,
+      "sha256": "bb63788d9bf14a5050b8b0a7f2b24b9433fb1848b5f3393bf5c4cfc212adbae0",
+      "size_bytes": 1089011,
+      "version": "1.0.0",
+      "commit": "6efb183",
+      "recorded_at": "2026-10-04T14:46:07-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "paquete con 8 artefactos (APIs con contrato y políticas, flujos, catálogo y grafo), 8 sumas SHA-256 coincidentes y lectura con herramientas estándar; auditoría (303 eventos) y consumo exportados",
+      "checks": [
+        {
+          "texto": "paquete con manifiesto",
+          "ok": true,
+          "detalle": "8 artefactos · versión 0.1.0"
+        },
+        {
+          "texto": "sumas SHA-256 del manifiesto",
+          "ok": true,
+          "detalle": "8 de 8"
+        },
+        {
+          "texto": "incluye APIs (contrato y políticas), flujos y metadatos",
+          "ok": true,
+          "detalle": "api, flujo, metadatos"
+        },
+        {
+          "texto": "todos los artefactos se leen con herramientas estándar",
+          "ok": true,
+          "detalle": "13 lecturas"
+        },
+        {
+          "texto": "auditoría exportable y verificable",
+          "ok": true,
+          "detalle": "303 eventos"
+        },
+        {
+          "texto": "consumo exportable en CSV",
+          "ok": true,
+          "detalle": "11 filas"
+        },
+        {
+          "texto": "configuración de la plataforma legible (YAML)",
+          "ok": true,
+          "detalle": "wso2/apim/platform.yaml"
+        }
+      ],
+      "data": {
+        "artefactos": 8,
+        "tipos": [
+          "api",
+          "flujo",
+          "metadatos"
+        ],
+        "eventosAuditoria": 303
       }
     }
   ]
