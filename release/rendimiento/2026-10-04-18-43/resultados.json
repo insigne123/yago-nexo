@@ -7,7 +7,7 @@
     "vcpu": 4,
     "ramGB": 16,
     "k6": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/amd64)",
-    "nota": "Durante la prueba se pausó la regla del guardián de anomalías «Abuso de volumen en Concesiones», que de otro modo bloquea la carga sostenida de una sola aplicación (es lo que debe hacer); se reactivó al terminar. Laboratorio en una sola máquina compartida por unos 30 contenedores (WSO2, Keycloak, PostgreSQL, RabbitMQ, OpenSearch, observabilidad, backends de prueba y el propio generador de carga). En el laboratorio, el plano de control de WSO2 y el gateway de operadores comparten un contenedor; en producción el gateway corre en instancias dedicadas de 2 vCPU según la planilla de dimensionamiento."
+    "nota": "La regla del guardián de anomalías «Abuso de volumen en Concesiones», que bloquea la carga sostenida de una sola aplicación, se pausó para la prueba, pero volvió a quedar activa antes del último escalón: a las 18:59 UTC, en el escalón de 450 tx/s, detectó 4.912 llamadas frente a una línea base de 167 y bloqueó a la aplicación de prueba durante 2 minutos, lo que explica el 0,06 % de error de ese escalón (que de todos modos no cumplió por latencia). Las fases de 28, 125 y 250 tx/s y el escalón de 350 tx/s terminaron antes del bloqueo. Laboratorio en una sola máquina compartida por unos 30 contenedores (WSO2, Keycloak, PostgreSQL, RabbitMQ, OpenSearch, observabilidad, backends de prueba y el propio generador de carga). En el laboratorio, el plano de control de WSO2 y el gateway de operadores comparten un contenedor; en producción el gateway corre en instancias dedicadas de 2 vCPU según la planilla de dimensionamiento."
   },
   "fases": [
     {

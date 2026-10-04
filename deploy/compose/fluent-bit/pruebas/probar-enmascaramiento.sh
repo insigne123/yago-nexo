@@ -39,6 +39,7 @@ no_debe "campo sensible por nombre" "valor-del-header"
 debe    "marca de registro enmascarado" "datos_enmascarados"
 debe    "marca de tiempo de 13 dígitos intacta" "1791123845153"
 debe    "UUID intacto" "eb0f0056-395a-4352-9e8b-cfb8f50bcbe2"
+debe    "usuario interno de WSO2 intacto" "e6206cf0-16a3-4d01-9b23-7e42d8860511@carbon.super"
 debe    "registro sin datos personales intacto" "solicitud procesada en 35 ms"
 
 if [ "$fallas" -gt 0 ]; then

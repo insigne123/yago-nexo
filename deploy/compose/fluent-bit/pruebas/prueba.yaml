@@ -17,7 +17,7 @@ pipeline:
     - name: dummy
       tag: apim.metrics
       samples: 1
-      dummy: '{"apiName":"Concesiones","requestTimestamp":"1791123845153","correlationId":"eb0f0056-395a-4352-9e8b-cfb8f50bcbe2","headers":{"Authorization":"valor-del-header"}}'
+      dummy: '{"apiName":"Concesiones","requestTimestamp":"1791123845153","correlationId":"eb0f0056-395a-4352-9e8b-cfb8f50bcbe2","userName":"e6206cf0-16a3-4d01-9b23-7e42d8860511@carbon.super","headers":{"Authorization":"valor-del-header"}}'
     - name: dummy
       tag: apim.carbon
       samples: 1

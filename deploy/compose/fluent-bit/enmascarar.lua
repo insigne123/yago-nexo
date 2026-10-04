@@ -37,7 +37,11 @@ local function enmascarar_texto(s)
   t = string.gsub(t, "%f[%d]%d%d?%.%d%d%d%.%d%d%d%-[%dkK]%f[^%w]", "[RUT oculto]")
   t = string.gsub(t, "%f[%d]%d%d?%d%d%d%d%d%d%-[%dkK]%f[^%w]", "[RUT oculto]")
   -- Correo: se conserva el dominio.
-  t = string.gsub(t, "[%w%._%%%+%-]+@([%w%-]+%.[%w%.%-]*%a)", "***@%1")
+  -- No toca los identificadores internos de WSO2 con forma de correo (<uuid>@carbon.super): son seudónimos, no correos.
+  t = string.gsub(t, "([%w%._%%%+%-]+)@([%w%-]+%.[%w%.%-]*%a)", function(_, dominio)
+    if dominio == "carbon.super" then return nil end
+    return "***@" .. dominio
+  end)
   -- Teléfono móvil chileno (+56 9 XXXX XXXX, con o sin espacios).
   t = string.gsub(t, "%+?56%s?9%s?%d%d%d%d%s?%d%d%d%d%f[%D]", "[teléfono oculto]")
   -- Tarjeta: exactamente 16 dígitos, opcionalmente en grupos de 4 (no toca marcas de tiempo de 13 o 19 dígitos).
