@@ -144,7 +144,23 @@ export class Contexto {
     this.estudio.publicar({ monitor: { url: p.url(), activo: true } });
   }
 
+  /** Revisa cada 1,5 s el texto visible de la pantalla mostrada en el monitor. */
+  private revisor?: NodeJS.Timeout;
+  private revisarPantalla() {
+    this.revisor = setInterval(() => {
+      const p = this.enPantalla;
+      if (!p || p.isClosed()) return;
+      p.evaluate(() => document.body?.innerText ?? "")
+        .then((t) => {
+          const m = Contexto.PROHIBIDO.exec(t);
+          if (m) this.infracciones.push(`pantalla ${p.url()}: «${t.slice(Math.max(0, m.index - 40), m.index + 40)}»`);
+        })
+        .catch(() => undefined);
+    }, 1500);
+  }
+
   async iniciarPantalla() {
+    this.revisarPantalla();
     this.grabando = true;
     const p = this.app;
     this.enPantalla = undefined;
@@ -152,6 +168,7 @@ export class Contexto {
   }
 
   async detenerPantalla() {
+    if (this.revisor) clearInterval(this.revisor);
     this.grabando = false;
     await this.cdp?.send("Page.stopScreencast").catch(() => undefined);
   }
@@ -195,7 +212,16 @@ export class Contexto {
     return new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date());
   }
 
+  /** Textos que nunca deben aparecer en un video publicado (nombre o identificador de un proceso de compra). */
+  static readonly PROHIBIDO = /subtel|606-26/i;
+  readonly infracciones: string[] = [];
+
+  private vigilar(origen: string, texto: string) {
+    if (Contexto.PROHIBIDO.test(texto)) this.infracciones.push(`${origen}: «${texto.slice(0, 120)}»`);
+  }
+
   log(texto: string, tipo?: TipoLinea, conHora = true) {
+    this.vigilar("terminal", texto);
     this.estudio.evento("linea", { texto, tipo, hora: conHora ? this.hora() : undefined });
     process.stdout.write(`  ${tipo === "mal" ? "!" : " "} ${texto}\n`);
   }
@@ -215,6 +241,7 @@ export class Contexto {
 
   /** Cambia el texto del rótulo sin avanzar de paso. */
   rotulo(texto: string) {
+    this.vigilar("rótulo", texto);
     this.estudio.publicar({ rotulo: { paso: this.nPaso ? `Paso ${this.nPaso} de ${this.demo.pasos}` : "", texto } });
   }
 
@@ -232,6 +259,7 @@ export class Contexto {
   }
 
   panel(html: string) {
+    this.vigilar("panel", html);
     this.estudio.publicar({ panel: html });
   }
 
@@ -520,6 +548,7 @@ export async function grabar(demo: Demo, o: OpcionesGrabacion): Promise<Evidenci
       for (const n of notas) c.log(`  · ${n}`, "tenue");
     }
     resultado = await demo.ejecutar(c);
+    if (c.infracciones.length) throw new Error(`apareció texto no publicable en el video: ${[...new Set(c.infracciones)].slice(0, 3).join(" · ")}`);
     const fallidas = c.verificaciones.filter((v) => !v.ok);
     if (!c.verificaciones.length) throw new Error("el escenario no registró verificaciones");
     if (fallidas.length) throw new Error(`verificaciones fallidas: ${fallidas.map((v) => `${v.texto}${v.detalle ? ` (${v.detalle})` : ""}`).join("; ")}`);
@@ -537,6 +566,12 @@ export async function grabar(demo: Demo, o: OpcionesGrabacion): Promise<Evidenci
     await dormir(7000);
   } catch (e) {
     error = e;
+    // Depuración: captura de la pantalla operada al fallar (EVIDENCIAS_DEPURACION=<carpeta>).
+    const dep = process.env.EVIDENCIAS_DEPURACION;
+    if (dep && c.app && !c.app.isClosed()) {
+      mkdirSync(dep, { recursive: true });
+      await c.app.screenshot({ path: join(dep, `${demo.id}-fallo.png`), fullPage: true }).catch(() => undefined);
+    }
   } finally {
     await c.detenerPantalla();
     try {
