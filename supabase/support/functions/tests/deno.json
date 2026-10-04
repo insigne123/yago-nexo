@@ -1,0 +1,13 @@
+{
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.19",
+    "@supabase/functions-js": "jsr:@supabase/functions-js@^2.117.2",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.117.2",
+    "pdf-lib": "npm:pdf-lib@1.17.1"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "lock": false
+}
