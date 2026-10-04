@@ -1,0 +1,795 @@
+openapi: 3.1.0
+info:
+  title: API de la Consola Nexo
+  version: 1.0.0
+  description: |
+    API de la Consola Nexo (Yago). Todas las rutas requieren un JWT válido (Keycloak en SUBTEL,
+    Supabase Auth en la demo). La autorización se basa en la matriz rol-permiso de `@nexo/shared`.
+    Las acciones de cuatro ojos (aprobaciones) exigen que quien aprueba sea distinto de quien inició.
+    Toda acción de escritura genera un evento de auditoría encadenado.
+  contact: { name: Yago, email: soporte@yago.cl }
+servers:
+  - url: /api/v1
+security:
+  - bearer: []
+tags:
+  - { name: sesion }
+  - { name: inicio }
+  - { name: catalogo }
+  - { name: impacto }
+  - { name: descubrimiento, description: D-01 }
+  - { name: anomalias, description: D-02 }
+  - { name: despliegues, description: D-04 }
+  - { name: continuidad, description: D-05 y BT-036 }
+  - { name: consumo, description: BT-021 }
+  - { name: mensajes-fallidos, description: BT-051 }
+  - { name: auditoria, description: BT-031 y BT-032 }
+  - { name: cumplimiento }
+  - { name: exportacion, description: BT-049 y BT-060 }
+
+paths:
+  /me:
+    get:
+      tags: [sesion]
+      summary: Usuario actual, roles y permisos efectivos
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+
+  /overview:
+    get:
+      tags: [inicio]
+      summary: Resumen de la plataforma
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Overview" } } } }
+
+  /apis:
+    get:
+      tags: [catalogo]
+      summary: Catálogo de APIs
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: audience, in: query, schema: { $ref: "#/components/schemas/Audience" } }
+        - { name: state, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/ApiAsset" } } } }
+  /apis/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [catalogo]
+      summary: Ficha de una API
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ApiAssetDetail" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [catalogo]
+      summary: Actualiza metadatos de gobierno (permiso catalog:write)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ApiAssetPatch" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ApiAssetDetail" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /catalog/sync:
+    post:
+      tags: [catalogo]
+      summary: Sincroniza el catálogo con WSO2 (APIs, suscripciones y consumidores)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SyncResult" } } } }
+
+  /graph:
+    get:
+      tags: [impacto]
+      summary: Grafo de dependencias (API → flujo → sistema → dato → consumidor)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Graph" } } } }
+  /impact/simulate:
+    post:
+      tags: [impacto]
+      summary: Simula un cambio y devuelve los activos y consumidores afectados (BT-024)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ImpactRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ImpactResult" } } } }
+
+  /discovery/scans:
+    get:
+      tags: [descubrimiento]
+      summary: Escaneos realizados
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/DiscoveryScan" } } } }
+    post:
+      tags: [descubrimiento]
+      summary: Inicia un escaneo (permiso discovery:scan)
+      requestBody:
+        content: { application/json: { schema: { $ref: "#/components/schemas/DiscoveryScanRequest" } } }
+      responses:
+        "202": { description: Aceptado, content: { application/json: { schema: { $ref: "#/components/schemas/DiscoveryScan" } } } }
+  /discovery/findings:
+    get:
+      tags: [descubrimiento]
+      summary: Hallazgos (APIs no gobernadas)
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/FindingStatus" } }
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/DiscoveryFinding" } } } }
+  /discovery/findings/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [descubrimiento]
+      summary: Clasifica un hallazgo (permiso discovery:triage)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/FindingStatus" }
+                note: { type: string, maxLength: 1000 }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DiscoveryFinding" } } } }
+  /discovery/report:
+    get:
+      tags: [descubrimiento]
+      summary: Reporte de exposición
+      parameters:
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        "200": { description: OK }
+
+  /anomaly-rules:
+    get:
+      tags: [anomalias]
+      summary: Reglas de detección
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AnomalyRule" } } } }
+    post:
+      tags: [anomalias]
+      summary: Crea una regla (permiso anomaly:rules:write)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/AnomalyRuleInput" } } }
+      responses:
+        "201": { description: Creada, content: { application/json: { schema: { $ref: "#/components/schemas/AnomalyRule" } } } }
+  /anomaly-rules/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [anomalias]
+      summary: Modifica una regla
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/AnomalyRuleInput" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AnomalyRule" } } } }
+  /anomalies:
+    get:
+      tags: [anomalias]
+      summary: Eventos de anomalía
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/AnomalyStatus" } }
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AnomalyEvent" } } } }
+  /anomalies/{id}/approve-block:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [anomalias]
+      summary: Aprueba el bloqueo propuesto (permiso anomaly:block:approve, cuatro ojos)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AnomalyEvent" } } } }
+  /anomalies/{id}/dismiss:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [anomalias]
+      summary: Descarta la anomalía (falso positivo)
+      requestBody:
+        content: { application/json: { schema: { $ref: "#/components/schemas/Reason" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/AnomalyEvent" } } } }
+  /blocks:
+    get:
+      tags: [anomalias]
+      summary: Bloqueos activos en el gateway
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Block" } } } }
+  /blocks/{id}/release:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [anomalias]
+      summary: Libera un bloqueo (permiso anomaly:block:release)
+      requestBody:
+        content: { application/json: { schema: { $ref: "#/components/schemas/Reason" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Block" } } } }
+
+  /rollouts:
+    get:
+      tags: [despliegues]
+      summary: Despliegues progresivos
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Rollout" } } } }
+    post:
+      tags: [despliegues]
+      summary: Crea un despliegue canary o blue-green (permiso rollout:create)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RolloutInput" } } }
+      responses:
+        "201": { description: Creado, content: { application/json: { schema: { $ref: "#/components/schemas/Rollout" } } } }
+  /rollouts/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [despliegues]
+      summary: Estado del despliegue con sus pasos y métricas
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Rollout" } } } }
+  /rollouts/{id}/approve:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [despliegues]
+      summary: Aprueba el inicio en producción (permiso rollout:approve, cuatro ojos)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Rollout" } } } }
+  /rollouts/{id}/abort:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [despliegues]
+      summary: Detiene y revierte (permiso rollout:abort)
+      requestBody:
+        content: { application/json: { schema: { $ref: "#/components/schemas/Reason" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Rollout" } } } }
+
+  /continuity:
+    get:
+      tags: [continuidad]
+      summary: Estado de los sitios y del quórum
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ContinuityState" } } } }
+  /continuity/mode:
+    put:
+      tags: [continuidad]
+      summary: Cambia el modo (manual o automático) (permiso admin:settings:write)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [mode], properties: { mode: { type: string, enum: [manual, automatico] } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ContinuityState" } } } }
+  /continuity/drill:
+    post:
+      tags: [continuidad]
+      summary: Inicia un simulacro de conmutación (permiso continuity:drill)
+      responses:
+        "202": { description: Aceptado, content: { application/json: { schema: { $ref: "#/components/schemas/FailoverEvent" } } } }
+  /continuity/failback:
+    post:
+      tags: [continuidad]
+      summary: Aprueba el retorno al sitio principal (permiso continuity:failback:approve)
+      requestBody:
+        content: { application/json: { schema: { $ref: "#/components/schemas/Reason" } } }
+      responses:
+        "202": { description: Aceptado, content: { application/json: { schema: { $ref: "#/components/schemas/FailoverEvent" } } } }
+  /continuity/events:
+    get:
+      tags: [continuidad]
+      summary: Historial de conmutaciones con RTO y RPO medidos
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/FailoverEvent" } } } }
+
+  /usage:
+    get:
+      tags: [consumo]
+      summary: Consumo atribuido (sin cobro)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: groupBy, in: query, schema: { type: string, enum: [consumer, api, endpoint, day], default: consumer } }
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/UsageRow" } } } }
+  /usage/export:
+    get:
+      tags: [consumo]
+      summary: Exporta el consumo (CSV)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200": { description: CSV, content: { text/csv: { schema: { type: string } } } }
+
+  /dead-letters:
+    get:
+      tags: [mensajes-fallidos]
+      summary: Mensajes no procesados
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/DeadLetter" } } } }
+  /dead-letters/{id}/reprocess:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [mensajes-fallidos]
+      summary: Reprocesa un mensaje (permiso dlq:reprocess:approve, auditado)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/Reason" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DeadLetter" } } } }
+
+  /audit-events:
+    get:
+      tags: [auditoria]
+      summary: Eventos de auditoría (permiso audit:read)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: actor, in: query, schema: { type: string } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 200, maximum: 1000 } }
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AuditEvent" } } } }
+  /audit-events/verify:
+    get:
+      tags: [auditoria]
+      summary: Verifica la cadena de hash (permiso audit:verify)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ChainVerification" } } } }
+
+  /compliance/role-matrix:
+    get:
+      tags: [cumplimiento]
+      summary: Matriz rol-permiso vigente (BT-026)
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { type: object, additionalProperties: true } } } }
+  /compliance/tls-channels:
+    get:
+      tags: [cumplimiento]
+      summary: Matriz de canales y configuración criptográfica observada (BT-028)
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/TlsChannel" } } } }
+
+  /exports:
+    post:
+      tags: [exportacion]
+      summary: Genera un paquete exportado (APIs, contratos, políticas, flujos y metadatos)
+      responses:
+        "202": { description: Aceptado, content: { application/json: { schema: { $ref: "#/components/schemas/ExportJob" } } } }
+  /exports/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [exportacion]
+      summary: Estado y manifiesto del paquete
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ExportJob" } } } }
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string } }
+  responses:
+    NotFound:
+      description: No existe
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: Sin permiso
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+  schemas:
+    Error:
+      type: object
+      required: [statusCode, message]
+      properties:
+        statusCode: { type: integer }
+        message: { type: string }
+        permission: { type: string }
+    Reason:
+      type: object
+      properties: { reason: { type: string, maxLength: 1000 } }
+    Audience: { type: string, enum: [interna, operadores, publica] }
+    Me:
+      type: object
+      required: [sub, roles, permissions]
+      properties:
+        sub: { type: string }
+        name: { type: string }
+        email: { type: string }
+        roles: { type: array, items: { type: string } }
+        permissions: { type: array, items: { type: string } }
+    SiteSummary:
+      type: object
+      required: [id, name, status, active]
+      properties:
+        id: { type: string, examples: [cpd, gcp] }
+        name: { type: string }
+        status: { type: string, enum: [ok, degradado, caido, desconocido] }
+        active: { type: boolean }
+    Overview:
+      type: object
+      properties:
+        sites: { type: array, items: { $ref: "#/components/schemas/SiteSummary" } }
+        apis:
+          type: object
+          properties: { total: { type: integer }, publicadas: { type: integer }, deprecadas: { type: integer }, completitudPromedio: { type: number } }
+        alertas:
+          type: object
+          properties: { abiertas: { type: integer }, anomalias: { type: integer }, hallazgos: { type: integer }, mensajesFallidos: { type: integer } }
+        consumoHoy:
+          type: object
+          properties: { llamadas: { type: integer }, errores: { type: integer }, latenciaP95Ms: { type: number } }
+        despliegues:
+          type: object
+          properties: { enCurso: { type: integer }, revertidos7d: { type: integer } }
+    ApiAsset:
+      type: object
+      required: [id, name, version, context, state, audience, completeness]
+      properties:
+        id: { type: string }
+        wso2ApiId: { type: string }
+        name: { type: string }
+        version: { type: string }
+        context: { type: string }
+        type: { type: string, enum: [HTTP, SOAP, GRAPHQL, WS, WEBSUB, SSE, ASYNC] }
+        purpose: { type: string }
+        ownerTeam: { type: string }
+        ownerContact: { type: string }
+        audience: { $ref: "#/components/schemas/Audience" }
+        state: { type: string, examples: [CREATED, PUBLISHED, DEPRECATED, RETIRED] }
+        authType: { type: string }
+        contractRef: { type: string, description: "repositorio@commit del contrato" }
+        classification: { type: string, enum: [publica, interna, reservada, datos_personales] }
+        consumersCount: { type: integer }
+        dependenciesCount: { type: integer }
+        completeness: { type: number, minimum: 0, maximum: 100 }
+        updatedAt: { type: string, format: date-time }
+    ApiAssetDetail:
+      allOf:
+        - $ref: "#/components/schemas/ApiAsset"
+        - type: object
+          properties:
+            consumers:
+              type: array
+              items:
+                type: object
+                properties: { id: { type: string }, name: { type: string }, organization: { type: string }, plan: { type: string }, status: { type: string } }
+            dependencies:
+              type: array
+              items: { $ref: "#/components/schemas/GraphEdge" }
+            missingFields: { type: array, items: { type: string } }
+            history:
+              type: array
+              items:
+                type: object
+                properties: { ts: { type: string, format: date-time }, actor: { type: string }, action: { type: string }, detail: { type: string } }
+    ApiAssetPatch:
+      type: object
+      properties:
+        purpose: { type: string, maxLength: 1000 }
+        ownerTeam: { type: string, maxLength: 200 }
+        ownerContact: { type: string, maxLength: 200 }
+        audience: { $ref: "#/components/schemas/Audience" }
+        classification: { type: string, enum: [publica, interna, reservada, datos_personales] }
+        contractRef: { type: string, maxLength: 300 }
+    SyncResult:
+      type: object
+      properties: { apis: { type: integer }, consumers: { type: integer }, subscriptions: { type: integer }, durationMs: { type: integer } }
+    GraphNode:
+      type: object
+      required: [id, type, label]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [api, flujo, sistema, dato, consumidor, reporte] }
+        label: { type: string }
+        meta: { type: object, additionalProperties: true }
+    GraphEdge:
+      type: object
+      required: [from, to, relation]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        relation: { type: string, enum: [llama, lee, escribe, publica, transforma, consume] }
+        source: { type: string, enum: [manual, analizador_mi, trafico_observado, openmetadata] }
+    Graph:
+      type: object
+      properties:
+        nodes: { type: array, items: { $ref: "#/components/schemas/GraphNode" } }
+        edges: { type: array, items: { $ref: "#/components/schemas/GraphEdge" } }
+    ImpactRequest:
+      type: object
+      required: [nodeId, change]
+      properties:
+        nodeId: { type: string }
+        change:
+          type: object
+          required: [kind]
+          properties:
+            kind: { type: string, enum: [contrato, campo, fuente, retiro] }
+            detail: { type: string }
+    ImpactResult:
+      type: object
+      properties:
+        nodeId: { type: string }
+        affected:
+          type: object
+          properties:
+            consumidores: { type: array, items: { $ref: "#/components/schemas/GraphNode" } }
+            apis: { type: array, items: { $ref: "#/components/schemas/GraphNode" } }
+            flujos: { type: array, items: { $ref: "#/components/schemas/GraphNode" } }
+            sistemas: { type: array, items: { $ref: "#/components/schemas/GraphNode" } }
+            reportes: { type: array, items: { $ref: "#/components/schemas/GraphNode" } }
+        paths: { type: array, items: { type: array, items: { type: string } } }
+        severity: { type: string, enum: [bajo, medio, alto] }
+    DiscoveryScanRequest:
+      type: object
+      properties:
+        sources: { type: array, items: { type: string, enum: [apisix, nginx, red, gcp] } }
+        targets: { type: array, items: { type: string }, description: "hosts o rangos autorizados" }
+    DiscoveryScan:
+      type: object
+      required: [id, status, startedAt]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [en_curso, terminado, fallido] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        sources: { type: array, items: { type: string } }
+        totals:
+          type: object
+          properties: { endpoints: { type: integer }, gobernados: { type: integer }, noGobernados: { type: integer }, riesgoAlto: { type: integer } }
+    FindingStatus: { type: string, enum: [nuevo, gobernado, riesgo_aceptado, en_migracion, descartado] }
+    DiscoveryFinding:
+      type: object
+      required: [id, host, path, source, exposureScore, status]
+      properties:
+        id: { type: string }
+        scanId: { type: string }
+        source: { type: string, enum: [apisix, nginx, red, gcp] }
+        host: { type: string }
+        port: { type: integer }
+        path: { type: string }
+        protocol: { type: string }
+        specFound: { type: boolean }
+        authDetected: { type: string, enum: [ninguna, basica, token, mtls, desconocida] }
+        tls: { type: string }
+        personalDataSuspected: { type: boolean }
+        matchedApiId: { type: string }
+        exposureScore: { type: integer, minimum: 0, maximum: 100 }
+        reasons: { type: array, items: { type: string } }
+        status: { $ref: "#/components/schemas/FindingStatus" }
+        firstSeen: { type: string, format: date-time }
+        lastSeen: { type: string, format: date-time }
+    AnomalyRuleInput:
+      type: object
+      required: [name, metric, sensitivity, action]
+      properties:
+        name: { type: string }
+        apiId: { type: string, description: "vacío = todas" }
+        consumerId: { type: string }
+        metric: { type: string, enum: [volumen, errores, latencia, tamano, ips_distintas, fuera_de_horario] }
+        sensitivity: { type: number, minimum: 1, maximum: 10, description: "umbral en desviaciones robustas (MAD)" }
+        minVolume: { type: integer, default: 30 }
+        action: { type: string, enum: [alertar, bloquear_automatico, bloquear_con_aprobacion] }
+        blockTtlMinutes: { type: integer, default: 30 }
+        enabled: { type: boolean, default: true }
+    AnomalyRule:
+      allOf:
+        - { $ref: "#/components/schemas/AnomalyRuleInput" }
+        - type: object
+          required: [id]
+          properties: { id: { type: string }, createdBy: { type: string }, updatedAt: { type: string, format: date-time } }
+    AnomalyStatus: { type: string, enum: [abierta, bloqueo_propuesto, bloqueada, descartada, resuelta] }
+    AnomalyEvent:
+      type: object
+      required: [id, ts, ruleId, metric, observed, baseline, score, status]
+      properties:
+        id: { type: string }
+        ts: { type: string, format: date-time }
+        ruleId: { type: string }
+        apiName: { type: string }
+        consumer: { type: string }
+        sourceIp: { type: string }
+        metric: { type: string }
+        observed: { type: number }
+        baseline: { type: number }
+        score: { type: number }
+        actionTaken: { type: string }
+        blockId: { type: string }
+        status: { $ref: "#/components/schemas/AnomalyStatus" }
+        approvedBy: { type: string }
+    Block:
+      type: object
+      required: [id, conditionType, conditionValue, active, createdAt]
+      properties:
+        id: { type: string }
+        denyPolicyId: { type: string }
+        conditionType: { type: string, enum: [APPLICATION, IP, USER, API] }
+        conditionValue: { type: string }
+        reason: { type: string }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        createdBy: { type: string }
+        releasedBy: { type: string }
+    RolloutInput:
+      type: object
+      required: [apiId, strategy, candidateEndpoint]
+      properties:
+        apiId: { type: string }
+        strategy: { type: string, enum: [canary, blue_green] }
+        candidateEndpoint: { type: string, format: uri }
+        steps: { type: array, items: { type: integer, minimum: 1, maximum: 100 }, default: [5, 25, 50, 100] }
+        stepDurationSec: { type: integer, default: 60 }
+        thresholds:
+          type: object
+          properties:
+            maxErrorRate: { type: number, default: 0.02, description: "proporción de 0 a 1" }
+            maxP99Ms: { type: number, default: 800 }
+            minRequests: { type: integer, default: 20 }
+        environment: { type: string, enum: [dev, qa, prod], default: prod }
+    RolloutStep:
+      type: object
+      properties:
+        weight: { type: integer }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time }
+        requests: { type: integer }
+        errorRate: { type: number }
+        p99Ms: { type: number }
+        decision: { type: string, enum: [avanzar, revertir, pendiente] }
+    Rollout:
+      allOf:
+        - { $ref: "#/components/schemas/RolloutInput" }
+        - type: object
+          required: [id, status, currentWeight]
+          properties:
+            id: { type: string }
+            apiName: { type: string }
+            stableEndpoint: { type: string }
+            status: { type: string, enum: [pendiente_aprobacion, en_curso, completado, revertido, abortado] }
+            currentWeight: { type: integer }
+            stepsDone: { type: array, items: { $ref: "#/components/schemas/RolloutStep" } }
+            rollbackReason: { type: string }
+            createdBy: { type: string }
+            approvedBy: { type: string }
+            createdAt: { type: string, format: date-time }
+    SiteHealth:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [primario, respaldo, testigo] }
+        active: { type: boolean }
+        checks:
+          type: object
+          properties:
+            gateway: { type: string, enum: [ok, falla, desconocido] }
+            controlPlane: { type: string, enum: [ok, falla, desconocido] }
+            baseDatos: { type: string, enum: [ok, falla, desconocido] }
+            recorridoSintetico: { type: string, enum: [ok, falla, desconocido] }
+        vote: { type: string, enum: [primario_sano, primario_caido, sin_voto] }
+        lastSeen: { type: string, format: date-time }
+    ContinuityState:
+      type: object
+      properties:
+        mode: { type: string, enum: [manual, automatico] }
+        activeSite: { type: string }
+        quorum: { type: string, description: "por ejemplo 2 de 3" }
+        sites: { type: array, items: { $ref: "#/components/schemas/SiteHealth" } }
+        rtoObjetivoMin: { type: number }
+        rpoObjetivoMin: { type: number }
+    FailoverEvent:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [conmutacion, retorno, simulacro] }
+        trigger: { type: string, enum: [automatico, manual, simulacro] }
+        from: { type: string }
+        to: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        rtoSeconds: { type: number }
+        rpoSecondsEstimated: { type: number }
+        steps:
+          type: array
+          items:
+            type: object
+            properties: { name: { type: string }, status: { type: string }, ts: { type: string, format: date-time }, detail: { type: string } }
+        status: { type: string, enum: [en_curso, completado, fallido] }
+        approvedBy: { type: string }
+    UsageRow:
+      type: object
+      properties:
+        key: { type: string }
+        label: { type: string }
+        llamadas: { type: integer }
+        errores: { type: integer }
+        bytes: { type: integer }
+        latenciaP95Ms: { type: number }
+        plan: { type: string }
+    DeadLetter:
+      type: object
+      properties:
+        id: { type: string }
+        queue: { type: string }
+        flow: { type: string }
+        error: { type: string }
+        attempts: { type: integer }
+        firstFailedAt: { type: string, format: date-time }
+        status: { type: string, enum: [pendiente, reprocesado, descartado] }
+        reprocessedBy: { type: string }
+        payloadPreview: { type: string, description: "enmascarado" }
+    AuditEvent:
+      type: object
+      properties:
+        id: { type: string }
+        seq: { type: integer }
+        ts: { type: string, format: date-time }
+        source: { type: string }
+        actor: { type: string }
+        actorType: { type: string }
+        action: { type: string }
+        resource: { type: string }
+        result: { type: string }
+        sourceIp: { type: string }
+        correlationId: { type: string }
+        prevHash: { type: string }
+        hash: { type: string }
+    ChainVerification:
+      type: object
+      properties:
+        ok: { type: boolean }
+        count: { type: integer }
+        lastSeq: { type: integer }
+        brokenAt: { type: integer }
+        reason: { type: string }
+    TlsChannel:
+      type: object
+      properties:
+        canal: { type: string }
+        origen: { type: string }
+        destino: { type: string }
+        protocolo: { type: string }
+        versiones: { type: array, items: { type: string } }
+        cifrado: { type: string }
+        verificado: { type: string, format: date-time }
+    ExportJob:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [en_curso, listo, fallido] }
+        createdAt: { type: string, format: date-time }
+        manifest:
+          type: object
+          properties:
+            version: { type: string }
+            items:
+              type: array
+              items:
+                type: object
+                properties: { tipo: { type: string }, nombre: { type: string }, archivo: { type: string }, sha256: { type: string } }
+        downloadUrl: { type: string }
