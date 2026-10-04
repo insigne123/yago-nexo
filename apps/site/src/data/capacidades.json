@@ -228,7 +228,7 @@
       "id": "consola",
       "grupo": "capa-yago",
       "nombre": "Consola Nexo (interfaz web y API)",
-      "descripcion": "Interfaz y API propias para gobernar la plataforma: catálogo, impacto, consumo, auditoría, continuidad y administración. Su contrato OpenAPI ya está publicado como diseño.",
+      "descripcion": "Interfaz y API propias para gobernar la plataforma: catálogo, análisis de impacto, consumo, auditoría, continuidad y estado de los motores. Su contrato OpenAPI está publicado. La administración de conectores, parámetros y usuarios desde la Consola está en desarrollo.",
       "estado": "Disponible",
       "evidencia": [
         "apps/console-api/src/main.ts",
@@ -340,8 +340,8 @@
     {
       "id": "exportacion",
       "grupo": "capa-yago",
-      "nombre": "Exportación y reconstrucción",
-      "descripcion": "Paquete exportable en formatos documentados (OpenAPI, AsyncAPI, políticas y artefactos de integración) y prueba de reconstrucción en un ambiente limpio.",
+      "nombre": "Exportación de la plataforma",
+      "descripcion": "Paquete exportable con las APIs de WSO2 (contrato OpenAPI y políticas), los flujos de integración, el catálogo y el grafo de dependencias, con un manifiesto que registra la suma SHA-256 de cada archivo. La prueba automática de reconstrucción en un ambiente limpio está en desarrollo.",
       "estado": "Disponible",
       "evidencia": [
         "apps/console-api/src/modules/platform.ts"
@@ -392,8 +392,8 @@
     {
       "id": "sbom",
       "grupo": "operacion",
-      "nombre": "SBOM CycloneDX y firma de versiones",
-      "descripcion": "Cada versión publica su inventario de componentes en formato CycloneDX, sumas de verificación y la firma de sus imágenes.",
+      "nombre": "SBOM CycloneDX y sumas de verificación",
+      "descripcion": "Cada versión publica su inventario de componentes en formato CycloneDX, el inventario de licencias y las sumas de verificación SHA-256 de sus artefactos. La firma de imágenes de contenedor está en desarrollo.",
       "estado": "Disponible",
       "evidencia": [
         "tools/release/generar-sbom.mjs",
