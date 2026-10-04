@@ -20,3 +20,4 @@ test-results/
 .docusaurus/
 .firebase/
 target/
+out/

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parse } from "yaml";
+import { buildSchema, isObjectType } from "graphql";
 import { Wso2HttpError, type ApiSummary, type Wso2Client } from "@nexo/wso2-client";
 import { clientFor, type CtlConfig, type StageConfig } from "../config.js";
 import { formatIssues, lintContract } from "../lint.js";
@@ -61,8 +62,11 @@ function endpointConfig(url: string, r: ApiProject["resiliency"] = {}) {
 function apiBody(p: ApiProject, stageName: string) {
   const url = p.endpoints[stageName];
   if (!url) throw new Error(`El proyecto ${p.name} no define endpoint para la etapa ${stageName}`);
+  const type = p.type ?? "HTTP";
+  const isWs = type === "WS";
   return {
     name: p.name,
+    type,
     version: p.version,
     context: p.context,
     description: p.description,
@@ -71,7 +75,9 @@ function apiBody(p: ApiProject, stageName: string) {
     securityScheme: p.security ?? ["oauth2", "oauth_basic_auth_api_key_mandatory"],
     keyManagers: p.keyManagers ?? ["Keycloak"],
     visibility: "PUBLIC",
-    endpointConfig: endpointConfig(url, p.resiliency),
+    endpointConfig: isWs
+      ? { endpoint_type: "ws", production_endpoints: { url }, sandbox_endpoints: { url } }
+      : endpointConfig(url, p.resiliency),
     businessInformation: {
       businessOwner: p.owner.business,
       businessOwnerEmail: p.owner.businessEmail,
@@ -91,6 +97,24 @@ export interface LintOptions {
   ruleset: string;
 }
 
+/** Operaciones GraphQL (consultas y mutaciones) derivadas del esquema, como las espera WSO2. */
+function graphqlOperations(sdl: string) {
+  const schema = buildSchema(sdl);
+  const ops: Array<{ target: string; verb: string; authType: string; throttlingPolicy: string }> = [];
+  for (const [root, verb] of [
+    [schema.getQueryType(), "QUERY"],
+    [schema.getMutationType(), "MUTATION"],
+    [schema.getSubscriptionType(), "SUBSCRIPTION"],
+  ] as const) {
+    if (root && isObjectType(root)) {
+      for (const field of Object.keys(root.getFields())) {
+        ops.push({ target: field, verb, authType: "Application & Application User", throttlingPolicy: "Unlimited" });
+      }
+    }
+  }
+  return ops;
+}
+
 export function runLint(contract: string, opts: LintOptions): boolean {
   const res = lintContract(contract, opts.ruleset);
   console.log(`Validación del contrato ${contract} contra la guía de estilo:`);
@@ -107,22 +131,31 @@ export function runLint(contract: string, opts: LintOptions): boolean {
 export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfig, dir: string, opts: LintOptions & { message: string }) {
   const p = loadProject(dir);
   const contractPath = join(p.dir, p.contract);
-  if (!runLint(contractPath, opts)) {
-    console.error("PROMOCIÓN BLOQUEADA: el contrato tiene errores de la guía de estilo (D-03).");
-    process.exitCode = 2;
-    return;
+  const type = p.type ?? "HTTP";
+  const contract = readFileSync(contractPath, "utf8");
+  if (type === "GRAPHQL") {
+    graphqlOperations(contract); // falla si el esquema no es válido
+    console.log(`Esquema GraphQL ${p.contract} válido.`);
+  } else {
+    const ruleset = type === "WS" || type === "WEBSUB" || type === "SSE" ? join(opts.ruleset, "..", "guia-asyncapi.yaml") : opts.ruleset;
+    if (!runLint(contractPath, { ruleset })) {
+      console.error("PROMOCIÓN BLOQUEADA: el contrato tiene errores de la guía de estilo (D-03).");
+      process.exitCode = 2;
+      return;
+    }
   }
   const wso2 = clientFor(s);
-  const contract = readFileSync(contractPath, "utf8");
   const body = apiBody(p, stageName);
   let api = await findApi(wso2, p.name, p.version);
   if (!api) {
-    api = await wso2.publisher.importOpenApi(contract, body);
-    console.log(`API ${p.name} ${p.version} creada (${api.id}).`);
+    if (type === "GRAPHQL") api = await wso2.publisher.importGraphQl(contract, { ...body, operations: graphqlOperations(contract) });
+    else if (type === "WS" || type === "WEBSUB" || type === "SSE") api = await wso2.publisher.importAsyncApi(contract, body);
+    else api = await wso2.publisher.importOpenApi(contract, body);
+    console.log(`API ${p.name} ${p.version} (${type}) creada (${api.id}).`);
   } else {
     const current = await wso2.publisher.getApi(api.id);
     await wso2.publisher.updateApi(api.id, { ...current, ...body });
-    await wso2.publisher.updateDefinition(api.id, contract);
+    if (type === "HTTP") await wso2.publisher.updateDefinition(api.id, contract);
     console.log(`API ${p.name} ${p.version} actualizada (${api.id}).`);
   }
   const gateways = (p.environments[stageName] ?? []).map((name) => {

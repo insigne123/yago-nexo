@@ -7,14 +7,19 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "check:d06": "tsx src/check-d06.ts",
+    "check:d07": "tsx src/check-d07.ts"
   },
   "dependencies": {
     "@nexo/wso2-client": "workspace:*",
-    "undici": "^8.11.2"
+    "undici": "^8.11.2",
+    "ws": "^8.22.0",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "tsx": "^4.20.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "@types/ws": "^8.18.2"
   }
 }

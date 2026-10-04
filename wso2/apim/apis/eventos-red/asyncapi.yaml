@@ -1,0 +1,34 @@
+asyncapi: 2.6.0
+info:
+  title: Eventos de red y concesiones
+  version: 1.0.0
+  description: Eventos en tiempo real sobre alertas de red, mantenimientos y cambios de estado de concesiones.
+  contact:
+    name: División de Fiscalización (sintético)
+    email: fiscalizacion@ejemplo.invalid
+servers:
+  produccion:
+    url: ws://eventos:7001
+    protocol: ws
+channels:
+  /ws:
+    subscribe:
+      operationId: recibirEventos
+      summary: Recibe eventos de red y de concesiones
+      message:
+        $ref: "#/components/messages/Evento"
+components:
+  messages:
+    Evento:
+      name: Evento
+      contentType: application/json
+      payload:
+        type: object
+        properties:
+          id: { type: string }
+          tipo: { type: string, enum: [alerta_red, cambio_estado_concesion, mantenimiento_programado] }
+          ocurridoEn: { type: string, format: date-time }
+          concesionId: { type: string }
+          empresa: { type: string }
+          region: { type: string }
+          detalle: { type: string }

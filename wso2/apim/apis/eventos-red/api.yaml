@@ -1,0 +1,27 @@
+# API dirigida por eventos sobre WebSocket, descrita con AsyncAPI (D-06)
+name: EventosRed
+version: 1.0.0
+context: /eventos/red
+description: Flujo en tiempo real de eventos de red y de cambios de estado de concesiones (datos sintéticos).
+type: WS
+contract: asyncapi.yaml
+owner:
+  business: División de Fiscalización (sintético)
+  businessEmail: fiscalizacion@ejemplo.invalid
+  technical: Equipo DevOps (sintético)
+  technicalEmail: devops@ejemplo.invalid
+metadata:
+  proposito: Notificar en tiempo real alertas de red y cambios de estado a operadores autorizados
+  audiencia: operadores
+  clasificacion: publica
+security: [oauth2]
+keyManagers: [Keycloak]
+policies: [AsyncUnlimited]
+endpoints:
+  dev: ws://eventos:7001
+  qa: ws://eventos:7001
+  prod: ws://eventos:7001
+environments:
+  dev: [Desarrollo]
+  qa: [QA]
+  prod: [Default, Operadores]

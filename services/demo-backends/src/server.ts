@@ -6,8 +6,12 @@
  *    simular una versión estable y una versión defectuosa para la demo de despliegue canary (D-04).
  *  - "registro": servicio SOAP 1.2 estilo PISEE (consulta de operadores por RUT) con su WSDL (BT-010/011).
  *  - "ocultas": APIs no gobernadas, expuestas por NGINX o APISIX "actuales", para la demo de descubrimiento (D-01).
+ *  - "graphql": API GraphQL de concesiones (D-06).
+ *  - "eventos": eventos de red y de concesiones por WebSocket, descritos con AsyncAPI (D-06).
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { buildSchema, graphql } from "graphql";
+import { WebSocketServer, WebSocket } from "ws";
 import { SyntheticData, isValidRut } from "@nexo/shared";
 
 const MODE = process.env.MODE ?? "concesiones";
@@ -195,9 +199,100 @@ async function ocultasHandler(_req: IncomingMessage, res: ServerResponse, url: U
   return send(res, 404, { error: "ruta no encontrada" });
 }
 
+// ------------------------------------------------------------------ GraphQL (D-06)
+
+const SDL = `
+"Concesión de un servicio de telecomunicaciones (datos sintéticos)"
+type Concesion {
+  id: ID!
+  empresa: String!
+  rutEmpresa: String!
+  servicio: String!
+  region: String!
+  estado: String!
+  fechaOtorgamiento: String!
+}
+
+type Query {
+  "Lista concesiones filtradas por región y estado"
+  concesiones(region: String, estado: String, limite: Int = 20): [Concesion!]!
+  "Obtiene una concesión por su identificador"
+  concesion(id: ID!): Concesion
+  "Cantidad de concesiones por estado"
+  totalPorEstado: [ConteoEstado!]!
+}
+
+type ConteoEstado {
+  estado: String!
+  total: Int!
+}
+`;
+const schema = buildSchema(SDL);
+const rootValue = {
+  concesiones: ({ region, estado, limite }: { region?: string; estado?: string; limite?: number }) =>
+    concesiones.filter((c) => (!region || c.region === region) && (!estado || c.estado === estado)).slice(0, limite ?? 20),
+  concesion: ({ id }: { id: string }) => concesiones.find((c) => c.id === id) ?? null,
+  totalPorEstado: () =>
+    ["vigente", "en_tramite", "caducada"].map((estado) => ({ estado, total: concesiones.filter((c) => c.estado === estado).length })),
+};
+
+async function graphqlHandler(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+  if (url.pathname === "/schema.graphql") return send(res, 200, SDL, "text/plain");
+  if (url.pathname !== "/graphql") return send(res, 404, { error: "ruta no encontrada" });
+  let query = url.searchParams.get("query") ?? "";
+  let variables: Record<string, unknown> | undefined;
+  if (req.method === "POST") {
+    const body = JSON.parse((await readBody(req)) || "{}") as { query?: string; variables?: Record<string, unknown> };
+    query = body.query ?? "";
+    variables = body.variables;
+  }
+  const result = await graphql({ schema, source: query, rootValue, variableValues: variables });
+  return send(res, result.errors ? 400 : 200, result);
+}
+
+// ------------------------------------------------------------------ eventos por WebSocket (D-06)
+
+const TIPOS = ["alerta_red", "cambio_estado_concesion", "mantenimiento_programado"] as const;
+let eventoSeq = 0;
+function nuevoEvento(tipo?: (typeof TIPOS)[number]) {
+  const c = concesiones[Math.floor(Math.random() * concesiones.length)]!;
+  eventoSeq++;
+  return {
+    id: `EVT-${String(eventoSeq).padStart(6, "0")}`,
+    tipo: tipo ?? TIPOS[eventoSeq % TIPOS.length],
+    ocurridoEn: new Date().toISOString(),
+    concesionId: c.id,
+    empresa: c.empresa,
+    region: c.region,
+    detalle: "Evento sintético de laboratorio",
+  };
+}
+
+async function eventosHandler(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+  if (url.pathname === "/publicar" && req.method === "POST") {
+    const body = JSON.parse((await readBody(req)) || "{}") as { tipo?: (typeof TIPOS)[number] };
+    const evt = nuevoEvento(body.tipo);
+    broadcast(evt);
+    return send(res, 202, evt);
+  }
+  return send(res, 404, { error: "use WebSocket en /ws" });
+}
+
+let wss: WebSocketServer | undefined;
+function broadcast(evt: unknown): void {
+  const msg = JSON.stringify(evt);
+  for (const client of wss?.clients ?? []) if (client.readyState === WebSocket.OPEN) client.send(msg);
+}
+
 // ------------------------------------------------------------------ servidor
 
-const handlers = { concesiones: concesionesHandler, registro: registroHandler, ocultas: ocultasHandler } as const;
+const handlers = {
+  concesiones: concesionesHandler,
+  registro: registroHandler,
+  ocultas: ocultasHandler,
+  graphql: graphqlHandler,
+  eventos: eventosHandler,
+} as const;
 const handler = handlers[MODE as keyof typeof handlers];
 if (!handler) throw new Error(`MODE desconocido: ${MODE}`);
 
@@ -228,6 +323,13 @@ const server = createServer(async (req, res) => {
     send(res, 500, { error: err instanceof Error ? err.message : "error" });
   }
 });
+
+if (MODE === "eventos") {
+  // Acepta cualquier ruta: el gateway puede agregar el canal (topic) definido en el contrato AsyncAPI.
+  wss = new WebSocketServer({ server });
+  wss.on("connection", (socket) => socket.send(JSON.stringify({ tipo: "bienvenida", ocurridoEn: new Date().toISOString() })));
+  setInterval(() => broadcast(nuevoEvento()), Number(process.env.EVENT_INTERVAL_MS ?? 5000));
+}
 
 server.listen(PORT, () => {
   console.log(JSON.stringify({ msg: "demo-backend iniciado", mode: MODE, version: VERSION, port: PORT, failRate, latencyMs }));

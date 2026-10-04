@@ -135,6 +135,16 @@ services:
     environment: { MODE: registro, VERSION: "1.0.0", PORT: "7001" }
     ports: ["7002:7001"]
     depends_on: [concesiones-v1]
+  graphql-concesiones:
+    image: nexo-lab/demo-backends:dev
+    environment: { MODE: graphql, VERSION: "1.0.0", PORT: "7001" }
+    ports: ["7004:7001"]
+    depends_on: [concesiones-v1]
+  eventos:
+    image: nexo-lab/demo-backends:dev
+    environment: { MODE: eventos, VERSION: "1.0.0", PORT: "7001", EVENT_INTERVAL_MS: "5000" }
+    ports: ["7005:7001"]
+    depends_on: [concesiones-v1]
   ocultas:
     image: nexo-lab/demo-backends:dev
     environment: { MODE: ocultas, VERSION: "0.9.0", PORT: "7001" }

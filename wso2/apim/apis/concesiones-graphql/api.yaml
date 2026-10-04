@@ -1,0 +1,27 @@
+# API GraphQL (D-06)
+name: ConcesionesGraphQL
+version: 1.0.0
+context: /graphql/concesiones
+description: Consulta GraphQL de concesiones de telecomunicaciones (datos sintéticos de laboratorio).
+type: GRAPHQL
+contract: schema.graphql
+owner:
+  business: División de Concesiones (sintético)
+  businessEmail: concesiones@ejemplo.invalid
+  technical: Equipo DevOps (sintético)
+  technicalEmail: devops@ejemplo.invalid
+metadata:
+  proposito: Consultas flexibles de concesiones para tableros y sistemas internos
+  audiencia: interna
+  clasificacion: publica
+security: [oauth2, oauth_basic_auth_api_key_mandatory]
+keyManagers: [Keycloak]
+policies: [Interno, Unlimited]
+endpoints:
+  dev: http://graphql-concesiones:7001/graphql
+  qa: http://graphql-concesiones:7001/graphql
+  prod: http://graphql-concesiones:7001/graphql
+environments:
+  dev: [Desarrollo]
+  qa: [QA]
+  prod: [Default]

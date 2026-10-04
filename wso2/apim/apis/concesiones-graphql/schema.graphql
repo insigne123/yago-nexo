@@ -1,0 +1,24 @@
+"Concesión de un servicio de telecomunicaciones (datos sintéticos)"
+type Concesion {
+  id: ID!
+  empresa: String!
+  rutEmpresa: String!
+  servicio: String!
+  region: String!
+  estado: String!
+  fechaOtorgamiento: String!
+}
+
+type Query {
+  "Lista concesiones filtradas por región y estado"
+  concesiones(region: String, estado: String, limite: Int = 20): [Concesion!]!
+  "Obtiene una concesión por su identificador"
+  concesion(id: ID!): Concesion
+  "Cantidad de concesiones por estado"
+  totalPorEstado: [ConteoEstado!]!
+}
+
+type ConteoEstado {
+  estado: String!
+  total: Int!
+}

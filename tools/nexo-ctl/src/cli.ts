@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { Command } from "commander";
 import { loadConfig, stage } from "./config.js";
@@ -29,7 +30,8 @@ platform
   .action((o: { stage: string; file: string }) =>
     run(async () => {
       const cfg = loadConfig(program.opts().config);
-      await platformApply(cfg, stage(cfg, o.stage), resolve(o.file));
+      const file = existsSync(resolve(o.file)) ? resolve(o.file) : resolve(cfg.baseDir, o.file);
+      await platformApply(cfg, stage(cfg, o.stage), file);
     })(),
   );
 
@@ -52,7 +54,9 @@ api
   .action((proyecto: string, o: { stage: string; message: string; ruleset: string }) =>
     run(async () => {
       const cfg = loadConfig(program.opts().config);
-      await deployApi(cfg, o.stage, stage(cfg, o.stage), resolve(proyecto), { ruleset: resolve(o.ruleset), message: o.message });
+      // Las rutas por defecto se resuelven desde la raíz del repositorio (donde está la configuración).
+      const ruleset = existsSync(resolve(o.ruleset)) ? resolve(o.ruleset) : resolve(cfg.baseDir, o.ruleset);
+      await deployApi(cfg, o.stage, stage(cfg, o.stage), resolve(proyecto), { ruleset, message: o.message });
     })(),
   );
 api

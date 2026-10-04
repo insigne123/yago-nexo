@@ -1,0 +1,6 @@
+# Guía para contratos AsyncAPI (APIs dirigidas por eventos, D-06). Se usa en el pipeline.
+extends: ["spectral:asyncapi"]
+rules:
+  asyncapi-info-contact: error
+  asyncapi-info-description: error
+  asyncapi-operation-operationId: error
