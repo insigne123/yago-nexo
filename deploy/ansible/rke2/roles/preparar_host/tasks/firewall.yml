@@ -1,0 +1,58 @@
+---
+- name: Calcular los puertos de este nodo
+  ansible.builtin.set_fact:
+    preparar_host_puertos_nodo: >-
+      {{ group_names | intersect(preparar_host_puertos.keys())
+         | map('extract', preparar_host_puertos) | flatten | unique }}
+
+- name: Abrir puertos en firewalld
+  when: preparar_host_firewall == "firewalld"
+  block:
+    - name: Activar firewalld
+      ansible.builtin.service:
+        name: firewalld
+        enabled: true
+        state: started
+
+    - name: Abrir los puertos de RKE2
+      ansible.posix.firewalld:
+        port: "{{ item }}"
+        permanent: true
+        immediate: true
+        state: enabled
+      loop: "{{ preparar_host_puertos_nodo }}"
+
+    - name: Confiar en las redes internas de pods y servicios
+      ansible.posix.firewalld:
+        source: "{{ item }}"
+        zone: trusted
+        permanent: true
+        immediate: true
+        state: enabled
+      loop: "{{ preparar_host_redes_internas }}"
+
+- name: Abrir puertos en ufw
+  when: preparar_host_firewall == "ufw"
+  block:
+    - name: Abrir los puertos de RKE2
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.split('/')[0] | replace('-', ':') }}"
+        proto: "{{ item.split('/')[1] }}"
+      loop: "{{ preparar_host_puertos_nodo }}"
+
+    - name: Permitir las redes internas de pods y servicios
+      community.general.ufw:
+        rule: allow
+        from_ip: "{{ item }}"
+      loop: "{{ preparar_host_redes_internas }}"
+
+    - name: Mantener el acceso por SSH
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Activar ufw
+      community.general.ufw:
+        state: enabled

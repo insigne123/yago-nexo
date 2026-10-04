@@ -1,0 +1,10 @@
+---
+- name: Reiniciar chrony
+  ansible.builtin.service:
+    name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+    state: restarted
+
+- name: Recargar NetworkManager
+  ansible.builtin.service:
+    name: NetworkManager
+    state: reloaded

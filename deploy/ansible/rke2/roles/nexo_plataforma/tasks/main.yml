@@ -1,0 +1,142 @@
+---
+- name: Crear la carpeta de trabajo
+  ansible.builtin.file:
+    path: "{{ nexo_plataforma_dir }}/valores"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Copiar el chart nexo-platform
+  ansible.builtin.copy:
+    src: "{{ nexo_plataforma_chart_origen }}"
+    dest: "{{ nexo_plataforma_dir }}/chart/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
+  register: nexo_plataforma_chart
+
+- name: Copiar los valores propios del sitio
+  ansible.builtin.copy:
+    src: "{{ nexo_plataforma_valores_sitio }}"
+    dest: "{{ nexo_plataforma_dir }}/valores/sitio.yaml"
+    owner: root
+    group: root
+    mode: "0640"
+  register: nexo_plataforma_valores_copiados
+  when:
+    - nexo_plataforma_valores_sitio | length > 0
+    - nexo_plataforma_valores_sitio is file
+
+- name: Crear el espacio de nombres con Pod Security {{ nexo_plataforma_pod_security }}
+  ansible.builtin.command:
+    cmd: "{{ nexo_plataforma_kubectl }} apply -f -"
+    stdin: "{{ lookup('ansible.builtin.template', 'namespace.yaml.j2') }}"
+  environment:
+    KUBECONFIG: "{{ nexo_plataforma_kubeconfig }}"
+  register: nexo_plataforma_ns
+  changed_when: "'unchanged' not in nexo_plataforma_ns.stdout"
+
+- name: Crear o actualizar los Secrets desde Ansible Vault
+  ansible.builtin.command:
+    cmd: "{{ nexo_plataforma_kubectl }} apply -f -"
+    stdin: "{{ lookup('ansible.builtin.template', 'secretos.yaml.j2') }}"
+  environment:
+    KUBECONFIG: "{{ nexo_plataforma_kubeconfig }}"
+  register: nexo_plataforma_secretos_aplicados
+  changed_when: nexo_plataforma_secretos_aplicados.stdout_lines | reject('search', 'unchanged') | list | length > 0
+  when: nexo_plataforma_secretos | length > 0
+  no_log: true
+
+- name: Verificar que existen los Secrets requeridos
+  ansible.builtin.command: >-
+    {{ nexo_plataforma_kubectl }} -n {{ nexo_plataforma_namespace }} get secret {{ item }} -o name
+  environment:
+    KUBECONFIG: "{{ nexo_plataforma_kubeconfig }}"
+  loop: "{{ nexo_plataforma_secretos_requeridos }}"
+  register: nexo_plataforma_secreto
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Detener si falta algún Secret
+  ansible.builtin.assert:
+    that: nexo_plataforma_faltantes | length == 0
+    fail_msg: >-
+      Faltan Secrets en {{ nexo_plataforma_namespace }}: {{ nexo_plataforma_faltantes | join(', ') }}.
+      Créelos con kubectl o agréguelos a nexo_plataforma_secretos (vault) y vuelva a ejecutar.
+    quiet: true
+  vars:
+    nexo_plataforma_faltantes: "{{ nexo_plataforma_secreto.results | selectattr('rc', 'ne', 0) | map(attribute='item') | list }}"
+
+- name: Revisar si el clúster tiene Prometheus Operator
+  ansible.builtin.command: "{{ nexo_plataforma_kubectl }} get crd servicemonitors.monitoring.coreos.com -o name"
+  environment:
+    KUBECONFIG: "{{ nexo_plataforma_kubeconfig }}"
+  register: nexo_plataforma_crd_monitoreo
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Avisar que los ServiceMonitor quedan apagados
+  ansible.builtin.debug:
+    msg: "El clúster no tiene la CRD ServiceMonitor: se instala sin ServiceMonitors (global.serviceMonitors.enabled=false)."
+  when: nexo_plataforma_crd_monitoreo.rc != 0
+
+- name: Leer el estado del release
+  ansible.builtin.command: >-
+    {{ nexo_plataforma_helm }} status {{ nexo_plataforma_release }} -n {{ nexo_plataforma_namespace }} -o json
+  environment:
+    KUBECONFIG: "{{ nexo_plataforma_kubeconfig }}"
+  register: nexo_plataforma_estado
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Decidir si hay que instalar o actualizar
+  ansible.builtin.set_fact:
+    nexo_plataforma_aplicar: >-
+      {{ nexo_plataforma_forzar | bool
+         or nexo_plataforma_chart is changed
+         or nexo_plataforma_valores_copiados is changed
+         or nexo_plataforma_secretos_aplicados is changed
+         or nexo_plataforma_estado.rc != 0
+         or (nexo_plataforma_estado.stdout | from_json).info.status != 'deployed' }}
+
+- name: Armar el comando de Helm
+  ansible.builtin.set_fact:
+    nexo_plataforma_argumentos: >-
+      {{ ['upgrade', '--install', nexo_plataforma_release, nexo_plataforma_dir ~ '/chart',
+          '--namespace', nexo_plataforma_namespace, '--wait', '--timeout', nexo_plataforma_espera]
+         + (nexo_plataforma_valores | map('regex_replace', '^', '--values=' ~ nexo_plataforma_dir ~ '/chart/') | list)
+         + (['--values=' ~ nexo_plataforma_dir ~ '/valores/sitio.yaml'] if nexo_plataforma_valores_copiados is not skipped else [])
+         + (['--set', 'global.serviceMonitors.enabled=false'] if nexo_plataforma_crd_monitoreo.rc != 0 else []) }}
+
+- name: Instalar o actualizar la plataforma (helm upgrade --install)
+  ansible.builtin.command:
+    argv: "{{ [nexo_plataforma_helm] + nexo_plataforma_argumentos }}"
+  environment:
+    KUBECONFIG: "{{ nexo_plataforma_kubeconfig }}"
+  register: nexo_plataforma_helm_salida
+  when: nexo_plataforma_aplicar | bool
+  changed_when: true
+
+- name: Mostrar el resultado de Helm
+  ansible.builtin.debug:
+    var: nexo_plataforma_helm_salida.stdout_lines
+  when: nexo_plataforma_aplicar | bool
+
+- name: Revisar los pods de la plataforma
+  ansible.builtin.command: >-
+    {{ nexo_plataforma_kubectl }} -n {{ nexo_plataforma_namespace }} get pods
+    -l app.kubernetes.io/instance={{ nexo_plataforma_release }} -o wide
+  environment:
+    KUBECONFIG: "{{ nexo_plataforma_kubeconfig }}"
+  register: nexo_plataforma_pods
+  changed_when: false
+  check_mode: false
+
+- name: Mostrar los pods
+  ansible.builtin.debug:
+    var: nexo_plataforma_pods.stdout_lines

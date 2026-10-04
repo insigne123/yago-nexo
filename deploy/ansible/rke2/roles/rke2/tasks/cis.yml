@@ -1,0 +1,10 @@
+---
+# Requisitos del perfil CIS de RKE2 (los parámetros del kernel los fija el rol preparar_host).
+- name: Crear el usuario etcd (servidores)
+  ansible.builtin.user:
+    name: etcd
+    comment: etcd user
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+  when: rke2_tipo == "server"

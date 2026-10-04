@@ -1,0 +1,5 @@
+---
+# Versión fija de Helm (binario oficial de get.helm.sh, verificado con su suma SHA-256).
+helm_version: v4.3.0
+helm_url_base: https://get.helm.sh
+helm_arquitectura: linux-amd64

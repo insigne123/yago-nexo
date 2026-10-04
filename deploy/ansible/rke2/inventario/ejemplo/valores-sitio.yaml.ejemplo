@@ -1,0 +1,15 @@
+# Valores del chart propios del sitio (nombres, direcciones y Secrets). Copie a valores-sitio.yaml y ajuste;
+# el playbook lo pasa al final de los archivos de valores. No lleva contraseñas.
+global:
+  imageRegistry: harbor.nexo.example
+  keycloak:
+    url: https://sso.nexo.example
+  dependencias:
+    postgresql:
+      host: postgresql-nexo.datos.svc
+apim:
+  controlPlane:
+    hostname: apim.nexo.example
+consola:
+  ingress:
+    host: consola.nexo.example

@@ -1,0 +1,31 @@
+---
+- name: Identificar el primer servidor
+  ansible.builtin.set_fact:
+    rke2_primer_servidor: "{{ groups['rke2_servidores'][0] }}"
+    rke2_es_primero: "{{ rke2_tipo == 'server' and inventory_hostname == groups['rke2_servidores'][0] }}"
+
+- name: Instalar o actualizar los binarios de RKE2
+  ansible.builtin.import_tasks: instalar.yml
+
+- name: Preparar el perfil CIS
+  ansible.builtin.import_tasks: cis.yml
+  when: rke2_perfil_cis | bool
+
+- name: Obtener el token del clúster
+  ansible.builtin.import_tasks: token.yml
+
+- name: Escribir la configuración de RKE2
+  ansible.builtin.import_tasks: configurar.yml
+
+- name: Activar e iniciar RKE2
+  ansible.builtin.systemd_service:
+    name: "rke2-{{ rke2_tipo }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Aplicar cambios de configuración pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: Esperar a que el nodo quede listo
+  ansible.builtin.import_tasks: esperar.yml

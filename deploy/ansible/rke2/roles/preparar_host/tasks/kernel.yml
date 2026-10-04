@@ -1,0 +1,19 @@
+---
+- name: Cargar los módulos del kernel que usa el CNI
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+    persistent: present
+  loop: [overlay, br_netfilter]
+
+- name: Fijar los parámetros del kernel
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/90-nexo-rke2.conf
+    sysctl_set: true
+    state: present
+    reload: true
+  loop: "{{ preparar_host_sysctl | dict2items + (preparar_host_sysctl_cis | dict2items if preparar_host_cis | bool else []) }}"
+  loop_control:
+    label: "{{ item.key }} = {{ item.value }}"

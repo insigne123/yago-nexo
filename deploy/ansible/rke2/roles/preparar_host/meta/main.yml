@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: preparar_host
+  namespace: nexo
+  author: Sociedad de Inversiones Yago SpA
+  description: Revisiones y preparación de máquinas virtuales para RKE2 (sistema operativo, kernel, hora, firewall y discos)
+  license: Apache-2.0
+  min_ansible_version: "2.16"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+    - name: Ubuntu
+      versions: [jammy, noble]
+    - name: SLES
+      versions: ["15"]
+dependencies: []

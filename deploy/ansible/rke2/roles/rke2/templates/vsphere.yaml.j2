@@ -1,0 +1,40 @@
+# {{ ansible_managed }}
+# Yago Nexo · valores de los charts de vSphere que trae RKE2 (cloud-provider-name: rancher-vsphere).
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rancher-vsphere-cpi
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    vCenter:
+      host: "{{ rke2_vsphere.vcenter }}"
+      port: {{ rke2_vsphere.puerto }}
+      insecureFlag: {{ (not (rke2_vsphere.verificar_tls | bool)) | lower }}
+      datacenters: "{{ rke2_vsphere.datacenter }}"
+      username: "{{ rke2_vsphere_usuario }}"
+      password: "{{ rke2_vsphere_password }}"
+      credentialsSecret:
+        generate: true
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rancher-vsphere-csi
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    vCenter:
+      host: "{{ rke2_vsphere.vcenter }}"
+      port: {{ rke2_vsphere.puerto }}
+      insecureFlag: {{ (not (rke2_vsphere.verificar_tls | bool)) | lower }}
+      datacenters: "{{ rke2_vsphere.datacenter }}"
+      username: "{{ rke2_vsphere_usuario }}"
+      password: "{{ rke2_vsphere_password }}"
+      configSecret:
+        generate: true
+    storageClass:
+      enabled: true
+      name: vsphere-csi
+      isDefault: true
+      datastoreURL: "{{ rke2_vsphere.datastore_url }}"

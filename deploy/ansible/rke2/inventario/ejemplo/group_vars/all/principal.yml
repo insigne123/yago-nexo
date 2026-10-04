@@ -1,0 +1,66 @@
+---
+# Yago Nexo · variables del sitio (CPD). Valores de ejemplo: reemplácelos por los del sitio.
+# Las contraseñas, tokens y llaves van en group_vars/all/vault.yml, cifrado con ansible-vault
+# (modelo: vault.yml.ejemplo).
+
+# ------------------------------------------------------------------ RKE2
+# Versión fija (canal "stable" de RKE2 al momento de escribir este instalador). Cambiarla es una actualización.
+rke2_version: v1.36.5+rke2r1
+# Perfil CIS de RKE2: endurece kubelet, API y etcd, y aplica Pod Security "restricted" en el clúster.
+rke2_perfil_cis: true
+rke2_cni: canal
+rke2_ingress: traefik
+# Dirección fija para registrar nodos y para la API (VIP o nombre DNS que apunta a los 3 servidores).
+rke2_direccion_registro: rke2.nexo.example
+rke2_tls_san:
+  - rke2.nexo.example
+  - 10.10.10.10
+# Registro de imágenes del sitio (Harbor). Vacío = registros públicos.
+rke2_registro_imagenes: harbor.nexo.example
+# Proveedor de nube vSphere (CPI y CSI de RKE2) para volúmenes persistentes en los datastores.
+rke2_vsphere:
+  habilitado: false
+  vcenter: vcenter.nexo.example
+  datacenter: CPD
+  datastore_url: ""
+  # Usuario y contraseña: rke2_vsphere_usuario y rke2_vsphere_password en vault.yml.
+
+# ------------------------------------------------------------------ preparación de los hosts
+preparar_host_cis: "{{ rke2_perfil_cis }}"
+preparar_host_ntp:
+  - ntp1.nexo.example
+  - ntp2.nexo.example
+# firewalld (RHEL, Rocky, Alma) | ufw (Ubuntu) | ninguno (firewall fuera de las máquinas)
+preparar_host_firewall: firewalld
+# Disco de datos de cada nodo: imágenes de contenedores, volúmenes locales y etcd.
+preparar_host_discos:
+  - dispositivo: /dev/sdb
+    punto_montaje: /var/lib/rancher
+    fs: xfs
+preparar_host_espacio_minimo_gb: 100
+
+# ------------------------------------------------------------------ Helm y plataforma
+helm_version: v4.3.0
+nexo_plataforma_release: nexo-platform
+nexo_plataforma_namespace: nexo
+# Archivos de valores del chart (en deploy/helm/nexo-platform), en orden.
+nexo_plataforma_valores:
+  - values-cpd.yaml
+# Valores propios del sitio (nombres, IP, Secrets), fuera del repositorio. Vacío = ninguno.
+nexo_plataforma_valores_sitio: "{{ inventory_dir }}/valores-sitio.yaml"
+# Secrets que deben existir en el espacio de nombres antes de instalar (los de texto los crea el playbook
+# desde vault.yml; los demás se crean con kubectl, ver README).
+nexo_plataforma_secretos_requeridos:
+  - nexo-apim
+  - nexo-bd-apim
+  - nexo-bd-mi
+  - nexo-bd-nexo
+  - nexo-mi
+  - nexo-rabbitmq
+  - nexo-keycloak-km
+  - nexo-continuidad
+  - nexo-opensearch
+  - nexo-wso2-almacen
+  - nexo-ca-interna
+  - nexo-tls
+  - harbor-nexo

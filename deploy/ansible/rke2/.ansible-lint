@@ -1,0 +1,6 @@
+---
+# Revisión del instalador con ansible-lint (perfil "production").
+profile: production
+exclude_paths:
+  - colecciones/
+  - inventario/ejemplo/group_vars/all/vault.yml.ejemplo

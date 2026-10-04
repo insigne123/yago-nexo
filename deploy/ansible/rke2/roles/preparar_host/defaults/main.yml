@@ -1,0 +1,66 @@
+---
+# Revisiones y preparación del sistema operativo de cada nodo RKE2.
+
+# Sistemas operativos admitidos (familia: versiones principales).
+preparar_host_so_admitidos:
+  RedHat: ["8", "9"]
+  Debian: ["22", "24"]
+  Suse: ["15"]
+# Recursos mínimos por grupo del inventario.
+preparar_host_minimos:
+  rke2_servidores: { vcpu: 4, memoria_mb: 15000 }
+  rke2_agentes: { vcpu: 8, memoria_mb: 30000 }
+preparar_host_espacio_minimo_gb: 100
+
+# Perfil CIS de RKE2 (parámetros de kernel que exige).
+preparar_host_cis: false
+
+preparar_host_ntp: []
+# firewalld | ufw | ninguno
+preparar_host_firewall: ninguno
+# Redes internas de RKE2 (pods y servicios); en firewalld van a la zona de confianza.
+preparar_host_redes_internas:
+  - 10.42.0.0/16
+  - 10.43.0.0/16
+
+# Discos de datos: [{dispositivo: /dev/sdb, punto_montaje: /var/lib/rancher, fs: xfs}]
+preparar_host_discos: []
+
+preparar_host_paquetes:
+  RedHat: [chrony, iptables, nfs-utils, open-vm-tools, container-selinux, tar, curl]
+  Debian: [chrony, iptables, nfs-common, open-vm-tools, tar, curl]
+  Suse: [chrony, iptables, nfs-client, open-vm-tools, tar, curl]
+
+preparar_host_sysctl:
+  net.ipv4.ip_forward: "1"
+  net.bridge.bridge-nf-call-iptables: "1"
+  net.bridge.bridge-nf-call-ip6tables: "1"
+  fs.inotify.max_user_instances: "8192"
+  fs.inotify.max_user_watches: "524288"
+  # OpenSearch y Elasticsearch lo exigen en los nodos donde corren.
+  vm.max_map_count: "262144"
+preparar_host_sysctl_cis:
+  vm.panic_on_oom: "0"
+  vm.overcommit_memory: "1"
+  kernel.panic: "10"
+  kernel.panic_on_oops: "1"
+
+# Puertos por grupo (TCP salvo indicación). Fuente: requisitos de red de RKE2 con Canal.
+preparar_host_puertos:
+  rke2_servidores:
+    - 6443/tcp
+    - 9345/tcp
+    - 2379-2381/tcp
+    - 10250/tcp
+    - 30000-32767/tcp
+    - 8472/udp
+    - 9099/tcp
+    - 80/tcp
+    - 443/tcp
+  rke2_agentes:
+    - 10250/tcp
+    - 30000-32767/tcp
+    - 8472/udp
+    - 9099/tcp
+    - 80/tcp
+    - 443/tcp

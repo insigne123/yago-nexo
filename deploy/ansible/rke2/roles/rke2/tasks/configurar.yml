@@ -1,0 +1,51 @@
+---
+- name: Crear la carpeta de configuración
+  ansible.builtin.file:
+    path: /etc/rancher/rke2
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Escribir config.yaml
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Reiniciar RKE2
+
+- name: Escribir registries.yaml (espejos de registros)
+  ansible.builtin.copy:
+    content: "{{ rke2_registros | to_nice_yaml(indent=2) }}"
+    dest: /etc/rancher/rke2/registries.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: rke2_registros | length > 0
+  notify: Reiniciar RKE2
+
+- name: Configurar el CPI y el CSI de vSphere
+  when:
+    - rke2_tipo == "server"
+    - rke2_vsphere.habilitado | bool
+  block:
+    - name: Crear la carpeta de manifiestos de RKE2
+      ansible.builtin.file:
+        path: /var/lib/rancher/rke2/server/manifests
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Escribir la configuración de los charts de vSphere
+      ansible.builtin.template:
+        src: vsphere.yaml.j2
+        dest: /var/lib/rancher/rke2/server/manifests/nexo-vsphere.yaml
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true

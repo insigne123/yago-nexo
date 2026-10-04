@@ -1,0 +1,13 @@
+---
+- name: Esperar a que el nodo esté Ready en el clúster
+  ansible.builtin.command: >-
+    {{ rke2_kubectl }} --kubeconfig {{ rke2_kubeconfig }}
+    get node {{ inventory_hostname }}
+    -o jsonpath={.status.conditions[?(@.type=="Ready")].status}
+  delegate_to: "{{ rke2_primer_servidor }}"
+  register: rke2_nodo
+  until: rke2_nodo.stdout == "True"
+  retries: "{{ (rke2_espera_nodo_segundos | int / 10) | int }}"
+  delay: 10
+  changed_when: false
+  check_mode: false

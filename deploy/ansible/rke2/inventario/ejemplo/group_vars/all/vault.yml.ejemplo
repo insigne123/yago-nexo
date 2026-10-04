@@ -1,0 +1,38 @@
+---
+# Modelo de group_vars/all/vault.yml. Copie, complete y cifre:
+#   cp vault.yml.ejemplo vault.yml && ansible-vault encrypt vault.yml
+# Este archivo de ejemplo no tiene valores reales y Ansible no lo carga (no termina en .yml).
+
+# Token compartido de RKE2 (genere uno largo y aleatorio: openssl rand -hex 32).
+rke2_token: "<definir>"
+
+# Solo si rke2_vsphere.habilitado es true.
+rke2_vsphere_usuario: "<definir>"
+rke2_vsphere_password: "<definir>"
+
+# Secrets de texto que el playbook crea en el espacio de nombres antes de instalar (stringData).
+# Los almacenes de llaves (JKS) y el certificado TLS se crean aparte con kubectl (ver README).
+nexo_plataforma_secretos:
+  nexo-apim:
+    admin-password: "<definir>"
+    encryption-key: "<64 caracteres hexadecimales>"
+  nexo-bd-apim:
+    username: apimadmin
+    password: "<definir>"
+  nexo-bd-mi:
+    username: mi
+    password: "<definir>"
+  nexo-bd-nexo:
+    username: nexo
+    password: "<definir>"
+  nexo-mi:
+    admin-password: "<definir>"
+  nexo-rabbitmq:
+    password: "<definir>"
+  nexo-keycloak-km:
+    client-secret: "<definir>"
+  nexo-continuidad:
+    primary-db-url: "postgres://<usuario>:<contraseña>@<primario>:5432/postgres"
+    replica-db-url: "postgres://<usuario>:<contraseña>@<réplica>:5432/postgres"
+    tsig.key: |
+      key "nexo-continuidad" { algorithm hmac-sha256; secret "<definir>"; };

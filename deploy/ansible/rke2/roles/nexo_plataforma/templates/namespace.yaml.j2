@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ nexo_plataforma_namespace }}
+  labels:
+    app.kubernetes.io/part-of: nexo-platform
+    pod-security.kubernetes.io/enforce: {{ nexo_plataforma_pod_security }}
+    pod-security.kubernetes.io/audit: {{ nexo_plataforma_pod_security }}
+    pod-security.kubernetes.io/warn: {{ nexo_plataforma_pod_security }}
