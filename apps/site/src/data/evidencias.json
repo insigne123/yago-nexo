@@ -3,28 +3,6 @@
   "generado": "2026-10-04T17:27:30.658Z",
   "evidencias": [
     {
-      "id": "X-00",
-      "title": "Prueba del estudio",
-      "claim": "El estudio graba la Consola en vivo con banner, rótulos y terminal.",
-      "file": "X-00_prueba.webm",
-      "duration_seconds": 21.1,
-      "frames": 527,
-      "sha256": "c2cf8148963c3295ee50353eba6b330662f6987345ee2795aa052046f07438fb",
-      "size_bytes": 2529034,
-      "version": "1.0.0",
-      "commit": "57d0029",
-      "recorded_at": "2026-10-04T13:26:27-03:00",
-      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "estudio operativo",
-      "checks": [
-        {
-          "texto": "docker responde",
-          "ok": true,
-          "detalle": "27 contenedores"
-        }
-      ]
-    },
-    {
       "id": "D-01",
       "title": "Descubrimiento automático de APIs no gobernadas",
       "claim": "El motor de descubrimiento recorre el perímetro (gateway APISIX y NGINX heredados, y servicios de la red autorizada), detecta las APIs que no están en el catálogo gobernado de WSO2, calcula su exposición y entrega el reporte en CSV y PDF.",
