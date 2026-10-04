@@ -1,0 +1,5 @@
+{
+  "$comment": "Licencias de paquetes npm que publican el campo 'license' fuera del estándar (pnpm las reporta como Unknown). Verificadas en el repositorio de origen.",
+  "khroma": { "licencia": "MIT", "motivo": "MIT declarada en el repositorio de origen (fabiospampinato/khroma); el package.json publicado omite el campo estándar. Dependencia transitiva de Mermaid (sitio)." },
+  "require-like": { "licencia": "MIT", "motivo": "MIT/dominio público (felixge/node-require-like); el package.json publicado omite el campo. Dependencia transitiva de herramientas de build." }
+}

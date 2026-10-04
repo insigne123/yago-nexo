@@ -1,0 +1,27 @@
+{
+  "$comment": "Componentes de ejecución que no vienen de npm (contenedores y bibliotecas Java empacadas). Las versiones están fijadas en deploy/compose. Entran al SBOM CycloneDX de cada versión.",
+  "componentes": [
+    { "nombre": "WSO2 API Manager", "version": "4.7.0", "licencia": "Apache-2.0", "purl": "pkg:docker/wso2/wso2am@4.7.0", "url": "https://github.com/wso2/product-apim", "rol": "Plano de control, Traffic Manager y gateway (base abierta)" },
+    { "nombre": "WSO2 Micro Integrator", "version": "4.6.0", "licencia": "Apache-2.0", "purl": "pkg:docker/wso2/micro-integrator@4.6.0", "url": "https://github.com/wso2/micro-integrator", "rol": "Integración y mediación (base abierta)" },
+    { "nombre": "WSO2 Universal Gateway", "version": "4.7.0", "licencia": "Apache-2.0", "purl": "pkg:docker/wso2/wso2am-universal-gw@4.7.0", "url": "https://github.com/wso2/product-apim", "rol": "Gateway dedicado por audiencia" },
+    { "nombre": "Keycloak", "version": "26.8", "licencia": "Apache-2.0", "purl": "pkg:docker/keycloak/keycloak@26.8", "url": "https://github.com/keycloak/keycloak", "rol": "Identidad y Key Manager (SSO institucional)" },
+    { "nombre": "PostgreSQL", "version": "16", "licencia": "PostgreSQL", "purl": "pkg:docker/library/postgres@16-alpine", "url": "https://www.postgresql.org", "rol": "Base de datos de la Consola, WSO2 y el Integrador" },
+    { "nombre": "Envoy", "version": "1.38.5", "licencia": "Apache-2.0", "purl": "pkg:docker/envoyproxy/envoy@v1.38.5", "url": "https://github.com/envoyproxy/envoy", "rol": "nexo-division: división de tráfico de los despliegues progresivos (D-04)" },
+    { "nombre": "RabbitMQ", "version": "4.3", "licencia": "MPL-2.0", "purl": "pkg:docker/library/rabbitmq@4.3-management", "url": "https://github.com/rabbitmq/rabbitmq-server", "rol": "Mensajería con colas de reintento y cola de fallidos" },
+    { "nombre": "OpenSearch", "version": "3.9.0", "licencia": "Apache-2.0", "purl": "pkg:docker/opensearchproject/opensearch@3.9.0", "url": "https://github.com/opensearch-project/OpenSearch", "rol": "Analítica del gateway y almacén del SIEM de laboratorio" },
+    { "nombre": "OpenSearch Dashboards", "version": "3.9.0", "licencia": "Apache-2.0", "purl": "pkg:docker/opensearchproject/opensearch-dashboards@3.9.0", "url": "https://github.com/opensearch-project/OpenSearch-Dashboards", "rol": "Exploración de la analítica" },
+    { "nombre": "Prometheus", "version": "3.13.4", "licencia": "Apache-2.0", "purl": "pkg:docker/prom/prometheus@v3.13.4", "url": "https://github.com/prometheus/prometheus", "rol": "Métricas de la plataforma y de los motores" },
+    { "nombre": "Alertmanager", "version": "0.34.1", "licencia": "Apache-2.0", "purl": "pkg:docker/prom/alertmanager@v0.34.1", "url": "https://github.com/prometheus/alertmanager", "rol": "Enrutamiento de alertas a la mesa y al SIEM" },
+    { "nombre": "Grafana", "version": "13.0.10", "licencia": "AGPL-3.0-only", "purl": "pkg:docker/grafana/grafana@13.0.10", "url": "https://github.com/grafana/grafana", "rol": "Tableros (se ejecuta sin modificaciones, como servicio separado)" },
+    { "nombre": "OpenTelemetry Collector (contrib)", "version": "0.161.0", "licencia": "Apache-2.0", "purl": "pkg:docker/otel/opentelemetry-collector-contrib@0.161.0", "url": "https://github.com/open-telemetry/opentelemetry-collector-contrib", "rol": "Recolección de trazas" },
+    { "nombre": "Jaeger", "version": "2.21.0", "licencia": "Apache-2.0", "purl": "pkg:docker/jaegertracing/jaeger@2.21.0", "url": "https://github.com/jaegertracing/jaeger", "rol": "Trazas de extremo a extremo" },
+    { "nombre": "Fluent Bit", "version": "5.1.3", "licencia": "Apache-2.0", "purl": "pkg:docker/fluent/fluent-bit@5.1.3", "url": "https://github.com/fluent/fluent-bit", "rol": "Envío de logs y métricas; receptor syslog del SIEM" },
+    { "nombre": "etcd", "version": "3.6.5", "licencia": "Apache-2.0", "purl": "pkg:docker/coreos/etcd@v3.6.5", "url": "https://github.com/etcd-io/etcd", "rol": "Anclaje de quórum de los agentes de continuidad (D-05)" },
+    { "nombre": "CoreDNS", "version": "1.12.0", "licencia": "Apache-2.0", "purl": "pkg:docker/coredns/coredns@1.12.0", "url": "https://github.com/coredns/coredns", "rol": "Resolución del sitio activo en el laboratorio de continuidad" },
+    { "nombre": "Apache APISIX", "version": "3.19.0", "licencia": "Apache-2.0", "purl": "pkg:docker/apache/apisix@3.19.0-debian", "url": "https://github.com/apache/apisix", "rol": "Plataforma \"actual\" simulada para el descubrimiento (D-01)" },
+    { "nombre": "NGINX", "version": "1.27", "licencia": "BSD-2-Clause", "purl": "pkg:docker/library/nginx@alpine", "url": "https://nginx.org", "rol": "Plataforma \"actual\" simulada para el descubrimiento (D-01)" },
+    { "nombre": "PostgreSQL JDBC Driver", "version": "42.7.13", "licencia": "BSD-2-Clause", "purl": "pkg:maven/org.postgresql/postgresql@42.7.13", "url": "https://github.com/pgjdbc/pgjdbc", "rol": "Controlador JDBC empacado en las imágenes WSO2" },
+    { "nombre": "rgxgen", "version": "1.4", "licencia": "Apache-2.0", "purl": "pkg:maven/com.github.curious-odd-man/rgxgen@1.4", "url": "https://github.com/curious-odd-man/RgxGen", "rol": "Biblioteca empacada en WSO2 API Manager" },
+    { "nombre": "JMX Prometheus Java Agent", "version": "1.0.1", "licencia": "Apache-2.0", "purl": "pkg:maven/io.prometheus.jmx/jmx_prometheus_javaagent@1.0.1", "url": "https://github.com/prometheus/jmx_exporter", "rol": "Exportador JMX empacado en WSO2 API Manager" }
+  ]
+}

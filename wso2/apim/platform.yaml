@@ -59,7 +59,7 @@ workflows:
 governance:
   rulesets:
     - name: Nexo · Guía de estilo institucional
-      file: governance/guia-estilo-subtel.yaml
+      file: governance/guia-estilo-institucional.yaml
       ruleType: API_DEFINITION
       artifactType: REST_API
       description: Guía de estilo de contratos OpenAPI de Yago Nexo, configurable por la institución.

@@ -34,7 +34,10 @@
       "nombre": "Laboratorio local con Docker Compose",
       "descripcion": "Levanta en una sola máquina la base de Nexo para desarrollo y pruebas, con perfiles opcionales de observabilidad y de plataforma existente.",
       "estado": "Disponible",
-      "evidencia": ["deploy/compose/docker-compose.yml", "deploy/compose/Makefile"]
+      "evidencia": [
+        "deploy/compose/docker-compose.yml",
+        "deploy/compose/Makefile"
+      ]
     },
     {
       "id": "apim-postgresql",
@@ -53,7 +56,10 @@
       "nombre": "Keycloak como Key Manager",
       "descripcion": "Las aplicaciones consumidoras obtienen sus credenciales y tokens OAuth 2.0 desde Keycloak, y el gateway valida esos tokens.",
       "estado": "Disponible",
-      "evidencia": ["tools/lab-bootstrap/src/index.ts", "deploy/compose/keycloak/realm-nexo.json"]
+      "evidencia": [
+        "tools/lab-bootstrap/src/index.ts",
+        "deploy/compose/keycloak/realm-nexo.json"
+      ]
     },
     {
       "id": "api-ejemplo-e2e",
@@ -61,7 +67,10 @@
       "nombre": "API de ejemplo publicada desde OpenAPI y verificada de punta a punta",
       "descripcion": "Un script importa el contrato OpenAPI de una API de ejemplo, la publica en el gateway con un backend de ejemplo, crea una aplicación suscrita y comprueba la llamada con un token de Keycloak.",
       "estado": "Disponible",
-      "evidencia": ["tools/lab-bootstrap/src/index.ts", "services/demo-backends/src/server.ts"]
+      "evidencia": [
+        "tools/lab-bootstrap/src/index.ts",
+        "services/demo-backends/src/server.ts"
+      ]
     },
     {
       "id": "analitica-opensearch",
@@ -80,7 +89,9 @@
       "nombre": "Trazas con OpenTelemetry y Jaeger",
       "descripcion": "API Manager y Micro Integrator envían trazas al OpenTelemetry Collector, que las entrega a Jaeger.",
       "estado": "Disponible",
-      "evidencia": ["deploy/compose/otel/config.yaml"]
+      "evidencia": [
+        "deploy/compose/otel/config.yaml"
+      ]
     },
     {
       "id": "metricas-basicas",
@@ -114,56 +125,86 @@
       "nombre": "Cliente @nexo/wso2-client",
       "descripcion": "Cliente TypeScript de las REST API de API Manager (Publisher, Admin y Dev Portal) y de la Management API de Micro Integrator.",
       "estado": "Disponible",
-      "evidencia": ["packages/wso2-client/src/client.ts", "packages/wso2-client/src/mi.ts"]
+      "evidencia": [
+        "packages/wso2-client/src/client.ts",
+        "packages/wso2-client/src/mi.ts"
+      ]
     },
     {
       "id": "politicas-gateway",
       "grupo": "nucleo",
       "nombre": "Catálogo de políticas del gateway",
       "descripcion": "OAuth 2.0, JWT, API key y mTLS; límites de uso y cuotas; tiempos de espera, reintentos acotados y suspensión de endpoints; límites de tamaño y CORS.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "wso2/apim/platform.yaml",
+        "tools/nexo-ctl/src/commands/platform.ts"
+      ]
     },
     {
       "id": "audiencias",
       "grupo": "nucleo",
       "nombre": "Exposición por audiencias",
       "descripcion": "Gateways y portales separados para uso interno, entidades externas autorizadas y público, con visibilidad por rol en el Dev Portal.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "deploy/compose/gateway-publico/Dockerfile",
+        "tools/lab-bootstrap/src/check-audiencias.ts"
+      ]
     },
     {
       "id": "flujos-integracion",
       "grupo": "nucleo",
       "nombre": "Flujos de integración con Micro Integrator",
       "descripcion": "Validación (JSON Schema y XSD), transformación y orquestación REST, SOAP y colas RabbitMQ, con manejo de errores, mensajes fallidos e idempotencia.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "wso2/mi/artifacts/api/SolicitudesConcesionAPI.xml",
+        "tools/lab-bootstrap/src/check-integracion.ts"
+      ]
     },
     {
       "id": "gobierno-contratos",
       "grupo": "nucleo",
       "nombre": "Gobierno de contratos y promoción entre ambientes",
       "descripcion": "Guía de estilo de contratos que bloquea el pipeline si no se cumple, promoción desarrollo → QA → producción sin editar producción y reversa a la revisión anterior.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "wso2/apim/governance/guia-estilo-institucional.yaml",
+        "tools/nexo-ctl/src/commands/api.ts"
+      ]
     },
     {
       "id": "graphql-asyncapi",
       "grupo": "nucleo",
       "nombre": "APIs GraphQL y de eventos",
       "descripcion": "Publicación de APIs GraphQL y de APIs de eventos (WebSocket y WebSub) descritas con AsyncAPI.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "wso2/apim/apis/concesiones-graphql/api.yaml",
+        "tools/lab-bootstrap/src/check-d06.ts"
+      ]
     },
     {
       "id": "sdk",
       "grupo": "nucleo",
       "nombre": "Generación de SDK",
       "descripcion": "SDK para consumidores en Java, JavaScript, Python, C# y Android, descargables desde el Dev Portal.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "tools/lab-bootstrap/src/check-d07.ts"
+      ]
     },
     {
       "id": "aprobaciones",
       "grupo": "nucleo",
       "nombre": "Flujos de aprobación",
       "descripcion": "Aprobación del registro de usuarios, de la creación de aplicaciones y de las suscripciones.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "wso2/apim/workflows/workflow-extensions.xml",
+        "tools/lab-bootstrap/src/index.ts"
+      ]
     },
     {
       "id": "sso-keycloak",
@@ -177,49 +218,78 @@
       "grupo": "nucleo",
       "nombre": "Tableros y diccionario de métricas",
       "descripcion": "Consumo, disponibilidad, latencias p50/p95/p99, errores, saturación y estado de componentes, y traza de punta a punta gateway → integración → cola → backend.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "deploy/compose/grafana/dashboards/nexo-plataforma.json",
+        "deploy/compose/prometheus/prometheus.yml"
+      ]
     },
     {
       "id": "consola",
       "grupo": "capa-yago",
       "nombre": "Consola Nexo (interfaz web y API)",
       "descripcion": "Interfaz y API propias para gobernar la plataforma: catálogo, impacto, consumo, auditoría, continuidad y administración. Su contrato OpenAPI ya está publicado como diseño.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "apps/console-api/src/main.ts",
+        "apps/console-web/src/main.tsx",
+        "tools/lab-bootstrap/src/check-consola.ts"
+      ]
     },
     {
       "id": "catalogo-impacto",
       "grupo": "capa-yago",
       "nombre": "Catálogo con dueños y análisis de impacto",
       "descripcion": "Ficha de cada API (propósito, dueño, contrato, consumidores y dependencias) con porcentaje de completitud, y simulación del impacto de un cambio.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "apps/console-api/src/modules/catalog-graph.ts",
+        "apps/console-api/src/modules/catalog-graph.test.ts"
+      ]
     },
     {
       "id": "motor-descubrimiento",
       "grupo": "capa-yago",
       "nombre": "Descubrimiento de APIs no gobernadas",
       "descripcion": "Detecta APIs publicadas fuera de la plataforma (otros gateways, servidores web y servicios en la nube) y calcula su nivel de exposición.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "services/engines/src/discovery/engine.ts",
+        "tools/lab-bootstrap/src/check-d01.ts"
+      ]
     },
     {
       "id": "motor-anomalias",
       "grupo": "capa-yago",
       "nombre": "Detección de anomalías con bloqueo",
       "descripcion": "Líneas base por API y consumidor; alerta o bloqueo (automático con duración limitada o con aprobación) mediante políticas de denegación del gateway.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "services/engines/src/guardian/engine.ts",
+        "tools/lab-bootstrap/src/check-d02.ts"
+      ]
     },
     {
       "id": "motor-despliegues",
       "grupo": "capa-yago",
       "nombre": "Despliegues progresivos con reversa automática",
       "descripcion": "Canary por pasos y blue-green, con avance según umbrales de errores y latencia, y vuelta atrás automática si un paso falla.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "services/engines/src/rollout/engine.ts",
+        "tools/lab-bootstrap/src/check-d04.ts"
+      ]
     },
     {
       "id": "motor-continuidad",
       "grupo": "capa-yago",
       "nombre": "Conmutación automática CPD ↔ Google Cloud",
       "descripcion": "Agentes en ambos sitios y un testigo; conmuta solo con quórum de 2 de 3 votos, registra el RTO y el RPO medidos y guía el retorno con aprobación.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "services/engines/src/continuity/engine.ts",
+        "tools/lab-bootstrap/src/check-d05.ts"
+      ]
     },
     {
       "id": "linaje",
@@ -233,21 +303,32 @@
       "grupo": "capa-yago",
       "nombre": "Consumo atribuido",
       "descripcion": "Consumo por consumidor, API y endpoint, con exportación. Sin cobro.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "apps/console-api/src/modules/usage.ts"
+      ]
     },
     {
       "id": "mensajes-fallidos",
       "grupo": "capa-yago",
       "nombre": "Mensajes fallidos con reproceso autorizado",
       "descripcion": "Cola de mensajes no procesados y reproceso con aprobación, que queda auditado.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "apps/console-api/src/modules/dead-letters.ts"
+      ]
     },
     {
       "id": "auditoria-centralizada",
       "grupo": "capa-yago",
       "nombre": "Auditoría centralizada e íntegra",
       "descripcion": "Eventos de auditoría con secuencia y hash encadenado, enviados al SIEM de la institución con buffer en disco y verificables desde la Consola.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "services/engines/src/siem/engine.ts",
+        "packages/console-db/src/audit-store.ts",
+        "tools/lab-bootstrap/src/check-siem.ts"
+      ]
     },
     {
       "id": "enmascaramiento-logs",
@@ -261,7 +342,10 @@
       "grupo": "capa-yago",
       "nombre": "Exportación y reconstrucción",
       "descripcion": "Paquete exportable en formatos documentados (OpenAPI, AsyncAPI, políticas y artefactos de integración) y prueba de reconstrucción en un ambiente limpio.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "apps/console-api/src/modules/platform.ts"
+      ]
     },
     {
       "id": "helm",
@@ -310,7 +394,11 @@
       "grupo": "operacion",
       "nombre": "SBOM CycloneDX y firma de versiones",
       "descripcion": "Cada versión publica su inventario de componentes en formato CycloneDX, sumas de verificación y la firma de sus imágenes.",
-      "estado": "En desarrollo"
+      "estado": "Disponible",
+      "evidencia": [
+        "tools/release/generar-sbom.mjs",
+        "release/1.0.0/sbom-nexo-1.0.0.cdx.json"
+      ]
     },
     {
       "id": "pruebas-aceptacion",

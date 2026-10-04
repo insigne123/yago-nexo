@@ -1,6 +1,6 @@
 {
   "name": "@nexo/site",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Sitio público y documentación de Yago Nexo (Docusaurus, estático, sin servicios externos)",
   "license": "SEE LICENSE IN ../../LICENSE",

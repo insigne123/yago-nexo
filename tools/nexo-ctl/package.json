@@ -1,6 +1,6 @@
 {
   "name": "@nexo/nexo-ctl",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "CLI de Yago Nexo: configuración de la plataforma, validación de contratos, despliegue, promoción, reversa y exportación (BT-015, BT-016, BT-017, BT-049, D-03)",

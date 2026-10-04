@@ -39,7 +39,7 @@ const api = program.command("api").description("Ciclo de vida de APIs");
 api
   .command("lint <contrato>")
   .description("Valida un contrato OpenAPI contra la guía de estilo (D-03); termina con error si no cumple")
-  .option("-r, --ruleset <archivo>", "guía de estilo", "wso2/apim/governance/guia-estilo-subtel.yaml")
+  .option("-r, --ruleset <archivo>", "guía de estilo", "wso2/apim/governance/guia-estilo-institucional.yaml")
   .action((contrato: string, o: { ruleset: string }) =>
     run(() => {
       if (!runLint(resolve(contrato), { ruleset: resolve(o.ruleset) })) process.exitCode = 2;
@@ -50,7 +50,7 @@ api
   .description("Valida, versiona y despliega un proyecto de API en una etapa")
   .requiredOption("-s, --stage <etapa>", "etapa (dev, qa, prod)")
   .option("-m, --message <texto>", "descripción de la revisión", "Despliegue por pipeline")
-  .option("-r, --ruleset <archivo>", "guía de estilo", "wso2/apim/governance/guia-estilo-subtel.yaml")
+  .option("-r, --ruleset <archivo>", "guía de estilo", "wso2/apim/governance/guia-estilo-institucional.yaml")
   .action((proyecto: string, o: { stage: string; message: string; ruleset: string }) =>
     run(async () => {
       const cfg = loadConfig(program.opts().config);

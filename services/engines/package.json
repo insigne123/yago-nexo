@@ -1,6 +1,6 @@
 {
   "name": "@nexo/engines",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Motores de Nexo: descubrimiento (D-01), guardián de anomalías (D-02), despliegues progresivos (D-04), reenvío al SIEM y agentes de continuidad (D-05)",

@@ -18,7 +18,8 @@
     "format:check": "prettier --check .",
     "lab:up": "make -C deploy/compose up",
     "lab:down": "make -C deploy/compose down",
-    "lab:status": "make -C deploy/compose status"
+    "lab:status": "make -C deploy/compose status",
+    "sbom": "node tools/release/generar-sbom.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
