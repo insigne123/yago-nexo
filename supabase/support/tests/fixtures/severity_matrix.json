@@ -1,0 +1,364 @@
+{
+  "descripcion": "Matriz completa (32 combinaciones) de classifySeverity de packages/shared/src/severity.ts. La verifican la prueba de Vitest de apps/support-web (contra TypeScript) y supabase/support/tests/02_clasificacion.sql (contra nexo_private.sd_classify). Se regenera con supabase/support/tests/fixtures/generate-severity-matrix.mjs.",
+  "claves": [
+    "esConsultaOCambio",
+    "servicioProductivoCaido",
+    "existeAlternativa",
+    "degradacionOSeguridad",
+    "soloNoProductivoOMenor"
+  ],
+  "casos": [
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S3",
+      "rule": "Falla sin impacto productivo declarado"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S3",
+      "rule": "Falla en no productivo o funcionalidad no crítica"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S2",
+      "rule": "Degradación medible en producción o riesgo de seguridad activo"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S2",
+      "rule": "Degradación medible en producción o riesgo de seguridad activo"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S3",
+      "rule": "Falla sin impacto productivo declarado"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S3",
+      "rule": "Falla en no productivo o funcionalidad no crítica"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S2",
+      "rule": "Degradación medible en producción o riesgo de seguridad activo"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S2",
+      "rule": "Degradación medible en producción o riesgo de seguridad activo"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S1",
+      "rule": "Servicio productivo caído y sin alternativa operativa"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S1",
+      "rule": "Servicio productivo caído y sin alternativa operativa"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S1",
+      "rule": "Servicio productivo caído y sin alternativa operativa"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S1",
+      "rule": "Servicio productivo caído y sin alternativa operativa"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S2",
+      "rule": "Servicio productivo caído con alternativa operativa"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S2",
+      "rule": "Servicio productivo caído con alternativa operativa"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S2",
+      "rule": "Servicio productivo caído con alternativa operativa"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": false,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S2",
+      "rule": "Servicio productivo caído con alternativa operativa"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": false,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": false,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": false,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": false
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    },
+    {
+      "answers": {
+        "esConsultaOCambio": true,
+        "servicioProductivoCaido": true,
+        "existeAlternativa": true,
+        "degradacionOSeguridad": true,
+        "soloNoProductivoOMenor": true
+      },
+      "severity": "S4",
+      "rule": "Consulta o solicitud de cambio sin falla"
+    }
+  ]
+}
