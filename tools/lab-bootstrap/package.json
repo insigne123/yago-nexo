@@ -15,7 +15,9 @@
     "check:consola": "tsx src/check-consola.ts",
     "carga": "tsx src/carga.ts",
     "check:d04": "tsx src/check-d04.ts",
-    "check:d02": "tsx src/check-d02.ts"
+    "check:d02": "tsx src/check-d02.ts",
+    "legado": "tsx src/legacy.ts",
+    "check:d01": "tsx src/check-d01.ts"
   },
   "dependencies": {
     "@nexo/wso2-client": "workspace:*",

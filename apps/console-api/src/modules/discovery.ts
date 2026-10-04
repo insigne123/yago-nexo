@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Header, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query, Res, StreamableFile } from "@nestjs/common";
+import type { Response } from "express";
 import { z } from "zod";
 import type { Db } from "@nexo/console-db";
 import { CurrentUser, RequirePermission, type AuthUser } from "../auth/auth.js";
 import { AuditService } from "../common/audit.service.js";
 import { DB } from "../common/tokens.js";
 import { parse } from "../common/validation.js";
+import { config } from "../config.js";
+import { discoveryReportPdf, type ReportFinding } from "./report-pdf.js";
 
 /** Descubrimiento de APIs no gobernadas (D-01). El motor nexo-discovery ejecuta los escaneos pendientes. */
 const ScanSchema = z.object({
@@ -46,6 +49,8 @@ const findingRow = (r: Record<string, unknown>) => ({
   reasons: r.reasons,
   status: r.status,
   note: r.note ?? undefined,
+  evidence: r.evidence ?? {},
+  observedCalls: r.observed_calls ?? 0,
   firstSeen: r.first_seen,
   lastSeen: r.last_seen,
 });
@@ -99,26 +104,39 @@ export class DiscoveryController {
 
   @Get("report")
   @RequirePermission("discovery:read")
-  @Header("cache-control", "no-store")
-  async report(@Query("format") format = "json") {
-    const res = await this.db.query("SELECT * FROM nexo.discovery_finding ORDER BY exposure_score DESC");
-    const rows = res.rows.map(findingRow);
-    if (format !== "csv") {
-      return {
-        generadoEn: new Date().toISOString(),
-        total: rows.length,
-        noGobernados: rows.filter((r) => !r.matchedApiId).length,
-        riesgoAlto: rows.filter((r) => Number(r.exposureScore) >= 70).length,
-        hallazgos: rows,
-      };
+  async report(@Res({ passthrough: true }) res: Response, @Query("format") format = "json") {
+    res.setHeader("cache-control", "no-store");
+    const result = await this.db.query("SELECT * FROM nexo.discovery_finding ORDER BY exposure_score DESC, last_seen DESC");
+    const rows = result.rows.map(findingRow);
+    const generatedAt = new Date().toISOString();
+    if (format === "pdf") {
+      const pdf = await discoveryReportPdf({ environment: config.environmentLabel, generatedAt, findings: rows as unknown as ReportFinding[] });
+      res.setHeader("content-type", "application/pdf");
+      res.setHeader("content-disposition", 'attachment; filename="exposicion-apis-nexo.pdf"');
+      return new StreamableFile(Buffer.from(pdf));
     }
-    const head = ["fuente", "host", "puerto", "ruta", "autenticacion", "tls", "datos_personales", "api_gobernada", "puntaje", "motivos", "estado"];
-    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = rows.map((r) =>
-      [r.source, r.host, r.port, r.path, r.authDetected, r.tls, r.personalDataSuspected ? "si" : "no", r.matchedApiId ?? "", r.exposureScore, (r.reasons as string[]).join("; "), r.status]
-        .map(esc)
-        .join(","),
-    );
-    return [head.join(","), ...lines].join("\n");
+    if (format === "csv") {
+      res.setHeader("content-type", "text/csv; charset=utf-8");
+      res.setHeader("content-disposition", 'attachment; filename="exposicion-apis-nexo.csv"');
+      const head = ["fuente", "host", "puerto", "ruta", "autenticacion", "tls", "datos_personales", "api_gobernada", "puntaje", "motivos", "estado"];
+      // Celdas seguras para planillas: comillas escapadas y sin fórmulas.
+      const esc = (v: unknown) => {
+        const t = String(v ?? "");
+        return `"${(/^[=+\-@\t\r]/.test(t) ? `'${t}` : t).replace(/"/g, '""')}"`;
+      };
+      const lines = rows.map((r) =>
+        [r.source, r.host, r.port, r.path, r.authDetected, r.tls, r.personalDataSuspected ? "si" : "no", r.matchedApiId ?? "", r.exposureScore, (r.reasons as string[]).join("; "), r.status]
+          .map(esc)
+          .join(","),
+      );
+      return [head.join(","), ...lines].join("\n");
+    }
+    return {
+      generadoEn: generatedAt,
+      total: rows.length,
+      noGobernados: rows.filter((r) => !r.matchedApiId).length,
+      riesgoAlto: rows.filter((r) => Number(r.exposureScore) >= 70).length,
+      hallazgos: rows,
+    };
   }
 }

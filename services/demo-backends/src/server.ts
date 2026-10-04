@@ -197,10 +197,56 @@ async function registroHandler(req: IncomingMessage, res: ServerResponse, url: U
 
 // ------------------------------------------------------------------ APIs no gobernadas (D-01)
 
-async function ocultasHandler(_req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+/** Contrato OpenAPI que la API directa de espectro publica en la ruta típica (/openapi.json). */
+const ESPECTRO_OPENAPI = {
+  openapi: "3.0.3",
+  info: { title: "Asignaciones de espectro (sistema departamental)", version: "1.2.0" },
+  paths: {
+    "/espectro/asignaciones": {
+      get: {
+        summary: "Asignaciones vigentes con su titular",
+        responses: { "200": { description: "ok", content: { "application/json": { schema: { $ref: "#/components/schemas/Asignaciones" } } } } },
+      },
+    },
+    "/espectro/asignaciones/{id}": {
+      get: { parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "ok" } } },
+    },
+  },
+  components: {
+    schemas: {
+      Asignaciones: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                banda: { type: "string" },
+                region: { type: "string" },
+                titular: { type: "object", properties: { nombre: { type: "string" }, rut: { type: "string" }, email: { type: "string" } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+async function ocultasHandler(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   if (url.pathname === "/interno/reportes/titulares") {
     // Expone datos personales sin autenticación: el motor de descubrimiento debe marcarla con riesgo alto.
     return send(res, 200, { items: Array.from({ length: 5 }, () => data.person()) });
+  }
+  // API "directa" (sin gateway): publica su contrato y entrega titulares con RUT y correo.
+  if (url.pathname === "/openapi.json") return send(res, 200, ESPECTRO_OPENAPI);
+  if (url.pathname === "/espectro/asignaciones") {
+    return send(res, 200, { items: Array.from({ length: 3 }, (_, i) => ({ banda: ["700 MHz", "3,5 GHz", "26 GHz"][i], region: "Biobío", titular: data.person() })) });
+  }
+  // Detrás de APISIX con key-auth (la verificación de la llave la hace APISIX).
+  if (url.pathname === "/fiscalizacion/inspecciones") {
+    return send(res, 200, { items: [{ id: "INS-2026-0041", operador: "Red Austral", resultado: "observada" }], via: req.headers["x-forwarded-for"] ? "apisix" : "directo" });
   }
   if (url.pathname === "/legacy/tarifas") return send(res, 200, { tarifas: [{ plan: "base", valor: 9990 }] });
   if (url.pathname === "/legacy/v2/api-docs") {

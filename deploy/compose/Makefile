@@ -2,7 +2,7 @@
 COMPOSE = docker compose --env-file .env
 PROFILES ?= --profile obs --profile legacy
 
-.PHONY: env build up core down clean status logs bootstrap hosts platform deploy-apis
+.PHONY: env build up core down clean status logs bootstrap legado hosts platform deploy-apis
 
 env:
 	@test -f .env || cp .env.example .env
@@ -39,6 +39,10 @@ logs:
 ## Configura WSO2 y Keycloak (Key Manager, APIs de ejemplo, aplicación y suscripción)
 bootstrap:
 	cd ../.. && pnpm --filter @nexo/lab-bootstrap start
+
+## Siembra la plataforma "actual" (APISIX y tráfico por el NGINX heredado) para D-01 (perfil legacy)
+legado:
+	cd ../.. && set -a && . deploy/compose/.env && set +a && pnpm --filter @nexo/lab-bootstrap legado
 
 ## Aplica la plataforma como código (ambientes, tráfico, aprobaciones y gobierno)
 platform:

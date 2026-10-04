@@ -140,11 +140,24 @@ paths:
   /discovery/report:
     get:
       tags: [descubrimiento]
-      summary: Reporte de exposición
+      summary: Reporte de exposición (JSON, CSV o PDF)
       parameters:
-        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv, pdf], default: json } }
       responses:
-        "200": { description: OK }
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  generadoEn: { type: string, format: date-time }
+                  total: { type: integer }
+                  noGobernados: { type: integer }
+                  riesgoAlto: { type: integer }
+                  hallazgos: { type: array, items: { $ref: "#/components/schemas/DiscoveryFinding" } }
+            text/csv: { schema: { type: string } }
+            application/pdf: { schema: { type: string, format: binary } }
 
   /anomaly-rules:
     get:
@@ -641,13 +654,18 @@ components:
         path: { type: string }
         protocol: { type: string }
         specFound: { type: boolean }
-        authDetected: { type: string, enum: [ninguna, basica, token, mtls, desconocida] }
+        authDetected:
+          type: string
+          description: "ninguna, requerida o desconocida; cuando se conoce, con el mecanismo (p. ej. «requerida · APISIX (key-auth)»)"
+          example: "requerida · APISIX (key-auth)"
         tls: { type: string }
         personalDataSuspected: { type: boolean }
         matchedApiId: { type: string }
         exposureScore: { type: integer, minimum: 0, maximum: 100 }
         reasons: { type: array, items: { type: string } }
         status: { $ref: "#/components/schemas/FindingStatus" }
+        evidence: { type: object, additionalProperties: true, description: "Origen del hallazgo: archivo y location de NGINX, ruta y plugins de APISIX, contrato encontrado, destino, respuesta sin credenciales" }
+        observedCalls: { type: integer, description: "Llamadas vistas en el registro de accesos (NGINX)" }
         firstSeen: { type: string, format: date-time }
         lastSeen: { type: string, format: date-time }
     AnomalyRuleInput:
