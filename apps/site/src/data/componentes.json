@@ -1,0 +1,170 @@
+{
+  "$comment": "Componentes de terceros y su licencia. La columna 'En el laboratorio' NO se escribe a mano: scripts/gen-repo-docs.mjs la calcula desde deploy/compose (imagen del servicio, imagen base del Dockerfile o ARG del Dockerfile). Sin 'laboratorio' = no incluido todavía.",
+  "componentes": [
+    {
+      "funcion": "Gateway, Publisher, Dev Portal, Admin y Key Manager",
+      "componente": "WSO2 API Manager: Control Plane, Traffic Manager y Universal Gateway",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "apim" },
+      "nota": "En el laboratorio se usa la distribución todo en uno; en producción los perfiles van separados."
+    },
+    {
+      "funcion": "Motor de integración",
+      "componente": "WSO2 Micro Integrator",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "mi" }
+    },
+    {
+      "funcion": "Identidad: Key Manager e inicio de sesión",
+      "componente": "Keycloak",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "keycloak" },
+      "nota": "En producción se conecta al Keycloak de la institución."
+    },
+    {
+      "funcion": "Base de datos",
+      "componente": "PostgreSQL",
+      "licencia": "PostgreSQL License",
+      "laboratorio": { "servicio": "postgres" }
+    },
+    {
+      "funcion": "Alta disponibilidad y respaldos de PostgreSQL",
+      "componente": "CloudNativePG (con Barman Cloud)",
+      "licencia": "Apache 2.0"
+    },
+    {
+      "funcion": "Colas de mensajes",
+      "componente": "RabbitMQ (y RabbitMQ Cluster Operator en Kubernetes)",
+      "licencia": "MPL 2.0",
+      "laboratorio": { "servicio": "rabbitmq" }
+    },
+    {
+      "funcion": "Kubernetes en el CPD",
+      "componente": "RKE2",
+      "licencia": "Apache 2.0"
+    },
+    {
+      "funcion": "Despliegue declarativo (GitOps)",
+      "componente": "Argo CD",
+      "licencia": "Apache 2.0"
+    },
+    {
+      "funcion": "Secretos",
+      "componente": "OpenBao y External Secrets Operator (más WSO2 Secure Vault)",
+      "licencia": "MPL 2.0 / Apache 2.0"
+    },
+    {
+      "funcion": "Métricas",
+      "componente": "Prometheus",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "prometheus" }
+    },
+    {
+      "funcion": "Alertas",
+      "componente": "Alertmanager",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "alertmanager" }
+    },
+    {
+      "funcion": "Tableros",
+      "componente": "Grafana",
+      "licencia": "AGPL 3.0",
+      "agpl": true,
+      "laboratorio": { "servicio": "grafana" },
+      "nota": "Se usa sin modificaciones y se declara."
+    },
+    {
+      "funcion": "Recepción y procesamiento de trazas",
+      "componente": "OpenTelemetry Collector (distribución contrib)",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "otel-collector" }
+    },
+    {
+      "funcion": "Almacenamiento y consulta de trazas",
+      "componente": "Jaeger",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "jaeger" }
+    },
+    {
+      "funcion": "Logs y analítica",
+      "componente": "OpenSearch",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "opensearch" }
+    },
+    {
+      "funcion": "Consulta de logs y analítica",
+      "componente": "OpenSearch Dashboards",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "opensearch-dashboards" }
+    },
+    {
+      "funcion": "Envío de logs con buffer en disco",
+      "componente": "Fluent Bit",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "fluent-bit" }
+    },
+    {
+      "funcion": "Catálogo de datos y linaje",
+      "componente": "OpenMetadata",
+      "licencia": "Apache 2.0"
+    },
+    {
+      "funcion": "Guía de estilo de contratos",
+      "componente": "Spectral (en el pipeline) y gobierno de APIs nativo de WSO2",
+      "licencia": "Apache 2.0"
+    },
+    {
+      "funcion": "Pruebas de contrato y simulación de servicios",
+      "componente": "Microcks",
+      "licencia": "Apache 2.0"
+    },
+    {
+      "funcion": "Lectura de mensajes EDI (X12 y EDIFACT)",
+      "componente": "StAEDI",
+      "licencia": "Apache 2.0"
+    },
+    {
+      "funcion": "Infraestructura en Google Cloud",
+      "componente": "OpenTofu",
+      "licencia": "MPL 2.0"
+    },
+    {
+      "funcion": "Conexión de WSO2 a PostgreSQL",
+      "componente": "Driver JDBC de PostgreSQL (pgjdbc)",
+      "licencia": "BSD 2-Clause",
+      "laboratorio": {
+        "dockerfileArg": { "archivo": "deploy/compose/apim/Dockerfile", "arg": "PG_JDBC_VERSION" }
+      },
+      "nota": "Se agrega a las imágenes de API Manager y Micro Integrator."
+    },
+    {
+      "funcion": "Generación de SDK en Python",
+      "componente": "RgxGen",
+      "licencia": "Apache 2.0",
+      "laboratorio": {
+        "dockerfileArg": { "archivo": "deploy/compose/apim/Dockerfile", "arg": "RGXGEN_VERSION" }
+      },
+      "nota": "Se agrega a la imagen de API Manager."
+    }
+  ],
+  "soloLaboratorio": [
+    {
+      "funcion": "Simula un gateway existente (descubrimiento y migración)",
+      "componente": "Apache APISIX",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "apisix" }
+    },
+    {
+      "funcion": "Configuración de APISIX",
+      "componente": "etcd",
+      "licencia": "Apache 2.0",
+      "laboratorio": { "servicio": "etcd" }
+    },
+    {
+      "funcion": "Simula un servidor web existente con APIs no gobernadas",
+      "componente": "NGINX",
+      "licencia": "BSD 2-Clause",
+      "laboratorio": { "servicio": "nginx-legacy" }
+    }
+  ]
+}

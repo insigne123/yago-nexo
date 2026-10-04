@@ -1,0 +1,116 @@
+/*
+ * Yago Nexo · estilos globales del sitio.
+ * Solo fuentes del sistema (sin fuentes ni recursos externos). Contrastes pensados para WCAG 2.1 AA.
+ */
+
+:root {
+  --ifm-color-primary: #1d4f91;
+  --ifm-color-primary-dark: #1a4783;
+  --ifm-color-primary-darker: #19437b;
+  --ifm-color-primary-darkest: #143766;
+  --ifm-color-primary-light: #2a5ea3;
+  --ifm-color-primary-lighter: #3466a9;
+  --ifm-color-primary-lightest: #4a79b8;
+  --ifm-code-font-size: 92%;
+  --ifm-font-family-base:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans",
+    sans-serif;
+  --ifm-heading-font-weight: 700;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+
+  --nexo-superficie: #f4f7fb;
+  --nexo-borde: #d9e1ec;
+  --nexo-texto-suave: #4a5568;
+
+  --nexo-ok-bg: #e7f5ec;
+  --nexo-ok-fg: #1b6b3a;
+  --nexo-ok-border: #a3d6b5;
+  --nexo-dev-bg: #fff3e0;
+  --nexo-dev-fg: #8a4500;
+  --nexo-dev-border: #f3c483;
+  --nexo-plan-bg: #eef1f6;
+  --nexo-plan-fg: #3a4a63;
+  --nexo-plan-border: #c5cedc;
+
+  --nexo-aviso-bg: #eef3fa;
+  --nexo-aviso-fg: #1c2b40;
+}
+
+[data-theme="dark"] {
+  --ifm-color-primary: #8ab4f8;
+  --ifm-color-primary-dark: #6da1f6;
+  --ifm-color-primary-darker: #5e98f5;
+  --ifm-color-primary-darkest: #327cf2;
+  --ifm-color-primary-light: #a7c7fa;
+  --ifm-color-primary-lighter: #b6d0fb;
+  --ifm-color-primary-lightest: #e2ecfd;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+
+  --nexo-superficie: #23262b;
+  --nexo-borde: #3a3f47;
+  --nexo-texto-suave: #c0c7d2;
+
+  --nexo-ok-bg: rgba(52, 168, 83, 0.16);
+  --nexo-ok-fg: #81d8a0;
+  --nexo-ok-border: rgba(129, 216, 160, 0.45);
+  --nexo-dev-bg: rgba(245, 158, 11, 0.16);
+  --nexo-dev-fg: #ffc874;
+  --nexo-dev-border: rgba(255, 200, 116, 0.45);
+  --nexo-plan-bg: rgba(148, 163, 184, 0.16);
+  --nexo-plan-fg: #c6d0df;
+  --nexo-plan-border: rgba(198, 208, 223, 0.4);
+
+  --nexo-aviso-bg: #1f2a3a;
+  --nexo-aviso-fg: #e3ebf7;
+}
+
+/* Marca en la barra de navegación. */
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.navbar-version {
+  margin-left: 0.25rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--nexo-borde);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Barra de aviso de versión. */
+div[role="banner"] {
+  font-size: 0.9rem;
+}
+
+div[role="banner"] a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Tablas de la documentación: lectura cómoda de tablas largas. */
+.markdown table {
+  font-size: 0.925rem;
+}
+
+.markdown table code {
+  overflow-wrap: anywhere;
+}
+
+.markdown th {
+  background: var(--nexo-superficie);
+}
+
+/* Pie de página: aviso de marca legible. */
+.footer__copyright {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.footer__copyright a {
+  color: var(--ifm-footer-link-color);
+  text-decoration: underline;
+}

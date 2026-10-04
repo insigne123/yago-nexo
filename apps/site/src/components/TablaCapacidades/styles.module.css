@@ -1,0 +1,81 @@
+.contenedor {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: var(--ifm-spacing-vertical);
+}
+
+.tabla {
+  display: table;
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  vertical-align: top;
+}
+
+/* El título del grupo ya está como encabezado o en la página: se deja solo para lectores de pantalla. */
+.titulo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.colEstado {
+  width: 9.5rem;
+  white-space: nowrap;
+}
+
+.nombre {
+  display: block;
+  font-weight: 600;
+}
+
+.descripcion {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.9rem;
+}
+
+.evidencia {
+  font-size: 0.85rem;
+}
+
+.evidencia ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.evidencia code {
+  overflow-wrap: anywhere;
+}
+
+.grupos {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.grupo :global(h3) {
+  margin-bottom: 0.25rem;
+}
+
+.grupoDescripcion {
+  margin-bottom: 0.75rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+@media (max-width: 600px) {
+  .colEstado {
+    width: auto;
+  }
+
+  .evidencia {
+    min-width: 12rem;
+  }
+}

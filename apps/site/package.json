@@ -1,0 +1,56 @@
+{
+  "name": "@nexo/site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sitio público y documentación de Yago Nexo (Docusaurus, estático, sin servicios externos)",
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "scripts": {
+    "generate": "node scripts/check-capacidades.mjs && node scripts/gen-matrix.mjs && node scripts/gen-api-docs.mjs && node scripts/gen-repo-docs.mjs",
+    "prebuild": "pnpm run generate",
+    "build": "docusaurus build",
+    "postbuild": "node scripts/check-public-content.mjs",
+    "prestart": "pnpm run generate",
+    "start": "docusaurus start",
+    "serve": "docusaurus serve",
+    "clear": "docusaurus clear",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src scripts"
+  },
+  "dependencies": {
+    "@docusaurus/core": "3.10.2",
+    "@docusaurus/preset-classic": "3.10.2",
+    "@docusaurus/theme-mermaid": "3.10.2",
+    "@easyops-cn/docusaurus-search-local": "^0.55.3",
+    "@mdx-js/react": "^3.1.1",
+    "clsx": "^2.1.1",
+    "mermaid": "^11.17.2",
+    "prism-react-renderer": "^2.4.1",
+    "react": "~19.2.8",
+    "react-dom": "~19.2.8"
+  },
+  "devDependencies": {
+    "@docusaurus/module-type-aliases": "3.10.2",
+    "@docusaurus/tsconfig": "3.10.2",
+    "@docusaurus/types": "3.10.2",
+    "@nexo/shared": "workspace:*",
+    "@types/react": "^19.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript": "5.9.3",
+    "yaml": "^2.9.1"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome version",
+      "last 3 firefox version",
+      "last 5 safari version"
+    ]
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
