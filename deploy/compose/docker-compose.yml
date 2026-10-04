@@ -163,7 +163,7 @@ services:
     build: ../../services/engines
     image: nexo-lab/motores:0.1.0
     hostname: motores
-    command: ["despliegues", "guardian", "descubrimiento"]
+    command: ["despliegues", "guardian", "descubrimiento", "siem"]
     environment:
       NEXO_DATABASE_URL: postgres://nexo:${NEXO_DB_PASSWORD}@postgres:5432/nexo
       NEXO_GUARDIAN_WINDOW_SEC: "30" # laboratorio: ventanas cortas para que la demo sea ágil (producción: 60)
@@ -182,6 +182,8 @@ services:
       NEXO_DISCOVERY_NGINX_LOG: /var/log/nginx-nexo/access.log
       NEXO_DISCOVERY_NGINX_ADDRESS: nginx-legacy:80
       NEXO_DISCOVERY_TARGETS: ocultas:7001,concesiones-v1:7001,registro-soap:7001,graphql-concesiones:7001
+      # Auditoría encadenada hacia el SIEM (en el laboratorio, Fluent Bit → OpenSearch nexo-siem-*).
+      NEXO_SIEM_DESTINOS: syslog+tcp://fluent-bit:5140?encuadre=lf
     volumes:
       - ./nginx-legacy:/etc/nexo/descubrimiento/nginx:ro
       - nginxlogs:/var/log/nginx-nexo:ro
@@ -332,6 +334,17 @@ services:
     ports: ["5601:5601"]
     depends_on: [opensearch]
 
+  # Plantillas de índices de OpenSearch (el índice SIEM guarda los detalles como objeto plano).
+  opensearch-plantillas:
+    profiles: [obs]
+    image: curlimages/curl:8.17.0
+    command: ["sh", "-c", "curl -sf -X PUT http://opensearch:9200/_index_template/nexo-siem -H 'content-type: application/json' --data-binary @/plantillas/plantilla-siem.json && echo plantillas aplicadas"]
+    volumes:
+      - ./opensearch:/plantillas:ro
+    depends_on:
+      opensearch: { condition: service_healthy }
+    restart: "no"
+
   fluent-bit:
     profiles: [obs]
     image: fluent/fluent-bit:5.1.3
@@ -342,6 +355,7 @@ services:
       - fbstorage:/var/fluent-bit/storage
     depends_on:
       opensearch: { condition: service_healthy }
+      opensearch-plantillas: { condition: service_completed_successfully }
 
 volumes:
   gwpublogs:

@@ -18,6 +18,13 @@ parsers:
   - name: wso2_carbon
     format: regex
     regex: '^\[(?<ts>[^\]]+)\]\s+(?<nivel>\w+)\s+\{(?<logger>[^}]*)\}\s+-\s+(?<mensaje>.*)$'
+  # Syslog RFC 5424 (la auditoría encadenada de Nexo llega así, como lo haría a un SIEM).
+  - name: nexo_rfc5424
+    format: regex
+    regex: '^\<(?<pri>[0-9]{1,5})\>1 (?<time>[^ ]+) (?<host>[^ ]+) (?<ident>[^ ]+) (?<pid>[-0-9]+) (?<msgid>[^ ]+) (?<extradata>(\[(.*?)\]|-)) (?<message>.+)$'
+    time_key: time
+    time_format: '%Y-%m-%dT%H:%M:%S.%L%z'
+    time_keep: on
 
 pipeline:
   inputs:
@@ -42,7 +49,21 @@ pipeline:
       storage.type: filesystem
       multiline.parser: java
 
+    # Receptor del laboratorio que hace las veces de SIEM: auditoría de Nexo por syslog TCP (RFC 5424).
+    - name: syslog
+      tag: siem.nexo
+      mode: tcp
+      listen: 0.0.0.0
+      port: 5140
+      parser: nexo_rfc5424
+      storage.type: filesystem
+
   filters:
+    - name: parser
+      match: siem.nexo
+      key_name: message
+      parser: json_props
+      reserve_data: on
     - name: parser
       match: apim.metrics
       key_name: propiedades
@@ -129,6 +150,16 @@ pipeline:
       port: 9200
       logstash_format: on
       logstash_prefix: nexo-audit
+      suppress_type_name: on
+      retry_limit: no_limits
+    - name: opensearch
+      match: siem.nexo
+      host: opensearch
+      port: 9200
+      logstash_format: on
+      logstash_prefix: nexo-siem
+      # El id del evento es el id del documento: un reenvío ("al menos una vez") no duplica.
+      id_key: id
       suppress_type_name: on
       retry_limit: no_limits
     - name: opensearch

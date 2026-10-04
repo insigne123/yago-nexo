@@ -9,11 +9,13 @@ import { runEngines } from "./kit/runtime.js";
 import { discoveryEngine } from "./discovery/engine.js";
 import { guardianEngine } from "./guardian/engine.js";
 import { rolloutEngine } from "./rollout/engine.js";
+import { siemEngine } from "./siem/engine.js";
 
 const ENGINES: Record<string, Engine> = {
   despliegues: rolloutEngine,
   guardian: guardianEngine,
   descubrimiento: discoveryEngine,
+  siem: siemEngine,
 };
 
 async function main() {

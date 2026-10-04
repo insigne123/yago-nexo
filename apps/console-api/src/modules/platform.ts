@@ -251,6 +251,31 @@ export class AlertsController {
   }
 }
 
+// ------------------------------------------------------------------ motores (latido y liderazgo)
+
+@Controller("engines")
+export class EnginesController {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  /** Estado de cada motor: réplica líder, último latido y lo que reporta (p. ej. rezago del SIEM). */
+  @Get()
+  @RequirePermission("rollout:read")
+  async list() {
+    const rows = (await this.db.query("SELECT * FROM nexo.engine_heartbeat ORDER BY engine, leader DESC, last_seen DESC")).rows;
+    return rows.map((r) => {
+      const ageSec = (Date.now() - new Date(String(r.last_seen)).getTime()) / 1000;
+      return {
+        engine: r.engine,
+        instance: r.instance,
+        leader: r.leader,
+        lastSeen: r.last_seen,
+        status: ageSec > 60 ? "sin_latido" : String((r.info as Record<string, unknown>)?.estado ?? "activo"),
+        info: r.info,
+      };
+    });
+  }
+}
+
 // ------------------------------------------------------------------ salud y métricas
 
 @Controller()

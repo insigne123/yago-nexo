@@ -1,0 +1,22 @@
+{
+  "index_patterns": ["nexo-siem-*"],
+  "template": {
+    "settings": { "number_of_replicas": 0 },
+    "mappings": {
+      "properties": {
+        "seq": { "type": "long" },
+        "ts": { "type": "date" },
+        "hash": { "type": "keyword" },
+        "prevHash": { "type": "keyword" },
+        "id": { "type": "keyword" },
+        "actor": { "type": "keyword" },
+        "actorType": { "type": "keyword" },
+        "action": { "type": "keyword" },
+        "result": { "type": "keyword" },
+        "resource": { "type": "keyword" },
+        "source": { "type": "keyword" },
+        "details": { "type": "flat_object" }
+      }
+    }
+  }
+}

@@ -12,7 +12,7 @@ import { CatalogController, CatalogService } from "./modules/catalog.js";
 import { ContinuityController } from "./modules/continuity.js";
 import { DeadLettersController } from "./modules/dead-letters.js";
 import { DiscoveryController } from "./modules/discovery.js";
-import { AlertsController, AuditController, ComplianceController, ExportsController, HealthController, SessionController } from "./modules/platform.js";
+import { AlertsController, AuditController, ComplianceController, EnginesController, ExportsController, HealthController, SessionController } from "./modules/platform.js";
 import { RolloutsController, TrafficRoutesController } from "./modules/rollouts.js";
 import { UsageController, UsageService } from "./modules/usage.js";
 
@@ -32,6 +32,7 @@ import { UsageController, UsageService } from "./modules/usage.js";
     ComplianceController,
     ExportsController,
     AlertsController,
+    EnginesController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },

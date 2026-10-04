@@ -141,7 +141,7 @@ export class AnomaliesController {
         [block.id, user.username, id],
       )
     ).rows[0];
-    await this.audit.record(user, "anomalias.bloqueo.aprobar", `anomalia/${id}`, "exito", { bloqueo: block.id, objetivo: target });
+    await this.audit.record(user, "anomalias.bloqueo.aprobar", `anomalia/${id}`, "exito", { bloqueo: block.id, objetivo: target.value, tipoObjetivo: target.type });
     return eventRow(upd);
   }
 

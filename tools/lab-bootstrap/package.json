@@ -17,14 +17,16 @@
     "check:d04": "tsx src/check-d04.ts",
     "check:d02": "tsx src/check-d02.ts",
     "legado": "tsx src/legacy.ts",
-    "check:d01": "tsx src/check-d01.ts"
+    "check:d01": "tsx src/check-d01.ts",
+    "check:siem": "tsx src/check-siem.ts"
   },
   "dependencies": {
+    "@nexo/shared": "workspace:*",
     "@nexo/wso2-client": "workspace:*",
-    "undici": "^8.11.2",
-    "ws": "^8.22.0",
     "fflate": "^0.8.3",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "undici": "^8.11.2",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "tsx": "^4.20.0",

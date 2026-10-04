@@ -440,6 +440,9 @@ importers:
 
   tools/lab-bootstrap:
     dependencies:
+      '@nexo/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@nexo/wso2-client':
         specifier: workspace:*
         version: link:../../packages/wso2-client
