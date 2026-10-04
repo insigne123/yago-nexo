@@ -1,5 +1,5 @@
 import type { Agent } from "undici";
-import { createAgent, httpRequest, type TlsOptions } from "./http.js";
+import { createAgent, httpRequest, Wso2HttpError, type TlsOptions } from "./http.js";
 
 /**
  * Cliente de la Management API de WSO2 Micro Integrator 4.x (puerto 9164).
@@ -29,13 +29,26 @@ export class MiManagementClient {
     return this.token;
   }
 
-  private async get<T>(path: string): Promise<T> {
+  /**
+   * GET autenticado. El token de la Management API vence (1 h por omisión): ante un 401 se descarta, se pide
+   * uno nuevo y se reintenta una vez. Antes se guardaba para siempre y, pasada la hora, todas las lecturas del
+   * Integrador fallaban en silencio (catálogo sin flujos, impacto vacío, exportación sin flujos).
+   */
+  private async get<T>(path: string, reintento = true): Promise<T> {
     const token = await this.auth();
-    return httpRequest<T>(this.agent, {
-      method: "GET",
-      url: `${this.baseUrl}/management${path}`,
-      headers: { authorization: `Bearer ${token}` },
-    });
+    try {
+      return await httpRequest<T>(this.agent, {
+        method: "GET",
+        url: `${this.baseUrl}/management${path}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+    } catch (e) {
+      if (reintento && e instanceof Wso2HttpError && e.status === 401) {
+        this.token = undefined;
+        return this.get<T>(path, false);
+      }
+      throw e;
+    }
   }
 
   apis() {
