@@ -124,6 +124,8 @@ function correrK6(fase: Fase, dir: string, cred: { key: string; secret: string }
         CONSUMER_KEY: cred.key,
         CONSUMER_SECRET: cred.secret,
         RESUMEN: resumen,
+        // Los nombres del laboratorio se resuelven localmente: nunca pasan por un proxy de salida, si lo hay.
+        NO_PROXY: ["apim", "keycloak", "publico.nexo.lab", process.env.NO_PROXY].filter(Boolean).join(","),
       },
       stdio: ["ignore", "inherit", "inherit"],
     });
@@ -207,6 +209,7 @@ function entorno() {
     ramGB: Math.round(totalmem() / 1024 ** 3),
     k6,
     nota:
+      (process.env.RENDIMIENTO_NOTA ? `${process.env.RENDIMIENTO_NOTA} ` : "") +
       "Laboratorio en una sola máquina compartida por unos 30 contenedores (WSO2, Keycloak, PostgreSQL, RabbitMQ, OpenSearch, observabilidad, backends de prueba y el propio generador de carga). En el laboratorio, el plano de control de WSO2 y el gateway de operadores comparten un contenedor; en producción el gateway corre en instancias dedicadas de 2 vCPU según la planilla de dimensionamiento.",
   };
 }
