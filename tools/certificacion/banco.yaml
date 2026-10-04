@@ -1,0 +1,1460 @@
+# Banco de preguntas · Certificación Yago Nexo (Administrador/Integrador de la plataforma)
+#
+# - Selección única: cuatro alternativas (a-d) y una sola correcta.
+# - Cada pregunta indica su módulo (M0 a M6), su dificultad (baja, media o alta), la respuesta correcta,
+#   una justificación breve y, cuando corresponde, el archivo del repositorio donde se comprueba.
+# - Solo se pregunta por el comportamiento real de la versión indicada en "producto". Si una pregunta deja
+#   de ser cierta en una versión nueva, se corrige o se retira antes de sortear exámenes con ese banco.
+# - El examen se sortea con: pnpm --filter @nexo/certificacion cert sortear --semilla <texto>
+version: "1.0.0"
+producto: "Yago Nexo 1.0.0"
+preguntas:
+  # ====================================================================== M0 · Inducción, arquitectura y laboratorio
+  - id: M0-01
+    modulo: M0
+    dificultad: baja
+    enunciado: "¿Sobre qué componentes de código abierto se construye la base de Yago Nexo 1.0.0?"
+    opciones:
+      a: "WSO2 API Manager 4.7.0 y WSO2 Micro Integrator 4.6.0"
+      b: "Kong Gateway y Apache Camel"
+      c: "WSO2 API Manager 3.2.0 y WSO2 Enterprise Integrator 6.6.0"
+      d: "NGINX y Apache APISIX"
+    correcta: a
+    justificacion: "La distribución parte de API Manager 4.7.0 (gateway, portales y ciclo de vida de APIs) y Micro Integrator 4.6.0 (integración). APISIX y NGINX solo simulan una plataforma existente en el perfil legacy."
+    referencia: "deploy/compose/docker-compose.yml"
+
+  - id: M0-02
+    modulo: M0
+    dificultad: baja
+    enunciado: "En el laboratorio, ¿qué función cumple Keycloak para las aplicaciones consumidoras?"
+    opciones:
+      a: "Es la base de datos de API Manager"
+      b: "Es el Key Manager: entrega las credenciales y emite los tokens OAuth 2.0 que el gateway valida"
+      c: "Reparte el tráfico entre los gateways"
+      d: "Reemplaza al Dev Portal para publicar APIs"
+    correcta: b
+    justificacion: "El arranque registra Keycloak como Key Manager de API Manager; las aplicaciones obtienen allí sus llaves y tokens y el gateway valida esos tokens."
+    referencia: "tools/lab-bootstrap/src/index.ts"
+
+  - id: M0-03
+    modulo: M0
+    dificultad: media
+    enunciado: "¿Qué servicios agrega el perfil `obs` del laboratorio?"
+    opciones:
+      a: "APISIX, etcd y NGINX"
+      b: "Dos PostgreSQL con replicación, etcd, CoreDNS y tres agentes de continuidad"
+      c: "OpenTelemetry Collector, Jaeger, Prometheus, Alertmanager, Grafana, OpenSearch, OpenSearch Dashboards y Fluent Bit"
+      d: "Solo Grafana"
+    correcta: c
+    justificacion: "El perfil obs agrega la observabilidad completa. APISIX y NGINX son del perfil legacy y los agentes de continuidad del perfil cont."
+    referencia: "deploy/compose/docker-compose.yml"
+
+  - id: M0-04
+    modulo: M0
+    dificultad: baja
+    enunciado: "¿Qué simula el perfil `legacy`?"
+    opciones:
+      a: "Una plataforma existente con APISIX y NGINX que publican APIs no gobernadas"
+      b: "Una versión anterior de Nexo para probar actualizaciones"
+      c: "El sitio de respaldo en Google Cloud"
+      d: "El SIEM de la institución"
+    correcta: a
+    justificacion: "APISIX (con etcd) y un NGINX heredado exponen APIs fuera de la plataforma, para practicar el descubrimiento y la migración."
+    referencia: "deploy/compose/docker-compose.yml"
+
+  - id: M0-05
+    modulo: M0
+    dificultad: media
+    enunciado: "Con los contenedores ya sanos, ¿qué comando configura WSO2 y Keycloak y ejecuta la prueba de punta a punta?"
+    opciones:
+      a: "make -C deploy/compose status"
+      b: "make -C deploy/compose hosts"
+      c: "make -C deploy/compose build"
+      d: "make -C deploy/compose bootstrap"
+    correcta: d
+    justificacion: "bootstrap ejecuta tools/lab-bootstrap: scope en Keycloak, Key Manager, API de ejemplo, aplicación, suscripción y la llamada de punta a punta."
+    referencia: "deploy/compose/Makefile"
+
+  - id: M0-06
+    modulo: M0
+    dificultad: baja
+    enunciado: "En la prueba de punta a punta del arranque, ¿qué responde el gateway si se llama a la API de ejemplo sin token?"
+    opciones:
+      a: "200"
+      b: "302"
+      c: "401"
+      d: "500"
+    correcta: c
+    justificacion: "El arranque exige 200 con token y luego repite la llamada sin token: el gateway la rechaza con 401."
+    referencia: "tools/lab-bootstrap/src/index.ts"
+
+  - id: M0-07
+    modulo: M0
+    dificultad: baja
+    enunciado: "¿Qué hace `make -C deploy/compose hosts`?"
+    opciones:
+      a: "Abre los puertos del laboratorio en el cortafuegos"
+      b: "Agrega a /etc/hosts una línea que apunta apim, keycloak y los demás nombres del laboratorio a 127.0.0.1"
+      c: "Genera certificados TLS para cada servicio"
+      d: "Crea los usuarios de ejemplo en Keycloak"
+    correcta: b
+    justificacion: "Los portales de WSO2 y Keycloak redirigen a esos nombres; por eso el equipo debe resolverlos. Pide sudo una sola vez."
+    referencia: "deploy/compose/Makefile"
+
+  - id: M0-08
+    modulo: M0
+    dificultad: media
+    enunciado: "¿Cuál es la diferencia entre `make down` y `make clean`?"
+    opciones:
+      a: "make clean además borra los volúmenes: bases de datos, colas e índices"
+      b: "No hay diferencia"
+      c: "make down borra las imágenes construidas"
+      d: "make clean solo borra los logs"
+    correcta: a
+    justificacion: "down detiene y elimina los contenedores y conserva los datos; clean ejecuta down -v y borra también los volúmenes."
+    referencia: "deploy/compose/Makefile"
+
+  - id: M0-09
+    modulo: M0
+    dificultad: media
+    enunciado: "En la arquitectura objetivo de Nexo, ¿cómo se distribuyen los sitios?"
+    opciones:
+      a: "Google Cloud es el sitio principal y el CPD el respaldo"
+      b: "Los dos sitios atienden tráfico a la vez, sin testigo"
+      c: "Un solo sitio con respaldo en cinta"
+      d: "El CPD es el sitio principal, Google Cloud el respaldo en espera tibia y un testigo de quórum vota desde un tercer lugar"
+    correcta: d
+    justificacion: "En operación normal todo el tráfico entra por el CPD; Google Cloud mantiene una réplica en espera tibia y el testigo completa los tres votos."
+    referencia: "apps/site/docs/arquitectura.md"
+
+  - id: M0-10
+    modulo: M0
+    dificultad: baja
+    enunciado: "¿Cuántos votos coincidentes necesitan los agentes de continuidad para conmutar de sitio?"
+    opciones:
+      a: "1 de 3"
+      b: "2 de 3"
+      c: "3 de 3"
+      d: "Ninguno: siempre decide una persona"
+    correcta: b
+    justificacion: "La conmutación exige quórum de 2 de 3 (agente del CPD, agente de Google Cloud y testigo), para que nunca queden dos sitios activos."
+    referencia: "services/engines/src/continuity/quorum.ts"
+
+  - id: M0-11
+    modulo: M0
+    dificultad: alta
+    enunciado: "En la documentación de Nexo, ¿qué exige una capacidad para figurar como «Disponible»?"
+    opciones:
+      a: "Estar en la hoja de ruta del año"
+      b: "Haber sido usada por un cliente en producción"
+      c: "Declarar rutas de evidencia que existan en el repositorio; si falta la evidencia, el sitio no se genera"
+      d: "Tener un video de demostración"
+    correcta: c
+    justificacion: "check-capacidades.mjs rompe el build si una capacidad Disponible no declara evidencia o si la ruta no existe."
+    referencia: "apps/site/scripts/check-capacidades.mjs"
+
+  - id: M0-12
+    modulo: M0
+    dificultad: alta
+    enunciado: "¿Por qué no conviene cambiar `https://apim:9443` por `https://localhost:9443` en las variables del arranque?"
+    opciones:
+      a: "Porque localhost no admite HTTPS"
+      b: "Porque el puerto 9443 solo escucha en IPv6"
+      c: "Porque Keycloak bloquea las llamadas desde localhost"
+      d: "Porque el arranque registra esas mismas URL en WSO2, que las resuelve dentro de la red de Docker"
+    correcta: d
+    justificacion: "Las URL que usa el arranque quedan registradas en WSO2 (por ejemplo, los endpoints del Key Manager); dentro de la red de Docker solo resuelven los nombres de servicio."
+    referencia: "apps/site/docs/laboratorio.md"
+
+  - id: M0-13
+    modulo: M0
+    dificultad: alta
+    enunciado: "¿Cómo se levanta el laboratorio de continuidad de dos sitios?"
+    opciones:
+      a: "Con make -C deploy/compose continuidad, que activa el perfil cont"
+      b: "Con make up y el perfil obs"
+      c: "Con make legado"
+      d: "No existe en el laboratorio; solo en producción"
+    correcta: a
+    justificacion: "El perfil cont agrega dos PostgreSQL con replicación (CPD y GCP), etcd para los votos, CoreDNS para el nombre del sitio activo y tres agentes."
+    referencia: "deploy/compose/Makefile"
+
+  - id: M0-14
+    modulo: M0
+    dificultad: media
+    enunciado: "¿Qué datos entregan los backends de ejemplo del laboratorio?"
+    opciones:
+      a: "Una copia anonimizada de datos de producción"
+      b: "Datos sintéticos generados de forma determinista (siempre los mismos)"
+      c: "Datos reales con el RUT enmascarado"
+      d: "Datos aleatorios distintos en cada arranque"
+    correcta: b
+    justificacion: "Los backends usan el generador SyntheticData de @nexo/shared con una semilla fija: RUT válidos pero ficticios y correos @ejemplo.invalid."
+    referencia: "services/demo-backends/src/server.ts"
+
+  # ====================================================================== M1 · Instalación, despliegue y actualización
+  - id: M1-01
+    modulo: M1
+    dificultad: media
+    enunciado: "Antes de `make up`, ¿qué bibliotecas del monorepo hay que compilar?"
+    opciones:
+      a: "@nexo/site y @nexo/support-web"
+      b: "@nexo/shared y @nexo/wso2-client"
+      c: "Ninguna: Docker compila todo"
+      d: "@nexo/console-web"
+    correcta: b
+    justificacion: "Los backends de ejemplo usan @nexo/shared y el arranque usa @nexo/wso2-client, ambos desde su carpeta dist/."
+    referencia: "apps/site/docs/laboratorio.md"
+
+  - id: M1-02
+    modulo: M1
+    dificultad: baja
+    enunciado: "Si falta deploy/compose/.env al ejecutar `make up`, ¿qué ocurre?"
+    opciones:
+      a: "Se crea a partir de .env.example"
+      b: "El comando falla y hay que crearlo a mano"
+      c: "Se generan contraseñas aleatorias"
+      d: "Se descarga desde un servidor de Yago"
+    correcta: a
+    justificacion: "El objetivo env (del que depende build) copia .env.example a .env si no existe."
+    referencia: "deploy/compose/Makefile"
+
+  - id: M1-03
+    modulo: M1
+    dificultad: media
+    enunciado: "¿Qué hace `make up` antes de levantar los contenedores?"
+    opciones:
+      a: "Nada: solo ejecuta docker compose up"
+      b: "Borra los volúmenes para partir de cero"
+      c: "Ejecuta make build: compila los backends de ejemplo, los motores y la API de la Consola, y construye las imágenes"
+      d: "Ejecuta el arranque (bootstrap)"
+    correcta: c
+    justificacion: "up depende de build, que compila con pnpm y luego ejecuta docker compose build con los perfiles elegidos."
+    referencia: "deploy/compose/Makefile"
+
+  - id: M1-04
+    modulo: M1
+    dificultad: baja
+    enunciado: "¿Se puede ejecutar `make bootstrap` más de una vez?"
+    opciones:
+      a: "No: duplica las APIs y las aplicaciones"
+      b: "Solo después de make clean"
+      c: "Solo si cambia la versión de la API"
+      d: "Sí: es idempotente; lo que ya existe se informa y no se duplica"
+    correcta: d
+    justificacion: "El arranque revisa si el Key Manager, la API, la aplicación y la suscripción existen antes de crearlos."
+    referencia: "tools/lab-bootstrap/src/index.ts"
+
+  - id: M1-05
+    modulo: M1
+    dificultad: alta
+    enunciado: "Cambió una contraseña en deploy/compose/.env y `make bootstrap` sigue usando la anterior. ¿Por qué?"
+    opciones:
+      a: "Porque make bootstrap no lee .env: hay que exportar las variables antes de ejecutarlo"
+      b: "Porque .env solo se lee al compilar las imágenes"
+      c: "Porque Keycloak guarda la contraseña en caché por 24 horas"
+      d: "Porque el arranque usa siempre admin/admin"
+    correcta: a
+    justificacion: "El objetivo bootstrap ejecuta el arranque sin cargar .env (a diferencia de platform, deploy-apis y legado); sin variables usa los valores por omisión de .env.example."
+    referencia: "deploy/compose/Makefile"
+
+  - id: M1-06
+    modulo: M1
+    dificultad: alta
+    enunciado: "Después de cambiar las contraseñas de PostgreSQL en .env, los servicios no se conectan a sus bases. ¿Qué corresponde hacer en el laboratorio?"
+    opciones:
+      a: "Reiniciar solo el contenedor postgres"
+      b: "Ejecutar make hosts"
+      c: "Editar el deployment.toml de API Manager"
+      d: "Borrar los volúmenes con make clean y levantar de nuevo, porque las bases y usuarios se crean solo al inicializar el volumen"
+    correcta: d
+    justificacion: "El script de inicio de PostgreSQL crea bases y usuarios una sola vez, al crear el volumen; un volumen existente conserva las contraseñas anteriores."
+    referencia: "deploy/compose/postgres/init/01-init.sh"
+
+  - id: M1-07
+    modulo: M1
+    dificultad: alta
+    enunciado: "¿Qué pasa si se cambia APIM_ENCRYPTION_KEY en una instalación que ya tiene datos?"
+    opciones:
+      a: "WSO2 no puede descifrar lo ya guardado, como los secretos de los Key Managers y las llaves de aplicaciones"
+      b: "Nada: la llave se regenera sola"
+      c: "Solo se invalidan los tokens de la última hora"
+      d: "Cambia el certificado TLS del gateway"
+    correcta: a
+    justificacion: "Es la llave simétrica de cifrado interno de WSO2: debe ser la misma en todos los nodos y persistir."
+    referencia: "deploy/compose/apim/config/repository/conf/deployment.toml"
+
+  - id: M1-08
+    modulo: M1
+    dificultad: media
+    enunciado: "¿Cómo se comprueba la integridad de los entregables publicados de la versión 1.0.0?"
+    opciones:
+      a: "Comparando el tamaño de los archivos"
+      b: "Con sha256sum -c CHECKSUMS.txt en la carpeta release/1.0.0"
+      c: "Abriendo el SBOM en un navegador"
+      d: "Con git log"
+    correcta: b
+    justificacion: "Cada versión publica las sumas SHA-256 de sus entregables en CHECKSUMS.txt."
+    referencia: "release/1.0.0/CHECKSUMS.txt"
+
+  - id: M1-09
+    modulo: M1
+    dificultad: baja
+    enunciado: "¿En qué formato se publica el inventario de componentes (SBOM) de cada versión de Nexo?"
+    opciones:
+      a: "Una planilla de cálculo"
+      b: "Un PDF firmado"
+      c: "CycloneDX (JSON)"
+      d: "Texto libre en el README"
+    correcta: c
+    justificacion: "tools/release/generar-sbom.mjs genera el SBOM CycloneDX, el inventario de licencias y las sumas de verificación."
+    referencia: "release/1.0.0/sbom-nexo-1.0.0.cdx.json"
+
+  - id: M1-10
+    modulo: M1
+    dificultad: baja
+    enunciado: "En versionado semántico, ¿qué tipo de cambio es pasar de 1.4.2 a 1.4.3?"
+    opciones:
+      a: "Mayor: cambios incompatibles"
+      b: "Menor: funciones nuevas compatibles"
+      c: "Preliminar"
+      d: "Parche: correcciones, incluidas las de seguridad, sin funciones nuevas"
+    correcta: d
+    justificacion: "MAYOR.MENOR.PARCHE: el último número cambia con las correcciones."
+    referencia: "apps/site/docs/ciclo-de-vida-y-soporte.md"
+
+  - id: M1-11
+    modulo: M1
+    dificultad: media
+    enunciado: "¿Durante cuánto tiempo recibe correcciones de seguridad cada versión menor de Nexo?"
+    opciones:
+      a: "3 meses"
+      b: "12 meses desde su publicación"
+      c: "6 meses"
+      d: "Indefinidamente"
+    correcta: b
+    justificacion: "La política de soporte da 12 meses de correcciones de seguridad a cada versión menor, entregadas como parches."
+    referencia: "apps/site/docs/ciclo-de-vida-y-soporte.md"
+
+  - id: M1-12
+    modulo: M1
+    dificultad: media
+    enunciado: "¿Qué acompaña a cada parche de Nexo?"
+    opciones:
+      a: "Su paquete de corrección y un plan de reversa para volver a la versión anterior"
+      b: "Solo las notas de la versión"
+      c: "Un cambio de versión mayor"
+      d: "Una licencia nueva"
+    correcta: a
+    justificacion: "La política de soporte exige plan de reversa en cada parche, por si algo falla."
+    referencia: "apps/site/docs/ciclo-de-vida-y-soporte.md"
+
+  - id: M1-13
+    modulo: M1
+    dificultad: media
+    enunciado: "¿Qué comando aplica la plataforma como código (ambientes de gateway, planes de tráfico, flujos de aprobación y gobierno)?"
+    opciones:
+      a: "make -C deploy/compose bootstrap"
+      b: "make -C deploy/compose platform, que ejecuta nexo-ctl platform apply con wso2/apim/platform.yaml"
+      c: "docker compose restart apim"
+      d: "Ninguno: se configura a mano en el Admin Portal"
+    correcta: b
+    justificacion: "platform.yaml es la fuente única de esa configuración y nexo-ctl la aplica por las REST API de WSO2."
+    referencia: "wso2/apim/platform.yaml"
+
+  - id: M1-14
+    modulo: M1
+    dificultad: media
+    enunciado: "¿Qué hace `make -C deploy/compose deploy-apis`?"
+    opciones:
+      a: "Despliega todas las APIs del repositorio solo en producción"
+      b: "Publica las APIs en el sitio web de Nexo"
+      c: "Despliega la API Concesiones en las etapas dev, qa y prod con nexo-ctl"
+      d: "Exporta las APIs a un zip"
+    correcta: c
+    justificacion: "El objetivo recorre dev, qa y prod con nexo-ctl api deploy sobre wso2/apim/apis/concesiones. Las demás APIs se despliegan con nexo-ctl api deploy."
+    referencia: "deploy/compose/Makefile"
+
+  - id: M1-15
+    modulo: M1
+    dificultad: alta
+    enunciado: "¿Por qué no se pueden levantar dos laboratorios completos en el mismo equipo con Docker?"
+    opciones:
+      a: "Porque la licencia de WSO2 lo impide"
+      b: "Porque Keycloak solo admite un realm por equipo"
+      c: "Porque Docker no permite más de 20 contenedores"
+      d: "Porque el Compose fija el nombre de proyecto nexo-lab y publica puertos fijos en el equipo, que chocarían"
+    correcta: d
+    justificacion: "docker-compose.yml declara name: nexo-lab y puertos como 9443, 8243 y 8080; por eso cada participante usa su propio equipo o máquina virtual."
+    referencia: "deploy/compose/docker-compose.yml"
+
+  # ====================================================================== M2 · Administración de la plataforma
+  - id: M2-01
+    modulo: M2
+    dificultad: baja
+    enunciado: "Con los flujos de aprobación del laboratorio activos, ¿dónde aprueba una persona las solicitudes pendientes?"
+    opciones:
+      a: "En el Publisher, en la pestaña de ciclo de vida"
+      b: "En el Admin Portal (Tasks) o por la Admin REST API (workflows)"
+      c: "En la ficha del usuario en Keycloak"
+      d: "En Grafana"
+    correcta: b
+    justificacion: "Las aprobaciones nativas de WSO2 se resuelven en el Admin Portal o por su REST API, que es lo que usa el arranque del laboratorio."
+    referencia: "wso2/apim/workflows/workflow-extensions.xml"
+
+  - id: M2-02
+    modulo: M2
+    dificultad: alta
+    enunciado: "Según los flujos de aprobación del laboratorio, ¿cuál de estas acciones NO requiere aprobación?"
+    opciones:
+      a: "Crear una aplicación en el Dev Portal"
+      b: "Generar credenciales de producción"
+      c: "Suscribir una aplicación a una API"
+      d: "Generar credenciales sandbox"
+    correcta: d
+    justificacion: "El registro sandbox usa el ejecutor simple; la creación de aplicaciones, las credenciales de producción, las suscripciones y el autorregistro usan ejecutores con aprobación."
+    referencia: "wso2/apim/workflows/workflow-extensions.xml"
+
+  - id: M2-03
+    modulo: M2
+    dificultad: media
+    enunciado: "¿Qué planes de suscripción define platform.yaml?"
+    opciones:
+      a: "Interno, OperadoresEstandar, OperadoresAmpliado y Publico, todos sin cobro"
+      b: "Gold, Silver y Bronze, con cobro por llamada"
+      c: "Free y Premium"
+      d: "Ninguno: cada API define los suyos"
+    correcta: a
+    justificacion: "Los cuatro planes se crean con billingPlan FREE: el consumo se atribuye, pero no se cobra."
+    referencia: "wso2/apim/platform.yaml"
+
+  - id: M2-04
+    modulo: M2
+    dificultad: media
+    enunciado: "En platform.yaml, ¿cuál es el límite del plan Publico?"
+    opciones:
+      a: "600 solicitudes por minuto con ráfaga de 20 por segundo"
+      b: "60 solicitudes por minuto con ráfaga de 5 por segundo"
+      c: "20.000 solicitudes por minuto con ráfaga de 500 por segundo"
+      d: "Sin límite"
+    correcta: b
+    justificacion: "600/20 es OperadoresEstandar y 20.000/500 es Interno; Publico es el plan más restrictivo."
+    referencia: "wso2/apim/platform.yaml"
+
+  - id: M2-05
+    modulo: M2
+    dificultad: media
+    enunciado: "¿Qué ambientes de gateway crea `make platform` además del ambiente Default?"
+    opciones:
+      a: "CPD y GCP"
+      b: "Interno y Externo"
+      c: "Desarrollo y QA (etapas) y Operadores y Publico (audiencias)"
+      d: "Ninguno"
+    correcta: c
+    justificacion: "En el laboratorio las etapas y las audiencias se separan por ambiente de gateway y host virtual (dev.nexo.lab, qa.nexo.lab, operadores.nexo.lab, publico.nexo.lab)."
+    referencia: "wso2/apim/platform.yaml"
+
+  - id: M2-06
+    modulo: M2
+    dificultad: alta
+    enunciado: "¿Qué nodo atiende el ambiente de gateway Publico en el laboratorio?"
+    opciones:
+      a: "Un gateway dedicado (gw-publico, puerto 18243 en el equipo), separado de las demás audiencias"
+      b: "El mismo API Manager que atiende Default"
+      c: "APISIX"
+      d: "nexo-division"
+    correcta: a
+    justificacion: "API Manager solo sincroniza las etiquetas Default, Desarrollo, QA y Operadores; Publico lo atiende un Universal Gateway separado."
+    referencia: "deploy/compose/apim/config/repository/conf/deployment.toml"
+
+  - id: M2-07
+    modulo: M2
+    dificultad: baja
+    enunciado: "¿Cuántos roles define la matriz rol-permiso de Nexo?"
+    opciones:
+      a: "3"
+      b: "4"
+      c: "10"
+      d: "6: administrador, desarrollador, aprobador, operador, auditor y consumidor"
+    correcta: d
+    justificacion: "La matriz vive en packages/shared/src/roles.ts y es la fuente única con que la API de la Consola autoriza cada acción."
+    referencia: "packages/shared/src/roles.ts"
+
+  - id: M2-08
+    modulo: M2
+    dificultad: media
+    enunciado: "¿Qué rol puede verificar la cadena de auditoría desde la Consola?"
+    opciones:
+      a: "administrador"
+      b: "desarrollador"
+      c: "auditor"
+      d: "consumidor"
+    correcta: c
+    justificacion: "Solo el auditor tiene audit:verify; un administrador recibe 403 en GET /audit-events/verify."
+    referencia: "packages/shared/src/roles.ts"
+
+  - id: M2-09
+    modulo: M2
+    dificultad: alta
+    enunciado: "¿Cuál de estas acciones NO es de cuatro ojos (quien inicia no puede aprobar)?"
+    opciones:
+      a: "Aprobar un despliegue a producción"
+      b: "Clasificar un hallazgo del descubrimiento"
+      c: "Aprobar un bloqueo propuesto por el guardián"
+      d: "Aprobar el retorno al sitio principal"
+    correcta: b
+    justificacion: "Las acciones de cuatro ojos son rollout:approve, anomaly:block:approve, dlq:reprocess:approve y continuity:failback:approve."
+    referencia: "packages/shared/src/roles.ts"
+
+  - id: M2-10
+    modulo: M2
+    dificultad: media
+    enunciado: "¿Qué puede hacer el rol operador en la Consola?"
+    opciones:
+      a: "Iniciar escaneos de descubrimiento, detener despliegues y ejecutar simulacros de conmutación"
+      b: "Aprobar despliegues a producción"
+      c: "Editar el catálogo y aprobar reprocesos"
+      d: "Verificar la cadena de auditoría"
+    correcta: a
+    justificacion: "El operador tiene discovery:scan, rollout:abort y continuity:drill, pero no aprueba."
+    referencia: "packages/shared/src/roles.ts"
+
+  - id: M2-11
+    modulo: M2
+    dificultad: media
+    enunciado: "Una persona con rol consumidor consulta GET /usage en la Consola. ¿Qué obtiene?"
+    opciones:
+      a: "El consumo de todos los consumidores"
+      b: "Un error 500"
+      c: "Solo su propio consumo"
+      d: "Solo el consumo de las APIs públicas"
+    correcta: c
+    justificacion: "El consumidor tiene usage:read:own y no usage:read:all; la verificación de la Consola comprueba que no ve el consumo de otros."
+    referencia: "tools/lab-bootstrap/src/check-consola.ts"
+
+  - id: M2-12
+    modulo: M2
+    dificultad: media
+    enunciado: "En el laboratorio, ¿cómo recibe una persona su rol en la Consola?"
+    opciones:
+      a: "Lo elige al iniciar sesión"
+      b: "Por su grupo en Keycloak (por ejemplo, nexo-aprobadores), que le asigna un rol del cliente nexo-console que viaja en el token"
+      c: "Se escribe a mano en la base de datos de la Consola"
+      d: "Por la IP desde donde se conecta"
+    correcta: b
+    justificacion: "Los roles se asignan por grupos del realm nexo y llegan en resource_access.nexo-console.roles."
+    referencia: "deploy/compose/keycloak/realm-nexo.json"
+
+  - id: M2-13
+    modulo: M2
+    dificultad: alta
+    enunciado: "¿Cómo evitan los motores de Nexo que dos réplicas hagan el mismo trabajo?"
+    opciones:
+      a: "Con un archivo de bloqueo en disco"
+      b: "Con un balanceador que envía el trabajo a una sola réplica"
+      c: "No lo evitan: el trabajo se duplica"
+      d: "Con un bloqueo de asesoría de PostgreSQL por motor: hay una sola réplica líder y, si su conexión se corta, otra toma el mando"
+    correcta: d
+    justificacion: "Cada motor toma pg_try_advisory_lock en una conexión dedicada; el agente de continuidad es la excepción, porque todos los sitios deben votar."
+    referencia: "services/engines/src/kit/runtime.ts"
+
+  - id: M2-14
+    modulo: M2
+    dificultad: alta
+    enunciado: "En GET /engines de la Consola, ¿cuándo aparece un motor con estado `sin_latido`?"
+    opciones:
+      a: "Cuando su último latido tiene más de 60 segundos"
+      b: "Cuando no es la réplica líder"
+      c: "Cuando tiene alertas abiertas"
+      d: "Cuando la continuidad está en modo manual"
+    correcta: a
+    justificacion: "La Consola compara la hora del último latido de cada motor con la actual y marca sin_latido pasados 60 segundos."
+    referencia: "apps/console-api/src/modules/platform.ts"
+
+  - id: M2-15
+    modulo: M2
+    dificultad: baja
+    enunciado: "Si `make platform` se ejecuta dos veces seguidas, ¿qué pasa con lo que ya existe?"
+    opciones:
+      a: "Se duplica"
+      b: "Se borra y se vuelve a crear"
+      c: "Se informa (ya existe, sin cambios o actualizado) y no se duplica"
+      d: "La segunda ejecución falla"
+    correcta: c
+    justificacion: "nexo-ctl platform apply es idempotente: ambientes y planes existentes se informan como «ya existe» y los flujos sin cambios no se reescriben."
+    referencia: "tools/nexo-ctl/src/commands/platform.ts"
+
+  # ====================================================================== M3 · Diseño, publicación y ciclo de vida de APIs
+  - id: M3-01
+    modulo: M3
+    dificultad: baja
+    enunciado: "¿Qué comando valida un contrato OpenAPI contra la guía de estilo institucional?"
+    opciones:
+      a: "nexo-ctl api export"
+      b: "nexo-ctl api lint <contrato>"
+      c: "make bootstrap"
+      d: "docker compose config"
+    correcta: b
+    justificacion: "api lint ejecuta Spectral con wso2/apim/governance/guia-estilo-institucional.yaml y termina con código 2 si hay errores."
+    referencia: "tools/nexo-ctl/src/cli.ts"
+
+  - id: M3-02
+    modulo: M3
+    dificultad: media
+    enunciado: "`nexo-ctl api lint` informa 0 errores y 2 advertencias. ¿Qué pasa con la promoción de esa API?"
+    opciones:
+      a: "No se bloquea: solo los errores bloquean y las advertencias se informan"
+      b: "Se bloquea"
+      c: "Se bloquea solo en producción"
+      d: "Pasa a una aprobación de cuatro ojos"
+    correcta: a
+    justificacion: "La guía marca severidad por regla; api deploy se detiene solo si hay errores."
+    referencia: "tools/nexo-ctl/src/commands/api.ts"
+
+  - id: M3-03
+    modulo: M3
+    dificultad: baja
+    enunciado: "Según la guía de estilo, ¿cuál de estas rutas incumple?"
+    opciones:
+      a: "/concesiones"
+      b: "/concesiones/{id}"
+      c: "/"
+      d: "/obtenerReportes"
+    correcta: d
+    justificacion: "Las rutas deben estar en minúsculas con guiones (kebab-case); se acepta la raíz."
+    referencia: "wso2/apim/governance/guia-estilo-institucional.yaml"
+
+  - id: M3-04
+    modulo: M3
+    dificultad: media
+    enunciado: "¿Qué exige la guía de estilo sobre `info.contact`?"
+    opciones:
+      a: "Nada"
+      b: "Solo una URL"
+      c: "Que declare el nombre y el correo del responsable; si falta, es un error que bloquea"
+      d: "Es una advertencia opcional"
+    correcta: c
+    justificacion: "La regla nexo-info-contacto tiene severidad error."
+    referencia: "wso2/apim/governance/guia-estilo-institucional.yaml"
+
+  - id: M3-05
+    modulo: M3
+    dificultad: baja
+    enunciado: "¿Qué esquema de seguridad prohíbe la guía de estilo en los contratos institucionales?"
+    opciones:
+      a: "OAuth 2.0"
+      b: "API key"
+      c: "HTTP basic"
+      d: "Ninguno"
+    correcta: c
+    justificacion: "La regla nexo-sin-basic-auth rechaza los esquemas con scheme basic."
+    referencia: "wso2/apim/governance/guia-estilo-institucional.yaml"
+
+  - id: M3-06
+    modulo: M3
+    dificultad: alta
+    enunciado: "Además del pipeline con nexo-ctl, ¿dónde se aplica la guía de estilo?"
+    opciones:
+      a: "En Keycloak"
+      b: "En la política de gobierno de WSO2 «Nexo · Contratos institucionales», que bloquea el despliegue y la publicación de APIs con errores"
+      c: "Solo como sugerencia en el Dev Portal"
+      d: "En el NGINX heredado"
+    correcta: b
+    justificacion: "platform.yaml carga la guía como ruleset de WSO2 API Governance; la política bloquea API_DEPLOY y API_PUBLISH. La revisión OWASP solo avisa."
+    referencia: "wso2/apim/platform.yaml"
+
+  - id: M3-07
+    modulo: M3
+    dificultad: media
+    enunciado: "¿Qué hace `nexo-ctl api deploy wso2/apim/apis/concesiones -s qa`?"
+    opciones:
+      a: "Valida el contrato, crea o actualiza la API, crea una revisión, la despliega en los gateways de la etapa QA y la publica"
+      b: "Edita la API a mano en el Publisher"
+      c: "Copia el contrato al gateway sin crear revisión"
+      d: "Promueve la API directo a producción"
+    correcta: a
+    justificacion: "Todo sale del proyecto versionado en Git; no se edita producción a mano."
+    referencia: "tools/nexo-ctl/src/commands/api.ts"
+
+  - id: M3-08
+    modulo: M3
+    dificultad: media
+    enunciado: "¿Qué hace `nexo-ctl api rollback Concesiones 1.0.0 -s prod`?"
+    opciones:
+      a: "Borra la API"
+      b: "Cambia la versión de la API a 0.9.0"
+      c: "Despublica la API del Dev Portal"
+      d: "Despliega la revisión anterior en los gateways donde está desplegada la revisión actual"
+    correcta: d
+    justificacion: "La reversa usa las revisiones de WSO2: busca la revisión desplegada más reciente y vuelve a la anterior, sin edición manual."
+    referencia: "tools/nexo-ctl/src/commands/api.ts"
+
+  - id: M3-09
+    modulo: M3
+    dificultad: media
+    enunciado: "¿Qué entrega `nexo-ctl api export`?"
+    opciones:
+      a: "Un PDF con la documentación de las APIs"
+      b: "Un zip por API en formato de proyecto de WSO2 y un manifiesto.json con la suma SHA-256 de cada archivo"
+      c: "Solo los contratos OpenAPI"
+      d: "Una copia de la base de datos de API Manager"
+    correcta: b
+    justificacion: "El manifiesto permite comprobar después que cada archivo exportado no cambió."
+    referencia: "tools/nexo-ctl/src/commands/api.ts"
+
+  - id: M3-10
+    modulo: M3
+    dificultad: baja
+    enunciado: "¿En qué lenguajes genera SDK el Dev Portal del laboratorio?"
+    opciones:
+      a: "Java, JavaScript, Python, C# y Android"
+      b: "Solo Java"
+      c: "Go y Rust"
+      d: "Ninguno"
+    correcta: a
+    justificacion: "deployment.toml declara esos lenguajes en [apim.sdk]; check:d07 genera al menos tres."
+    referencia: "deploy/compose/apim/config/repository/conf/deployment.toml"
+
+  - id: M3-11
+    modulo: M3
+    dificultad: media
+    enunciado: "¿Cómo se describe y se consume la API EventosRed?"
+    opciones:
+      a: "Con OpenAPI, como API REST"
+      b: "Con un esquema GraphQL"
+      c: "Con un contrato AsyncAPI, como API de WebSocket que el gateway atiende en wss://apim:8099"
+      d: "Con un WSDL"
+    correcta: c
+    justificacion: "El proyecto declara type WS y contrato asyncapi.yaml; check:d06 recibe eventos por WebSocket con token de Keycloak."
+    referencia: "wso2/apim/apis/eventos-red/api.yaml"
+
+  - id: M3-12
+    modulo: M3
+    dificultad: alta
+    enunciado: "En el proyecto de la API Concesiones, ¿qué significa `division: { prod: true }`?"
+    opciones:
+      a: "Que la API se divide en dos versiones"
+      b: "Que la API se publica solo para una división de la institución"
+      c: "Que exige mTLS"
+      d: "Que en producción el gateway llama a nexo-division, donde los despliegues progresivos cambian pesos sin redesplegar la API"
+    correcta: d
+    justificacion: "nexo-ctl apunta el endpoint a <division>/rutas/concesiones y deja el backend del proyecto como versión estable de la ruta."
+    referencia: "wso2/apim/apis/concesiones/api.yaml"
+
+  - id: M3-13
+    modulo: M3
+    dificultad: alta
+    enunciado: "Durante un despliegue canary con tráfico sombra, la versión candidata falla todas las llamadas. ¿Qué ocurre?"
+    opciones:
+      a: "Se revierte en la etapa de sombra sin que ningún consumidor reciba sus respuestas"
+      b: "Los consumidores reciben errores hasta que alguien lo detenga"
+      c: "Avanza igual al 5 %"
+      d: "Se suspende la API completa"
+    correcta: a
+    justificacion: "En sombra la candidata recibe copias de las lecturas; sus respuestas no llegan a los consumidores y el motor revierte si supera los umbrales."
+    referencia: "tools/lab-bootstrap/src/check-d04.ts"
+
+  - id: M3-14
+    modulo: M3
+    dificultad: media
+    enunciado: "¿Quién puede aprobar un despliegue progresivo creado por ana.desarrollo?"
+    opciones:
+      a: "La misma ana.desarrollo"
+      b: "Cualquier persona con rol consumidor"
+      c: "Una persona con rol aprobador distinta de quien lo creó"
+      d: "Nadie: los despliegues no se aprueban"
+    correcta: c
+    justificacion: "rollout:approve es del aprobador y es una acción de cuatro ojos: la API rechaza con 403 a quien inició."
+    referencia: "apps/console-api/src/auth/auth.ts"
+
+  - id: M3-15
+    modulo: M3
+    dificultad: alta
+    enunciado: "¿Con qué umbrales por omisión decide el motor de despliegues si avanza o revierte un paso?"
+    opciones:
+      a: "Tasa de error de 10 % y latencia p50 de 2 s"
+      b: "Tasa de error máxima de 2 %, p99 máximo de 800 ms y al menos 20 solicitudes"
+      c: "Solo el uso de CPU"
+      d: "No hay umbrales: avanza por tiempo"
+    correcta: b
+    justificacion: "Son los valores por omisión de thresholds en la API de despliegues; cada despliegue puede fijar los suyos."
+    referencia: "apps/console-api/src/modules/rollouts.ts"
+
+  - id: M3-16
+    modulo: M3
+    dificultad: media
+    enunciado: "¿Qué devuelve POST /impact/simulate en la API de la Consola?"
+    opciones:
+      a: "Los flujos, las APIs y los consumidores afectados por el cambio simulado en un nodo del grafo"
+      b: "El costo del cambio"
+      c: "Un despliegue automático del cambio"
+      d: "Las alertas de Prometheus"
+    correcta: a
+    justificacion: "El análisis de impacto recorre el grafo de dependencias (API, flujo, sistema, consumidor) desde el nodo que cambia."
+    referencia: "apps/console-api/src/modules/catalog-graph.ts"
+
+  # ====================================================================== M4 · Integración con Micro Integrator
+  - id: M4-01
+    modulo: M4
+    dificultad: baja
+    enunciado: "¿Qué encabezado exige el flujo de solicitudes de Micro Integrator?"
+    opciones:
+      a: "X-Api-Key"
+      b: "SOAPAction"
+      c: "Idempotency-Key"
+      d: "X-Forwarded-For"
+    correcta: c
+    justificacion: "Sin Idempotency-Key el flujo responde 400 antes de validar o procesar."
+    referencia: "wso2/mi/artifacts/api/SolicitudesConcesionAPI.xml"
+
+  - id: M4-02
+    modulo: M4
+    dificultad: baja
+    enunciado: "Una solicitud válida y nueva al flujo de solicitudes, ¿qué código recibe?"
+    opciones:
+      a: "202, porque se procesa de forma asíncrona a través de una cola"
+      b: "200"
+      c: "201"
+      d: "204"
+    correcta: a
+    justificacion: "El flujo publica el mensaje canónico en RabbitMQ y responde 202 con el identificador de la solicitud."
+    referencia: "wso2/mi/artifacts/api/SolicitudesConcesionAPI.xml"
+
+  - id: M4-03
+    modulo: M4
+    dificultad: media
+    enunciado: "Se repite una solicitud con la misma Idempotency-Key. ¿Qué responde el flujo?"
+    opciones:
+      a: "409"
+      b: "202 y la publica otra vez en la cola"
+      c: "500"
+      d: "200 con la misma respuesta, el campo repeticion en true y el encabezado X-Idempotent-Replay, sin repetir efectos"
+    correcta: d
+    justificacion: "La clave ya está en la tabla de idempotencia: el flujo responde lo mismo sin volver a publicar."
+    referencia: "wso2/mi/artifacts/api/SolicitudesConcesionAPI.xml"
+
+  - id: M4-04
+    modulo: M4
+    dificultad: baja
+    enunciado: "Si la solicitud no cumple el esquema JSON, ¿qué responde el flujo?"
+    opciones:
+      a: "400"
+      b: "422, con el detalle de la validación y la correlación"
+      c: "404"
+      d: "502"
+    correcta: b
+    justificacion: "El mediador validate usa el esquema EsquemaSolicitud y, si falla, responde 422."
+    referencia: "wso2/mi/artifacts/local-entries/EsquemaSolicitud.xml"
+
+  - id: M4-05
+    modulo: M4
+    dificultad: media
+    enunciado: "¿Con qué se enriquece la solicitud antes de publicarla en la cola?"
+    opciones:
+      a: "Con datos de Keycloak"
+      b: "Con una consulta GraphQL"
+      c: "Con una consulta SOAP 1.2 al registro de operadores por RUT"
+      d: "No se enriquece"
+    correcta: c
+    justificacion: "El flujo arma un sobre SOAP 1.2, llama a RegistroOperadoresEP y toma razonSocial y estado de la respuesta."
+    referencia: "wso2/mi/artifacts/endpoints/RegistroOperadoresEP.xml"
+
+  - id: M4-06
+    modulo: M4
+    dificultad: media
+    enunciado: "¿Cómo reintenta el consumidor de la cola cuando falla el sistema de destino?"
+    opciones:
+      a: "Hasta 3 reintentos con espera de 2, 4 y 8 s, mediante colas con TTL que devuelven el mensaje a la cola principal"
+      b: "En un bucle sin espera"
+      c: "Cada hora durante un día"
+      d: "No reintenta"
+    correcta: a
+    justificacion: "Las colas solicitudes.reintento.1, .2 y .3 tienen TTL de 2, 4 y 8 s y su dead-letter apunta a nexo.solicitudes."
+    referencia: "tools/lab-bootstrap/src/messaging.ts"
+
+  - id: M4-07
+    modulo: M4
+    dificultad: media
+    enunciado: "Agotados los reintentos, ¿dónde queda el mensaje?"
+    opciones:
+      a: "Se descarta"
+      b: "En el log de API Manager"
+      c: "En la tabla nexo_idem"
+      d: "En la cola solicitudes.dlq (exchange nexo.dlq), a la espera de un reproceso autorizado"
+    correcta: d
+    justificacion: "La secuencia reintentar-solicitud envía el mensaje original a ColaFallidosEP cuando ya hubo 3 intentos."
+    referencia: "wso2/mi/artifacts/sequences/reintentar-solicitud.xml"
+
+  - id: M4-08
+    modulo: M4
+    dificultad: alta
+    enunciado: "¿Qué exige la Consola para reprocesar un mensaje fallido?"
+    opciones:
+      a: "Nada: cualquiera puede reprocesar"
+      b: "Que el mensaje tenga menos de una hora"
+      c: "El permiso dlq:reprocess:approve (aprobador) y un motivo; sin motivo responde 400 y la acción queda auditada"
+      d: "La aprobación de un desarrollador"
+    correcta: c
+    justificacion: "La verificación de la Consola comprueba 400 sin motivo, 403 para un desarrollador y el reproceso auditado de un aprobador."
+    referencia: "tools/lab-bootstrap/src/check-consola.ts"
+
+  - id: M4-09
+    modulo: M4
+    dificultad: alta
+    enunciado: "Se modifica un artefacto en wso2/mi/artifacts. ¿Cómo toma el cambio el Micro Integrator del laboratorio?"
+    opciones:
+      a: "Al instante, porque lee la carpeta en cada solicitud"
+      b: "Con make bootstrap"
+      c: "Al reiniciar el contenedor mi: al iniciar, el entrypoint copia esos artefactos sobre synapse-configs/default"
+      d: "Desde el Publisher de API Manager"
+    correcta: c
+    justificacion: "La carpeta se monta en solo lectura en el volumen de configuración y el entrypoint de WSO2 la fusiona al arrancar."
+    referencia: "deploy/compose/docker-compose.yml"
+
+  - id: M4-10
+    modulo: M4
+    dificultad: media
+    enunciado: "¿En qué puerto está la Management API de Micro Integrator y cómo se autentica?"
+    opciones:
+      a: "8290, sin autenticación"
+      b: "9164; se pide un token en /management/login con usuario y contraseña"
+      c: "9443, con OAuth de Keycloak"
+      d: "15672, con el usuario de RabbitMQ"
+    correcta: b
+    justificacion: "El usuario de la Management API se declara en [[internal_apis.users]]; /management/login devuelve un AccessToken."
+    referencia: "deploy/compose/mi/config/conf/deployment.toml"
+
+  - id: M4-11
+    modulo: M4
+    dificultad: alta
+    enunciado: "¿Por qué el inbound endpoint de RabbitMQ usa confirmación manual (`rabbitmq.queue.auto.ack` en false)?"
+    opciones:
+      a: "Para acelerar el consumo"
+      b: "Para que el mensaje se confirme solo al terminar la mediación, que puede terminar en un reintento o en la cola de fallidos"
+      c: "Porque RabbitMQ no admite confirmación automática"
+      d: "Para que lo confirme una persona"
+    correcta: b
+    justificacion: "Si el integrador cae a mitad de la mediación, el mensaje no confirmado vuelve a la cola y no se pierde."
+    referencia: "wso2/mi/artifacts/inbound-endpoints/SolicitudesConsumidor.xml"
+
+  - id: M4-12
+    modulo: M4
+    dificultad: media
+    enunciado: "¿Dónde guarda Micro Integrator las claves de idempotencia del flujo?"
+    opciones:
+      a: "En la tabla nexo_idem de la base mi_db en PostgreSQL"
+      b: "En la memoria del gateway"
+      c: "En RabbitMQ"
+      d: "En Keycloak"
+    correcta: a
+    justificacion: "El arranque crea la tabla; el flujo la consulta con dblookup y la escribe con dbreport."
+    referencia: "tools/lab-bootstrap/src/messaging.ts"
+
+  - id: M4-13
+    modulo: M4
+    dificultad: alta
+    enunciado: "Si ocurre un error no controlado dentro del flujo (por ejemplo, el registro SOAP no responde), ¿qué responde?"
+    opciones:
+      a: "202 igual"
+      b: "401"
+      c: "No responde y la conexión queda abierta"
+      d: "502, con el código de error y la correlación, desde la faultSequence"
+    correcta: d
+    justificacion: "La faultSequence del recurso registra la etapa de error y responde 502 en JSON."
+    referencia: "wso2/mi/artifacts/api/SolicitudesConcesionAPI.xml"
+
+  - id: M4-14
+    modulo: M4
+    dificultad: media
+    enunciado: "¿Qué recibe el sistema de destino para que un reintento no duplique efectos?"
+    opciones:
+      a: "El encabezado Idempotency-Key de la solicitud original"
+      b: "Un token nuevo de Keycloak"
+      c: "Un número aleatorio"
+      d: "La IP del consumidor"
+    correcta: a
+    justificacion: "La secuencia procesar-solicitud reenvía Idempotency-Key y X-Correlation-ID al destino."
+    referencia: "wso2/mi/artifacts/sequences/procesar-solicitud.xml"
+
+  - id: M4-15
+    modulo: M4
+    dificultad: baja
+    enunciado: "¿A dónde envía Micro Integrator sus trazas en el laboratorio?"
+    opciones:
+      a: "Directamente a Grafana"
+      b: "A OpenSearch"
+      c: "Al OpenTelemetry Collector por OTLP (servicio nexo-integrator), que las entrega a Jaeger"
+      d: "No genera trazas"
+    correcta: c
+    justificacion: "deployment.toml de MI activa [opentelemetry] hacia otel-collector:4317."
+    referencia: "deploy/compose/mi/config/conf/deployment.toml"
+
+  # ====================================================================== M5 · Seguridad e identidad
+  - id: M5-01
+    modulo: M5
+    dificultad: baja
+    enunciado: "¿Qué versiones de TLS acepta API Manager en los puertos 9443 y 8243 del laboratorio?"
+    opciones:
+      a: "TLS 1.0 a 1.3"
+      b: "Solo SSL 3.0"
+      c: "Ninguna: son puertos HTTP"
+      d: "Solo TLS 1.2 y TLS 1.3"
+    correcta: d
+    justificacion: "deployment.toml limita los protocolos de portales, REST API y gateway HTTPS a TLSv1.2 y TLSv1.3."
+    referencia: "deploy/compose/apim/config/repository/conf/deployment.toml"
+
+  - id: M5-02
+    modulo: M5
+    dificultad: media
+    enunciado: "¿Con qué grant obtiene su token en Keycloak la aplicación OperadorDemo?"
+    opciones:
+      a: "password"
+      b: "client_credentials"
+      c: "authorization_code"
+      d: "implicit"
+    correcta: b
+    justificacion: "Es una aplicación de sistema a sistema: usa su consumer key y su consumer secret con client_credentials."
+    referencia: "tools/lab-bootstrap/src/index.ts"
+
+  - id: M5-03
+    modulo: M5
+    dificultad: media
+    enunciado: "En la auditoría de Nexo, ¿cómo se calcula el hash de un evento?"
+    opciones:
+      a: "SHA-256 del hash del evento anterior seguido del evento en forma canónica"
+      b: "MD5 del mensaje"
+      c: "SHA-1 de la fecha"
+      d: "Es un número correlativo"
+    correcta: a
+    justificacion: "computeHash concatena prevHash y el evento canónico (sin el campo hash) y calcula SHA-256."
+    referencia: "packages/shared/src/audit.ts"
+
+  - id: M5-04
+    modulo: M5
+    dificultad: baja
+    enunciado: "¿Qué valor tiene `prevHash` en el primer evento de la cadena de auditoría?"
+    opciones:
+      a: "Vacío"
+      b: "El id del evento"
+      c: "64 ceros"
+      d: "La fecha del evento"
+    correcta: c
+    justificacion: "GENESIS_HASH son 64 ceros: el punto de partida de la cadena."
+    referencia: "packages/shared/src/audit.ts"
+
+  - id: M5-05
+    modulo: M5
+    dificultad: alta
+    enunciado: "Alguien modifica en la base el campo `details` de un evento de auditoría ya registrado. ¿Qué informa la verificación de la cadena?"
+    opciones:
+      a: "Nada: details no forma parte del hash"
+      b: "Un quiebre de secuencia"
+      c: "Solo una advertencia"
+      d: "Un quiebre en ese evento, porque su hash ya no corresponde al contenido"
+    correcta: d
+    justificacion: "details entra en la forma canónica; check:consola altera un evento y comprueba que la verificación indica el quiebre en ese seq."
+    referencia: "tools/lab-bootstrap/src/check-consola.ts"
+
+  - id: M5-06
+    modulo: M5
+    dificultad: alta
+    enunciado: "En la forma canónica de un evento de auditoría, ¿qué se hace con las claves y los valores?"
+    opciones:
+      a: "Las claves se ordenan alfabéticamente, sin espacios y sin los campos vacíos"
+      b: "Se dejan en el orden de llegada"
+      c: "Se traducen al inglés"
+      d: "Se cifran con la llave de WSO2"
+    correcta: a
+    justificacion: "Así el mismo evento produce siempre el mismo hash, sin importar el orden en que se armó."
+    referencia: "packages/shared/src/audit.ts"
+
+  - id: M5-07
+    modulo: M5
+    dificultad: alta
+    enunciado: "El SIEM (en el laboratorio, Fluent Bit hacia OpenSearch) está caído. ¿Qué pasa con los eventos de auditoría?"
+    opciones:
+      a: "Se pierden"
+      b: "Se envían por correo"
+      c: "Esperan en la base; al volver el SIEM llegan todos y en orden, y un reenvío no duplica porque el id del evento es el id del documento"
+      d: "Se guardan solo en memoria hasta reiniciar"
+    correcta: c
+    justificacion: "El motor de reenvío avanza un cursor solo cuando el SIEM recibe; check:siem lo comprueba deteniendo Fluent Bit."
+    referencia: "tools/lab-bootstrap/src/check-siem.ts"
+
+  - id: M5-08
+    modulo: M5
+    dificultad: media
+    enunciado: "¿Cómo bloquea el guardián de anomalías a un consumidor en el gateway?"
+    opciones:
+      a: "Con una política de denegación de WSO2; el consumidor recibe 403"
+      b: "Apagando el gateway"
+      c: "Borrando su aplicación"
+      d: "Cambiando su contraseña en Keycloak"
+    correcta: a
+    justificacion: "El bloqueo crea una deny policy por la Admin REST API y se retira al liberar o al vencer."
+    referencia: "tools/lab-bootstrap/src/check-d02.ts"
+
+  - id: M5-09
+    modulo: M5
+    dificultad: media
+    enunciado: "Una regla con acción bloquear_automatico y duración de 1 minuto bloqueó a un consumidor. ¿Qué ocurre después?"
+    opciones:
+      a: "Queda bloqueado hasta que un administrador lo libere"
+      b: "Se borra su aplicación"
+      c: "Se bloquean todas las APIs"
+      d: "El bloqueo se levanta solo al vencer y queda registrado como liberado por nexo-guardian"
+    correcta: d
+    justificacion: "Los bloqueos automáticos tienen duración limitada; check:d02 comprueba que el acceso vuelve a 200."
+    referencia: "tools/lab-bootstrap/src/check-d02.ts"
+
+  - id: M5-10
+    modulo: M5
+    dificultad: alta
+    enunciado: "¿Qué estadística usa el guardián para comparar la ventana actual con la línea base de cada consumidor?"
+    opciones:
+      a: "Media y desviación estándar"
+      b: "Mediana y MAD (desviación absoluta mediana), que no se dejan arrastrar por picos aislados"
+      c: "El máximo histórico"
+      d: "Un valor fijo de 100 llamadas"
+    correcta: b
+    justificacion: "detect.ts calcula un puntaje robusto con mediana y MAD, con una escala mínima por métrica."
+    referencia: "services/engines/src/guardian/detect.ts"
+
+  - id: M5-11
+    modulo: M5
+    dificultad: media
+    enunciado: "En una regla del guardián, ¿qué efecto tiene subir la sensibilidad de 3 a 9?"
+    opciones:
+      a: "Ninguno"
+      b: "Sube el volumen mínimo"
+      c: "Baja el umbral del puntaje: se detectan desvíos más pequeños"
+      d: "Alarga la duración del bloqueo"
+    correcta: c
+    justificacion: "La sensibilidad va de 1 (poco sensible) a 10 (muy sensible) y el umbral es 2 + (10 − sensibilidad) × 0,75."
+    referencia: "services/engines/src/guardian/detect.ts"
+
+  - id: M5-12
+    modulo: M5
+    dificultad: media
+    enunciado: "¿Qué hace el OpenTelemetry Collector del laboratorio con los datos sensibles de las trazas?"
+    opciones:
+      a: "Nada"
+      b: "Elimina el encabezado Authorization de los atributos y reemplaza el identificador de usuario final por un hash"
+      c: "Cifra la traza completa"
+      d: "Descarta las trazas con errores"
+    correcta: b
+    justificacion: "El procesador attributes/minimizar borra http.request.header.authorization, aplica hash a enduser.id y quita la consulta de http.url."
+    referencia: "deploy/compose/otel/config.yaml"
+
+  - id: M5-13
+    modulo: M5
+    dificultad: baja
+    enunciado: "Se llama a la API de la Consola con un token alterado. ¿Qué responde?"
+    opciones:
+      a: "401"
+      b: "200"
+      c: "403"
+      d: "404"
+    correcta: a
+    justificacion: "La firma del JWT no se valida contra las llaves de Keycloak: es un problema de autenticación, no de permisos."
+    referencia: "tools/lab-bootstrap/src/check-consola.ts"
+
+  - id: M5-14
+    modulo: M5
+    dificultad: media
+    enunciado: "Una persona con rol desarrollador llama a GET /audit-events. ¿Qué responde la API de la Consola?"
+    opciones:
+      a: "200 con todos los eventos"
+      b: "401"
+      c: "403, con el permiso que falta en el cuerpo del error"
+      d: "404"
+    correcta: c
+    justificacion: "Está autenticada pero no tiene audit:read; el cuerpo Error incluye statusCode, message y permission."
+    referencia: "apps/console-api/openapi.yaml"
+
+  - id: M5-15
+    modulo: M5
+    dificultad: alta
+    enunciado: "En el laboratorio, ¿qué hallazgo del descubrimiento recibe un puntaje de exposición de 90 o más?"
+    opciones:
+      a: "La ruta de APISIX protegida con key-auth"
+      b: "La API Concesiones publicada en el gateway"
+      c: "El endpoint /health de los backends"
+      d: "El reporte del NGINX heredado que entrega datos personales sin autenticación"
+    correcta: d
+    justificacion: "Sin autenticación y con datos personales, el reporte de titulares es el más expuesto; check:d01 exige puntaje ≥ 90."
+    referencia: "tools/lab-bootstrap/src/check-d01.ts"
+
+  - id: M5-16
+    modulo: M5
+    dificultad: media
+    enunciado: "¿Quién puede clasificar un hallazgo del descubrimiento, por ejemplo como «en migración»?"
+    opciones:
+      a: "Quien tenga el permiso discovery:triage (rol aprobador); la clasificación se respeta en los escaneos siguientes"
+      b: "Cualquier desarrollador"
+      c: "Cualquier consumidor"
+      d: "Solo el motor, de forma automática"
+    correcta: a
+    justificacion: "check:d01 comprueba el 403 de un desarrollador y que un segundo escaneo conserva la clasificación humana."
+    referencia: "tools/lab-bootstrap/src/check-d01.ts"
+
+  - id: M5-17
+    modulo: M5
+    dificultad: baja
+    enunciado: "¿Dónde están las credenciales del laboratorio y qué pasa con ellas en Git?"
+    opciones:
+      a: "En el código fuente de cada servicio"
+      b: "En deploy/compose/.env, creado desde .env.example; el .env real está excluido de Git"
+      c: "En el README"
+      d: "En Grafana"
+    correcta: b
+    justificacion: ".env.example trae solo credenciales de laboratorio; .gitignore excluye .env y el CI ejecuta Gitleaks."
+    referencia: "deploy/compose/.env.example"
+
+  - id: M5-18
+    modulo: M5
+    dificultad: alta
+    enunciado: "Con gateways separados por audiencia, ¿qué ocurre al llamar a la API pública ConsultaPublica por el gateway interno (apim:8243)?"
+    opciones:
+      a: "200"
+      b: "401"
+      c: "404: cada gateway expone solo las APIs de su audiencia"
+      d: "302 hacia el gateway público"
+    correcta: c
+    justificacion: "ConsultaPublica solo se despliega en el ambiente Publico; check:audiencias exige 404 en el gateway interno."
+    referencia: "tools/lab-bootstrap/src/check-audiencias.ts"
+
+  # ====================================================================== M6 · Observabilidad, continuidad, soporte e incidentes
+  - id: M6-01
+    modulo: M6
+    dificultad: media
+    enunciado: "¿Cómo llegan los eventos de analítica del gateway a OpenSearch?"
+    opciones:
+      a: "API Manager los envía a la nube de WSO2"
+      b: "Prometheus los copia"
+      c: "En modo log: API Manager los escribe en apim_metrics.log y Fluent Bit los envía al índice nexo-apim-metrics-*, con buffer en disco"
+      d: "Jaeger los indexa"
+    correcta: c
+    justificacion: "La analítica está en modo elk; no se usa la analítica en la nube de WSO2."
+    referencia: "deploy/compose/fluent-bit/fluent-bit.yaml"
+
+  - id: M6-02
+    modulo: M6
+    dificultad: alta
+    enunciado: "¿De dónde salen las métricas `nexo_gateway_counter_solicitudes_total` que usan el tablero y las alertas del gateway?"
+    opciones:
+      a: "De un agente instalado en Keycloak"
+      b: "De Fluent Bit, que las deriva de los eventos de analítica (log_to_metrics) y las expone en el puerto 2021"
+      c: "Del Dev Portal"
+      d: "De OpenSearch Dashboards"
+    correcta: b
+    justificacion: "El trabajo gateway de Prometheus apunta a fluent-bit:2021, el exportador de las métricas derivadas."
+    referencia: "deploy/compose/prometheus/prometheus.yml"
+
+  - id: M6-03
+    modulo: M6
+    dificultad: media
+    enunciado: "¿Qué condición dispara la alerta ComponenteCaido?"
+    opciones:
+      a: "up == 0 durante 1 minuto, con severidad S2"
+      b: "CPU sobre 90 %"
+      c: "Un 401 en el gateway"
+      d: "Un mensaje en la cola de fallidos"
+    correcta: a
+    justificacion: "Regla nexo-plataforma: cualquier destino de Prometheus que no responde por un minuto."
+    referencia: "deploy/compose/prometheus/rules/nexo.yml"
+
+  - id: M6-04
+    modulo: M6
+    dificultad: media
+    enunciado: "¿Cuándo se dispara la alerta TasaDeErrorAlta?"
+    opciones:
+      a: "Con un solo error 500"
+      b: "Cuando hay más de 100 llamadas por minuto"
+      c: "Cuando la latencia p50 supera 100 ms"
+      d: "Cuando una API supera 5 % de respuestas 5xx durante 5 minutos"
+    correcta: d
+    justificacion: "Se calcula por apiName con las métricas del gateway y tiene severidad S2."
+    referencia: "deploy/compose/prometheus/rules/nexo.yml"
+
+  - id: M6-05
+    modulo: M6
+    dificultad: baja
+    enunciado: "En el laboratorio, ¿a dónde envía Alertmanager las alertas?"
+    opciones:
+      a: "A un correo externo"
+      b: "A ninguna parte"
+      c: "A un canal de chat"
+      d: "Al webhook de la Consola (/api/v1/alerts/alertmanager)"
+    correcta: d
+    justificacion: "El receptor mesa-soporte apunta a console-api; la Consola las muestra como alertas abiertas en el resumen."
+    referencia: "deploy/compose/alertmanager/alertmanager.yml"
+
+  - id: M6-06
+    modulo: M6
+    dificultad: baja
+    enunciado: "¿Qué tablero de Grafana trae aprovisionado el laboratorio?"
+    opciones:
+      a: "«Nexo · Plataforma», con consumo, errores, latencias, saturación e integración"
+      b: "Ninguno"
+      c: "Solo un tablero de Keycloak"
+      d: "Un tablero de costos"
+    correcta: a
+    justificacion: "El tablero se aprovisiona desde deploy/compose/grafana/dashboards junto con los orígenes Prometheus y Jaeger."
+    referencia: "deploy/compose/grafana/dashboards/nexo-plataforma.json"
+
+  - id: M6-07
+    modulo: M6
+    dificultad: media
+    enunciado: "Todas las APIs de producción responden 5xx y no hay alternativa operativa. ¿Qué severidad corresponde?"
+    opciones:
+      a: "S2"
+      b: "S1"
+      c: "S3"
+      d: "S4"
+    correcta: b
+    justificacion: "Servicio productivo caído y sin alternativa operativa es S1 según classifySeverity."
+    referencia: "packages/shared/src/severity.ts"
+
+  - id: M6-08
+    modulo: M6
+    dificultad: media
+    enunciado: "Un nodo de gateway de producción cayó y el otro sostiene el servicio. ¿Qué severidad corresponde?"
+    opciones:
+      a: "S1"
+      b: "S3"
+      c: "S2: servicio productivo caído con alternativa operativa"
+      d: "S4"
+    correcta: c
+    justificacion: "Existe una alternativa operativa (el otro nodo): la regla da S2."
+    referencia: "packages/shared/src/severity.ts"
+
+  - id: M6-09
+    modulo: M6
+    dificultad: baja
+    enunciado: "¿Cuál es el plazo de solución o solución temporal de una solicitud S1?"
+    opciones:
+      a: "24 horas"
+      b: "3 días hábiles"
+      c: "4 horas corridas"
+      d: "10 días hábiles"
+    correcta: c
+    justificacion: "S1: acuse 1 h, diagnóstico 2 h y solución o solución temporal 4 h corridas, 24x7."
+    referencia: "apps/site/docs/ciclo-de-vida-y-soporte.md"
+
+  - id: M6-10
+    modulo: M6
+    dificultad: media
+    enunciado: "¿Cuándo se puede pausar el reloj de un plazo de soporte?"
+    opciones:
+      a: "Cuando el agente lo decide"
+      b: "Los fines de semana, en S1"
+      c: "Nunca"
+      d: "Solo por causas tipificadas, con justificación y visible para la institución"
+    correcta: d
+    justificacion: "Por ejemplo, un acceso que debe habilitar la institución; la pausa queda registrada con su motivo."
+    referencia: "apps/site/docs/ciclo-de-vida-y-soporte.md"
+
+  - id: M6-11
+    modulo: M6
+    dificultad: alta
+    enunciado: "En el laboratorio de continuidad, solo el agente de GCP sigue activo y ve caído el primario. ¿Qué ocurre?"
+    opciones:
+      a: "No conmuta: sin quórum de 2 de 3 no hay conmutación, para evitar dos sitios activos"
+      b: "Conmuta de inmediato"
+      c: "Promueve la réplica pero no cambia el DNS"
+      d: "Apaga el CPD"
+    correcta: a
+    justificacion: "check:d05 detiene dos agentes y el primario y comprueba que la réplica no se promueve mientras no haya quórum."
+    referencia: "tools/lab-bootstrap/src/check-d05.ts"
+
+  - id: M6-12
+    modulo: M6
+    dificultad: alta
+    enunciado: "¿Qué hace un simulacro de conmutación iniciado desde la Consola (POST /continuity/drill)?"
+    opciones:
+      a: "Conmuta de verdad al sitio de respaldo"
+      b: "Apaga los gateways del CPD"
+      c: "Es no disruptivo: el agente del sitio de respaldo mide el rezago de la réplica y confirma que es promovible, sin promoverla"
+      d: "Reinicia la base de datos"
+    correcta: c
+    justificacion: "El simulacro registra un evento con sus pasos y el rezago en bytes de WAL; no cambia el sitio activo."
+    referencia: "services/engines/src/continuity/engine.ts"
+
+  - id: M6-13
+    modulo: M6
+    dificultad: media
+    enunciado: "Después de conmutar a Google Cloud, ¿cómo se vuelve al CPD?"
+    opciones:
+      a: "Sola, apenas el CPD responde"
+      b: "Con un retorno guiado que aprueba una persona con el permiso continuity:failback:approve"
+      c: "Reinstalando el CPD"
+      d: "No se puede volver"
+    correcta: b
+    justificacion: "El retorno siempre es guiado y con aprobación, para no rebotar entre sitios."
+    referencia: "apps/console-api/src/modules/continuity.ts"
+
+  - id: M6-14
+    modulo: M6
+    dificultad: baja
+    enunciado: "¿Qué registra cada evento de conmutación en la Consola?"
+    opciones:
+      a: "Solo la hora"
+      b: "Los pasos, los sitios de origen y destino, el disparador (automático, manual o simulacro) y el RTO medido"
+      c: "El costo de la nube"
+      d: "Nada: solo queda en los logs"
+    correcta: b
+    justificacion: "GET /continuity/events entrega el historial con pasos, RTO medido y RPO estimado cuando se puede calcular."
+    referencia: "apps/console-api/src/modules/continuity.ts"
+
+  - id: M6-15
+    modulo: M6
+    dificultad: baja
+    enunciado: "Después de cada incidente S1 o S2, ¿qué entrega Yago?"
+    opciones:
+      a: "Nada adicional"
+      b: "Una versión mayor nueva"
+      c: "Un análisis de causa raíz"
+      d: "Un cambio de contrato"
+    correcta: c
+    justificacion: "Es parte de los niveles de servicio estándar del soporte Nexo."
+    referencia: "apps/site/docs/ciclo-de-vida-y-soporte.md"
+
+  - id: M6-16
+    modulo: M6
+    dificultad: alta
+    enunciado: "La cola solicitudes.dlq tiene mensajes listos por más de 5 minutos. ¿Qué alerta se dispara y con qué severidad?"
+    opciones:
+      a: "ComponenteCaido, S2"
+      b: "LatenciaAlta, S3"
+      c: "Ninguna"
+      d: "ColaConMensajesFallidos, S3"
+    correcta: d
+    justificacion: "La regla suma rabbitmq_queue_messages_ready de las colas .dlq y alerta si es mayor que 0 por 5 minutos."
+    referencia: "deploy/compose/prometheus/rules/nexo.yml"
+
+  - id: M6-17
+    modulo: M6
+    dificultad: media
+    enunciado: "Se detecta una vulnerabilidad explotable activamente en un componente expuesto. ¿Con qué severidad se trata?"
+    opciones:
+      a: "S1"
+      b: "S2"
+      c: "S3"
+      d: "S4"
+    correcta: b
+    justificacion: "Riesgo de seguridad activo es S2, como indica la matriz de severidades y la política de reporte de vulnerabilidades."
+    referencia: "packages/shared/src/severity.ts"
+
+  - id: M6-18
+    modulo: M6
+    dificultad: media
+    enunciado: "¿Para qué sirve el encabezado `traceparent` que envía check:integracion con su llamada?"
+    opciones:
+      a: "Para autenticar la llamada"
+      b: "Para elegir el gateway"
+      c: "Para limitar el consumo"
+      d: "Para correlacionar la llamada de punta a punta: el gateway y el integrador agregan sus spans a la misma traza en Jaeger"
+    correcta: d
+    justificacion: "Con el mismo trace id, la verificación busca la traza en Jaeger y cuenta los spans por servicio."
+    referencia: "tools/lab-bootstrap/src/check-integracion.ts"
