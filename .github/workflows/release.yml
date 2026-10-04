@@ -110,6 +110,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "v$VERSION" -m "Yago Nexo $VERSION"
           git push origin "v$VERSION"
           nota="apps/site/blog/$(ls apps/site/blog | grep -E "nexo-${VERSION//./-}\.md$" | head -1)"
