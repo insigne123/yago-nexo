@@ -411,8 +411,14 @@
       "id": "mesa-soporte",
       "grupo": "servicio",
       "nombre": "Mesa de soporte 24x7",
-      "descripcion": "Registro de tickets con asistente de severidad, relojes de plazos, escalamiento e informes mensuales.",
-      "estado": "En desarrollo"
+      "descripcion": "Mesa de soporte 24x7 en operación: registro de tickets con asistente de severidad, relojes de plazos calculados por la base de datos, escalamiento, avisos por correo (y WhatsApp o voz cuando se configuran), acceso remoto con aprobación, incidentes de seguridad e informes mensuales. Ingreso con MFA obligatorio.",
+      "estado": "Disponible",
+      "evidencia": [
+        "supabase/support/migrations/20261004130300_nexo_sd_motor_sla.sql",
+        "supabase/support/functions/nexo-sd-notify/index.ts",
+        "apps/support-web/src/main.tsx",
+        "apps/support-web/firebase.json"
+      ]
     },
     {
       "id": "portal-capacitacion",
