@@ -11,13 +11,3 @@ datasources:
     type: jaeger
     access: proxy
     url: http://jaeger:16686
-  - name: OpenSearch
-    uid: opensearch
-    type: grafana-opensearch-datasource
-    access: proxy
-    url: http://opensearch:9200
-    jsonData:
-      database: "nexo-apim-metrics-*"
-      timeField: "@timestamp"
-      version: "3.0.0"
-      flavor: opensearch

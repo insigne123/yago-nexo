@@ -1,6 +1,7 @@
 # APISIX "actual" de SUBTEL (laboratorio). El motor de descubrimiento lee sus rutas por la Admin API.
 apisix:
   node_listen: 9080
+  enable_ipv6: false
 deployment:
   role: traditional
   role_traditional:
