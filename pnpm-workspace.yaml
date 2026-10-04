@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "services/*"
+  - "packages/*"
+  - "tools/*"
+  - "tests/*"
+
+onlyBuiltDependencies:
+  - esbuild
+  - "@nestjs/core"
+  - "@swc/core"

@@ -1,0 +1,22 @@
+Yago Nexo
+Copyright (c) 2026 Sociedad de Inversiones Yago SpA
+
+Yago Nexo es una distribución basada en software de código abierto. Incluye o se
+ejecuta junto a los siguientes componentes de terceros, cada uno bajo su propia
+licencia (lista resumida; el inventario completo y versionado está en el SBOM
+CycloneDX que acompaña cada versión):
+
+- WSO2 API Manager 4.7.0 (API Control Plane, Traffic Manager, Universal Gateway)
+  Copyright WSO2 LLC. Licencia Apache 2.0. https://github.com/wso2/product-apim
+- WSO2 Micro Integrator 4.6.0
+  Copyright WSO2 LLC. Licencia Apache 2.0. https://github.com/wso2/micro-integrator
+- Keycloak (Apache 2.0), PostgreSQL (PostgreSQL License), CloudNativePG (Apache 2.0),
+  RabbitMQ (MPL 2.0), Prometheus y Alertmanager (Apache 2.0), Grafana (AGPL 3.0, sin
+  modificaciones), OpenTelemetry Collector y Jaeger (Apache 2.0), OpenSearch y
+  OpenSearch Dashboards (Apache 2.0), Fluent Bit (Apache 2.0), OpenMetadata (Apache 2.0),
+  Argo CD (Apache 2.0), OpenBao (MPL 2.0), RKE2 (Apache 2.0), Spectral (Apache 2.0),
+  Microcks (Apache 2.0), StAEDI (Apache 2.0).
+
+"WSO2" es una marca de WSO2 LLC. Yago Nexo no está afiliado a WSO2 LLC ni es
+respaldado por ella; la marca se menciona solo para identificar el origen de los
+componentes, conforme a la sección 6 de la licencia Apache 2.0.

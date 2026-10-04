@@ -1,0 +1,22 @@
+{
+  "name": "@nexo/demo-backends",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backends de ejemplo del laboratorio: REST de concesiones, SOAP 1.2 tipo PISEE y APIs no gobernadas para D-01",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && esbuild src/server.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/server.mjs --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "start": "node dist/server.mjs"
+  },
+  "dependencies": {
+    "@nexo/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

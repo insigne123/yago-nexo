@@ -1,0 +1,11 @@
+# En producción las alertas van a la mesa de soporte 24x7 (webhook) y al SIEM.
+route:
+  receiver: mesa-soporte
+  group_by: [alertname, severidad]
+  group_wait: 30s
+  repeat_interval: 1h
+receivers:
+  - name: mesa-soporte
+    webhook_configs:
+      - url: http://console-api:8090/api/v1/alerts/alertmanager
+        send_resolved: true

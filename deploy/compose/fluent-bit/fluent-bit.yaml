@@ -1,0 +1,81 @@
+# Fluent Bit · logs de WSO2 hacia OpenSearch y el SIEM, con buffer en disco (BT-032)
+service:
+  flush: 2
+  log_level: info
+  http_server: on
+  http_port: 2020
+  storage.path: /var/fluent-bit/storage
+  storage.sync: normal
+  storage.checksum: on
+  storage.backlog.mem_limit: 64M
+
+parsers:
+  - name: wso2_metrics
+    format: regex
+    regex: '^(?<hora>\d{2}:\d{2}:\d{2},\d{3}) \[(?<origen>[^\]]*)\] \[(?<hilo>[^\]]*)\]\s+(?<nivel>\w+) (?<logger>\S+) apimMetrics: (?<tipo>[^,]+), properties :(?<propiedades>\{.*\})\s*$'
+  - name: json_props
+    format: json
+  - name: wso2_carbon
+    format: regex
+    regex: '^\[(?<ts>[^\]]+)\]\s+(?<nivel>\w+)\s+\{(?<logger>[^}]*)\}\s+-\s+(?<mensaje>.*)$'
+
+pipeline:
+  inputs:
+    - name: tail
+      tag: apim.metrics
+      path: /wso2/apim/logs/apim_metrics.log
+      parser: wso2_metrics
+      db: /var/fluent-bit/storage/tail-apim-metrics.db
+      storage.type: filesystem
+      read_from_head: true
+    - name: tail
+      tag: apim.audit
+      path: /wso2/apim/logs/audit.log
+      db: /var/fluent-bit/storage/tail-apim-audit.db
+      storage.type: filesystem
+      read_from_head: true
+    - name: tail
+      tag: apim.carbon
+      path: /wso2/apim/logs/wso2carbon.log
+      parser: wso2_carbon
+      db: /var/fluent-bit/storage/tail-apim-carbon.db
+      storage.type: filesystem
+      multiline.parser: java
+
+  filters:
+    - name: parser
+      match: apim.metrics
+      key_name: propiedades
+      parser: json_props
+      reserve_data: on
+    - name: modify
+      match: "*"
+      add:
+        - plataforma nexo
+        - sitio lab
+
+  outputs:
+    - name: opensearch
+      match: apim.metrics
+      host: opensearch
+      port: 9200
+      logstash_format: on
+      logstash_prefix: nexo-apim-metrics
+      suppress_type_name: on
+      retry_limit: no_limits
+    - name: opensearch
+      match: apim.audit
+      host: opensearch
+      port: 9200
+      logstash_format: on
+      logstash_prefix: nexo-audit
+      suppress_type_name: on
+      retry_limit: no_limits
+    - name: opensearch
+      match: apim.carbon
+      host: opensearch
+      port: 9200
+      logstash_format: on
+      logstash_prefix: nexo-logs
+      suppress_type_name: on
+      retry_limit: no_limits

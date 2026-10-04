@@ -1,0 +1,15 @@
+groups:
+  - name: nexo-plataforma
+    rules:
+      - alert: ComponenteCaido
+        expr: up == 0
+        for: 1m
+        labels: { severidad: S2 }
+        annotations:
+          resumen: "{{ $labels.job }} en {{ $labels.instance }} no responde"
+      - alert: ColaConMensajesFallidos
+        expr: sum by (queue) (rabbitmq_queue_messages_ready{queue=~".*\\.dlq"}) > 0
+        for: 5m
+        labels: { severidad: S3 }
+        annotations:
+          resumen: "La cola de mensajes fallidos {{ $labels.queue }} tiene mensajes pendientes"

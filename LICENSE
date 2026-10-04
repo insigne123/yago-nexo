@@ -1,0 +1,13 @@
+Yago Nexo — Licencia de software
+
+Copyright (c) 2026 Sociedad de Inversiones Yago SpA (RUT 77.711.804-8). Todos los derechos reservados.
+
+El código propio de Yago contenido en este repositorio (Consola Nexo, motores Nexo,
+mediadores, instaladores, pipelines, pruebas y documentación) es propiedad de
+Sociedad de Inversiones Yago SpA. Su uso, copia, modificación o distribución
+requiere una licencia de uso otorgada por escrito por Yago, en los términos del
+contrato o de la oferta correspondiente.
+
+Los componentes de terceros incluidos o referenciados (entre ellos WSO2 API Manager
+y WSO2 Micro Integrator, bajo licencia Apache 2.0) se rigen por sus propias
+licencias. Ver el archivo NOTICE y el inventario de componentes (SBOM) de cada versión.

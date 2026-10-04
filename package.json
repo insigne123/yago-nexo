@@ -1,0 +1,34 @@
+{
+  "name": "yago-nexo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Yago Nexo: plataforma de gestión de APIs e integración (distribución de Yago sobre WSO2 API Manager y Micro Integrator)",
+  "license": "SEE LICENSE IN LICENSE",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lab:up": "make -C deploy/compose up",
+    "lab:down": "make -C deploy/compose down",
+    "lab:status": "make -C deploy/compose status"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^22.15.0",
+    "eslint": "^10.0.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.6.0",
+    "turbo": "^2.11.7",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

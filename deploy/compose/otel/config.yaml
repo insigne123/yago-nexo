@@ -1,0 +1,29 @@
+# OpenTelemetry Collector · recibe trazas de gateway, Micro Integrator y servicios Nexo (BT-033)
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+
+processors:
+  batch: {}
+  # Minimización de datos en trazas (BT-029): se eliminan atributos que pueden traer datos personales.
+  attributes/minimizar:
+    actions:
+      - { key: http.request.header.authorization, action: delete }
+      - { key: enduser.id, action: hash }
+      - { key: http.url, pattern: '(?P<base>[^?]*)\?.*', action: extract }
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls: { insecure: true }
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes/minimizar, batch]
+      exporters: [otlp/jaeger]

@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+**/dist/**
+**/build/**
+**/.docusaurus/**
+deploy/compose/**/*.toml
+wso2/**/*.xml
+*.md

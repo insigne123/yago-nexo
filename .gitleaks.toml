@@ -1,0 +1,10 @@
+# Credenciales de laboratorio documentadas a propósito (no son secretos reales).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores de laboratorio en archivos de ejemplo"
+paths = [
+  '''deploy/compose/\.env\.example''',
+  '''deploy/compose/keycloak/realm-nexo\.json''',
+]

@@ -1,0 +1,20 @@
+{
+  "name": "@nexo/lab-bootstrap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Configura el laboratorio: Keycloak como Key Manager, APIs de ejemplo, aplicación, suscripción y prueba de punta a punta",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@nexo/wso2-client": "workspace:*",
+    "undici": "^8.11.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,72 @@
+# Yago Nexo · WSO2 Micro Integrator 4.6.0 · configuración de LABORATORIO
+
+[server]
+hostname = "mi"
+
+[keystore.primary]
+file_name = "repository/resources/security/wso2carbon.jks"
+password = "wso2carbon"
+alias = "wso2carbon"
+key_password = "wso2carbon"
+
+[truststore]
+file_name = "repository/resources/security/client-truststore.jks"
+password = "wso2carbon"
+alias = "symmetric.key.value"
+algorithm = "AES"
+
+# Usuarios de la Management API (puerto 9164).
+[internal_apis.file_user_store]
+enable = true
+
+[[internal_apis.users]]
+user.name = "admin"
+user.password = "$env{MI_ADMIN_PASSWORD}"
+
+# Colas (BT-009, BT-051).
+[transport.rabbitmq]
+sender_enable = true
+listener_enable = true
+
+[[transport.rabbitmq.sender]]
+name = "AMQPConnectionFactory"
+parameter.hostname = "rabbitmq"
+parameter.port = 5672
+parameter.username = "nexo"
+parameter.password = "$env{RABBITMQ_PASSWORD}"
+
+[[transport.rabbitmq.listener]]
+name = "AMQPConnectionFactory"
+parameter.hostname = "rabbitmq"
+parameter.port = 5672
+parameter.username = "nexo"
+parameter.password = "$env{RABBITMQ_PASSWORD}"
+
+# Base de datos de Nexo para idempotencia y estados de integración.
+[[datasource]]
+id = "NEXO_MI_DB"
+url = "jdbc:postgresql://postgres:5432/mi_db"
+username = "mi"
+password = "$env{MI_DB_PASSWORD}"
+driver = "org.postgresql.Driver"
+pool_options.maxActive = 20
+pool_options.validationQuery = "SELECT 1"
+
+# Trazas OpenTelemetry (BT-033).
+[opentelemetry]
+enable = true
+type = "otlp"
+url = "http://otel-collector:4317"
+service_name = "nexo-integrator"
+
+[mediation]
+flow.statistics.enable = true
+flow.statistics.capture_all = true
+
+# Métricas Prometheus (BT-034).
+[[synapse_handlers]]
+name = "CustomObservabilityHandler"
+class = "org.wso2.micro.integrator.observability.metric.handler.MetricHandler"
+
+[prometheus_api.basic_security_handler]
+enable = false

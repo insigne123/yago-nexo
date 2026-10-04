@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: nexo
+    folder: Nexo
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

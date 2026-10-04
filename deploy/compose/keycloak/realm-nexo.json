@@ -1,0 +1,142 @@
+{
+  "realm": "nexo",
+  "displayName": "Nexo (laboratorio)",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername",
+  "eventsEnabled": true,
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "roles": {
+    "client": {
+      "nexo-console": [
+        { "name": "administrador", "description": "Configura la plataforma, conectores y parámetros" },
+        { "name": "desarrollador", "description": "Diseña y publica APIs y flujos en no productivo" },
+        { "name": "aprobador", "description": "Aprueba promociones, bloqueos, reprocesos y conmutaciones" },
+        { "name": "operador", "description": "Opera la plataforma en régimen" },
+        { "name": "auditor", "description": "Consulta auditoría, matrices y evidencias (solo lectura)" },
+        { "name": "consumidor", "description": "Consulta el catálogo y su propio consumo" }
+      ]
+    }
+  },
+  "groups": [
+    { "name": "nexo-administradores", "clientRoles": { "nexo-console": ["administrador"] } },
+    { "name": "nexo-desarrolladores", "clientRoles": { "nexo-console": ["desarrollador"] } },
+    { "name": "nexo-aprobadores", "clientRoles": { "nexo-console": ["aprobador"] } },
+    { "name": "nexo-operadores", "clientRoles": { "nexo-console": ["operador"] } },
+    { "name": "nexo-auditores", "clientRoles": { "nexo-console": ["auditor"] } },
+    { "name": "nexo-consumidores", "clientRoles": { "nexo-console": ["consumidor"] } }
+  ],
+  "clients": [
+    {
+      "clientId": "wso2-km",
+      "name": "WSO2 API Manager · Key Manager",
+      "description": "Cliente técnico con el que API Manager registra aplicaciones (DCR) y gestiona scopes",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${KEYCLOAK_KM_CLIENT_SECRET:nexo-lab-km-secret}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["https://apim:9443/*"],
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "nexo-console",
+      "name": "Consola Nexo",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:8090/*", "https://demo.nexo.yago.cl/*"],
+      "webOrigins": ["+"],
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "+" },
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "wso2-portals",
+      "name": "Portales WSO2 (SSO por federación OIDC)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${KEYCLOAK_PORTALS_CLIENT_SECRET:nexo-lab-portals-secret}",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["https://apim:9443/commonauth", "https://localhost:9443/commonauth"],
+      "webOrigins": ["+"],
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-wso2-km",
+      "enabled": true,
+      "serviceAccountClientId": "wso2-km",
+      "clientRoles": { "realm-management": ["realm-admin"] }
+    },
+    {
+      "username": "admin.nexo",
+      "email": "admin.nexo@ejemplo.invalid",
+      "firstName": "Admin",
+      "lastName": "Nexo",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Nexo-Lab-2026!", "temporary": false }],
+      "groups": ["nexo-administradores"]
+    },
+    {
+      "username": "ana.desarrollo",
+      "email": "ana.desarrollo@ejemplo.invalid",
+      "firstName": "Ana",
+      "lastName": "Rojas",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Nexo-Lab-2026!", "temporary": false }],
+      "groups": ["nexo-desarrolladores"]
+    },
+    {
+      "username": "luis.aprobador",
+      "email": "luis.aprobador@ejemplo.invalid",
+      "firstName": "Luis",
+      "lastName": "Soto",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Nexo-Lab-2026!", "temporary": false }],
+      "groups": ["nexo-aprobadores"]
+    },
+    {
+      "username": "carla.operacion",
+      "email": "carla.operacion@ejemplo.invalid",
+      "firstName": "Carla",
+      "lastName": "Muñoz",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Nexo-Lab-2026!", "temporary": false }],
+      "groups": ["nexo-operadores"]
+    },
+    {
+      "username": "pedro.auditoria",
+      "email": "pedro.auditoria@ejemplo.invalid",
+      "firstName": "Pedro",
+      "lastName": "Vargas",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Nexo-Lab-2026!", "temporary": false }],
+      "groups": ["nexo-auditores"]
+    },
+    {
+      "username": "consumidor.demo",
+      "email": "consumidor.demo@ejemplo.invalid",
+      "firstName": "Operador",
+      "lastName": "Telecom",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "Nexo-Lab-2026!", "temporary": false }],
+      "groups": ["nexo-consumidores"]
+    }
+  ]
+}
