@@ -7,12 +7,14 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 let scanTotals: (t: unknown) => Record<string, unknown> | undefined;
 let failoverStep: (s: unknown) => { name?: string; status?: string; detail?: string; ts?: string };
+let wso2ApiId: (id: string | undefined) => string | undefined;
 
 beforeAll(async () => {
   process.env.NEXO_DATABASE_URL ??= "postgres://contrato@localhost:1/contrato";
   for (const k of ["NEXO_WSO2_PASSWORD", "NEXO_MI_PASSWORD", "NEXO_RABBITMQ_PASSWORD"]) process.env[k] ??= "prueba-de-contrato";
   ({ scanTotals } = await import("./discovery.js"));
   ({ failoverStep } = await import("./continuity.js"));
+  ({ wso2ApiId } = await import("./anomalies.js"));
 });
 
 describe("totales de un escaneo de descubrimiento", () => {
@@ -35,5 +37,16 @@ describe("pasos de una conmutación", () => {
   });
   it("deja pasar los pasos que ya vienen en el formato del contrato", () => {
     expect(failoverStep({ name: "a", status: "en_curso", detail: "b", ts: "2026-10-04T00:00:00Z" })).toEqual({ name: "a", status: "en_curso", detail: "b", ts: "2026-10-04T00:00:00Z" });
+  });
+});
+
+describe("API de una regla de anomalías", () => {
+  it("guarda el id de WSO2 aunque la Consola envíe el id del catálogo", () => {
+    expect(wso2ApiId("api:65dd446d-1695-4562-b47b-ef1fe42b3776")).toBe("65dd446d-1695-4562-b47b-ef1fe42b3776");
+    expect(wso2ApiId("65dd446d-1695-4562-b47b-ef1fe42b3776")).toBe("65dd446d-1695-4562-b47b-ef1fe42b3776");
+  });
+  it("vacío significa todas las APIs", () => {
+    expect(wso2ApiId("")).toBeUndefined();
+    expect(wso2ApiId(undefined)).toBeUndefined();
   });
 });
