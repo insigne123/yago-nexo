@@ -12,7 +12,7 @@ import type { Demo } from "../lib/grabador.js";
 import { escaparHtml } from "../lib/grabador.js";
 import { desdeRaiz } from "../lib/entorno.js";
 import { wso2 } from "../lib/lab.js";
-import { nexoCtl } from "./comun.js";
+import { esperarHasta, nexoCtl } from "./comun.js";
 
 const NOMBRE = "ReportesInternos";
 const GUIA = desdeRaiz("wso2/apim/governance/guia-estilo-institucional.yaml");
@@ -171,7 +171,9 @@ export const d03: Demo = {
     writeFileSync(join(dir, "openapi.yaml"), CORREGIDO);
     c.log("cambios: kebab-case en las rutas, contacto, descripción, versión semántica, summary, HTTPS y OAuth en vez de HTTP basic", "tenue");
     const r2 = await nexoCtl(c, ["api", "deploy", dir, "-s", "dev", "-m", "Contrato corregido"], "nexo-ctl api deploy reportes-internos -s dev");
-    const creada = (await w.publisher.listApis(`name:"${NOMBRE}"`)).list.find((a) => a.name === NOMBRE);
+    // La búsqueda del Publisher indexa con unos segundos de retraso.
+    const encontrada = await esperarHasta(async () => (await w.publisher.listApis(`name:"${NOMBRE}"`)).list.find((a) => a.name === NOMBRE), (a) => !!a, 30, 1500);
+    const creada = encontrada?.valor;
     c.verificar("contrato corregido: promovido y publicado", r2.codigo === 0 && !!creada, creada ? `${creada.lifeCycleStatus} en Desarrollo` : `código ${r2.codigo}`);
     if (creada) await c.app.goto(`https://apim:9443/publisher/apis/${creada.id}/overview`);
     await c.esperar(5000);
