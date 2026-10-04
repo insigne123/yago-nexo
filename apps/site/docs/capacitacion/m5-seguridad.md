@@ -71,13 +71,13 @@ El motor de descubrimiento revisa otros gateways (APISIX), servidores web (confi
 
 Cada audiencia tiene su gateway y su portal: interna (Default), entidades externas (Operadores) y público (Publico, en un gateway separado). Una API desplegada solo para una audiencia responde 404 en los gateways de las demás (<EstadoCapacidad id="audiencias" />).
 
-### Controles en desarrollo {#en-desarrollo}
+### Controles de identidad, datos y secretos {#en-desarrollo}
 
-<SiNoDisponible id="enmascaramiento-logs">
+<SiNoDisponible id="sso-keycloak">
 
 :::note En desarrollo
 
-Estos controles todavía no forman parte del laboratorio; se revisan en la sesión sin ejercicios.
+Los controles marcados *En desarrollo* todavía no forman parte del laboratorio; se revisan en la sesión sin ejercicios.
 
 :::
 
@@ -86,10 +86,10 @@ Estos controles todavía no forman parte del laboratorio; se revisan en la sesi�
 | Control | Estado |
 | --- | --- |
 | Inicio de sesión único de las personas en los portales de WSO2 y la Consola | <EstadoCapacidad id="sso-keycloak" /> |
-| Enmascaramiento de RUT, correos y teléfonos en logs y auditoría | <EstadoCapacidad id="enmascaramiento-logs" /> |
+| Enmascaramiento de RUT, correos, teléfonos, tarjetas y tokens en los logs (la auditoría no se enmascara: la identidad de quien actúa es evidencia) | <EstadoCapacidad id="enmascaramiento-logs" /> |
 | Gestor de secretos para producción (OpenBao, External Secrets, Secure Vault) | <EstadoCapacidad id="secretos" /> |
 
-Lo que sí existe hoy en el laboratorio: la vista previa de los mensajes fallidos enmascara el RUT (M4) y el colector de trazas elimina el encabezado `Authorization` y reemplaza el identificador de usuario final por un hash.
+Lo que sí existe hoy en el laboratorio: Fluent Bit enmascara los datos personales y secretos de los logs antes de enviarlos (se comprueba con `deploy/compose/fluent-bit/pruebas/probar-enmascaramiento.sh`, que levanta un Fluent Bit aparte y no toca el laboratorio), la vista previa de los mensajes fallidos enmascara el RUT (M4) y el colector de trazas elimina el encabezado `Authorization` y reemplaza el identificador de usuario final por un hash.
 
 ## Ejercicios de laboratorio
 

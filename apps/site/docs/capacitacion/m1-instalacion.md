@@ -93,7 +93,7 @@ Cada API vive en `wso2/apim/apis/<nombre>/` como un proyecto: `api.yaml` (dueño
 | Instalador para Google Cloud | GKE, red, DNS, almacenamiento y llaves con OpenTofu. | <EstadoCapacidad id="instalador-gke" /> |
 | Despliegue declarativo | Argo CD sincroniza cada ambiente desde Git. | <EstadoCapacidad id="gitops" /> |
 | Secretos | OpenBao, External Secrets Operator y WSO2 Secure Vault. | <EstadoCapacidad id="secretos" /> |
-| Respaldo y restauración | Respaldos cifrados de PostgreSQL y retención por tipo de dato. | <EstadoCapacidad id="respaldo" /> |
+| Respaldo y restauración | Respaldo cifrado de PostgreSQL desde una instantánea consistente y prueba de restauración que compara tabla por tabla (ver [Respaldo y restauración](../operacion/respaldo-y-restauracion.md)). | <EstadoCapacidad id="respaldo" /> |
 
 <SiNoDisponible id="helm">
 
