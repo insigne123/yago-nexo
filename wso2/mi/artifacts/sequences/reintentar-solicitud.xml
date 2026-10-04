@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Reintentos acotados con espera progresiva (2 s, 4 s y 8 s) y cola de mensajes fallidos (BT-007, BT-051).
+  El mensaje original se restaura y se publica en nexo.reintentos con clave = intento siguiente.
+-->
+<sequence xmlns="http://ws.apache.org/ns/synapse" name="reintentar-solicitud">
+  <filter xpath="string(number(get-property('intentos'))) = 'NaN'">
+    <then><property name="intentos" value="0"/></then>
+  </filter>
+  <property name="siguiente" expression="string(number(get-property('intentos')) + 1)"/>
+  <enrich>
+    <source type="property" property="mensajeOriginal" clone="true"/>
+    <target type="body"/>
+  </enrich>
+  <property name="messageType" value="application/json" scope="axis2"/>
+  <property name="OUT_ONLY" value="true"/>
+  <header name="x-intentos" scope="transport" expression="get-property('siguiente')"/>
+  <header name="x-correlacion" scope="transport" expression="get-property('correlacion')"/>
+  <header name="x-motivo" scope="transport" expression="get-property('motivo')"/>
+  <filter xpath="number(get-property('intentos')) &lt; 3">
+    <then>
+      <log level="custom">
+        <property name="etapa" value="8-reintento-programado"/>
+        <property name="correlacion" expression="get-property('correlacion')"/>
+        <property name="intento" expression="get-property('siguiente')"/>
+        <property name="motivo" expression="get-property('motivo')"/>
+      </log>
+      <switch source="get-property('siguiente')">
+        <case regex="1"><call><endpoint key="ColaReintento1EP"/></call></case>
+        <case regex="2"><call><endpoint key="ColaReintento2EP"/></call></case>
+        <default><call><endpoint key="ColaReintento3EP"/></call></default>
+      </switch>
+    </then>
+    <else>
+      <log level="custom" category="WARN">
+        <property name="etapa" value="9-enviado-a-fallidos"/>
+        <property name="correlacion" expression="get-property('correlacion')"/>
+        <property name="motivo" expression="get-property('motivo')"/>
+      </log>
+      <call>
+        <endpoint key="ColaFallidosEP"/>
+      </call>
+    </else>
+  </filter>
+</sequence>

@@ -83,6 +83,10 @@ const OPENAPI = {
   },
 };
 
+/** Respuestas ya entregadas por Idempotency-Key: un reintento no duplica el registro (BT-051). */
+const idempotentes = new Map<string, { status: number; body: unknown }>();
+let registrosCreados = 0;
+
 async function concesionesHandler(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   if (url.pathname === "/openapi.json") return send(res, 200, OPENAPI);
   if (url.pathname === "/concesiones" && req.method === "GET") {
@@ -91,7 +95,14 @@ async function concesionesHandler(req: IncomingMessage, res: ServerResponse, url
     const items = concesiones.filter((c) => (!region || c.region === region) && (!estado || c.estado === estado));
     return send(res, 200, { total: items.length, items: items.slice(0, 50), version: VERSION });
   }
+  if (url.pathname === "/_estadisticas") return send(res, 200, { registrosCreados, clavesIdempotencia: idempotentes.size });
   if (url.pathname === "/concesiones" && req.method === "POST") {
+    const idemKey = String(req.headers["idempotency-key"] ?? "");
+    const previa = idemKey ? idempotentes.get(idemKey) : undefined;
+    if (previa) {
+      res.setHeader("x-idempotent-replay", "true");
+      return send(res, previa.status, previa.body);
+    }
     let body: Record<string, unknown>;
     try {
       body = JSON.parse(await readBody(req)) as Record<string, unknown>;
@@ -102,8 +113,11 @@ async function concesionesHandler(req: IncomingMessage, res: ServerResponse, url
     if (!isValidRut(rut)) return send(res, 422, { error: "rutEmpresa inválido", campo: "rutEmpresa" });
     if (typeof body.servicio !== "string" || typeof body.region !== "string")
       return send(res, 422, { error: "servicio y region son obligatorios" });
-    const id = `SOL-${Date.now().toString(36).toUpperCase()}`;
-    return send(res, 201, { id, estado: "en_tramite", recibidoEn: new Date().toISOString(), version: VERSION });
+    const id = `REG-${Date.now().toString(36).toUpperCase()}`;
+    const respuesta = { id, estado: "en_tramite", recibidoEn: new Date().toISOString(), version: VERSION };
+    registrosCreados++;
+    if (idemKey) idempotentes.set(idemKey, { status: 201, body: respuesta });
+    return send(res, 201, respuesta);
   }
   const m = /^\/concesiones\/([A-Z0-9-]+)$/.exec(url.pathname);
   if (m && req.method === "GET") {

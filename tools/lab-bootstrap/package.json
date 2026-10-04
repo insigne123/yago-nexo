@@ -9,17 +9,20 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "check:d06": "tsx src/check-d06.ts",
-    "check:d07": "tsx src/check-d07.ts"
+    "check:d07": "tsx src/check-d07.ts",
+    "check:integracion": "tsx src/check-integracion.ts"
   },
   "dependencies": {
     "@nexo/wso2-client": "workspace:*",
     "undici": "^8.11.2",
     "ws": "^8.22.0",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "tsx": "^4.20.0",
     "typescript": "5.9.3",
-    "@types/ws": "^8.18.2"
+    "@types/ws": "^8.18.2",
+    "@types/pg": "^8.15.6"
   }
 }

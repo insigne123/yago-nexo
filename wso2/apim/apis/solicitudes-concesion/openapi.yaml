@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: Solicitudes de Concesión
+  version: 1.0.0
+  description: Recepción de solicitudes de concesión con validación, enriquecimiento con el registro de operadores y procesamiento asíncrono con reintentos.
+  contact:
+    name: División de Concesiones (sintético)
+    email: concesiones@ejemplo.invalid
+servers:
+  - url: https://apim:8243/solicitudes/1.0.0
+    x-internal: false
+tags:
+  - name: solicitudes
+    description: Solicitudes de concesión
+paths:
+  /:
+    post:
+      tags: [solicitudes]
+      operationId: crearSolicitud
+      summary: Registra una solicitud de concesión
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Clave única por solicitud; repetirla devuelve la misma respuesta sin duplicar efectos.
+          schema: { type: string, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Solicitud" }
+      responses:
+        "202":
+          description: Solicitud recibida y encolada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Recepcion" }
+        "200": { description: Repetición idempotente de una solicitud ya recibida }
+        "400": { description: Falta Idempotency-Key }
+        "422": { description: Solicitud inválida }
+        "502": { description: Error de integración }
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: http://keycloak:8080/realms/nexo/protocol/openid-connect/token
+          scopes: {}
+  schemas:
+    Solicitud:
+      type: object
+      required: [rutEmpresa, servicio, region]
+      properties:
+        rutEmpresa: { type: string }
+        servicio: { type: string }
+        region: { type: string }
+        observaciones: { type: string }
+    Recepcion:
+      type: object
+      properties:
+        idSolicitud: { type: string }
+        estado: { type: string }
+        correlacion: { type: string }
+security:
+  - oauth2: []

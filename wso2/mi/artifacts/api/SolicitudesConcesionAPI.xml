@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Flujo de integración "Solicitudes de concesión" (BT-008, BT-009, BT-010, BT-051).
+  1. Valida la solicitud contra el esquema JSON.
+  2. Idempotencia: exige Idempotency-Key; si ya se procesó, devuelve la misma respuesta sin repetir efectos.
+  3. Enriquece con el registro de operadores (SOAP 1.2, estilo PISEE).
+  4. Transforma a un mensaje canónico y lo publica en RabbitMQ (asíncrono).
+  5. Responde 202 con el identificador de la solicitud. Cada etapa queda registrada con la correlación.
+-->
+<api xmlns="http://ws.apache.org/ns/synapse" name="SolicitudesConcesionAPI" context="/integracion/solicitudes">
+  <resource methods="POST" uri-template="/">
+    <inSequence>
+      <property name="correlacion" expression="get-property('MessageID')"/>
+      <property name="idemKey" expression="$trp:Idempotency-Key"/>
+      <log level="custom" category="INFO">
+        <property name="etapa" value="1-recepcion"/>
+        <property name="correlacion" expression="get-property('correlacion')"/>
+      </log>
+      <filter xpath="boolean(get-property('idemKey'))">
+        <then/>
+        <else>
+          <payloadFactory media-type="json">
+            <format>{"error":"falta el encabezado Idempotency-Key","correlacion":"$1"}</format>
+            <args><arg evaluator="xml" expression="get-property('correlacion')"/></args>
+          </payloadFactory>
+          <property name="HTTP_SC" value="400" scope="axis2"/>
+          <respond/>
+        </else>
+      </filter>
+      <validate cache-schema="true">
+        <schema key="EsquemaSolicitud"/>
+        <on-fail>
+          <payloadFactory media-type="json">
+            <format>{"error":"solicitud inválida","detalle":"$1","correlacion":"$2"}</format>
+            <args>
+              <arg evaluator="xml" expression="$ctx:ERROR_MESSAGE"/>
+              <arg evaluator="xml" expression="get-property('correlacion')"/>
+            </args>
+          </payloadFactory>
+          <property name="HTTP_SC" value="422" scope="axis2"/>
+          <log level="custom"><property name="etapa" value="1-validacion-rechazada"/><property name="correlacion" expression="get-property('correlacion')"/></log>
+          <respond/>
+        </on-fail>
+      </validate>
+      <dblookup>
+        <connection><pool><dsName>jdbc/NEXO_MI_DB</dsName></pool></connection>
+        <statement>
+          <sql><![CDATA[SELECT id_solicitud, rut, razon_social, correlacion FROM nexo_idem WHERE clave = ?]]></sql>
+          <parameter expression="get-property('idemKey')" type="VARCHAR"/>
+          <result name="prevId" column="id_solicitud"/>
+          <result name="prevRut" column="rut"/>
+          <result name="prevRazon" column="razon_social"/>
+          <result name="prevCorrelacion" column="correlacion"/>
+        </statement>
+      </dblookup>
+      <filter xpath="boolean(get-property('prevId'))">
+        <then>
+          <log level="custom"><property name="etapa" value="2-idempotencia-repeticion"/><property name="correlacion" expression="get-property('correlacion')"/></log>
+          <payloadFactory media-type="json">
+            <format>{"idSolicitud":"$1","estado":"recibida","operador":{"rut":"$2","razonSocial":"$3"},"correlacion":"$4","repeticion":true}</format>
+            <args>
+              <arg evaluator="xml" expression="get-property('prevId')"/>
+              <arg evaluator="xml" expression="get-property('prevRut')"/>
+              <arg evaluator="xml" expression="get-property('prevRazon')"/>
+              <arg evaluator="xml" expression="get-property('prevCorrelacion')"/>
+            </args>
+          </payloadFactory>
+          <header name="X-Idempotent-Replay" scope="transport" value="true"/>
+          <property name="HTTP_SC" value="200" scope="axis2"/>
+          <respond/>
+        </then>
+      </filter>
+      <property name="rut" expression="json-eval($.rutEmpresa)"/>
+      <property name="servicio" expression="json-eval($.servicio)"/>
+      <property name="region" expression="json-eval($.region)"/>
+      <property name="idSolicitud" expression="fn:concat('SOL-', fn:substring(get-property('correlacion'), 10, 8))"/>
+      <log level="custom"><property name="etapa" value="3-enriquecimiento-soap"/><property name="correlacion" expression="get-property('correlacion')"/></log>
+      <payloadFactory media-type="xml">
+        <format>
+          <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+            <soap:Body>
+              <tns:ConsultarOperadorRequest xmlns:tns="urn:subtel:registro:operadores:v1">
+                <tns:rut>$1</tns:rut>
+              </tns:ConsultarOperadorRequest>
+            </soap:Body>
+          </soap:Envelope>
+        </format>
+        <args><arg evaluator="xml" expression="get-property('rut')"/></args>
+      </payloadFactory>
+      <property name="messageType" value="application/soap+xml" scope="axis2"/>
+      <property name="SOAPAction" value="urn:subtel:registro:operadores:v1/ConsultarOperador" scope="transport"/>
+      <call>
+        <endpoint key="RegistroOperadoresEP"/>
+      </call>
+      <property name="razonSocial" expression="//*[local-name()='razonSocial']/text()"/>
+      <property name="estadoOperador" expression="//*[local-name()='estado']/text()"/>
+      <log level="custom"><property name="etapa" value="4-transformacion"/><property name="correlacion" expression="get-property('correlacion')"/></log>
+      <payloadFactory media-type="json">
+        <format>{"idSolicitud":"$1","idempotencyKey":"$2","correlacion":"$3","solicitud":{"rutEmpresa":"$4","servicio":"$5","region":"$6"},"operador":{"rut":"$4","razonSocial":"$7","estado":"$8"}}</format>
+        <args>
+          <arg evaluator="xml" expression="get-property('idSolicitud')"/>
+          <arg evaluator="xml" expression="get-property('idemKey')"/>
+          <arg evaluator="xml" expression="get-property('correlacion')"/>
+          <arg evaluator="xml" expression="get-property('rut')"/>
+          <arg evaluator="xml" expression="get-property('servicio')"/>
+          <arg evaluator="xml" expression="get-property('region')"/>
+          <arg evaluator="xml" expression="get-property('razonSocial')"/>
+          <arg evaluator="xml" expression="get-property('estadoOperador')"/>
+        </args>
+      </payloadFactory>
+      <property name="messageType" value="application/json" scope="axis2"/>
+      <log level="custom"><property name="etapa" value="5-publicacion-cola"/><property name="correlacion" expression="get-property('correlacion')"/></log>
+      <property name="OUT_ONLY" value="true"/>
+      <header name="x-intentos" scope="transport" value="0"/>
+      <header name="x-correlacion" scope="transport" expression="get-property('correlacion')"/>
+      <call>
+        <endpoint key="ColaSolicitudesEP"/>
+      </call>
+      <property name="OUT_ONLY" action="remove"/>
+      <payloadFactory media-type="json">
+        <format>{"idSolicitud":"$1","estado":"recibida","operador":{"rut":"$2","razonSocial":"$3"},"correlacion":"$4"}</format>
+        <args>
+          <arg evaluator="xml" expression="get-property('idSolicitud')"/>
+          <arg evaluator="xml" expression="get-property('rut')"/>
+          <arg evaluator="xml" expression="get-property('razonSocial')"/>
+          <arg evaluator="xml" expression="get-property('correlacion')"/>
+        </args>
+      </payloadFactory>
+      <dbreport>
+        <connection><pool><dsName>jdbc/NEXO_MI_DB</dsName></pool></connection>
+        <statement>
+          <sql><![CDATA[INSERT INTO nexo_idem (clave, id_solicitud, rut, razon_social, correlacion) VALUES (?, ?, ?, ?, ?) ON CONFLICT (clave) DO NOTHING]]></sql>
+          <parameter expression="get-property('idemKey')" type="VARCHAR"/>
+          <parameter expression="get-property('idSolicitud')" type="VARCHAR"/>
+          <parameter expression="get-property('rut')" type="VARCHAR"/>
+          <parameter expression="get-property('razonSocial')" type="VARCHAR"/>
+          <parameter expression="get-property('correlacion')" type="VARCHAR"/>
+        </statement>
+      </dbreport>
+      <property name="HTTP_SC" value="202" scope="axis2"/>
+      <respond/>
+    </inSequence>
+    <faultSequence>
+      <log level="custom" category="ERROR">
+        <property name="etapa" value="error"/>
+        <property name="correlacion" expression="get-property('correlacion')"/>
+        <property name="codigo" expression="get-property('ERROR_CODE')"/>
+        <property name="mensaje" expression="get-property('ERROR_MESSAGE')"/>
+      </log>
+      <payloadFactory media-type="json">
+        <format>{"error":"no fue posible procesar la solicitud","codigo":"$1","correlacion":"$2"}</format>
+        <args>
+          <arg evaluator="xml" expression="get-property('ERROR_CODE')"/>
+          <arg evaluator="xml" expression="get-property('correlacion')"/>
+        </args>
+      </payloadFactory>
+      <property name="messageType" value="application/json" scope="axis2"/>
+      <property name="HTTP_SC" value="502" scope="axis2"/>
+      <respond/>
+    </faultSequence>
+  </resource>
+</api>

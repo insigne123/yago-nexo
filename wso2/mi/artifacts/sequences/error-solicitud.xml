@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Errores de conexión o tiempo de espera del consumidor: se tratan igual que una respuesta fallida. -->
+<sequence xmlns="http://ws.apache.org/ns/synapse" name="error-solicitud">
+  <property name="motivo" expression="fn:concat('ERROR ', get-property('ERROR_CODE'), ': ', get-property('ERROR_MESSAGE'))"/>
+  <sequence key="reintentar-solicitud"/>
+  <drop/>
+</sequence>

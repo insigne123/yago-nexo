@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sistema de destino que registra la solicitud. Sin suspensión: los reintentos los maneja la cola. -->
+<endpoint xmlns="http://ws.apache.org/ns/synapse" name="ConcesionesBackendEP">
+  <http method="post" uri-template="http://concesiones-v1:7001/concesiones">
+    <timeout>
+      <duration>5000</duration>
+      <responseAction>fault</responseAction>
+    </timeout>
+    <suspendOnFailure>
+      <initialDuration>-1</initialDuration>
+      <progressionFactor>1.0</progressionFactor>
+    </suspendOnFailure>
+    <markForSuspension>
+      <retriesBeforeSuspension>0</retriesBeforeSuspension>
+    </markForSuspension>
+  </http>
+</endpoint>

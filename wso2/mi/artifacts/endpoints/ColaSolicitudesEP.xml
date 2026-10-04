@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Publicación asíncrona en RabbitMQ (BT-009). Exchange declarado por el arranque del laboratorio. -->
+<endpoint xmlns="http://ws.apache.org/ns/synapse" name="ColaSolicitudesEP">
+  <address uri="rabbitmq:/solicitudes?rabbitmq.connection.factory=AMQPConnectionFactory&amp;rabbitmq.exchange.name=nexo.solicitudes&amp;rabbitmq.exchange.type=direct&amp;rabbitmq.exchange.autodeclare=false&amp;rabbitmq.queue.autodeclare=false&amp;rabbitmq.queue.routing.key=nueva&amp;rabbitmq.message.content.type=application/json"/>
+</endpoint>

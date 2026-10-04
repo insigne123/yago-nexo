@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Reintento 1: cola con TTL de 2 s que devuelve el mensaje a la cola principal (espera progresiva, BT-051). -->
+<endpoint xmlns="http://ws.apache.org/ns/synapse" name="ColaReintento1EP">
+  <address uri="rabbitmq:/reintento1?rabbitmq.connection.factory=AMQPConnectionFactory&amp;rabbitmq.exchange.name=nexo.reintentos&amp;rabbitmq.exchange.type=direct&amp;rabbitmq.exchange.autodeclare=false&amp;rabbitmq.queue.autodeclare=false&amp;rabbitmq.queue.routing.key=1&amp;rabbitmq.message.content.type=application/json"/>
+</endpoint>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Consumidor de la cola principal (procesamiento asíncrono, BT-009). Confirmación manual: el mensaje
+     se confirma solo al terminar la mediación (que puede ser un reintento o un envío a fallidos). -->
+<inboundEndpoint xmlns="http://ws.apache.org/ns/synapse" name="SolicitudesConsumidor" sequence="procesar-solicitud" onError="error-solicitud" protocol="rabbitmq" suspend="false">
+  <parameters>
+    <parameter name="sequential">true</parameter>
+    <parameter name="coordination">true</parameter>
+    <parameter name="rabbitmq.server.host.name">rabbitmq</parameter>
+    <parameter name="rabbitmq.server.port">5672</parameter>
+    <parameter name="rabbitmq.server.user.name">nexo</parameter>
+    <parameter name="rabbitmq.server.password">$SYSTEM:RABBITMQ_PASSWORD</parameter>
+    <parameter name="rabbitmq.queue.name">solicitudes.nuevas</parameter>
+    <parameter name="rabbitmq.queue.autodeclare">false</parameter>
+    <parameter name="rabbitmq.exchange.autodeclare">false</parameter>
+    <parameter name="rabbitmq.queue.auto.ack">false</parameter>
+    <parameter name="rabbitmq.message.content.type">application/json</parameter>
+  </parameters>
+</inboundEndpoint>

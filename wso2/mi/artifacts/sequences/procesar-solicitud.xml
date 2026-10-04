@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Consumidor de la cola solicitudes.nuevas: registra la solicitud en el sistema de destino.
+  Si falla, la deriva a reintento con espera progresiva o, agotados los intentos, a la cola de fallidos.
+  El sistema de destino recibe la Idempotency-Key, así un reintento no duplica efectos (BT-051).
+-->
+<sequence xmlns="http://ws.apache.org/ns/synapse" name="procesar-solicitud" onError="error-solicitud">
+  <!-- Copia del mensaje original para poder reintentarlo o enviarlo a fallidos sin alterarlo. -->
+  <enrich>
+    <source type="body" clone="true"/>
+    <target type="property" property="mensajeOriginal"/>
+  </enrich>
+  <property name="intentos" expression="$trp:x-intentos"/>
+  <property name="correlacion" expression="$trp:x-correlacion"/>
+  <property name="idemKey" expression="json-eval($.idempotencyKey)"/>
+  <log level="custom">
+    <property name="etapa" value="6-consumo-cola"/>
+    <property name="correlacion" expression="get-property('correlacion')"/>
+    <property name="intentos" expression="get-property('intentos')"/>
+  </log>
+  <payloadFactory media-type="json">
+    <format>{"rutEmpresa":"$1","servicio":"$2","region":"$3"}</format>
+    <args>
+      <arg evaluator="json" expression="$.solicitud.rutEmpresa"/>
+      <arg evaluator="json" expression="$.solicitud.servicio"/>
+      <arg evaluator="json" expression="$.solicitud.region"/>
+    </args>
+  </payloadFactory>
+  <property name="messageType" value="application/json" scope="axis2"/>
+  <header name="Idempotency-Key" scope="transport" expression="get-property('idemKey')"/>
+  <header name="X-Correlation-ID" scope="transport" expression="get-property('correlacion')"/>
+  <call>
+    <endpoint key="ConcesionesBackendEP"/>
+  </call>
+  <filter source="$axis2:HTTP_SC" regex="2[0-9][0-9]">
+    <then>
+      <log level="custom">
+        <property name="etapa" value="7-destino-ok"/>
+        <property name="correlacion" expression="get-property('correlacion')"/>
+        <property name="status" expression="$axis2:HTTP_SC"/>
+      </log>
+    </then>
+    <else>
+      <property name="motivo" expression="fn:concat('HTTP ', $axis2:HTTP_SC)"/>
+      <sequence key="reintentar-solicitud"/>
+    </else>
+  </filter>
+  <drop/>
+</sequence>

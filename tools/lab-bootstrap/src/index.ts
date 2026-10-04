@@ -12,6 +12,7 @@
 import { readFileSync } from "node:fs";
 import { Agent, fetch } from "undici";
 import { Wso2Client, Wso2HttpError, type ApiSummary } from "@nexo/wso2-client";
+import { ensureMessaging, ensureMiDatabase } from "./messaging.js";
 
 const env = (k: string, d: string) => process.env[k] ?? d;
 const CFG = {
@@ -305,6 +306,8 @@ async function main(): Promise<void> {
   await waitFor("Keycloak", `${CFG.keycloak}/realms/${CFG.realm}/.well-known/openid-configuration`);
   await waitFor("API Manager", `${CFG.apim}/services/Version`);
   await ensureDefaultScope();
+  await ensureMessaging((m) => log(m));
+  await ensureMiDatabase((m) => log(m));
   await ensureKeyManager();
   const api = await ensureConcesionesApi();
   const creds = await ensureConsumerApp(api.id);

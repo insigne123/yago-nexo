@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Esquema JSON de la solicitud de concesión (validación de entrada, BT-008). -->
+<localEntry xmlns="http://ws.apache.org/ns/synapse" key="EsquemaSolicitud"><![CDATA[{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "required": ["rutEmpresa", "servicio", "region"],
+  "properties": {
+    "rutEmpresa": { "type": "string", "pattern": "^[0-9]{1,2}(\\.?[0-9]{3}){2}-[0-9Kk]$" },
+    "servicio": { "type": "string", "minLength": 3, "maxLength": 80 },
+    "region": { "type": "string", "minLength": 3, "maxLength": 80 },
+    "observaciones": { "type": "string", "maxLength": 500 }
+  },
+  "additionalProperties": false
+}]]></localEntry>

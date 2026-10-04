@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Servicio SOAP 1.2 estilo PISEE (BT-010, BT-011). Tiempo de espera y suspensión progresiva (BT-007). -->
+<endpoint xmlns="http://ws.apache.org/ns/synapse" name="RegistroOperadoresEP">
+  <address uri="http://registro-soap:7001/soap/registro" format="soap12">
+    <timeout>
+      <duration>5000</duration>
+      <responseAction>fault</responseAction>
+    </timeout>
+    <suspendOnFailure>
+      <errorCodes>101503,101504,101505</errorCodes>
+      <initialDuration>10000</initialDuration>
+      <progressionFactor>2.0</progressionFactor>
+      <maximumDuration>120000</maximumDuration>
+    </suspendOnFailure>
+    <markForSuspension>
+      <errorCodes>101504,101505</errorCodes>
+      <retriesBeforeSuspension>2</retriesBeforeSuspension>
+      <retryDelay>500</retryDelay>
+    </markForSuspension>
+  </address>
+</endpoint>

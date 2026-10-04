@@ -43,7 +43,7 @@ rules:
         match: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
 
   nexo-rutas-kebab:
-    description: Las rutas usan minúsculas, números y guiones (kebab-case), sin barra final.
+    description: Las rutas usan minúsculas, números y guiones (kebab-case), sin barra final (se acepta la raíz /).
     message: "La ruta {{property}} no cumple kebab-case en minúsculas."
     severity: error
     given: "$.paths"
@@ -51,7 +51,7 @@ rules:
       field: "@key"
       function: pattern
       functionOptions:
-        match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-zA-Z0-9]+\\}))+$"
+        match: "^(/|(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-zA-Z0-9]+\\}))+)$"
 
   nexo-operacion-resumen-get:
     description: Cada operación debe tener un resumen (summary) para el portal de desarrolladores.

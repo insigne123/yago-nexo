@@ -1,0 +1,31 @@
+# API publicada en el gateway que expone el flujo de integración de Micro Integrator (BT-008/009/010/051)
+name: SolicitudesConcesion
+version: 1.0.0
+context: /solicitudes
+description: Recepción de solicitudes de concesión con validación, enriquecimiento PISEE y procesamiento asíncrono.
+type: HTTP
+contract: openapi.yaml
+owner:
+  business: División de Concesiones (sintético)
+  businessEmail: concesiones@ejemplo.invalid
+  technical: Equipo DevOps (sintético)
+  technicalEmail: devops@ejemplo.invalid
+metadata:
+  proposito: Recibir solicitudes de concesión de operadores y procesarlas de forma asíncrona y trazable
+  audiencia: operadores
+  clasificacion: interna
+security: [oauth2, oauth_basic_auth_api_key_mandatory]
+keyManagers: [Keycloak]
+policies: [OperadoresEstandar, Interno, Unlimited]
+apiThrottlingPolicy: ApiProtegida
+endpoints:
+  dev: http://mi:8290/integracion/solicitudes
+  qa: http://mi:8290/integracion/solicitudes
+  prod: http://mi:8290/integracion/solicitudes
+resiliency:
+  timeoutMs: 10000
+  retries: 0
+environments:
+  dev: [Desarrollo]
+  qa: [QA]
+  prod: [Default, Operadores]
