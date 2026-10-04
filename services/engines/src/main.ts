@@ -6,10 +6,12 @@
  */
 import type { Engine } from "./kit/runtime.js";
 import { runEngines } from "./kit/runtime.js";
+import { guardianEngine } from "./guardian/engine.js";
 import { rolloutEngine } from "./rollout/engine.js";
 
 const ENGINES: Record<string, Engine> = {
   despliegues: rolloutEngine,
+  guardian: guardianEngine,
 };
 
 async function main() {

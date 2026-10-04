@@ -163,9 +163,10 @@ services:
     build: ../../services/engines
     image: nexo-lab/motores:0.1.0
     hostname: motores
-    command: ["despliegues"]
+    command: ["despliegues", "guardian"]
     environment:
       NEXO_DATABASE_URL: postgres://nexo:${NEXO_DB_PASSWORD}@postgres:5432/nexo
+      NEXO_GUARDIAN_WINDOW_SEC: "30" # laboratorio: ventanas cortas para que la demo sea ágil (producción: 60)
       NEXO_WSO2_URL: https://apim:9443
       NEXO_WSO2_PASSWORD: ${APIM_ADMIN_PASSWORD}
       NEXO_WSO2_INSECURE_TLS: "true"

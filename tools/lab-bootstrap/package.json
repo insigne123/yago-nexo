@@ -14,7 +14,8 @@
     "check:audiencias": "tsx src/check-audiencias.ts",
     "check:consola": "tsx src/check-consola.ts",
     "carga": "tsx src/carga.ts",
-    "check:d04": "tsx src/check-d04.ts"
+    "check:d04": "tsx src/check-d04.ts",
+    "check:d02": "tsx src/check-d02.ts"
   },
   "dependencies": {
     "@nexo/wso2-client": "workspace:*",
