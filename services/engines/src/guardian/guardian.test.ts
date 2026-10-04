@@ -84,3 +84,19 @@ suite("series desde OpenSearch", () => {
     expect(JSON.stringify(q.query.bool.filter)).toContain("api-9");
   });
 });
+
+suite("acción efectiva del guardián", async () => {
+  const { effectiveAction } = await import("./engine.js");
+  it("bloquea según la regla en el caso normal", () => {
+    expect(effectiveAction("bloquear_automatico", false, false)).toBe("bloquear_automatico");
+    expect(effectiveAction("bloquear_con_aprobacion", false, false)).toBe("bloquear_con_aprobacion");
+  });
+  it("solo alerta si una persona liberó al consumidor después del inicio de la ventana", () => {
+    expect(effectiveAction("bloquear_automatico", false, true)).toBe("alertar");
+    expect(effectiveAction("bloquear_con_aprobacion", false, true)).toBe("alertar");
+  });
+  it("las aplicaciones excluidas nunca se bloquean", () => {
+    expect(effectiveAction("bloquear_automatico", true, false)).toBe("alertar");
+    expect(effectiveAction("alertar", false, false)).toBe("alertar");
+  });
+});

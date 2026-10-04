@@ -1,0 +1,27 @@
+{
+  "name": "@nexo/evidencias",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Demostraciones registradas: cada capacidad se graba en video mientras su escenario corre contra el laboratorio",
+  "scripts": {
+    "grabar": "tsx src/grabar.ts",
+    "verificar": "tsx src/verificar.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@nexo/wso2-client": "workspace:*",
+    "fflate": "^0.8.3",
+    "pg": "^8.23.1",
+    "playwright-core": "1.56.1",
+    "undici": "^8.11.2",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.6",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3"
+  }
+}

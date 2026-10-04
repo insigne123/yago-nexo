@@ -3,7 +3,7 @@ import { bool, env, num, opt } from "../kit/config.js";
 import type { Engine, EngineContext } from "../kit/runtime.js";
 import { dnsProviderFromEnv, type DnsProvider } from "./dns.js";
 import { aggregate, httpOk, tcpOk, type Check, type HealthState } from "./health.js";
-import { backupReady, fenceWrites, promote, replicationLagBytes } from "./postgres.js";
+import { backupReady, fenceWrites, isInRecovery, promote, replicationLagBytes } from "./postgres.js";
 import { decideFailover, type SiteVote } from "./quorum.js";
 import { EtcdVotes, type StoredVote } from "./votes.js";
 
@@ -133,6 +133,24 @@ async function failover(ctx: EngineContext, trigger: "automatico" | "manual", fr
   }
 }
 
+/**
+ * Paso «re-sincronizar la réplica» del retorno. Tras una conmutación la réplica del respaldo quedó promovida:
+ * el agente no la reconstruye (eso se hace con el procedimiento del motor de base de datos, p. ej.
+ * pg_basebackup o CloudNativePG), así que el paso solo se da por cumplido si la réplica volvió a estar en espera.
+ */
+export function replicaResyncStep(inRecovery: boolean | undefined): { paso: string; ok: boolean; pendiente?: boolean; detalle: string } {
+  if (inRecovery === true) return { paso: "re-sincronizar la réplica", ok: true, detalle: "la réplica del respaldo está en espera y recibe los cambios del primario" };
+  return {
+    paso: "re-sincronizar la réplica",
+    ok: false,
+    pendiente: true,
+    detalle:
+      inRecovery === false
+        ? "pendiente: el respaldo quedó promovido; reconstruya su réplica desde el primario (pg_basebackup) antes de volver a conmutar"
+        : "pendiente: no se pudo consultar la réplica del respaldo",
+  };
+}
+
 /** Atiende operaciones pedidas desde la Consola para este sitio: retorno guiado y simulacro. */
 async function handleRequests(ctx: EngineContext, active: string): Promise<void> {
   const pending = (await ctx.db.query("SELECT * FROM nexo.failover_event WHERE status = 'en_curso' AND kind IN ('retorno', 'simulacro') ORDER BY started_at").catch(() => ({ rows: [] as Row[] }))).rows;
@@ -145,7 +163,10 @@ async function handleRequests(ctx: EngineContext, active: string): Promise<void>
       if (ip) await dns.update({ name: DNS_NAME, ip, ttl: DNS_TTL });
       await setActiveSite(to);
       await ctx.db.query("UPDATE nexo.failover_event SET status = 'completado', finished_at = now(), steps = $1 WHERE id = $2", [
-        JSON.stringify([{ paso: "reapuntar el DNS al sitio primario", ok: true, detalle: ip ? `${DNS_NAME} → ${ip}` : "sin IP configurada" }, { paso: "re-sincronizar la réplica", ok: true, detalle: "según el procedimiento del motor de base de datos" }]),
+        JSON.stringify([
+          { paso: "reapuntar el DNS al sitio primario", ok: true, detalle: ip ? `${DNS_NAME} → ${ip}` : "sin IP configurada" },
+          replicaResyncStep(opt("NEXO_REPLICA_DB_URL") ? await isInRecovery(opt("NEXO_REPLICA_DB_URL")!).catch(() => undefined) : undefined),
+        ]),
         r.id,
       ]);
       await ctx.audit("continuidad.retorno", `conmutacion/${r.id}`, "exito", { desde: SITE_ID, hacia: to, aprobadoPor: r.approved_by });

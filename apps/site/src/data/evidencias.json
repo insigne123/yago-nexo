@@ -1,0 +1,290 @@
+{
+  "$comment": "Índice de las demostraciones registradas de Yago Nexo. Lo genera tools/evidencias (pnpm --filter @nexo/evidencias grabar). Los videos se publican junto al sitio en /evidencias/<archivo>.",
+  "generado": "2026-10-04T17:23:15.715Z",
+  "evidencias": [
+    {
+      "id": "X-00",
+      "title": "Prueba del estudio",
+      "claim": "El estudio graba la Consola en vivo con banner, rótulos y terminal.",
+      "file": "X-00_prueba.webm",
+      "duration_seconds": 21.1,
+      "frames": 527,
+      "sha256": "c2cf8148963c3295ee50353eba6b330662f6987345ee2795aa052046f07438fb",
+      "size_bytes": 2529034,
+      "version": "1.0.0",
+      "commit": "57d0029",
+      "recorded_at": "2026-10-04T13:26:27-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "estudio operativo",
+      "checks": [
+        {
+          "texto": "docker responde",
+          "ok": true,
+          "detalle": "27 contenedores"
+        }
+      ]
+    },
+    {
+      "id": "D-01",
+      "title": "Descubrimiento automático de APIs no gobernadas",
+      "claim": "El motor de descubrimiento recorre el perímetro (gateway APISIX y NGINX heredados, y servicios de la red autorizada), detecta las APIs que no están en el catálogo gobernado de WSO2, calcula su exposición y entrega el reporte en CSV y PDF.",
+      "file": "D-01_descubrimiento.webm",
+      "duration_seconds": 69.3,
+      "frames": 1733,
+      "sha256": "982b09ca7ce2157ca8df6b1d29c530d2017159e46b1d3124ed127774ac2c749b",
+      "size_bytes": 11407190,
+      "version": "1.0.0",
+      "commit": "e768f4c",
+      "recorded_at": "2026-10-04T13:43:46-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "9 endpoints detectados en 3 s: 5 no gobernados y 6 de riesgo alto, con reporte CSV y PDF",
+      "checks": [
+        {
+          "texto": "inventario vacío antes del escaneo",
+          "ok": true,
+          "detalle": "0 hallazgos"
+        },
+        {
+          "texto": "escaneo terminado",
+          "ok": true,
+          "detalle": "terminado en 2.8 s"
+        },
+        {
+          "texto": "NGINX: reporte con datos personales sin autenticación",
+          "ok": true,
+          "detalle": "puntaje 100"
+        },
+        {
+          "texto": "APISIX: ruta con key-auth fuera del catálogo",
+          "ok": true,
+          "detalle": "requerida · APISIX (key-auth)"
+        },
+        {
+          "texto": "red: servicio directo con contrato OpenAPI publicado",
+          "ok": true,
+          "detalle": "puntaje 85"
+        },
+        {
+          "texto": "backend de una API gobernada accesible sin el gateway",
+          "ok": true,
+          "detalle": "concesiones-v1:7001/concesiones"
+        },
+        {
+          "texto": "ordenados por puntaje de exposición",
+          "ok": true
+        },
+        {
+          "texto": "reporte CSV con todos los hallazgos",
+          "ok": true,
+          "detalle": "9 filas"
+        },
+        {
+          "texto": "reporte PDF generado",
+          "ok": true,
+          "detalle": "4 KB"
+        },
+        {
+          "texto": "check-d01: escaneo, clasificación sin duplicados y reportes",
+          "ok": true
+        }
+      ],
+      "data": {
+        "segundosEscaneo": 2.83,
+        "endpoints": 9,
+        "noGobernados": 5,
+        "riesgoAlto": 6,
+        "maxPuntaje": 100
+      }
+    },
+    {
+      "id": "D-02",
+      "title": "Detección de anomalías de consumo con alerta y bloqueo configurable",
+      "claim": "El guardián compara el consumo de cada consumidor con su línea base; ante una ráfaga anómala alerta y, según la regla configurada, bloquea al consumidor en el gateway de WSO2 hasta que un aprobador lo libere o venza el bloqueo.",
+      "file": "D-02_anomalias.webm",
+      "duration_seconds": 114.9,
+      "frames": 1724,
+      "sha256": "2f854d59474f59ebf38c52036563ad09b52da3d4d69ab9de82db8234973c1b5b",
+      "size_bytes": 2029554,
+      "version": "1.0.0",
+      "commit": "e1d0aac",
+      "recorded_at": "2026-10-04T14:00:15-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "ráfaga bloqueada en el gateway a los 43 s, con alerta; acceso restablecido 1 s después de la liberación",
+      "checks": [
+        {
+          "texto": "regla creada y activa",
+          "ok": true,
+          "detalle": "sensibilidad 6 · mínimo 30 · bloquear_automatico · 2 min"
+        },
+        {
+          "texto": "tráfico normal atendido",
+          "ok": true,
+          "detalle": "32 de 32 con 200"
+        },
+        {
+          "texto": "ráfaga bloqueada en el gateway (HTTP 403)",
+          "ok": true,
+          "detalle": "a los 43 s de iniciada"
+        },
+        {
+          "texto": "evento registrado como bloqueado",
+          "ok": true,
+          "detalle": "174 llamadas en la ventana frente a línea base 0 · puntaje 11.6"
+        },
+        {
+          "texto": "alerta enviada a Alertmanager",
+          "ok": true,
+          "detalle": "admin:OperadorDemo"
+        },
+        {
+          "texto": "política de denegación activa en WSO2 (Admin Portal)",
+          "ok": true,
+          "detalle": "condición APPLICATION sobre OperadorDemo"
+        },
+        {
+          "texto": "bloqueo liberado por el aprobador",
+          "ok": true,
+          "detalle": "luis.aprobador"
+        },
+        {
+          "texto": "acceso restablecido en el gateway",
+          "ok": true,
+          "detalle": "200 a los 1 s"
+        },
+        {
+          "texto": "bloqueo y liberación en la auditoría encadenada",
+          "ok": true,
+          "detalle": "anomalias.bloqueo.automatico · anomalias.bloqueo.liberar"
+        }
+      ],
+      "data": {
+        "segundosHastaBloqueo": 43,
+        "respuestas403": 105,
+        "segundosHastaAcceso": 1.067,
+        "observado": 174,
+        "lineaBase": 0
+      }
+    },
+    {
+      "id": "D-04",
+      "title": "Despliegue canary y blue-green con reversión automática y sin corte",
+      "claim": "Con consumidores llamando sin pausa por el gateway, una versión defectuosa se revierte sola durante su fase sombra, la versión corregida avanza en canary 5 → 25 → 50 → 100 % y un blue-green devuelve el tráfico de una vez, sin que ningún consumidor reciba un error.",
+      "file": "D-04_canary_blue_green.webm",
+      "duration_seconds": 137.5,
+      "frames": 2063,
+      "sha256": "830fa7a01276ef358498f5cf4fcc65e14b7cc3a22241b968e6b58257bf22b6b5",
+      "size_bytes": 2022673,
+      "version": "1.0.0",
+      "commit": "60dce1f",
+      "recorded_at": "2026-10-04T14:19:05-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "2060 llamadas de consumidores, 0 errores: reversión automática en 6 s, canary completo en 61 s y blue-green en 14 s",
+      "checks": [
+        {
+          "texto": "versión defectuosa revertida automáticamente en la sombra",
+          "ok": true,
+          "detalle": "revertido a los 6 s"
+        },
+        {
+          "texto": "ningún error para los consumidores durante la reversión",
+          "ok": true,
+          "detalle": "0 errores"
+        },
+        {
+          "texto": "canary completado: la versión nueva recibe el 100 %",
+          "ok": true,
+          "detalle": "sombra → 5% → 25% → 50% → 100% en 61 s"
+        },
+        {
+          "texto": "sin errores para los consumidores durante el canary",
+          "ok": true,
+          "detalle": "0 errores"
+        },
+        {
+          "texto": "blue-green completado",
+          "ok": true,
+          "detalle": "en 14 s"
+        },
+        {
+          "texto": "sin errores durante el blue-green",
+          "ok": true,
+          "detalle": "0 errores"
+        },
+        {
+          "texto": "ambas versiones atendieron y el servicio no se cortó",
+          "ok": true,
+          "detalle": "2060 llamadas, 0 errores"
+        }
+      ],
+      "data": {
+        "llamadas": 2060,
+        "errores": 0,
+        "porVersion": {
+          "1.0.0": 1469,
+          "1.1.0": 591
+        },
+        "segReversion": 6,
+        "segCanary": 61,
+        "segBlueGreen": 14,
+        "motivoReversion": "tasa de error del candidato 100.0 % supera el umbral de 2.0 % (estable: 0.0 %), en tráfico sombra (ningún consumidor recibió sus respuestas)"
+      }
+    },
+    {
+      "id": "D-05",
+      "title": "Conmutación automática CPD ↔ Google Cloud sin intervención manual",
+      "claim": "Cuando el sitio principal cae, los agentes de continuidad conmutan solos al sitio de respaldo si 2 de 3 votos coinciden: promueven la réplica, reapuntan el DNS y registran el RTO; sin quórum no conmutan (evita dos sitios activos) y el retorno lo aprueba una persona.",
+      "file": "D-05_conmutacion.webm",
+      "duration_seconds": 65.5,
+      "frames": 982,
+      "sha256": "9ad79e2de2fe0191f4c44719086fb074a2123bcb47a8d875ba636a8d2e92f84c",
+      "size_bytes": 1287725,
+      "version": "1.0.0",
+      "commit": "60dce1f",
+      "recorded_at": "2026-10-04T14:13:37-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "conmutación automática en 1 s desde que hubo quórum (2 de 3 votos), sin pérdida del dato confirmado; sin quórum no conmutó",
+      "checks": [
+        {
+          "texto": "CPD activo con tres votos sanos y DNS en 10.80.0.1",
+          "ok": true
+        },
+        {
+          "texto": "sin quórum no hay conmutación (anti split brain)",
+          "ok": true,
+          "detalle": "activo cpd · réplica en espera"
+        },
+        {
+          "texto": "conmutación automática a GCP con quórum",
+          "ok": true,
+          "detalle": "1.0 s desde que hubo quórum · réplica promovida · DNS 10.80.0.2"
+        },
+        {
+          "texto": "el dato confirmado sigue en el respaldo (sin pérdida)",
+          "ok": true,
+          "detalle": "marca-1791134031449"
+        },
+        {
+          "texto": "evento automático con RTO medido",
+          "ok": true,
+          "detalle": "RTO del motor 0.37 s · RPO estimado 0 s"
+        },
+        {
+          "texto": "retorno al CPD aprobado por una persona",
+          "ok": true,
+          "detalle": "5 s · DNS 10.80.0.1"
+        },
+        {
+          "texto": "réplica del respaldo reconstruida y en espera",
+          "ok": true,
+          "detalle": "3 s"
+        }
+      ],
+      "data": {
+        "segundosConmutacion": 1,
+        "rtoMotorSeg": 0.371,
+        "rpoEstimadoSeg": 0,
+        "segundosRetorno": 5
+      }
+    }
+  ]
+}

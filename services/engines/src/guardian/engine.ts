@@ -40,6 +40,15 @@ async function expireBlocks(ctx: EngineContext): Promise<number> {
   return expired.length;
 }
 
+/**
+ * Acción que corresponde aplicar: las aplicaciones excluidas de bloqueo y las que una persona liberó después
+ * del inicio de la ventana evaluada solo generan alerta.
+ */
+export function effectiveAction(ruleAction: string, neverBlock: boolean, releasedByPersonAfterWindow: boolean): string {
+  if (ruleAction === "alertar") return ruleAction;
+  return neverBlock || releasedByPersonAfterWindow ? "alertar" : ruleAction;
+}
+
 async function evaluateRule(ctx: EngineContext, rule: Row, endMs: number, blocked: Set<string>): Promise<number> {
   const metric = rule.metric as Metric;
   const fromMs = endMs - (BASELINE_WINDOWS + 1) * WINDOW_SEC * 1000;
@@ -58,7 +67,16 @@ async function evaluateRule(ctx: EngineContext, rule: Row, endMs: number, blocke
     if (!d.anomalous) continue;
     const target = `${s.owner}:${s.name}`;
     if (blocked.has(target)) continue; // ya bloqueado: sus llamadas rechazadas no generan nuevos eventos
-    const action = rule.action !== "alertar" && NEVER_BLOCK.has(target) ? "alertar" : String(rule.action);
+    // Una persona que liberó al consumidor después del inicio de esta ventana ya revisó ese tráfico: no se lo
+    // vuelve a bloquear por la misma ráfaga (se registra y se alerta igual).
+    const liberado = (
+      await ctx.db.query(
+        `SELECT 1 FROM nexo.block WHERE condition_type = 'APPLICATION' AND condition_value = $1 AND NOT active
+           AND released_by IS NOT NULL AND released_by <> 'nexo-guardian' AND released_at > $2 LIMIT 1`,
+        [target, windowStart.toISOString()],
+      )
+    ).rowCount;
+    const action = effectiveAction(String(rule.action), NEVER_BLOCK.has(target), !!liberado);
     const status = action === "alertar" ? "abierta" : action === "bloquear_con_aprobacion" ? "bloqueo_propuesto" : "bloqueada";
     const inserted = (
       await ctx.db.query(

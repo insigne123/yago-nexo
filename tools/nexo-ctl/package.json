@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests",
-    "ctl": "tsx src/cli.ts"
+    "ctl": "tsx src/cli.ts",
+    "contratos": "tsx src/cli.ts -c ../../nexo-ctl.config.yaml api lint-all"
   },
   "dependencies": {
     "@nexo/wso2-client": "workspace:*",

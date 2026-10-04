@@ -33,3 +33,6 @@ release/aceptacion/
 deploy/compose/respaldo-lab.key
 deploy/compose/*.key
 tools/respaldo/respaldo.config.json
+
+# Videos de las demostraciones registradas (se publican con el sitio, no van a git)
+/release/evidencias/

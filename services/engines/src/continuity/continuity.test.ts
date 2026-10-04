@@ -51,3 +51,12 @@ describe("quórum de conmutación (2 de 3)", () => {
     expect(decideFailover(isolatedBackup, backup).conmutar).toBe(false);
   });
 });
+
+describe("retorno: re-sincronización de la réplica", async () => {
+  const { replicaResyncStep } = await import("./engine.js");
+  it("solo se da por cumplida si la réplica volvió a estar en espera", () => {
+    expect(replicaResyncStep(true)).toMatchObject({ ok: true });
+    expect(replicaResyncStep(false)).toMatchObject({ ok: false, pendiente: true });
+    expect(replicaResyncStep(undefined)).toMatchObject({ ok: false, pendiente: true });
+  });
+});

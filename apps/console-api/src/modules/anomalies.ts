@@ -7,10 +7,16 @@ import { AuditService } from "../common/audit.service.js";
 import { DB, WSO2 } from "../common/tokens.js";
 import { parse } from "../common/validation.js";
 
+/**
+ * El guardián filtra la analítica del gateway por el id de la API en WSO2. La Consola identifica las APIs del
+ * catálogo como «api:<id de WSO2>»; se aceptan ambas formas y se guarda siempre el id de WSO2.
+ */
+export const wso2ApiId = (id: string | undefined) => (id ? id.replace(/^api:/, "") : id) || undefined;
+
 /** Guardián de anomalías (D-02): reglas, eventos y bloqueos en el gateway. */
 const RuleSchema = z.object({
   name: z.string().min(3).max(120),
-  apiId: z.string().max(200).optional(),
+  apiId: z.string().max(200).optional().transform(wso2ApiId),
   consumerId: z.string().max(200).optional(),
   metric: z.enum(["volumen", "errores", "latencia", "tamano", "ips_distintas", "fuera_de_horario"]),
   sensitivity: z.number().min(1).max(10),

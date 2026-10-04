@@ -29,6 +29,20 @@ jobs:
       - run: pnpm -r --if-present typecheck
       - run: pnpm -r --if-present test
 
+  contratos:
+    name: Contratos contra la guía de estilo (D-03)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Bloqueante: un contrato con errores de la guía de estilo institucional hace fallar el pipeline.
+      - run: pnpm --filter @nexo/nexo-ctl contratos
+
   seguridad:
     name: Secretos y vulnerabilidades (BT-057)
     runs-on: ubuntu-latest

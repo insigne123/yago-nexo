@@ -121,7 +121,7 @@ function RuleForm({ rule, onClose }: { rule: AnomalyRule | null; onClose: () => 
           >
             <option value="">Todas las APIs</option>
             {(apis.data ?? []).map((a) => (
-              <option key={a.id} value={a.id}>
+              <option key={a.id} value={a.wso2ApiId ?? a.id}>
                 {a.name} {a.version}
               </option>
             ))}
@@ -178,7 +178,7 @@ function RuleForm({ rule, onClose }: { rule: AnomalyRule | null; onClose: () => 
       <Field
         id="rule-min-volume"
         label="Volumen mínimo"
-        hint="Llamadas por minuto bajo las cuales no se evalúa."
+        hint="Llamadas por ventana de evaluación (60 s por omisión) bajo las cuales no se evalúa."
         error={errors.minVolume}
       >
         {(control) => (

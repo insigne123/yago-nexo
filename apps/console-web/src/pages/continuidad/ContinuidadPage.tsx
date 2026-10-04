@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, LoaderCircle, Play, Server, ShieldCheck, Undo2, Vote } from "lucide-react";
+import { CircleCheck, CircleX, Clock, LoaderCircle, Play, Server, ShieldCheck, Undo2, Vote } from "lucide-react";
 import { useState } from "react";
 import {
   keys,
@@ -94,6 +94,7 @@ function StepIcon({ status }: { status?: string }) {
     return <CircleCheck className="size-4 text-ok" aria-hidden="true" />;
   if (status === "fallido" || status === "falla")
     return <CircleX className="size-4 text-bad" aria-hidden="true" />;
+  if (status === "pendiente") return <Clock className="size-4 text-warn" aria-label="Pendiente" />;
   return <LoaderCircle className="size-4 text-accent motion-safe:animate-spin" aria-hidden="true" />;
 }
 
@@ -124,7 +125,8 @@ function EventCard({
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <Badge tone={rtoTone(event.rtoSeconds, rtoObjetivoMin)} data-testid={`failover-rto-${event.id}`}>
-          RTO medido {event.rtoSeconds !== undefined ? formatDuration(event.rtoSeconds) : "en medición"}
+          RTO medido{" "}
+          {event.rtoSeconds !== undefined ? formatDuration(event.rtoSeconds) : live ? "en medición" : "no registrado"}
           {rtoObjetivoMin !== undefined ? ` · objetivo ${rtoObjetivoMin} min` : ""}
         </Badge>
         <Badge tone={rtoTone(event.rpoSecondsEstimated, rpoObjetivoMin)}>

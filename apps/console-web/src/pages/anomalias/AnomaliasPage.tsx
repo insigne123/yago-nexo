@@ -47,7 +47,7 @@ const EVENT_STATUSES: Array<{ value: AnomalyStatus; label: string }> = [
 function formatMetricValue(metric: string, value: number): string {
   switch (metric) {
     case "volumen":
-      return `${formatNumber(value)} llamadas/min`;
+      return `${formatNumber(value)} llamadas por ventana`;
     case "errores":
       return formatPercent(value > 1 ? value / 100 : value, 1);
     case "latencia":
@@ -348,7 +348,8 @@ function RulesTab({ onEdit }: { onEdit: (rule: AnomalyRule | null) => void }) {
   const apis = useApis();
   const apiName = (id?: string) => {
     if (!id) return "Todas las APIs";
-    const api = apis.data?.find((a) => a.id === id);
+    // Las reglas guardan el id de la API en WSO2 (el que usa el guardián); el catálogo, «api:<id>».
+    const api = apis.data?.find((a) => a.wso2ApiId === id || a.id === id);
     return api ? `${api.name} ${api.version}` : id;
   };
   const columns: Column<AnomalyRule>[] = [
