@@ -13,7 +13,7 @@ import { ContinuityController } from "./modules/continuity.js";
 import { DeadLettersController } from "./modules/dead-letters.js";
 import { DiscoveryController } from "./modules/discovery.js";
 import { AlertsController, AuditController, ComplianceController, ExportsController, HealthController, SessionController } from "./modules/platform.js";
-import { RolloutsController } from "./modules/rollouts.js";
+import { RolloutsController, TrafficRoutesController } from "./modules/rollouts.js";
 import { UsageController, UsageService } from "./modules/usage.js";
 
 @Module({
@@ -24,6 +24,7 @@ import { UsageController, UsageService } from "./modules/usage.js";
     DiscoveryController,
     AnomaliesController,
     RolloutsController,
+    TrafficRoutesController,
     ContinuityController,
     UsageController,
     DeadLettersController,

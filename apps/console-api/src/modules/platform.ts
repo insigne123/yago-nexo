@@ -19,7 +19,7 @@ import {
 import type { Response } from "express";
 import { zipSync, strToU8 } from "fflate";
 import { collectDefaultMetrics, register } from "@prometheus-io/client";
-import { permissionMatrix, verifyChain } from "@nexo/shared";
+import { permissionMatrix } from "@nexo/shared";
 import type { Db } from "@nexo/console-db";
 import type { Wso2Client, MiManagementClient } from "@nexo/wso2-client";
 import { CurrentUser, Public, RequirePermission, type AuthUser } from "../auth/auth.js";
@@ -123,8 +123,7 @@ export class AuditController {
   @Get("verify")
   @RequirePermission("audit:verify")
   async verify(@CurrentUser() user: AuthUser) {
-    const all = await this.audit.store.all();
-    const result = verifyChain(all);
+    const result = await this.audit.store.verify();
     await this.audit.record(user, "auditoria.verificar", "cadena", result.ok ? "exito" : "error", { ...result });
     return result;
   }

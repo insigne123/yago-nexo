@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { buildSchema, isObjectType } from "graphql";
 import { DEFAULT_MAX_REVISIONS, pruneRevisions, Wso2HttpError, type ApiSummary, type Wso2Client } from "@nexo/wso2-client";
@@ -31,6 +31,11 @@ export interface ApiProject {
     suspendFactor?: number;
   };
   environments: Record<string, string[]>;
+  /**
+   * Etapas donde el tráfico pasa por nexo-division para despliegues progresivos sin corte (D-04).
+   * El gateway llama a <division>/rutas/<nombre> y el backend de "endpoints" queda como estable de la ruta.
+   */
+  division?: Record<string, boolean>;
 }
 
 export function loadProject(dir: string): ApiProject & { dir: string } {
@@ -59,9 +64,17 @@ function endpointConfig(url: string, r: ApiProject["resiliency"] = {}) {
   };
 }
 
-function apiBody(p: ApiProject & { dir: string }, stageName: string, baseDir: string) {
-  const url = p.endpoints[stageName];
-  if (!url) throw new Error(`El proyecto ${p.name} no define endpoint para la etapa ${stageName}`);
+/** Nombre de la ruta en nexo-division: el directorio del proyecto (p. ej. "concesiones"). */
+export function divisionRoute(p: { dir: string }): string {
+  return basename(p.dir).toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+}
+
+function apiBody(p: ApiProject & { dir: string }, stageName: string, baseDir: string, s: StageConfig) {
+  const backend = p.endpoints[stageName];
+  if (!backend) throw new Error(`El proyecto ${p.name} no define endpoint para la etapa ${stageName}`);
+  const viaDivision = p.division?.[stageName] === true;
+  if (viaDivision && !s.division) throw new Error(`La etapa ${stageName} no define la URL de nexo-division ("division") en nexo-ctl.config.yaml`);
+  const url = viaDivision ? `${s.division!.replace(/\/+$/, "")}/rutas/${divisionRoute(p)}` : backend;
   const type = p.type ?? "HTTP";
   const isWs = type === "WS";
   return {
@@ -85,7 +98,11 @@ function apiBody(p: ApiProject & { dir: string }, stageName: string, baseDir: st
       technicalOwnerEmail: p.owner.technicalEmail,
     },
     // El contrato versionado en el repositorio queda referenciado en la ficha del catálogo (BT-018).
-    additionalProperties: Object.entries({ contrato: relative(baseDir, join(p.dir, p.contract)).split(sep).join("/"), ...p.metadata }).map(
+    additionalProperties: Object.entries({
+      contrato: relative(baseDir, join(p.dir, p.contract)).split(sep).join("/"),
+      ...(viaDivision ? { division_estable: backend } : {}),
+      ...p.metadata,
+    }).map(
       ([name, value]) => ({ name, value, display: true }),
     ),
   };
@@ -148,7 +165,7 @@ export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfi
     }
   }
   const wso2 = clientFor(s);
-  const body = apiBody(p, stageName, cfg.baseDir);
+  const body = apiBody(p, stageName, cfg.baseDir, s);
   let api = await findApi(wso2, p.name, p.version);
   if (!api) {
     if (type === "GRAPHQL") api = await wso2.publisher.importGraphQl(contract, { ...body, operations: graphqlOperations(contract) });

@@ -21,6 +21,7 @@ const RolloutSchema = z.object({
     })
     .default({ maxErrorRate: 0.02, maxP99Ms: 800, minRequests: 20 }),
   environment: z.enum(["dev", "qa", "prod"]).default("prod"),
+  shadowSeconds: z.number().int().min(0).max(3600).default(0),
 });
 
 const ReasonSchema = z.object({ reason: z.string().max(1000).optional() }).default({});
@@ -37,6 +38,7 @@ export function rolloutRow(r: Record<string, unknown>, steps: Array<Record<strin
     stepDurationSec: r.step_duration_sec,
     thresholds: r.thresholds,
     environment: r.environment,
+    shadowSeconds: r.shadow_seconds ?? 0,
     status: r.status,
     currentWeight: r.current_weight,
     rollbackReason: r.rollback_reason ?? undefined,
@@ -44,6 +46,8 @@ export function rolloutRow(r: Record<string, unknown>, steps: Array<Record<strin
     approvedBy: r.approved_by ?? undefined,
     createdAt: r.created_at,
     stepsDone: steps.map((s) => ({
+      kind: s.kind ?? "canary",
+      detail: s.detail ?? undefined,
       weight: s.weight,
       startedAt: s.started_at,
       endedAt: s.ended_at ?? undefined,
@@ -53,6 +57,29 @@ export function rolloutRow(r: Record<string, unknown>, steps: Array<Record<strin
       decision: s.decision,
     })),
   };
+}
+
+@Controller("traffic-routes")
+export class TrafficRoutesController {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  @Get()
+  @RequirePermission("rollout:read")
+  async list() {
+    const rows = (await this.db.query("SELECT * FROM nexo.traffic_route ORDER BY environment, route_prefix")).rows;
+    return rows.map((r) => ({
+      apiId: r.api_id,
+      apiName: r.api_name,
+      environment: r.environment,
+      prefix: r.route_prefix,
+      stableUrl: r.stable_url,
+      candidateUrl: r.candidate_url ?? undefined,
+      weight: r.weight,
+      mirrorPercent: r.mirror_percent,
+      rolloutId: r.rollout_id ?? undefined,
+      updatedAt: r.updated_at,
+    }));
+  }
 }
 
 @Controller("rollouts")
@@ -90,11 +117,22 @@ export class RolloutsController {
     if (!api) throw new NotFoundException({ statusCode: 404, message: "La API no existe en el catálogo" });
     const active = await this.db.query("SELECT 1 FROM nexo.rollout WHERE api_id = $1 AND status IN ('pendiente_aprobacion','en_curso')", [api.wso2_api_id]);
     if (active.rowCount) throw new ConflictException({ statusCode: 409, message: "Ya hay un despliegue en curso para esta API" });
-    const steps = r.strategy === "blue_green" ? [100] : r.steps;
+    // Los pasos se aplican en nexo-division sin redesplegar la API: la API debe estar conectada a una ruta.
+    const route = await this.db.query("SELECT stable_url FROM nexo.traffic_route WHERE api_id = $1 AND environment = $2", [api.wso2_api_id, r.environment]);
+    if (!route.rowCount) {
+      throw new ConflictException({
+        statusCode: 409,
+        message: `La API no pasa por nexo-division en ${r.environment}. Declare "division" para esa etapa en el proyecto de la API y despliéguelo con nexo-ctl.`,
+      });
+    }
+    if (String(route.rows[0].stable_url).replace(/\/+$/, "") === r.candidateEndpoint.replace(/\/+$/, "")) {
+      throw new ConflictException({ statusCode: 409, message: "El candidato es la misma versión estable que ya recibe el tráfico" });
+    }
+    const steps = r.strategy === "blue_green" ? [100] : [...new Set(r.steps)].sort((a, b) => a - b);
     const res = await this.db.query(
-      `INSERT INTO nexo.rollout (api_id, api_name, strategy, candidate_endpoint, steps, step_duration_sec, thresholds, environment, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [api.wso2_api_id, `${api.name} ${api.version}`, r.strategy, r.candidateEndpoint, steps, r.stepDurationSec, JSON.stringify(r.thresholds), r.environment, user.username],
+      `INSERT INTO nexo.rollout (api_id, api_name, strategy, candidate_endpoint, steps, step_duration_sec, thresholds, environment, shadow_seconds, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [api.wso2_api_id, `${api.name} ${api.version}`, r.strategy, r.candidateEndpoint, steps, r.stepDurationSec, JSON.stringify(r.thresholds), r.environment, r.shadowSeconds, user.username],
     );
     await this.audit.record(user, "despliegue.crear", `rollout/${res.rows[0].id}`, "exito", { api: api.name, ...r });
     return rolloutRow(res.rows[0]);

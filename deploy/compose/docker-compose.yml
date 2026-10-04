@@ -158,6 +158,33 @@ services:
       postgres: { condition: service_healthy }
       keycloak: { condition: service_healthy }
 
+  # ------------------------------------------------------------------ motores de Nexo y división de tráfico (D-04)
+  motores:
+    build: ../../services/engines
+    image: nexo-lab/motores:0.1.0
+    hostname: motores
+    command: ["despliegues"]
+    environment:
+      NEXO_DATABASE_URL: postgres://nexo:${NEXO_DB_PASSWORD}@postgres:5432/nexo
+      NEXO_WSO2_URL: https://apim:9443
+      NEXO_WSO2_PASSWORD: ${APIM_ADMIN_PASSWORD}
+      NEXO_WSO2_INSECURE_TLS: "true"
+      NEXO_OPENSEARCH_URL: http://opensearch:9200
+      NEXO_ALERTMANAGER_URL: http://alertmanager:9093
+      NEXO_DIVISION_URL: http://nexo-division:10000
+      NEXO_DIVISION_ADMIN_URLS: http://nexo-division:9902
+    ports: ["9465:9465", "9466:9466"]
+    depends_on:
+      console-api: { condition: service_healthy } # la API aplica las migraciones
+
+  nexo-division:
+    image: envoyproxy/envoy:v1.38.5
+    hostname: nexo-division
+    command: ["-c", "/etc/envoy/envoy.yaml", "--log-level", "warn"]
+    volumes:
+      - ./nexo-division/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    ports: ["10000:10000", "9902:9902"]
+
   # ------------------------------------------------------------------ backends de ejemplo
   concesiones-v1:
     build: ../../services/demo-backends

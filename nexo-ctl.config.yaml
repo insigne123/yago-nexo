@@ -23,6 +23,7 @@ stages:
     passwordEnv: APIM_ADMIN_PASSWORD
     insecureTls: true
     publish: true
+    division: http://nexo-division:10000 # D-04: despliegues progresivos sin corte
     gateways:
       - { name: Default, vhost: apim }
       - { name: Operadores, vhost: operadores.nexo.lab }

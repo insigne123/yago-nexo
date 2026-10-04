@@ -16,6 +16,8 @@ export interface StageConfig {
   insecureTls?: boolean;
   gateways: Array<{ name: string; vhost: string }>;
   publish?: boolean;
+  /** URL de nexo-division (Envoy) de la etapa: las APIs con "division" pasan por ahí (D-04). */
+  division?: string;
 }
 
 export interface CtlConfig {

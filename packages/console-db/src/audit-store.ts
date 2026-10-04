@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { AuditEventInput, computeHash, GENESIS_HASH, type AuditEvent } from "@nexo/shared";
+import { AuditEventInput, computeHash, GENESIS_HASH, verifyChain, type AuditEvent, type ChainVerification } from "@nexo/shared";
 import { withTx, type Db } from "./db.js";
 
 /**
@@ -62,6 +62,28 @@ export class AuditStore {
       params,
     );
     return res.rows.map(rowToEvent);
+  }
+
+  /**
+   * Verifica la cadena completa por tramos (no carga todo en memoria): secuencia continua, cada evento
+   * enlazado al hash anterior y cada hash recalculado. Devuelve el ancla (último seq y hash) para el SIEM.
+   */
+  async verify(batch = 5000): Promise<ChainVerification> {
+    let prev = GENESIS_HASH;
+    let lastSeq = 0;
+    let count = 0;
+    for (;;) {
+      const res = await this.db.query("SELECT * FROM nexo.audit_event WHERE seq > $1 ORDER BY seq ASC LIMIT $2", [lastSeq, batch]);
+      if (!res.rows.length) break;
+      const events = res.rows.map(rowToEvent);
+      if (events[0]!.seq !== lastSeq + 1) return { ok: false, count, brokenAt: events[0]!.seq, reason: "secuencia" };
+      const r = verifyChain(events, prev);
+      if (!r.ok) return { ...r, count: count + r.count };
+      count += r.count;
+      prev = r.lastHash;
+      lastSeq = r.lastSeq;
+    }
+    return { ok: true, count, lastSeq, lastHash: prev };
   }
 
   /** Todos los eventos en orden, para verificar la cadena completa. */

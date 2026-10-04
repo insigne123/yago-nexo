@@ -40,3 +40,8 @@ scrape_configs:
   - job_name: nexo-services
     metrics_path: /api/v1/metrics
     static_configs: [{ targets: ["console-api:8090"], labels: { componente: consola } }]
+  - job_name: nexo-motores
+    static_configs: [{ targets: ["motores:9465"], labels: { componente: motores } }]
+  - job_name: nexo-division
+    metrics_path: /stats/prometheus
+    static_configs: [{ targets: ["nexo-division:9902"], labels: { componente: division } }]

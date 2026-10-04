@@ -1,6 +1,6 @@
 import { Body, ConflictException, Controller, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { z } from "zod";
-import { withTx, type Db } from "@nexo/console-db";
+import { createBlock, releaseBlock, type Db } from "@nexo/console-db";
 import type { Wso2Client } from "@nexo/wso2-client";
 import { assertFourEyes, CurrentUser, RequirePermission, type AuthUser } from "../auth/auth.js";
 import { AuditService } from "../common/audit.service.js";
@@ -67,35 +67,6 @@ export const blockRow = (r: Record<string, unknown>) => ({
   releasedBy: r.released_by ?? undefined,
 });
 
-/** Crea el bloqueo en el gateway (deny policy de WSO2) y lo registra. Lo comparten la API y el motor. */
-export async function createBlock(
-  db: Db,
-  wso2: Wso2Client,
-  input: { conditionType: "APPLICATION" | "IP" | "USER"; conditionValue: string; reason: string; ttlMinutes: number; createdBy: string },
-) {
-  const value = input.conditionType === "IP" ? { fixedIp: input.conditionValue, invert: false } : input.conditionValue;
-  const policy = await wso2.admin.createDenyPolicy(input.conditionType, value);
-  const res = await db.query(
-    `INSERT INTO nexo.block (deny_policy_id, condition_type, condition_value, reason, expires_at, created_by)
-     VALUES ($1,$2,$3,$4, now() + make_interval(mins => $5), $6) RETURNING *`,
-    [policy.conditionId, input.conditionType, input.conditionValue, input.reason, input.ttlMinutes, input.createdBy],
-  );
-  return res.rows[0] as Record<string, unknown>;
-}
-
-export async function releaseBlock(db: Db, wso2: Wso2Client, blockId: string, releasedBy: string) {
-  const res = await db.query("SELECT * FROM nexo.block WHERE id = $1", [blockId]);
-  const block = res.rows[0];
-  if (!block) throw new NotFoundException({ statusCode: 404, message: "El bloqueo no existe" });
-  if (block.active && block.deny_policy_id) {
-    await wso2.admin.deleteDenyPolicy(String(block.deny_policy_id)).catch((e: unknown) => {
-      if (!(e instanceof Error && /404/.test(e.message))) throw e;
-    });
-  }
-  const upd = await db.query("UPDATE nexo.block SET active = false, released_by = $1, released_at = now() WHERE id = $2 RETURNING *", [releasedBy, blockId]);
-  return upd.rows[0] as Record<string, unknown>;
-}
-
 @Controller()
 export class AnomaliesController {
   constructor(
@@ -157,20 +128,19 @@ export class AnomaliesController {
     if (ev.status !== "bloqueo_propuesto") throw new ConflictException({ statusCode: 409, message: `La anomalía está en estado ${ev.status}` });
     assertFourEyes(user, ev.detected_by as string | undefined, "el bloqueo");
     const target = ev.consumer ? { type: "APPLICATION" as const, value: String(ev.consumer) } : { type: "IP" as const, value: String(ev.source_ip) };
-    const block = await createBlock(this.db, this.wso2, {
+    const block = await createBlock(this.db, this.wso2.admin, {
       conditionType: target.type,
       conditionValue: target.value,
       reason: `Anomalía ${ev.metric} aprobada por ${user.username}`,
       ttlMinutes: Number(ev.block_ttl_minutes ?? 30),
       createdBy: user.username,
     });
-    const upd = await withTx(this.db, async (tx) => {
-      const r = await tx.query(
+    const upd = (
+      await this.db.query(
         "UPDATE nexo.anomaly_event SET status = 'bloqueada', block_id = $1, approved_by = $2, action_taken = 'bloqueo_aprobado' WHERE id = $3 RETURNING *",
         [block.id, user.username, id],
-      );
-      return r.rows[0];
-    });
+      )
+    ).rows[0];
     await this.audit.record(user, "anomalias.bloqueo.aprobar", `anomalia/${id}`, "exito", { bloqueo: block.id, objetivo: target });
     return eventRow(upd);
   }
@@ -201,8 +171,8 @@ export class AnomaliesController {
   @RequirePermission("anomaly:block:release")
   async release(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const { reason } = parse(ReasonSchema, body ?? {});
-    const block = await releaseBlock(this.db, this.wso2, id, user.username);
-    await this.db.query("UPDATE nexo.anomaly_event SET status = 'resuelta' WHERE block_id = $1 AND status = 'bloqueada'", [id]);
+    const block = await releaseBlock(this.db, this.wso2.admin, id, user.username);
+    if (!block) throw new NotFoundException({ statusCode: 404, message: "El bloqueo no existe" });
     await this.audit.record(user, "anomalias.bloqueo.liberar", `bloqueo/${id}`, "exito", { reason });
     return blockRow(block);
   }

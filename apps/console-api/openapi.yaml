@@ -232,6 +232,14 @@ paths:
         content: { application/json: { schema: { $ref: "#/components/schemas/RolloutInput" } } }
       responses:
         "201": { description: Creado, content: { application/json: { schema: { $ref: "#/components/schemas/Rollout" } } } }
+  /traffic-routes:
+    get:
+      tags: [despliegues]
+      summary: Rutas de nexo-division (APIs habilitadas para despliegues progresivos) con su peso y tráfico sombra en vivo
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/TrafficRoute" } } } }
   /rollouts/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     get:
@@ -710,9 +718,17 @@ components:
             maxP99Ms: { type: number, default: 800 }
             minRequests: { type: integer, default: 20 }
         environment: { type: string, enum: [dev, qa, prod], default: prod }
+        shadowSeconds:
+          type: integer
+          minimum: 0
+          maximum: 3600
+          default: 0
+          description: Segundos de tráfico sombra antes del primer paso (copia de las lecturas; los consumidores no reciben sus respuestas). 0 = sin sombra.
     RolloutStep:
       type: object
       properties:
+        kind: { type: string, enum: [sombra, canary, blue_green] }
+        detail: { type: string }
         weight: { type: integer }
         startedAt: { type: string, format: date-time }
         endedAt: { type: string, format: date-time }
@@ -720,6 +736,20 @@ components:
         errorRate: { type: number }
         p99Ms: { type: number }
         decision: { type: string, enum: [avanzar, revertir, pendiente] }
+    TrafficRoute:
+      type: object
+      required: [apiId, apiName, environment, prefix, stableUrl, weight, mirrorPercent]
+      properties:
+        apiId: { type: string }
+        apiName: { type: string }
+        environment: { type: string }
+        prefix: { type: string, description: "Ruta en nexo-division, p. ej. /rutas/concesiones" }
+        stableUrl: { type: string }
+        candidateUrl: { type: string }
+        weight: { type: integer, description: "% del tráfico al candidato" }
+        mirrorPercent: { type: integer, description: "% de las lecturas copiadas al candidato (sombra)" }
+        rolloutId: { type: string }
+        updatedAt: { type: string, format: date-time }
     Rollout:
       allOf:
         - { $ref: "#/components/schemas/RolloutInput" }

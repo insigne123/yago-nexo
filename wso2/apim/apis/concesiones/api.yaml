@@ -33,3 +33,6 @@ environments:
   dev: [Desarrollo]
   qa: [QA]
   prod: [Default, Operadores]
+# En producción el tráfico pasa por nexo-division: canary y blue-green sin redesplegar la API (D-04).
+division:
+  prod: true

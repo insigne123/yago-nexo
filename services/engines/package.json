@@ -1,0 +1,29 @@
+{
+  "name": "@nexo/engines",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Motores de Nexo: descubrimiento (D-01), guardián de anomalías (D-02), despliegues progresivos (D-04), reenvío al SIEM y agentes de continuidad (D-05)",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && esbuild src/main.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/nexo-motores.mjs --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "start": "node dist/nexo-motores.mjs"
+  },
+  "dependencies": {
+    "@nexo/console-db": "workspace:*",
+    "@nexo/shared": "workspace:*",
+    "@nexo/wso2-client": "workspace:*",
+    "@prometheus-io/client": "^0.16.1",
+    "pg": "^8.23.1",
+    "undici": "^8.11.2",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.6",
+    "esbuild": "^0.28.2",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.3"
+  }
+}
