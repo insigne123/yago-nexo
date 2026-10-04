@@ -78,3 +78,8 @@ export async function analizarVideo(archivo: string): Promise<InfoVideo> {
     codec: /Video: (\w+)/.exec(err)?.[1] ?? "?",
   };
 }
+
+/** Imagen de portada (JPEG) tomada de la portada de la grabación, para el reproductor del sitio. */
+export async function portada(video: string, destino: string, segundo = 3): Promise<void> {
+  await run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(segundo), "-i", video, "-frames:v", "1", "-q:v", "4", destino]);
+}

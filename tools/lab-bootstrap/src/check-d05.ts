@@ -86,7 +86,8 @@ async function main() {
     // 2) Guarda contra split brain: solo el agente GCP queda activo; ve el primario caído pero está solo.
     docker("stop", C("cont-agente-cpd"), C("cont-agente-testigo"));
     docker("stop", C("cont-cpd"));
-    await sleep(18_000);
+    // Más que la vigencia de los votos en etcd (20 s): los de los agentes detenidos expiran y el de GCP queda solo.
+    await sleep(30_000);
     const guard = await state(approver);
     const promotedTooEarly = query("cont-gcp", "SELECT NOT pg_is_in_recovery()") === "t";
     rows.push({

@@ -107,10 +107,11 @@ export const bt018: Demo = {
     await c.vista("app");
     await c.ir("/dependencias");
     await c.app.getByTestId("graph-canvas").waitFor();
-    await c.esperar(1500);
     const nodo = c.app.getByTestId(`graph-node-${ficha.id}`);
+    await nodo.waitFor({ timeout: 20_000 }).catch(() => undefined);
+    await c.esperar(2000);
     if (await nodo.isVisible().catch(() => false)) await c.clic(nodo);
-    await c.esperar(4500);
+    await c.esperar(5000);
     await c.vista("dividido");
 
     c.paso("Consistencia con el entorno de ejecución: cada campo se compara con WSO2");

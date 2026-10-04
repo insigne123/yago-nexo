@@ -47,10 +47,12 @@ export const bt008: Demo = {
     await c.app.getByTestId("graph-canvas").waitFor();
     await c.esperar(1500);
     const nodo = c.app.locator('[data-testid^="graph-node-flujo"]').first();
+    await nodo.waitFor({ timeout: 20_000 }).catch(() => undefined);
+    await c.esperar(1000);
     if (await nodo.isVisible().catch(() => false)) await c.clic(nodo);
     for (const l of [
       "1  recepción por el gateway (OAuth Keycloak) → Micro Integrator",
-      "   validación contra el esquema JSON EsquemaSolicitud (400 si no cumple)",
+      "   validación contra el esquema JSON EsquemaSolicitud (422 si no cumple)",
       "2  idempotencia por Idempotency-Key (PostgreSQL de integración)",
       "3  enriquecimiento: RegistroOperadores por SOAP 1.2",
       "4  transformación y mapeo al mensaje canónico",
@@ -82,8 +84,9 @@ export const bt008: Demo = {
     c.log(`repetición → HTTP ${r2.status} ${JSON.stringify(r2.data).slice(0, 150)}`, "ok");
     c.verificar("repetición idempotente: misma correlación, sin reprocesar", (r2.data as { correlacion?: string }).correlacion === correlacion, `HTTP ${r2.status}`);
     const r3 = await llamar(`${idem}-inv`, { rutEmpresa: "1", servicio: "X" });
-    c.log(`inválida → HTTP ${r3.status} ${JSON.stringify(r3.data).slice(0, 200)}`, r3.status === 400 ? "ok" : "mal");
-    c.verificar("solicitud inválida rechazada por el esquema (400)", r3.status === 400, `HTTP ${r3.status}`);
+    const rechazo = r3.status === 400 || r3.status === 422;
+    c.log(`inválida → HTTP ${r3.status} ${JSON.stringify(r3.data).slice(0, 200)}`, rechazo ? "ok" : "mal");
+    c.verificar("solicitud inválida rechazada por el esquema", rechazo, `HTTP ${r3.status}`);
     await c.esperar(2500);
 
     c.paso("Ruta de excepción: el destino falla; el flujo reintenta 3 veces y deja el mensaje en la cola de fallidos");
@@ -132,7 +135,7 @@ export const bt008: Demo = {
     c.verificar("check-integracion: gateway → integrador → cola → destino", v.ok);
 
     return {
-      medido: `solicitud válida aceptada y trazada etapa por etapa, repetición sin duplicar, inválida rechazada (400) y falla del destino derivada a fallidos en ${dl ? dl.seg.toFixed(0) : "?"} s tras 3 reintentos`,
+      medido: `solicitud válida aceptada y trazada etapa por etapa, repetición sin duplicar, inválida rechazada (${r3.status}) y falla del destino derivada a fallidos en ${dl ? dl.seg.toFixed(0) : "?"} s tras 3 reintentos`,
       datos: { correlacion, segundosHastaFallidos: dl?.seg, servicios },
     };
   },

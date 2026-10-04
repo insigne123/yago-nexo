@@ -40,7 +40,8 @@ export interface Meta {
 
 export function meta(): Meta {
   const release = JSON.parse(readFileSync(desdeRaiz("apps/site/src/data/release.json"), "utf8")) as { version: string };
-  const cambios = git("status", "--porcelain")
+  // Sin trim: la primera columna de --porcelain puede ser un espacio (« M archivo»).
+  const cambios = execFileSync("git", ["status", "--porcelain"], { cwd: RAIZ, encoding: "utf8" })
     .split("\n")
     .filter(Boolean)
     .map((l) => l.slice(3));

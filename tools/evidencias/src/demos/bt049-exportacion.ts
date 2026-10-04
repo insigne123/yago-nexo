@@ -76,6 +76,7 @@ export const bt049: Demo = {
     for (const f of Object.keys(zip).sort()) c.log(`  ${String(zip[f]!.length).padStart(7)}  ${f}`);
     const man = JSON.parse(strFromU8(zip["manifiesto.json"]!)) as Manifiesto;
     c.exigir("paquete con manifiesto", !!man.items?.length, `${man.items.length} artefactos · versión ${man.version}`);
+    await c.esperar(4000);
 
     c.paso("Manifiesto: el SHA-256 de cada artefacto se recalcula y coincide");
     let iguales = 0;
@@ -88,11 +89,14 @@ export const bt049: Demo = {
     c.verificar("sumas SHA-256 del manifiesto", iguales === man.items.length, `${iguales} de ${man.items.length}`);
     const tipos = new Set(man.items.map((i) => i.tipo));
     c.verificar("incluye APIs (contrato y políticas), flujos y metadatos", ["api", "flujo", "metadatos"].every((t) => tipos.has(t)), [...tipos].join(", "));
+    await c.esperar(4000);
 
     c.paso("Se leen con herramientas estándar (Python: zipfile, YAML, XML, JSON), sin software del proveedor");
     writeFileSync(join(c.archivos, "leer_exportacion.py"), LECTOR);
     const lectura = await c.ejecutarComando("python3", [join(c.archivos, "leer_exportacion.py"), dir], { mostrar: "python3 leer_exportacion.py export/", tablas: false });
     c.verificar("todos los artefactos se leen con herramientas estándar", lectura.codigo === 0 && lectura.salida.length >= man.items.length, `${lectura.salida.length} lecturas`);
+    await c.vista("terminal");
+    await c.esperar(5000);
     const concesiones = Object.keys(zip).find((f) => f.startsWith("apis/Concesiones-"));
     const interno = concesiones ? unzipSync(zip[concesiones]!) : {};
     const swagger = Object.entries(interno).find(([n]) => n.endsWith("swagger.yaml"));
@@ -118,6 +122,7 @@ export const bt049: Demo = {
     for (const l of csv.split("\n").slice(0, 4)) c.log(`  ${l}`);
     c.verificar("auditoría exportable y verificable", aud.status === 200 && eventos.length > 0 && ver.ok, `${eventos.length} eventos`);
     c.verificar("consumo exportable en CSV", uso.status === 200 && csv.startsWith("tipo,clave,llamadas"), `${csv.trim().split("\n").length - 1} filas`);
+    await c.esperar(4000);
 
     c.paso("Configuración de la plataforma como código: ambientes, planes, flujos de aprobación y gobierno");
     const plataforma = readFileSync(desdeRaiz("wso2/apim/platform.yaml"), "utf8");
@@ -131,7 +136,7 @@ export const bt049: Demo = {
       { mostrar: "python3 -c 'yaml.safe_load(open(\"wso2/apim/platform.yaml\"))'", tablas: false },
     );
     c.verificar("configuración de la plataforma legible (YAML)", py.codigo === 0 && plataforma.includes("throttling"), "wso2/apim/platform.yaml");
-    await c.esperar(3000);
+    await c.esperar(5000);
 
     return {
       medido: `paquete con ${man.items.length} artefactos (APIs con contrato y políticas, flujos, catálogo y grafo), ${iguales} sumas SHA-256 coincidentes y lectura con herramientas estándar; auditoría (${eventos.length} eventos) y consumo exportados`,

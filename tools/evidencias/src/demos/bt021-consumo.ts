@@ -139,6 +139,7 @@ export const bt021: Demo = {
     c.verificar("endpoint /concesiones atribuido", dLista === 40, `${dLista} de 40`);
     c.verificar("endpoint /concesiones/{id} atribuido", dDetalle === 40, `${dDetalle} de 40`);
     if (listo) c.log(`consumo ingresado en la analítica en ${listo.seg.toFixed(0)} s`, "tenue");
+    c.log("Nota: en modo passthrough WSO2 informa tamaño 0 para casi todas las respuestas; el indicador «Datos transferidos» no es representativo en el laboratorio.", "tenue");
 
     c.paso("Exportación del consumo en CSV");
     const ruta = await c.descargar(c.app.getByTestId("btn-export-usage"), "consumo.csv");

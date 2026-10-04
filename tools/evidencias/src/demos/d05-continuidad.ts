@@ -110,14 +110,16 @@ export const d05: Demo = {
     docker("stop", contenedor("cont-agente-cpd"), contenedor("cont-agente-testigo"));
     c.log("$ docker stop cont-cpd   # cae la base de datos del sitio principal", "cmd");
     docker("stop", contenedor("cont-cpd"));
-    for (let i = 0; i < 6; i++) {
+    // Más que la vigencia de los votos en etcd (20 s): los votos de los agentes detenidos expiran y el agente de
+    // Google Cloud queda solo; aun así no debe conmutar.
+    for (let i = 0; i < 10; i++) {
       await c.esperar(3000);
       const s = await estado();
       c.log(`t=${(i + 1) * 3}s · activo ${s.activeSite} · votos «primario caído»: ${s.votosPrimarioCaido} de 3 (se necesitan 2)`, "aviso");
     }
     const sinQuorum = await estado();
     const promovidaAntes = sql("cont-gcp", "SELECT NOT pg_is_in_recovery()") === "t";
-    c.verificar("sin quórum no hay conmutación (anti split brain)", sinQuorum.activeSite === "cpd" && !promovidaAntes, `activo ${sinQuorum.activeSite} · réplica ${promovidaAntes ? "promovida" : "en espera"}`);
+    c.verificar("sin quórum no hay conmutación (anti split brain)", sinQuorum.activeSite === "cpd" && !promovidaAntes, `30 s con un solo voto vigente · activo ${sinQuorum.activeSite} · réplica ${promovidaAntes ? "promovida" : "en espera"}`);
 
     c.paso("Vuelven los otros agentes: con 2 de 3 votos la conmutación es automática");
     c.log("$ docker start cont-agente-cpd cont-agente-testigo", "cmd");
@@ -177,7 +179,7 @@ export const d05: Demo = {
     await c.esperar(3000);
 
     return {
-      medido: `conmutación automática ${segConmutacion.toFixed(1).replace(".", ",")} s después de formarse el quórum (2 de 3 votos), sin pérdida del dato confirmado; con un solo voto no conmutó en 18 s`,
+      medido: `conmutación automática ${segConmutacion.toFixed(1).replace(".", ",")} s después de formarse el quórum (2 de 3 votos), sin pérdida del dato confirmado; con un solo voto vigente no conmutó en 30 s`,
       datos: { segundosConmutacion: Math.round(segConmutacion * 10) / 10, rtoMotorSeg: ev?.rtoSeconds, rpoEstimadoSeg: ev?.rpoSecondsEstimated, segundosRetorno: Math.round(segRetorno) },
     };
   },

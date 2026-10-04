@@ -44,6 +44,20 @@ describe("quórum de conmutación (2 de 3)", () => {
     expect(d.motivo).toMatch(/sin quórum/);
   });
 
+  it("no conmuta si los votos de los otros agentes expiraron y ya no están en etcd", () => {
+    // Con los agentes del CPD y testigo detenidos, sus votos expiran y solo queda el del respaldo.
+    const solo = [V("gcp", "respaldo", "primario_caido")];
+    const d = decideFailover(solo, backup);
+    expect(d.conmutar).toBe(false);
+    expect(d.quorum).toBe(2);
+    expect(d.motivo).toMatch(/sin quórum: solo 1 de 3/);
+  });
+
+  it("con los tres agentes de vuelta y dos votos de caído, conmuta", () => {
+    const d = decideFailover([V("gcp", "respaldo", "primario_caido"), V("testigo", "testigo", "primario_caido")], backup);
+    expect(d.conmutar).toBe(true);
+  });
+
   it("no se autopromueve un respaldo degradado o aislado", () => {
     const allDown = [V("cpd", "primario", "primario_caido"), V("gcp", "respaldo", "primario_caido"), V("testigo", "testigo", "primario_caido")];
     expect(decideFailover(allDown, { ...backup, backupHealthy: false }).conmutar).toBe(false);

@@ -24,8 +24,13 @@ export interface QuorumDecision {
   motivo: string;
 }
 
-export function decideFailover(votes: readonly SiteVote[], opts: { maxAgeSec: number; backupHealthy: boolean; backupId: string }): QuorumDecision {
-  const total = votes.length;
+export function decideFailover(
+  votes: readonly SiteVote[],
+  opts: { maxAgeSec: number; backupHealthy: boolean; backupId: string; /** Agentes configurados (3: CPD, GCP y testigo). */ expected?: number },
+): QuorumDecision {
+  // El quórum se calcula sobre los agentes configurados, no sobre los votos presentes: el voto de un agente
+  // caído o aislado expira en etcd y desaparece, y un agente solo no puede formar mayoría consigo mismo.
+  const total = Math.max(opts.expected ?? 3, votes.length);
   const quorum = Math.floor(total / 2) + 1;
   const fresh = votes.filter((v) => v.ageSec <= opts.maxAgeSec && v.vote !== "sin_voto");
   const votosCaido = fresh.filter((v) => v.vote === "primario_caido").length;

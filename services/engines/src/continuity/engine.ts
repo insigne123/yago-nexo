@@ -24,6 +24,8 @@ const DNS_NAME = env("NEXO_DNS_NAME", "activo.nexo.lab");
 const DNS_TTL = num("NEXO_DNS_TTL", 10);
 const DOWN_THRESHOLD = num("NEXO_CONTINUITY_DOWN_CICLOS", 3);
 const VOTE_MAX_AGE = num("NEXO_CONTINUITY_VOTO_MAX_SEG", 20);
+/** Agentes que votan (CPD, Google Cloud y testigo): el quórum es la mayoría de este número. */
+const EXPECTED_AGENTS = num("NEXO_CONTINUITY_AGENTES", 3);
 const AUTO = bool("NEXO_CONTINUITY_AUTOMATICO", false);
 
 const ACTIVE_KEY = "/nexo/continuidad/sitio_activo";
@@ -220,7 +222,7 @@ export const continuityEngine: Engine = {
     // La salud del respaldo para tomar el control es la de SU PROPIO sitio (réplica disponible), no su
     // opinión sobre el primario: durante una caída del primario el respaldo igual debe poder promover.
     const backupHealthy = SITE_ROLE === "respaldo" ? await backupReady(env("NEXO_REPLICA_DB_URL")) : true;
-    const decision = decideFailover(siteVotes, { maxAgeSec: VOTE_MAX_AGE, backupHealthy, backupId: SITE_ID });
+    const decision = decideFailover(siteVotes, { maxAgeSec: VOTE_MAX_AGE, backupHealthy, backupId: SITE_ID, expected: EXPECTED_AGENTS });
 
     // El sitio activo mantiene publicado el registro DNS (así el nombre resuelve siempre y el retorno lo repone).
     if (active === SITE_ID && SERVE_IP && !switching) {

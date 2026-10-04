@@ -8,7 +8,7 @@
     "generate": "node scripts/check-capacidades.mjs && node scripts/gen-matrix.mjs && node scripts/gen-api-docs.mjs && node scripts/gen-repo-docs.mjs",
     "prebuild": "pnpm run generate",
     "build": "docusaurus build",
-    "postbuild": "node scripts/check-public-content.mjs",
+    "postbuild": "node scripts/copiar-evidencias.mjs && node scripts/check-public-content.mjs",
     "prestart": "pnpm run generate",
     "start": "docusaurus start",
     "serve": "docusaurus serve",

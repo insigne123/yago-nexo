@@ -1,0 +1,95 @@
+.intro {
+  max-width: 52rem;
+  font-size: 1.05rem;
+}
+
+.verificar {
+  max-width: 52rem;
+  margin: 1.5rem 0 2.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--nexo-borde);
+  border-radius: 8px;
+  background: var(--nexo-superficie);
+}
+
+.verificar h2 {
+  font-size: 1.15rem;
+}
+
+.tarjeta {
+  margin: 0 0 3rem;
+  padding: 1.25rem;
+  border: 1px solid var(--nexo-borde);
+  border-radius: 10px;
+}
+
+.titulo {
+  margin-bottom: 0.5rem;
+  font-size: 1.35rem;
+}
+
+.afirmacion {
+  max-width: 56rem;
+  color: var(--nexo-texto-suave);
+}
+
+.video {
+  display: block;
+  width: 100%;
+  max-width: 1280px;
+  aspect-ratio: 16 / 9;
+  margin: 1rem 0;
+  border-radius: 6px;
+  background: #0b1626;
+}
+
+.resultado {
+  max-width: 56rem;
+}
+
+.ficha {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.ficha dt {
+  font-weight: 600;
+}
+
+.ficha dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.hash {
+  word-break: break-all;
+}
+
+.verificar code,
+.ficha code {
+  overflow-wrap: anywhere;
+}
+
+.acciones {
+  margin-bottom: 0.75rem;
+}
+
+.verificaciones summary {
+  cursor: pointer;
+}
+
+.verificaciones ul {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .ficha {
+    grid-template-columns: 1fr;
+  }
+
+  .ficha dt {
+    margin-top: 0.5rem;
+  }
+}
