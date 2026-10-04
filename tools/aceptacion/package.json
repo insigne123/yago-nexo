@@ -1,0 +1,19 @@
+{
+  "name": "@nexo/aceptacion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pruebas de aceptación con evidencia: ejecuta las verificaciones automáticas del laboratorio y emite un registro por caso con los campos exigidos (ambiente, versión, topología, recursos, configuración, datos, pasos, duración, carga, resultado esperado, tolerancia, ejecutor, testigo, aprobador y evidencia)",
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.3"
+  }
+}
