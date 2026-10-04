@@ -2,7 +2,7 @@ import { fechaLarga, release } from "@site/src/data/estado";
 import type { ReactNode } from "react";
 
 interface Props {
-  /** "numero": 0.1.0 · "completa": 0.1.0 (preliminar, 4 de octubre de 2026) */
+  /** "numero": 1.0.0 · "completa": 1.0.0 (publicada, 4 de octubre de 2026) */
   formato?: "numero" | "completa";
 }
 

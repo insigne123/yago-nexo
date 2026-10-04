@@ -11,7 +11,7 @@ import { SiNoDisponible } from '@site/src/components/SegunEstado';
 
 Estado de la implementación: <EstadoCapacidad id="consola" />
 
-La Consola Nexo tendrá una API REST propia, que usará su interfaz web y que podrán usar otras herramientas de la institución. Su contrato está escrito en **OpenAPI 3.1** y se publica desde ya, para que los equipos técnicos lo revisen antes de su implementación.
+La Consola Nexo tiene una API REST propia, que usa su interfaz web y que pueden usar otras herramientas de la institución. Su contrato está escrito en **OpenAPI 3.1** y corresponde a la API implementada.
 
 <SiNoDisponible id="consola">
 

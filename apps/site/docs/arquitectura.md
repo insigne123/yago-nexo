@@ -144,4 +144,4 @@ sequenceDiagram
 | Continuidad | Agentes con quórum y procedimiento de conmutación y retorno descritos arriba. | <EstadoCapacidad id="motor-continuidad" /> |
 | Instaladores | Chart Helm por ambiente, RKE2 en vSphere y GKE en Google Cloud. | <EstadoCapacidad id="helm" /> |
 
-La API de la Consola ya tiene su [contrato OpenAPI](./api-consola.md) publicado como diseño.
+La API de la Consola tiene su [contrato OpenAPI](./api-consola.md) publicado.
