@@ -13,3 +13,17 @@ groups:
         labels: { severidad: S3 }
         annotations:
           resumen: "La cola de mensajes fallidos {{ $labels.queue }} tiene mensajes pendientes"
+  - name: nexo-gateway
+    rules:
+      - alert: TasaDeErrorAlta
+        expr: 100 * sum by (apiName) (rate(nexo_gateway_counter_solicitudes_total{proxyResponseCode=~"5.."}[5m])) / clamp_min(sum by (apiName) (rate(nexo_gateway_counter_solicitudes_total[5m])), 1e-9) > 5
+        for: 5m
+        labels: { severidad: S2 }
+        annotations:
+          resumen: "La API {{ $labels.apiName }} tiene más de 5% de errores 5xx"
+      - alert: LatenciaAlta
+        expr: histogram_quantile(0.99, sum by (le, apiName) (rate(nexo_gateway_histogram_latencia_ms_bucket[5m]))) > 2000
+        for: 10m
+        labels: { severidad: S3 }
+        annotations:
+          resumen: "La latencia p99 de {{ $labels.apiName }} supera 2 s"

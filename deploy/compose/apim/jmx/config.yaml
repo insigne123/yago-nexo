@@ -1,0 +1,13 @@
+# Exportador JMX de Prometheus para WSO2 API Manager: JVM y transporte del gateway (saturación, BT-034).
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+rules:
+  - pattern: 'org.apache.synapse<Type=Transport, Name=passthru-http-(sender|receiver)><>(ActiveThreadCount|QueueSize|LastResetTime|MessagesReceived|MessagesSent|FaultsReceiving|FaultsSending|TimeoutsReceiving|TimeoutsSending|BytesReceived|BytesSent)'
+    name: nexo_gateway_transporte_$2
+    labels:
+      direccion: $1
+  - pattern: 'org.apache.synapse<Type=PassThroughConnections, Name=(.+)><>(ActiveConnections|LastSecondRequests|LastMinuteRequests)'
+    name: nexo_gateway_conexiones_$2
+    labels:
+      transporte: $1
+  - pattern: '.*'

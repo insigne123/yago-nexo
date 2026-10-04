@@ -92,6 +92,7 @@ services:
       - "9099:9099" # WebSocket
       - "9021:9021" # WebSub HTTP
       - "8021:8021" # WebSub HTTPS
+      - "9404:9404" # métricas JVM y transporte (JMX → Prometheus)
     volumes:
       - apimlogs:/home/wso2carbon/wso2am-4.7.0/repository/logs
     depends_on:

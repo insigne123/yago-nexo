@@ -17,7 +17,19 @@ scrape_configs:
   - job_name: nexo-integrator
     metrics_path: /metric-service/metrics
     static_configs: [{ targets: ["mi:9201"], labels: { componente: integrator } }]
+  - job_name: gateway
+    static_configs: [{ targets: ["fluent-bit:2021"], labels: { componente: gateway } }]
+  - job_name: gateway-jvm
+    static_configs: [{ targets: ["apim:9404"], labels: { componente: gateway } }]
+  - job_name: fluent-bit
+    metrics_path: /api/v2/metrics/prometheus
+    static_configs: [{ targets: ["fluent-bit:2020"], labels: { componente: observabilidad } }]
   - job_name: rabbitmq
+    static_configs: [{ targets: ["rabbitmq:15692"], labels: { componente: colas } }]
+  - job_name: rabbitmq-colas
+    metrics_path: /metrics/detailed
+    params:
+      family: [queue_coarse_metrics, queue_consumer_count]
     static_configs: [{ targets: ["rabbitmq:15692"], labels: { componente: colas } }]
   - job_name: keycloak
     static_configs: [{ targets: ["keycloak:9000"], labels: { componente: identidad } }]
@@ -25,9 +37,4 @@ scrape_configs:
     static_configs:
       - targets: ["concesiones-v1:7001", "concesiones-v2:7001", "registro-soap:7001"]
         labels: { componente: backend }
-  - job_name: otel-collector
-    static_configs: [{ targets: ["otel-collector:8888"], labels: { componente: observabilidad } }]
-  - job_name: nexo-services
-    static_configs:
-      - targets: ["console-api:8090", "nexo-guard:8091", "nexo-rollout:8092", "nexo-failover:8093"]
-        labels: { componente: nexo }
+  # Los servicios de Nexo (Consola y motores) se agregan cuando se despliegan (Fase 2).

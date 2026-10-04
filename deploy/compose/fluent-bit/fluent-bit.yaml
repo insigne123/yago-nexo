@@ -53,8 +53,68 @@ pipeline:
       add:
         - plataforma nexo
         - sitio lab
+    # Métricas del gateway a partir de los eventos de analítica (BT-034, BT-021).
+    - name: log_to_metrics
+      match: apim.metrics
+      tag: metricas.gateway
+      metric_mode: counter
+      metric_name: solicitudes_total
+      metric_namespace: nexo_gateway
+      metric_description: Solicitudes atendidas por el gateway
+      label_field:
+        - apiName
+        - applicationName
+        - proxyResponseCode
+        - keyType
+    - name: log_to_metrics
+      match: apim.metrics
+      tag: metricas.gateway
+      metric_mode: histogram
+      metric_name: latencia_ms
+      metric_namespace: nexo_gateway
+      metric_description: Latencia de respuesta del gateway en milisegundos
+      value_field: responseLatency
+      bucket:
+        - 5
+        - 10
+        - 25
+        - 50
+        - 100
+        - 250
+        - 500
+        - 1000
+        - 2500
+        - 5000
+        - 10000
+      label_field:
+        - apiName
+    - name: log_to_metrics
+      match: apim.metrics
+      tag: metricas.gateway
+      metric_mode: histogram
+      metric_name: latencia_backend_ms
+      metric_namespace: nexo_gateway
+      metric_description: Latencia del sistema de destino en milisegundos
+      value_field: backendLatency
+      bucket:
+        - 5
+        - 10
+        - 25
+        - 50
+        - 100
+        - 250
+        - 500
+        - 1000
+        - 2500
+        - 5000
+      label_field:
+        - apiName
 
   outputs:
+    - name: prometheus_exporter
+      match: metricas.gateway
+      host: 0.0.0.0
+      port: 2021
     - name: opensearch
       match: apim.metrics
       host: opensearch
