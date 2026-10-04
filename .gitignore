@@ -21,3 +21,6 @@ test-results/
 .firebase/
 target/
 out/
+
+# Caché local de la CLI de Supabase
+supabase/**/.temp/
