@@ -32,13 +32,15 @@ No se entregan ni se instalan en la institución.
 | Herramienta | Uso | Licencia | En el repositorio |
 | --- | --- | --- | --- |
 | Gitleaks | Detección de secretos en el código | MIT | Sí, en el CI (`.github/workflows/ci.yml`) |
-| Trivy | Vulnerabilidades, secretos y configuración | Apache 2.0 | Sí, en el CI; por ahora informativo (no detiene el CI) |
-| Syft y Grype | SBOM y vulnerabilidades de cada versión | Apache 2.0 | Todavía no |
+| Trivy | Vulnerabilidades, secretos y configuración | Apache 2.0 | Sí, en el CI: falla ante hallazgos altos o críticos con corrección disponible |
+| Syft y Grype | SBOM y vulnerabilidades de cada versión | Apache 2.0 | No: el SBOM CycloneDX lo genera `tools/release/generar-sbom.mjs` y las vulnerabilidades las revisa Trivy |
 | Semgrep CE | Análisis estático de código | LGPL 2.1 | Todavía no |
-| cosign | Firma de imágenes | Apache 2.0 | Todavía no |
+| cosign (Sigstore) | Firma de artefactos e imágenes de cada versión | Apache 2.0 | Sí, en el workflow de versión (`.github/workflows/release.yml`) |
 | OWASP ZAP | Pruebas de seguridad dinámicas | Apache 2.0 | Todavía no |
-| k6 | Pruebas de rendimiento | **AGPL 3.0** | Todavía no |
-| Ansible | Aprovisionamiento de máquinas virtuales | GPL 3.0 | Todavía no |
+| k6 | Pruebas de rendimiento | **AGPL 3.0** | Sí, solo para pruebas (`tests/rendimiento/`); no se distribuye ni se instala |
+| Ansible | Aprovisionamiento de máquinas virtuales | GPL 3.0 | Sí, el instalador para RKE2 (`deploy/ansible/rke2/`); se ejecuta desde la estación del operador, no se distribuye en la plataforma |
+| Helm | Instalación del chart `nexo-platform` | Apache 2.0 | Sí (`deploy/helm/nexo-platform/`) |
+| OpenTofu | Infraestructura del sitio de respaldo en Google Cloud | MPL 2.0 | Sí (`deploy/opentofu/gcp-dr/`) |
 
 ## Componentes con licencia AGPL
 

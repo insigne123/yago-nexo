@@ -401,12 +401,12 @@
     {
       "id": "sbom",
       "grupo": "operacion",
-      "nombre": "SBOM CycloneDX y sumas de verificación",
-      "descripcion": "Cada versión publica su inventario de componentes en formato CycloneDX, el inventario de licencias y las sumas de verificación SHA-256 de sus artefactos. La firma de imágenes de contenedor está en desarrollo.",
+      "nombre": "SBOM CycloneDX y firma de versiones",
+      "descripcion": "Cada versión publica su inventario de componentes en formato CycloneDX, el inventario de licencias, las sumas SHA-256 y la lista de imágenes, cada archivo firmado con Sigstore (sin llaves, con la identidad del workflow de versión), y publica sus imágenes propias firmadas. Cualquiera puede verificar la firma con cosign.",
       "estado": "Disponible",
       "evidencia": [
         "tools/release/generar-sbom.mjs",
-        "release/1.0.0/sbom-nexo-1.0.0.cdx.json"
+        ".github/workflows/release.yml"
       ]
     },
     {
