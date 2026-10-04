@@ -1,0 +1,9 @@
+# Contenido generado en prebuild/prestart (scripts/*.mjs) desde archivos del repositorio.
+/docs/_generated/
+/docs/referencia-api/
+/static/openapi.yaml
+
+# Salidas de Docusaurus (también ignoradas en la raíz).
+/build/
+/.docusaurus/
+/.cache-loader/

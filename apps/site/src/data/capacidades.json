@@ -1,0 +1,337 @@
+{
+  "$comment": "Fuente única del estado de cada capacidad de Yago Nexo. Estados válidos: Disponible (implementado y verificable en el repositorio; requiere 'evidencia' con rutas existentes), En desarrollo, Planificado. Lo valida scripts/check-capacidades.mjs antes de cada build.",
+  "grupos": [
+    {
+      "id": "base",
+      "nombre": "Base de la plataforma",
+      "descripcion": "Laboratorio y piezas comunes sobre las que se construye el resto."
+    },
+    {
+      "id": "nucleo",
+      "nombre": "Gestión de APIs e integración",
+      "descripcion": "Funciones de la base abierta (WSO2 API Manager y Micro Integrator), configuradas como producto Nexo."
+    },
+    {
+      "id": "capa-yago",
+      "nombre": "Capa Yago: Consola Nexo y motores",
+      "descripcion": "Software propio de Yago que agrega gobierno, automatización y continuidad."
+    },
+    {
+      "id": "operacion",
+      "nombre": "Instalación y operación",
+      "descripcion": "Instaladores, despliegue, secretos, respaldos y entregables de cada versión."
+    },
+    {
+      "id": "servicio",
+      "nombre": "Servicio",
+      "descripcion": "Herramientas con las que Yago presta soporte y capacitación."
+    }
+  ],
+  "capacidades": [
+    {
+      "id": "laboratorio",
+      "grupo": "base",
+      "nombre": "Laboratorio local con Docker Compose",
+      "descripcion": "Levanta en una sola máquina la base de Nexo para desarrollo y pruebas, con perfiles opcionales de observabilidad y de plataforma existente.",
+      "estado": "Disponible",
+      "evidencia": ["deploy/compose/docker-compose.yml", "deploy/compose/Makefile"]
+    },
+    {
+      "id": "apim-postgresql",
+      "grupo": "base",
+      "nombre": "WSO2 API Manager 4.7.0 sobre PostgreSQL",
+      "descripcion": "Gateway, Publisher, Dev Portal y Admin, con las bases apim_db y shared_db en PostgreSQL 16.",
+      "estado": "Disponible",
+      "evidencia": [
+        "deploy/compose/apim/config/repository/conf/deployment.toml",
+        "deploy/compose/apim-dbinit/init.sh"
+      ]
+    },
+    {
+      "id": "keycloak-key-manager",
+      "grupo": "base",
+      "nombre": "Keycloak como Key Manager",
+      "descripcion": "Las aplicaciones consumidoras obtienen sus credenciales y tokens OAuth 2.0 desde Keycloak, y el gateway valida esos tokens.",
+      "estado": "Disponible",
+      "evidencia": ["tools/lab-bootstrap/src/index.ts", "deploy/compose/keycloak/realm-nexo.json"]
+    },
+    {
+      "id": "api-ejemplo-e2e",
+      "grupo": "base",
+      "nombre": "API de ejemplo publicada desde OpenAPI y verificada de punta a punta",
+      "descripcion": "Un script importa el contrato OpenAPI de una API de ejemplo, la publica en el gateway con un backend de ejemplo, crea una aplicación suscrita y comprueba la llamada con un token de Keycloak.",
+      "estado": "Disponible",
+      "evidencia": ["tools/lab-bootstrap/src/index.ts", "services/demo-backends/src/server.ts"]
+    },
+    {
+      "id": "analitica-opensearch",
+      "grupo": "base",
+      "nombre": "Analítica del gateway en OpenSearch",
+      "descripcion": "Los eventos de analítica de API Manager (modo log) llegan a OpenSearch mediante Fluent Bit, con buffer en disco.",
+      "estado": "Disponible",
+      "evidencia": [
+        "deploy/compose/fluent-bit/fluent-bit.yaml",
+        "deploy/compose/apim/config/repository/conf/deployment.toml"
+      ]
+    },
+    {
+      "id": "trazas-otel",
+      "grupo": "base",
+      "nombre": "Trazas con OpenTelemetry y Jaeger",
+      "descripcion": "API Manager y Micro Integrator envían trazas al OpenTelemetry Collector, que las entrega a Jaeger.",
+      "estado": "Disponible",
+      "evidencia": ["deploy/compose/otel/config.yaml"]
+    },
+    {
+      "id": "metricas-basicas",
+      "grupo": "base",
+      "nombre": "Métricas y alertas básicas",
+      "descripcion": "Prometheus recolecta métricas de Micro Integrator, RabbitMQ, Keycloak y los backends de ejemplo, con reglas de alerta básicas, Alertmanager y Grafana con orígenes de datos aprovisionados.",
+      "estado": "Disponible",
+      "evidencia": [
+        "deploy/compose/prometheus/prometheus.yml",
+        "deploy/compose/prometheus/rules/nexo.yml",
+        "deploy/compose/grafana/provisioning/datasources/datasources.yaml"
+      ]
+    },
+    {
+      "id": "nexo-shared",
+      "grupo": "base",
+      "nombre": "Biblioteca @nexo/shared",
+      "descripcion": "Matriz rol-permiso, eventos de auditoría con hash encadenado, clasificación determinista de severidad y datos sintéticos, con pruebas unitarias.",
+      "estado": "Disponible",
+      "evidencia": [
+        "packages/shared/src/roles.ts",
+        "packages/shared/src/audit.ts",
+        "packages/shared/src/severity.ts",
+        "packages/shared/src/synthetic.ts",
+        "packages/shared/src/shared.test.ts"
+      ]
+    },
+    {
+      "id": "nexo-wso2-client",
+      "grupo": "base",
+      "nombre": "Cliente @nexo/wso2-client",
+      "descripcion": "Cliente TypeScript de las REST API de API Manager (Publisher, Admin y Dev Portal) y de la Management API de Micro Integrator.",
+      "estado": "Disponible",
+      "evidencia": ["packages/wso2-client/src/client.ts", "packages/wso2-client/src/mi.ts"]
+    },
+    {
+      "id": "politicas-gateway",
+      "grupo": "nucleo",
+      "nombre": "Catálogo de políticas del gateway",
+      "descripcion": "OAuth 2.0, JWT, API key y mTLS; límites de uso y cuotas; tiempos de espera, reintentos acotados y suspensión de endpoints; límites de tamaño y CORS.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "audiencias",
+      "grupo": "nucleo",
+      "nombre": "Exposición por audiencias",
+      "descripcion": "Gateways y portales separados para uso interno, entidades externas autorizadas y público, con visibilidad por rol en el Dev Portal.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "flujos-integracion",
+      "grupo": "nucleo",
+      "nombre": "Flujos de integración con Micro Integrator",
+      "descripcion": "Validación (JSON Schema y XSD), transformación y orquestación REST, SOAP y colas RabbitMQ, con manejo de errores, mensajes fallidos e idempotencia.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "gobierno-contratos",
+      "grupo": "nucleo",
+      "nombre": "Gobierno de contratos y promoción entre ambientes",
+      "descripcion": "Guía de estilo de contratos que bloquea el pipeline si no se cumple, promoción desarrollo → QA → producción sin editar producción y reversa a la revisión anterior.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "graphql-asyncapi",
+      "grupo": "nucleo",
+      "nombre": "APIs GraphQL y de eventos",
+      "descripcion": "Publicación de APIs GraphQL y de APIs de eventos (WebSocket y WebSub) descritas con AsyncAPI.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "sdk",
+      "grupo": "nucleo",
+      "nombre": "Generación de SDK",
+      "descripcion": "SDK para consumidores en Java, JavaScript, Python, C# y Android, descargables desde el Dev Portal.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "aprobaciones",
+      "grupo": "nucleo",
+      "nombre": "Flujos de aprobación",
+      "descripcion": "Aprobación del registro de usuarios, de la creación de aplicaciones y de las suscripciones.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "sso-keycloak",
+      "grupo": "nucleo",
+      "nombre": "Inicio de sesión único con Keycloak",
+      "descripcion": "Publisher, Dev Portal, Admin y Consola Nexo con el Keycloak de la institución (OIDC).",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "tableros",
+      "grupo": "nucleo",
+      "nombre": "Tableros y diccionario de métricas",
+      "descripcion": "Consumo, disponibilidad, latencias p50/p95/p99, errores, saturación y estado de componentes, y traza de punta a punta gateway → integración → cola → backend.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "consola",
+      "grupo": "capa-yago",
+      "nombre": "Consola Nexo (interfaz web y API)",
+      "descripcion": "Interfaz y API propias para gobernar la plataforma: catálogo, impacto, consumo, auditoría, continuidad y administración. Su contrato OpenAPI ya está publicado como diseño.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "catalogo-impacto",
+      "grupo": "capa-yago",
+      "nombre": "Catálogo con dueños y análisis de impacto",
+      "descripcion": "Ficha de cada API (propósito, dueño, contrato, consumidores y dependencias) con porcentaje de completitud, y simulación del impacto de un cambio.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "motor-descubrimiento",
+      "grupo": "capa-yago",
+      "nombre": "Descubrimiento de APIs no gobernadas",
+      "descripcion": "Detecta APIs publicadas fuera de la plataforma (otros gateways, servidores web y servicios en la nube) y calcula su nivel de exposición.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "motor-anomalias",
+      "grupo": "capa-yago",
+      "nombre": "Detección de anomalías con bloqueo",
+      "descripcion": "Líneas base por API y consumidor; alerta o bloqueo (automático con duración limitada o con aprobación) mediante políticas de denegación del gateway.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "motor-despliegues",
+      "grupo": "capa-yago",
+      "nombre": "Despliegues progresivos con reversa automática",
+      "descripcion": "Canary por pasos y blue-green, con avance según umbrales de errores y latencia, y vuelta atrás automática si un paso falla.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "motor-continuidad",
+      "grupo": "capa-yago",
+      "nombre": "Conmutación automática CPD ↔ Google Cloud",
+      "descripcion": "Agentes en ambos sitios y un testigo; conmuta solo con quórum de 2 de 3 votos, registra el RTO y el RPO medidos y guía el retorno con aprobación.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "linaje",
+      "grupo": "capa-yago",
+      "nombre": "Linaje de datos",
+      "descripcion": "Seguimiento de los datos de punta a punta (APIs, flujos, sistemas y reportes) con OpenMetadata.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "consumo",
+      "grupo": "capa-yago",
+      "nombre": "Consumo atribuido",
+      "descripcion": "Consumo por consumidor, API y endpoint, con exportación. Sin cobro.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "mensajes-fallidos",
+      "grupo": "capa-yago",
+      "nombre": "Mensajes fallidos con reproceso autorizado",
+      "descripcion": "Cola de mensajes no procesados y reproceso con aprobación, que queda auditado.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "auditoria-centralizada",
+      "grupo": "capa-yago",
+      "nombre": "Auditoría centralizada e íntegra",
+      "descripcion": "Eventos de auditoría con secuencia y hash encadenado, enviados al SIEM de la institución con buffer en disco y verificables desde la Consola.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "enmascaramiento-logs",
+      "grupo": "capa-yago",
+      "nombre": "Enmascaramiento de datos personales en logs",
+      "descripcion": "Filtros que enmascaran RUT, correos y teléfonos antes de que los logs y la auditoría salgan de la plataforma.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "exportacion",
+      "grupo": "capa-yago",
+      "nombre": "Exportación y reconstrucción",
+      "descripcion": "Paquete exportable en formatos documentados (OpenAPI, AsyncAPI, políticas y artefactos de integración) y prueba de reconstrucción en un ambiente limpio.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "helm",
+      "grupo": "operacion",
+      "nombre": "Chart Helm nexo-platform",
+      "descripcion": "Instalación en Kubernetes con valores por ambiente (desarrollo, QA, producción y DR), réplicas, autoescalamiento y sondas de salud.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "instalador-rke2",
+      "grupo": "operacion",
+      "nombre": "Instalador para CPD (RKE2 sobre vSphere)",
+      "descripcion": "Aprovisionamiento y endurecimiento de Kubernetes RKE2 sobre máquinas virtuales VMware vSphere.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "instalador-gke",
+      "grupo": "operacion",
+      "nombre": "Instalador para Google Cloud (GKE)",
+      "descripcion": "Red, clúster GKE, DNS, almacenamiento y llaves del sitio de respaldo, con OpenTofu.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "gitops",
+      "grupo": "operacion",
+      "nombre": "Despliegue declarativo (GitOps)",
+      "descripcion": "Argo CD sincroniza cada ambiente desde Git; todo cambio entra por revisión.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "secretos",
+      "grupo": "operacion",
+      "nombre": "Gestión de secretos",
+      "descripcion": "OpenBao, External Secrets Operator y WSO2 Secure Vault, sin secretos en el código ni en la configuración.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "respaldo",
+      "grupo": "operacion",
+      "nombre": "Respaldo y restauración",
+      "descripcion": "Respaldos cifrados de PostgreSQL (CloudNativePG y Barman) y reglas de retención por tipo de dato.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "sbom",
+      "grupo": "operacion",
+      "nombre": "SBOM CycloneDX y firma de versiones",
+      "descripcion": "Cada versión publica su inventario de componentes en formato CycloneDX, sumas de verificación y la firma de sus imágenes.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "pruebas-aceptacion",
+      "grupo": "operacion",
+      "nombre": "Pruebas de aceptación con evidencia",
+      "descripcion": "Pruebas automáticas que dejan un registro de evidencia por ejecución: ambiente, versión, pasos, resultado y tiempos.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "mesa-soporte",
+      "grupo": "servicio",
+      "nombre": "Mesa de soporte 24x7",
+      "descripcion": "Registro de tickets con asistente de severidad, relojes de plazos, escalamiento e informes mensuales.",
+      "estado": "En desarrollo"
+    },
+    {
+      "id": "portal-capacitacion",
+      "grupo": "servicio",
+      "nombre": "Portal de capacitación",
+      "descripcion": "Cursos por rol con un laboratorio por participante y verificación automática de los ejercicios.",
+      "estado": "En desarrollo"
+    }
+  ]
+}

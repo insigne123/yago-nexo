@@ -1,0 +1,55 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.1em 0.65em;
+  border: 1px solid var(--nexo-badge-border);
+  border-radius: 999px;
+  background: var(--nexo-badge-bg);
+  color: var(--nexo-badge-fg);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Forma distinta por estado: lleno, medio y vacío. */
+.badge::before {
+  content: "";
+  flex: none;
+  width: 0.6em;
+  height: 0.6em;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.disponible {
+  --nexo-badge-bg: var(--nexo-ok-bg);
+  --nexo-badge-fg: var(--nexo-ok-fg);
+  --nexo-badge-border: var(--nexo-ok-border);
+}
+
+.disponible::before {
+  background: currentColor;
+}
+
+.desarrollo {
+  --nexo-badge-bg: var(--nexo-dev-bg);
+  --nexo-badge-fg: var(--nexo-dev-fg);
+  --nexo-badge-border: var(--nexo-dev-border);
+}
+
+.desarrollo::before {
+  background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+}
+
+.planificado {
+  --nexo-badge-bg: var(--nexo-plan-bg);
+  --nexo-badge-fg: var(--nexo-plan-fg);
+  --nexo-badge-border: var(--nexo-plan-border);
+}
+
+.planificado::before {
+  background: transparent;
+}

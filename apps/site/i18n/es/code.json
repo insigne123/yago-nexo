@@ -1,0 +1,45 @@
+{
+  "theme.SearchBar.label": {
+    "message": "Buscar",
+    "description": "Búsqueda local (@easyops-cn/docusaurus-search-local): no trae traducción al español"
+  },
+  "theme.SearchBar.noResultsText": {
+    "message": "Sin resultados"
+  },
+  "theme.SearchBar.seeAll": {
+    "message": "Ver todos los resultados"
+  },
+  "theme.SearchBar.searchInContext": {
+    "message": "Ver todos los resultados en «{context}»"
+  },
+  "theme.SearchBar.seeAllOutsideContext": {
+    "message": "Ver todos los resultados fuera de «{context}»"
+  },
+  "theme.SearchPage.existingResultsTitle": {
+    "message": "Resultados de búsqueda para «{query}»"
+  },
+  "theme.SearchPage.emptyResultsTitle": {
+    "message": "Buscar en la documentación"
+  },
+  "theme.SearchPage.searchContext.everywhere": {
+    "message": "En todo el sitio"
+  },
+  "theme.SearchPage.documentsFound.plurals": {
+    "message": "Se encontró 1 documento|Se encontraron {count} documentos"
+  },
+  "theme.SearchPage.noResultsText": {
+    "message": "No se encontraron documentos"
+  },
+  "theme.NotFound.title": {
+    "message": "Página no encontrada"
+  },
+  "theme.tags.tagsPageLink": {
+    "message": "Ver todas las etiquetas"
+  },
+  "theme.blog.post.readMore": {
+    "message": "Leer más"
+  },
+  "theme.docs.breadcrumbs.home": {
+    "message": "Inicio"
+  }
+}
