@@ -596,6 +596,9 @@ continuidad:
     ipServicio: ""
   # IP de entrada de cada sitio (NEXO_SITE_IP_<SITIO>).
   ipSitios: {}
+  # Base de Nexo donde el agente deja su latido y su auditoría. Vacío = global.dependencias.postgresql.host.
+  # En el sitio de respaldo la base local está en solo lectura: apunte a la del primario para verlo en la Consola.
+  baseNexoHost: ""
   # false = la conmutación la ejecuta una persona desde la Consola; true = automática con quórum de 2 de 3.
   automatico: false
   intervaloMs: 5000

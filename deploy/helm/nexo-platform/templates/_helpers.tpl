@@ -209,7 +209,7 @@ readinessProbe:
 {{/* URL postgres:// para los servicios Node (la contraseña llega por $(VAR) desde un Secret). */}}
 {{- define "nexo.pg.url" -}}
 {{- $pg := .ctx.Values.global.dependencias.postgresql -}}
-{{- printf "postgres://%s:$(%s)@%s:%d/%s" .usuario .variable (include "nexo.pg.host" .ctx) (int $pg.puerto) .base -}}
+{{- printf "postgres://%s:$(%s)@%s:%d/%s" .usuario .variable (default (include "nexo.pg.host" .ctx) .host) (int $pg.puerto) .base -}}
 {{- end -}}
 
 {{/* Variables de TLS de PostgreSQL para los servicios Node. */}}

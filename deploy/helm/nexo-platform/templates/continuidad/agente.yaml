@@ -67,7 +67,7 @@ spec:
             - { name: TZ, value: {{ .Values.global.zonaHoraria | quote }} }
             {{- include "nexo.envSecreto" (dict "nombre" "NEXO_DB_PASSWORD" "secreto" .Values.secretos.nexoBd.existingSecret "clave" .Values.secretos.nexoBd.claves.password) | nindent 12 }}
             - name: NEXO_DATABASE_URL
-              value: {{ include "nexo.pg.url" (dict "ctx" $ "usuario" $pg.usuarios.nexo "variable" "NEXO_DB_PASSWORD" "base" $pg.bases.nexo) | quote }}
+              value: {{ include "nexo.pg.url" (dict "ctx" $ "usuario" $pg.usuarios.nexo "variable" "NEXO_DB_PASSWORD" "base" $pg.bases.nexo "host" $cfg.baseNexoHost) | quote }}
             {{- include "nexo.pg.envNode" . | nindent 12 }}
             - { name: NEXO_SITE_ID, value: {{ $sitio | quote }} }
             - { name: NEXO_SITE_NAME, value: {{ default (upper $sitio) $cfg.sitio.nombre | quote }} }

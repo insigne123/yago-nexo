@@ -118,7 +118,8 @@ metadata:
   annotations:
     helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-weight: "10"
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    # El Job queda un día para revisar su registro; se reemplaza en la siguiente instalación.
+    helm.sh/hook-delete-policy: before-hook-creation
 spec:
   backoffLimit: 3
   activeDeadlineSeconds: {{ add $km.esperaSegundos 300 }}

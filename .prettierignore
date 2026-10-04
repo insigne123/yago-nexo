@@ -5,3 +5,5 @@ pnpm-lock.yaml
 deploy/compose/**/*.toml
 wso2/**/*.xml
 *.md
+deploy/helm/**/templates/**
+deploy/ansible/**/colecciones/**

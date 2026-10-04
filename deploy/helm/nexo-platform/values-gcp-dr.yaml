@@ -197,6 +197,8 @@ continuidad:
   ipSitios:
     cpd: 10.50.0.10
     gcp: 203.0.113.10
+  # La base local es una réplica en solo lectura: el latido del agente va a la base del CPD (por la interconexión).
+  baseNexoHost: 10.50.0.20
   automatico: false
   etcd:
     url: http://etcd-quorum.nexo.example:2379
