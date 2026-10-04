@@ -1,0 +1,49 @@
+# Valores de ejemplo del sitio de respaldo. Copie a dr.tfvars (no va al repositorio) y ajuste:
+#   tofu plan -var-file=dr.tfvars
+proyecto = "nexo-dr-ejemplo"
+region   = "southamerica-west1"
+zonas    = ["southamerica-west1-a", "southamerica-west1-b", "southamerica-west1-c"]
+prefijo  = "nexo-dr"
+
+etiquetas = {
+  ambiente = "prod"
+  servicio = "nexo"
+}
+
+# Rangos de red (no deben cruzarse con los del CPD).
+cidr_nodos         = "10.60.0.0/20"
+cidr_pods          = "10.64.0.0/14"
+cidr_servicios     = "10.68.0.0/20"
+cidr_plano_control = "172.16.0.0/28"
+
+# Redes del CPD que llegan por la interconexión o VPN.
+redes_cpd = ["10.10.0.0/16", "10.50.0.0/24"]
+
+redes_autorizadas = [
+  { nombre = "administracion-cpd", cidr = "10.10.10.0/24" },
+]
+endpoint_privado = true
+
+canal_gke = "REGULAR"
+
+pool_sistema = {
+  tipo_maquina   = "e2-standard-4"
+  nodos_por_zona = 1
+  disco_gb       = 100
+}
+
+# 3 zonas x 2 = 6 nodos de 8 vCPU y 32 GB en espera (cerca de la mitad de los 11 del CPD); hasta 12 al conmutar.
+pool_plataforma = {
+  tipo_maquina = "n2-standard-8"
+  min_por_zona = 2
+  max_por_zona = 4
+  disco_gb     = 200
+  disco_tipo   = "pd-balanced"
+}
+
+registro_id     = "nexo"
+dns_zona_nombre = "nexo-publica"
+dns_nombre      = "nexo.example."
+dns_privada     = false
+
+# kms_llave_secretos = "projects/nexo-dr-ejemplo/locations/southamerica-west1/keyRings/nexo/cryptoKeys/gke-secretos"
