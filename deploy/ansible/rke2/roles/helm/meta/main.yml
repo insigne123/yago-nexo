@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: helm
+  namespace: nexo
+  author: Sociedad de Inversiones Yago SpA
+  description: Instalación de Helm en versión fija desde el binario oficial, con verificación SHA-256
+  license: Apache-2.0
+  min_ansible_version: "2.16"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+    - name: Ubuntu
+      versions: [jammy, noble]
+    - name: SLES
+      versions: ["15"]
+dependencies: []

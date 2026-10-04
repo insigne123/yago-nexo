@@ -1,0 +1,195 @@
+{{- /*
+nexo-division (Envoy): divide el tráfico entre la versión estable y la candidata en los despliegues
+progresivos. Misma configuración que deploy/compose/nexo-division/envoy.yaml: clústeres y rutas llegan por
+xDS REST desde los motores (puerto 9466) y se aplican en caliente; si el plano de control no responde, Envoy
+conserva la última configuración. StatefulSet: los motores leen las métricas de cada réplica por su nombre.
+*/ -}}
+{{- if .Values.division.enabled }}
+{{- $cfg := .Values.division }}
+{{- $ctx := dict "ctx" $ "comp" "division" "cfg" $cfg "rol" "division" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $control := include "nexo.dns" (dict "ctx" $ "comp" "motores") }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+data:
+  envoy.yaml: |
+    # El id del nodo lo fija cada réplica con --service-node (nombre del pod).
+    admin:
+      # La administración queda solo en localhost; las métricas se exponen aparte, en solo lectura (9902).
+      address: { socket_address: { address: 127.0.0.1, port_value: 9901 } }
+    dynamic_resources:
+      cds_config:
+        resource_api_version: V3
+        api_config_source:
+          api_type: REST
+          transport_api_version: V3
+          cluster_names: [nexo_control]
+          refresh_delay: 1s
+          request_timeout: 2s
+    static_resources:
+      listeners:
+        - name: division
+          address: { socket_address: { address: 0.0.0.0, port_value: 10000 } }
+          filter_chains:
+            - filters:
+                - name: envoy.filters.network.http_connection_manager
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                    stat_prefix: division
+                    rds:
+                      route_config_name: nexo
+                      config_source:
+                        resource_api_version: V3
+                        api_config_source:
+                          api_type: REST
+                          transport_api_version: V3
+                          cluster_names: [nexo_control]
+                          refresh_delay: 1s
+                          request_timeout: 2s
+                    http_filters:
+                      - name: envoy.filters.http.router
+                        typed_config: { "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router }
+        - name: metricas
+          address: { socket_address: { address: 0.0.0.0, port_value: 9902 } }
+          filter_chains:
+            - filters:
+                - name: envoy.filters.network.http_connection_manager
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                    stat_prefix: metricas
+                    route_config:
+                      virtual_hosts:
+                        - name: metricas
+                          domains: ["*"]
+                          routes:
+                            - { match: { path: /stats/prometheus }, route: { cluster: admin_local } }
+                            - { match: { path: /ready }, route: { cluster: admin_local } }
+                    http_filters:
+                      - name: envoy.filters.http.router
+                        typed_config: { "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router }
+      clusters:
+        - name: nexo_control
+          type: STRICT_DNS
+          connect_timeout: 1s
+          load_assignment:
+            cluster_name: nexo_control
+            endpoints: [{ lb_endpoints: [{ endpoint: { address: { socket_address: { address: {{ $control }}, port_value: 9466 } } } }] }]
+        - name: admin_local
+          type: STATIC
+          connect_timeout: 1s
+          load_assignment:
+            cluster_name: admin_local
+            endpoints: [{ lb_endpoints: [{ endpoint: { address: { socket_address: { address: 127.0.0.1, port_value: 9901 } } } }] }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: division, port: 10000, targetPort: division }
+    - { name: metricas, port: 9902, targetPort: metricas }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}-pares
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: metricas, port: 9902, targetPort: metricas }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  serviceName: {{ $nombre }}-pares
+  replicas: {{ $cfg.replicas }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      annotations:
+        checksum/config: {{ $control | sha256sum }}
+        {{- with $cfg.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "nexo.podComun" $ctx | nindent 6 }}
+      terminationGracePeriodSeconds: 30
+      # El pod corre con el usuario envoy (101) de la imagen; el entrypoint no cambia de usuario.
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 101) | nindent 8 }}
+      containers:
+        - name: envoy
+          image: {{ include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - -c
+            - /etc/envoy/envoy.yaml
+            - --log-level
+            - {{ $cfg.nivelLog }}
+            - --service-node
+            - $(POD_NAME)
+            - --service-cluster
+            - nexo-division
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - { name: division, containerPort: 10000 }
+            - { name: metricas, containerPort: 9902 }
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9902
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 9902
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict "soloLectura" true) | nindent 12 }}
+          volumeMounts:
+            - { name: config, mountPath: /etc/envoy, readOnly: true }
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $nombre }}
+{{- end }}

@@ -58,6 +58,7 @@ Los estados provienen de un único archivo de datos del sitio, que se revisa en 
 - [Arquitectura](./arquitectura.md): capas, ambientes y continuidad entre sitios (diseño).
 - [Componentes y licencias](./componentes-y-licencias.md): software de terceros, versiones y licencias.
 - [Laboratorio](./laboratorio.md): cómo levantar la base de Nexo en un equipo con Docker.
+- [Instalación](./instalacion/index.md): instaladores para Kubernetes en el CPD y en Google Cloud, y valores por ambiente.
 - [Seguridad](./seguridad.md): identidad, roles, auditoría, TLS, secretos y reporte de vulnerabilidades.
 - [Ciclo de vida y soporte](./ciclo-de-vida-y-soporte.md): versiones, política de soporte y niveles de servicio.
 - [API de la Consola](./api-consola.md): contrato OpenAPI y referencia por sección.

@@ -1,0 +1,226 @@
+# Yago Nexo · producción en el CPD (RKE2 1.36 sobre VMware vSphere)
+#
+# Se aplica encima de values.yaml:
+#   helm upgrade --install nexo-platform deploy/helm/nexo-platform -n nexo \
+#     -f deploy/helm/nexo-platform/values-cpd.yaml -f <valores-propios-del-sitio>.yaml
+#
+# Dimensionamiento de producción: 2 réplicas de todo lo que procesa tráfico, sobre 11 nodos de trabajo
+# (8 vCPU y 32 GB) y 3 servidores RKE2. El detalle y la suma de recursos están en la guía
+# "Valores por ambiente". Los nombres de host, direcciones IP y Secrets son de ejemplo: reemplácelos en un
+# archivo propio del sitio (no en este).
+
+global:
+  ambiente: prod
+  sitio: cpd
+  imageRegistry: harbor.nexo.example
+  imagePullSecrets:
+    - name: harbor-nexo
+  antiAfinidad: requerida
+  tlsInterno:
+    inseguro: false
+    caSecret: nexo-ca-interna
+  ingress:
+    proveedor: traefik
+    className: traefik
+    tlsSecret: nexo-tls
+    traefik:
+      serversTransport:
+        crear: true
+        serverName: wso2.nexo.internal
+  networkPolicies:
+    ingreso:
+      # Traefik de RKE2 (rke2-traefik) corre en kube-system.
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+    monitoreo:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: observabilidad
+  serviceMonitors:
+    # El playbook de Ansible lo apaga solo si el clúster no tiene Prometheus Operator.
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  otel:
+    endpoint: http://otel-collector.observabilidad.svc:4317
+  keycloak:
+    url: https://sso.nexo.example
+    realm: nexo
+  dependencias:
+    postgresql:
+      host: postgresql-nexo.datos.svc
+      ssl: requerido
+    rabbitmq:
+      host: rabbitmq.datos.svc
+      urlAdmin: http://rabbitmq.datos.svc:15672/api
+    opensearch:
+      host: opensearch.observabilidad.svc
+      tls: true
+    prometheus:
+      url: http://kube-prometheus-stack-prometheus.observabilidad.svc:9090
+    alertmanager:
+      url: http://kube-prometheus-stack-alertmanager.observabilidad.svc:9093
+
+secretos:
+  almacenLlaves:
+    existingSecret: nexo-wso2-almacen
+  opensearch:
+    existingSecret: nexo-opensearch
+  siem:
+    existingSecret: ""
+
+apim:
+  controlPlane:
+    replicas: 2
+    hostname: apim.nexo.example
+    ingress:
+      hostsExtra: [apim-cpd.nexo.example]
+    jvm: "-Xms4g -Xmx5g"
+    resources:
+      requests: { cpu: "4", memory: 8Gi }
+      limits: { cpu: "4", memory: 8Gi }
+    cors:
+      origenes: "https://consola.nexo.example"
+  trafficManager:
+    replicas: 2
+    jvm: "-Xms2g -Xmx2560m"
+    resources:
+      requests: { cpu: "2", memory: 4Gi }
+      limits: { cpu: "2", memory: 4Gi }
+  gatewayComun:
+    jvm: "-Xms2g -Xmx2560m"
+    resources:
+      requests: { cpu: "2", memory: 4Gi }
+      limits: { cpu: "2", memory: 4Gi }
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      cpu: 70
+    # Redes de los sistemas de destino del CPD (ejemplo). Ajuste a las del sitio.
+    egresoBackends:
+      - to:
+          - ipBlock: { cidr: 10.20.0.0/16 }
+          - ipBlock: { cidr: 10.30.0.0/16 }
+  gateways:
+    operadores:
+      replicas: 2
+      ambientes:
+        - nombre: Default
+          descripcion: Sistemas internos de la institución
+          vhost: api.nexo.example
+        - nombre: Operadores
+          descripcion: APIs para entidades externas autorizadas, con control de acceso y límites
+          vhost: operadores.nexo.example
+      ingress:
+        websocket:
+          - host: ws-operadores.nexo.example
+    publico:
+      replicas: 2
+      ambientes:
+        - nombre: Publico
+          descripcion: APIs públicas autorizadas
+          vhost: publico.nexo.example
+
+mi:
+  replicas: 2
+  jvm: "-Xms2g -Xmx2560m"
+  resources:
+    requests: { cpu: "2", memory: 4Gi }
+    limits: { cpu: "2", memory: 4Gi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    cpu: 70
+  egresoBackends:
+    - to:
+        - ipBlock: { cidr: 10.20.0.0/16 }
+        - ipBlock: { cidr: 10.30.0.0/16 }
+
+division:
+  replicas: 2
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { cpu: "1", memory: 512Mi }
+  egresoBackends:
+    - to:
+        - ipBlock: { cidr: 10.20.0.0/16 }
+        - ipBlock: { cidr: 10.30.0.0/16 }
+
+consola:
+  etiquetaAmbiente: Producción · CPD
+  ingress:
+    host: consola.nexo.example
+  api:
+    replicas: 2
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: "1", memory: 1Gi }
+  web:
+    replicas: 2
+
+motores:
+  replicas: 2
+  siem:
+    # Destino del SIEM de la institución (ejemplo).
+    destinos: "syslog+tls://siem.nexo.example:6514"
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits: { cpu: "1", memory: 1Gi }
+  egresoExtra:
+    # SIEM (syslog sobre TLS).
+    - to:
+        - ipBlock: { cidr: 10.40.0.10/32 }
+      ports:
+        - { protocol: TCP, port: 6514 }
+
+continuidad:
+  enabled: true
+  sitio:
+    id: cpd
+    nombre: CPD
+    rol: primario
+    ipServicio: 10.50.0.10
+  ipSitios:
+    cpd: 10.50.0.10
+    gcp: 203.0.113.10
+  automatico: false
+  etcd:
+    url: http://etcd-quorum.nexo.example:2379
+  dns:
+    # DNS de la institución con actualización dinámica firmada (TSIG).
+    proveedor: rfc2136
+    # Nombre que se reapunta al sitio activo; los nombres públicos (apim, api, operadores, publico, consola)
+    # son CNAME de este.
+    nombre: activo.nexo.example
+    ttl: 10
+    servidor: 10.40.0.53:53
+    zona: nexo.example.
+  primario:
+    sitioId: cpd
+    urlsSalud:
+      - https://apim-cpd.nexo.example/services/Version
+    tcp:
+      - postgresql-nexo.datos.svc:5432
+
+# PostgreSQL: por omisión se usa el servicio externo de global.dependencias.postgresql. Para crearlo con
+# CloudNativePG (operador instalado), active el bloque: primaria y réplica de 4 vCPU y 16 GB, 500 GiB de datos.
+postgresql:
+  cloudnativepg:
+    enabled: false
+    instancias: 2
+    almacenamiento:
+      tamano: 500Gi
+    almacenamientoWal:
+      tamano: 50Gi
+    resources:
+      requests: { cpu: "4", memory: 16Gi }
+      limits: { cpu: "4", memory: 16Gi }
+    parametros:
+      max_connections: "500"
+      shared_buffers: 4GB
+      effective_cache_size: 12GB
+      work_mem: 16MB
+      maintenance_work_mem: 1GB

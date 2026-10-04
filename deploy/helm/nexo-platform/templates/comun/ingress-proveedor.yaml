@@ -1,0 +1,65 @@
+{{- /*
+Piezas propias de cada controlador de Ingress:
+ - Traefik (RKE2): ServersTransport para hablar HTTPS con WSO2 verificando su certificado con la CA interna.
+ - GKE: BackendConfig con la sonda de salud de cada backend (el balanceador no sigue las sondas del pod).
+*/ -}}
+{{- $ing := .Values.global.ingress }}
+{{- if and $ing.enabled (eq $ing.proveedor "traefik") $ing.traefik.serversTransport.crear }}
+{{- $st := $ing.traefik.serversTransport }}
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" $st.nombre) }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" $st.nombre) | nindent 4 }}
+spec:
+  {{- with $st.serverName }}
+  # Nombre que debe venir en el certificado de WSO2 (los backends se alcanzan por IP).
+  serverName: {{ . }}
+  {{- end }}
+  insecureSkipVerify: {{ $st.insecureSkipVerify }}
+  {{- $ca := default .Values.global.tlsInterno.caSecret $st.caSecret }}
+  {{- if $ca }}
+  rootCAs:
+    - secret: {{ $ca }}
+  {{- end }}
+{{- end }}
+{{- if and $ing.enabled (eq $ing.proveedor "gce") }}
+{{- $backends := list }}
+{{- if and .Values.apim.controlPlane.enabled .Values.apim.controlPlane.ingress.enabled }}
+{{- $backends = append $backends (list "apim-cp" "HTTPS" 9443 "/services/Version") }}
+{{- end }}
+{{- range $clave := splitList "," (include "nexo.gateways" .) }}
+{{- if $clave }}
+{{- $backends = append $backends (list (printf "gw-%s" $clave) "HTTPS" 9443 "/api/am/gateway/v2/server-startup-healthcheck") }}
+{{- end }}
+{{- end }}
+{{- if .Values.consola.api.enabled }}{{ $backends = append $backends (list "console-api" "HTTP" 8090 "/api/v1/health") }}{{ end }}
+{{- if .Values.consola.web.enabled }}{{ $backends = append $backends (list "console-web" "HTTP" 8080 "/healthz") }}{{ end }}
+{{- range $b := $backends }}
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" (index $b 0)) }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" (index $b 0)) | nindent 4 }}
+spec:
+  timeoutSec: 60
+  connectionDraining:
+    drainingTimeoutSec: 30
+  healthCheck:
+    type: {{ index $b 1 }}
+    port: {{ index $b 2 }}
+    requestPath: {{ index $b 3 }}
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+  {{- if eq (index $b 0) "apim-cp" }}
+  sessionAffinity:
+    affinityType: GENERATED_COOKIE
+    affinityCookieTtlSec: 3600
+  {{- end }}
+{{- end }}
+{{- end }}

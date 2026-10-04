@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: rke2
+  namespace: nexo
+  author: Sociedad de Inversiones Yago SpA
+  description: Instalación de RKE2 en versión fija, con perfil CIS opcional, alta disponibilidad de 3 servidores y unión de agentes
+  license: Apache-2.0
+  min_ansible_version: "2.16"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+    - name: Ubuntu
+      versions: [jammy, noble]
+    - name: SLES
+      versions: ["15"]
+dependencies: []

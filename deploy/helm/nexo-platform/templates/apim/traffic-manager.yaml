@@ -1,0 +1,127 @@
+{{- /*
+WSO2 Traffic Manager 4.7.0: recibe los eventos de cada llamada desde los gateways y publica las decisiones de
+límites de uso. StatefulSet: los gateways envían los eventos a cada nodo por su nombre DNS.
+*/ -}}
+{{- if .Values.apim.trafficManager.enabled }}
+{{- $cfg := .Values.apim.trafficManager }}
+{{- $ctx := dict "ctx" $ "comp" "apim-tm" "cfg" $cfg "rol" "traffic-manager" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $imagen := include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+  {{- with $cfg.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: https, port: 9443, targetPort: https }
+    - { name: eventos, port: 5672, targetPort: eventos }
+    - { name: binario, port: 9611, targetPort: binario }
+    - { name: binario-tls, port: 9711, targetPort: binario-tls }
+    {{- if .Values.apim.metricasJmx.enabled }}
+    - { name: metricas, port: 9404, targetPort: metricas }
+    {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}-pares
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: https, port: 9443, targetPort: https }
+    - { name: eventos, port: 5672, targetPort: eventos }
+    - { name: binario, port: 9611, targetPort: binario }
+    - { name: binario-tls, port: 9711, targetPort: binario-tls }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  serviceName: {{ $nombre }}-pares
+  replicas: {{ $cfg.replicas }}
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      annotations:
+        checksum/config: {{ include "nexo.toml.tm" . | sha256sum }}
+        {{- with $cfg.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "nexo.podComun" $ctx | nindent 6 }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 802) | nindent 8 }}
+      initContainers:
+        {{- include "nexo.apim.initConfig" (merge (dict "imagen" $imagen) $ctx) | nindent 8 }}
+      containers:
+        - name: apim-tm
+          image: {{ $imagen }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            {{- include "nexo.apim.env" (dict "ctx" $ "bd" true) | nindent 12 }}
+            - name: JVM_MEM_OPTS
+              value: {{ include "nexo.jvm" (dict "ctx" $ "cfg" $cfg "jmx" true) | quote }}
+          ports:
+            - { name: https, containerPort: 9443 }
+            - { name: http, containerPort: 9763 }
+            - { name: eventos, containerPort: 5672 }
+            - { name: binario, containerPort: 9611 }
+            - { name: binario-tls, containerPort: 9711 }
+            {{- if .Values.apim.metricasJmx.enabled }}
+            - { name: metricas, containerPort: 9404 }
+            {{- end }}
+          {{- include "nexo.sondasWso2" (dict "cfg" $cfg) | nindent 10 }}
+          {{- include "nexo.preStop" (dict "segundos" 10) | nindent 10 }}
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict) | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml
+              subPath: deployment.toml
+            {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.montajesSeguridad" "datos" (dict "ctx" $ "base" "/home/wso2carbon/wso2-config-volume/repository/resources/security") "indent" 12) }}
+      volumes:
+        - name: plantilla
+          configMap:
+            name: {{ $nombre }}
+        - name: scripts
+          configMap:
+            name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "apim-scripts") }}
+        - name: config
+          emptyDir: {}
+        {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.volumenesSeguridad" "datos" (dict "ctx" $) "indent" 8) }}
+{{- end }}

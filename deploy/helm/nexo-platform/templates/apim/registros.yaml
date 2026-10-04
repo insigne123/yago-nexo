@@ -1,0 +1,145 @@
+{{- /*
+Fluent Bit junto a los nodos de API Manager. Misma configuración que deploy/compose/fluent-bit/fluent-bit.yaml:
+lee apim_metrics.log (analítica), audit.log y wso2carbon.log desde el volumen de registros del pod y los envía
+a OpenSearch con los mismos prefijos de índice (nexo-apim-metrics, nexo-audit, nexo-logs). En los gateways
+también calcula las métricas nexo_gateway_* y las expone en el puerto 2021.
+*/ -}}
+{{- if .Values.apim.registros.enabled }}
+{{- $os := .Values.global.dependencias.opensearch }}
+{{- $conCredenciales := not (empty .Values.secretos.opensearch.existingSecret) }}
+{{- range $rol := list "cp" "gw" }}
+{{- if or (and (eq $rol "cp") $.Values.apim.controlPlane.enabled) (and (eq $rol "gw") (include "nexo.gateways" $)) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" (printf "registros-%s" $rol)) }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" (printf "registros-%s" $rol)) | nindent 4 }}
+data:
+  fluent-bit.yaml: |
+    service:
+      flush: 2
+      log_level: info
+      http_server: on
+      http_port: 2020
+      storage.path: /var/fluent-bit/storage
+      storage.sync: normal
+      storage.checksum: on
+      storage.backlog.mem_limit: 64M
+
+    parsers:
+      - name: wso2_metrics
+        format: regex
+        regex: '^(?<hora>\d{2}:\d{2}:\d{2},\d{3}) \[(?<origen>[^\]]*)\] \[(?<hilo>[^\]]*)\]\s+(?<nivel>\w+) (?<logger>\S+) apimMetrics: (?<tipo>[^,]+), properties :(?<propiedades>\{.*\})\s*$'
+      - name: json_props
+        format: json
+      - name: wso2_carbon
+        format: regex
+        regex: '^\[(?<ts>[^\]]+)\]\s+(?<nivel>\w+)\s+\{(?<logger>[^}]*)\}\s+-\s+(?<mensaje>.*)$'
+
+    pipeline:
+      inputs:
+        {{- if eq $rol "gw" }}
+        - name: tail
+          tag: apim.metrics
+          path: /wso2/logs/apim_metrics.log
+          parser: wso2_metrics
+          db: /var/fluent-bit/storage/tail-apim-metrics.db
+          storage.type: filesystem
+          read_from_head: true
+        {{- else }}
+        - name: tail
+          tag: apim.audit
+          path: /wso2/logs/audit.log
+          db: /var/fluent-bit/storage/tail-apim-audit.db
+          storage.type: filesystem
+          read_from_head: true
+        {{- end }}
+        - name: tail
+          tag: apim.carbon
+          path: /wso2/logs/wso2carbon.log
+          parser: wso2_carbon
+          db: /var/fluent-bit/storage/tail-apim-carbon.db
+          storage.type: filesystem
+          multiline.parser: java
+
+      filters:
+        {{- if eq $rol "gw" }}
+        - name: parser
+          match: apim.metrics
+          key_name: propiedades
+          parser: json_props
+          reserve_data: on
+        {{- end }}
+        - name: modify
+          match: "*"
+          add:
+            - plataforma nexo
+            - sitio {{ $.Values.global.sitio }}
+            - ambiente {{ $.Values.global.ambiente }}
+            - nodo ${POD_NAME}
+        {{- if eq $rol "gw" }}
+        - name: log_to_metrics
+          match: apim.metrics
+          tag: metricas.gateway
+          metric_mode: counter
+          metric_name: solicitudes_total
+          metric_namespace: nexo_gateway
+          metric_description: Solicitudes atendidas por el gateway
+          label_field:
+            - apiName
+            - applicationName
+            - proxyResponseCode
+            - keyType
+        - name: log_to_metrics
+          match: apim.metrics
+          tag: metricas.gateway
+          metric_mode: histogram
+          metric_name: latencia_ms
+          metric_namespace: nexo_gateway
+          metric_description: Latencia de respuesta del gateway en milisegundos
+          value_field: responseLatency
+          bucket: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
+          label_field:
+            - apiName
+        - name: log_to_metrics
+          match: apim.metrics
+          tag: metricas.gateway
+          metric_mode: histogram
+          metric_name: latencia_backend_ms
+          metric_namespace: nexo_gateway
+          metric_description: Latencia del sistema de destino en milisegundos
+          value_field: backendLatency
+          bucket: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000]
+          label_field:
+            - apiName
+        {{- end }}
+
+      outputs:
+        {{- if eq $rol "gw" }}
+        - name: prometheus_exporter
+          match: metricas.gateway
+          host: 0.0.0.0
+          port: 2021
+        {{- end }}
+        {{- $salidas := list (list "apim.carbon" "nexo-logs") }}
+        {{- if eq $rol "gw" }}{{ $salidas = append $salidas (list "apim.metrics" "nexo-apim-metrics") }}{{ else }}{{ $salidas = append $salidas (list "apim.audit" "nexo-audit") }}{{ end }}
+        {{- range $s := $salidas }}
+        - name: opensearch
+          match: {{ index $s 0 }}
+          host: {{ $os.host }}
+          port: {{ $os.puerto }}
+          tls: {{ ternary "on" "off" $os.tls }}
+          {{- if $conCredenciales }}
+          http_user: ${OPENSEARCH_USER}
+          http_passwd: ${OPENSEARCH_PASSWORD}
+          {{- end }}
+          logstash_format: on
+          logstash_prefix: {{ index $s 1 }}
+          suppress_type_name: on
+          retry_limit: no_limits
+        {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

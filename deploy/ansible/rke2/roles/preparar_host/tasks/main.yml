@@ -1,0 +1,20 @@
+---
+- name: Revisar el sistema operativo y los recursos
+  ansible.builtin.import_tasks: sistema.yml
+
+- name: Instalar paquetes base
+  ansible.builtin.package:
+    name: "{{ preparar_host_paquetes[ansible_os_family] }}"
+    state: present
+
+- name: Preparar discos de datos
+  ansible.builtin.import_tasks: discos.yml
+
+- name: Ajustar el kernel (módulos y sysctl)
+  ansible.builtin.import_tasks: kernel.yml
+
+- name: Sincronizar la hora (chrony)
+  ansible.builtin.import_tasks: hora.yml
+
+- name: Abrir los puertos de RKE2
+  ansible.builtin.import_tasks: firewall.yml

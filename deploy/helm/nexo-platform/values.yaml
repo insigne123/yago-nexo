@@ -1,0 +1,686 @@
+# Yago Nexo · valores por omisión del chart nexo-platform
+#
+# Este archivo trae todas las opciones con valores mínimos (una réplica, recursos chicos). Cada ambiente
+# agrega su archivo encima:
+#   values-cpd.yaml     producción en el CPD (RKE2 sobre vSphere)
+#   values-gcp-dr.yaml  sitio de respaldo en Google Cloud (GKE), en espera tibia
+#   values-qa.yaml      pruebas de aceptación (datos sintéticos)
+#   values-dev.yaml     desarrollo
+#
+# Ningún archivo de valores lleva contraseñas ni llaves. Los Secrets se crean antes de instalar (a mano,
+# con el playbook de Ansible o con External Secrets) y aquí solo se nombran: ver la sección "secretos".
+
+# Prefijo de los nombres de los recursos. Vacío = nombre del release (por ejemplo "nexo-platform").
+nombreBase: ""
+
+global:
+  # dev | qa | prod. Lo usan los motores (ambiente de la división de tráfico) y las etiquetas.
+  ambiente: prod
+  # Sitio donde corre esta instalación: cpd | gcp. Va en las etiquetas, los registros y el agente de continuidad.
+  sitio: cpd
+  # Registro de imágenes (Harbor del CPD, Artifact Registry en Google Cloud). Vacío = registro por omisión.
+  imageRegistry: ""
+  imagePullPolicy: IfNotPresent
+  # Secrets de tipo kubernetes.io/dockerconfigjson para descargar imágenes, por ejemplo [{name: harbor-nexo}].
+  imagePullSecrets: []
+  dominioCluster: cluster.local
+  zonaHoraria: America/Santiago
+  # preferida | requerida: réplicas del mismo componente en nodos distintos.
+  antiAfinidad: preferida
+  # true en clústeres con varias zonas (GKE regional): reparte las réplicas entre zonas.
+  distribuirPorZona: false
+  nodeSelector: {}
+  tolerations: []
+  priorityClassName: ""
+
+  # TLS dentro del clúster hacia WSO2 (puertos 9443, 8243 y 9164).
+  tlsInterno:
+    # true solo con los almacenes de llaves de ejemplo de WSO2 (dev y qa): los clientes no verifican el certificado.
+    inseguro: false
+    # Secret con la CA que firma los certificados de WSO2 (clave caClave). Se monta en la Consola, los motores
+    # y el registro del Key Manager.
+    caSecret: ""
+    caClave: ca.crt
+
+  ingress:
+    enabled: true
+    # traefik (RKE2 1.36 o superior) | gce (GKE) | otro. Ajusta las anotaciones que el chart agrega solo.
+    proveedor: traefik
+    className: traefik
+    # Secret TLS por omisión para todos los hosts (cada Ingress puede indicar el suyo).
+    tlsSecret: ""
+    annotations: {}
+    traefik:
+      # ServersTransport de Traefik para hablar HTTPS con WSO2 verificando su certificado con la CA interna.
+      serversTransport:
+        crear: false
+        nombre: wso2-tls
+        # Nombre incluido en el certificado de WSO2 (Traefik llega a los pods por IP).
+        serverName: ""
+        # Secret con la CA (clave ca.crt). Si queda vacío se usa global.tlsInterno.caSecret.
+        caSecret: ""
+        insecureSkipVerify: false
+
+  # Políticas de red: todo denegado por omisión y solo los flujos que la plataforma necesita.
+  networkPolicies:
+    enabled: true
+    # Origen del tráfico de los Ingress (controlador o balanceador). En RKE2, Traefik corre en kube-system.
+    ingreso:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+    # Quién lee las métricas (Prometheus).
+    monitoreo:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: observabilidad
+    # Servidores DNS del clúster.
+    dns:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+    # Direcciones del API de Kubernetes (solo las necesita CloudNativePG). Ejemplo: [{ipBlock: {cidr: 10.10.0.10/32}}]
+    apiServer: []
+    puertosApiServer: [6443, 443]
+
+  serviceMonitors:
+    # Requiere Prometheus Operator (CRD monitoring.coreos.com/v1).
+    enabled: false
+    # Etiquetas que el Prometheus del clúster usa para descubrir los ServiceMonitor.
+    labels: {}
+    intervalo: 30s
+
+  # Trazas OpenTelemetry (colector de la pila de observabilidad).
+  otel:
+    enabled: true
+    endpoint: http://otel-collector.observabilidad.svc:4317
+
+  # Keycloak de la institución: Key Manager del gateway e inicio de sesión de portales y Consola.
+  keycloak:
+    url: https://sso.nexo.example
+    realm: nexo
+    clienteConsola: nexo-console
+    claimRoles: resource_access.nexo-console.roles
+
+  # Dependencias con estado: este chart las consume, no las instala. "red" acota la política de salida
+  # (lista de NetworkPolicyPeer); vacía = cualquier destino, pero solo en el puerto de la dependencia.
+  dependencias:
+    postgresql:
+      # Vacío con postgresql.cloudnativepg.enabled=true: se usa el servicio "-rw" del clúster CloudNativePG.
+      host: postgresql.datos.svc
+      puerto: 5432
+      # deshabilitado | requerido (cifra sin verificar) | verificado (verifica con global.tlsInterno.caSecret)
+      ssl: requerido
+      bases:
+        apim: apim_db
+        compartida: shared_db
+        nexo: nexo
+        mi: mi_db
+      usuarios:
+        apim: apimadmin
+        nexo: nexo
+        mi: mi
+      red: []
+    rabbitmq:
+      host: rabbitmq.datos.svc
+      puerto: 5672
+      tls: false
+      # API de administración (la Consola revisa colas y reprocesa mensajes fallidos).
+      urlAdmin: http://rabbitmq.datos.svc:15672/api
+      puertoAdmin: 15672
+      usuario: nexo
+      red: []
+    opensearch:
+      host: opensearch.observabilidad.svc
+      puerto: 9200
+      tls: false
+      red: []
+    prometheus:
+      url: http://prometheus.observabilidad.svc:9090
+      red: []
+    alertmanager:
+      url: http://alertmanager.observabilidad.svc:9093
+      red: []
+    keycloak:
+      puerto: 443
+      red: []
+    otel:
+      puerto: 4317
+      red: []
+
+# ------------------------------------------------------------------------------------------------------------
+# Secrets que el chart espera encontrar (existingSecret) y la clave de cada valor dentro del Secret.
+# Lista completa y comandos de ejemplo: README.md y la guía de instalación.
+secretos:
+  apim:
+    existingSecret: nexo-apim
+    claves:
+      adminPassword: admin-password
+      # 32 bytes en hexadecimal. La MISMA en todos los nodos y sitios, y no cambia: WSO2 cifra datos con ella.
+      encryptionKey: encryption-key
+  apimBd:
+    existingSecret: nexo-bd-apim
+    claves:
+      password: password
+  # Almacenes de llaves de WSO2 (API Manager y Micro Integrator). Vacío = los de ejemplo de la distribución
+  # (contraseña "wso2carbon"): solo para dev y qa.
+  almacenLlaves:
+    existingSecret: ""
+    archivos:
+      keystore: wso2carbon.jks
+      truststore: client-truststore.jks
+    claves:
+      password: keystore-password
+    alias: wso2carbon
+  mi:
+    existingSecret: nexo-mi
+    claves:
+      adminPassword: admin-password
+  miBd:
+    existingSecret: nexo-bd-mi
+    claves:
+      password: password
+  nexoBd:
+    existingSecret: nexo-bd-nexo
+    claves:
+      password: password
+  rabbitmq:
+    existingSecret: nexo-rabbitmq
+    claves:
+      password: password
+  keycloakKm:
+    existingSecret: nexo-keycloak-km
+    claves:
+      clientSecret: client-secret
+  # Opcional: usuario y contraseña de OpenSearch (si su seguridad está activa).
+  opensearch:
+    existingSecret: ""
+    claves:
+      usuario: username
+      password: password
+  # Opcional: token del SIEM cuando el destino es HTTP.
+  siem:
+    existingSecret: ""
+    claves:
+      token: http-token
+  # Agente de continuidad: URLs de las bases primaria y réplica (con usuario y contraseña) y credenciales de DNS.
+  continuidad:
+    existingSecret: nexo-continuidad
+    claves:
+      bdPrimaria: primary-db-url
+      bdReplica: replica-db-url
+      # Llave JSON de la cuenta de servicio de Cloud DNS (solo proveedor clouddns).
+      gcpSaKey: gcp-sa-key
+      # Archivo de clave TSIG (solo proveedor rfc2136).
+      tsig: tsig.key
+
+# ------------------------------------------------------------------------------------------------------------
+# WSO2 API Manager 4.7.0: Control Plane, Traffic Manager y Universal Gateways (uno por audiencia).
+apim:
+  usuarioAdmin: admin
+  # Llave de cifrado simétrica compartida por todos los nodos (ver secretos.apim).
+  protocolosTls: "TLSv1.2,TLSv1.3"
+  # Exportador JMX de Prometheus incluido en las imágenes nexo/apim-* (JVM y transporte, puerto 9404).
+  metricasJmx:
+    enabled: true
+    puerto: 9404
+    agente: "-javaagent:/home/wso2carbon/jmx/jmx_prometheus_javaagent.jar=9404:/home/wso2carbon/jmx/config.yaml"
+
+  controlPlane:
+    enabled: true
+    replicas: 1
+    image:
+      repository: nexo/apim-cp
+      tag: "4.7.0"
+    # Carpeta de la distribución dentro de la imagen (registros y scripts).
+    directorio: /home/wso2carbon/wso2am-acp-4.7.0
+    # Nombre público de los portales (Publisher, Developer Portal y Admin) y de la REST API.
+    hostname: apim.nexo.example
+    jvm: "-Xms1g -Xmx2g"
+    resources:
+      requests:
+        cpu: "1"
+        memory: 3Gi
+      limits:
+        cpu: "2"
+        memory: 3Gi
+    # Aplica los esquemas de apim_db y shared_db si faltan (idempotente, antes de arrancar el primer nodo).
+    esquemaBd:
+      aplicar: true
+      image:
+        repository: nexo/apim-dbinit
+        tag: "4.7.0"
+    autoRegistro: true
+    sdk:
+      grupo: cl.institucion
+      lenguajes: [java, javascript, python, csharp, android]
+    cors:
+      origenes: "*"
+    ingress:
+      enabled: true
+      # Vacío = hostname.
+      host: ""
+      # Nombres extra, por ejemplo el propio del sitio (apim-cpd.nexo.example) que revisan los agentes de continuidad.
+      hostsExtra: []
+      tlsSecret: ""
+      annotations: {}
+    service:
+      annotations: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    pdb:
+      maxUnavailable: 1
+    sondas:
+      inicio: { periodSeconds: 10, failureThreshold: 60 }
+      vida: { periodSeconds: 20, timeoutSeconds: 5, failureThreshold: 6 }
+      lista: { periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 3 }
+
+  trafficManager:
+    enabled: true
+    replicas: 1
+    image:
+      repository: nexo/apim-tm
+      tag: "4.7.0"
+    directorio: /home/wso2carbon/wso2am-tm-4.7.0
+    jvm: "-Xms512m -Xmx1536m"
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: "1"
+        memory: 2Gi
+    service:
+      annotations: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    pdb:
+      maxUnavailable: 1
+    sondas:
+      inicio: { periodSeconds: 10, failureThreshold: 60 }
+      vida: { periodSeconds: 20, timeoutSeconds: 5, failureThreshold: 6 }
+      lista: { periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 3 }
+
+  # Valores comunes de los gateways; cada gateway puede reemplazarlos.
+  gatewayComun:
+    image:
+      repository: nexo/apim-gateway
+      tag: "4.7.0"
+    directorio: /home/wso2carbon/wso2am-universal-gw-4.7.0
+    jvm: "-Xms1g -Xmx2g"
+    resources:
+      requests:
+        cpu: 500m
+        memory: 3Gi
+      limits:
+        cpu: "1"
+        memory: 3Gi
+    hpa:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 6
+      cpu: 70
+    pdb:
+      maxUnavailable: 1
+    sondas:
+      inicio: { periodSeconds: 10, failureThreshold: 60 }
+      vida: { periodSeconds: 20, timeoutSeconds: 5, failureThreshold: 6 }
+      lista: { periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 3 }
+    cache:
+      tokenMinutos: 15
+      claimsSegundos: 900
+    cors:
+      metodos: [GET, OPTIONS]
+      encabezados: [authorization, Content-Type, X-Correlation-ID]
+    ingress:
+      enabled: true
+      tlsSecret: ""
+      annotations: {}
+      websocket: []
+    service:
+      annotations: {}
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    # Reglas de salida hacia los backends (NetworkPolicyEgressRule). Restrinja a las redes de los sistemas
+    # de destino de cada ambiente; por omisión, cualquier destino salvo el servicio de metadatos de la nube.
+    egresoBackends:
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+              except: [169.254.169.254/32]
+
+  # Un Universal Gateway por audiencia. Cada uno atiende los ambientes de gateway de su lista (las APIs se
+  # despliegan en esos ambientes) y tiene su propio Deployment, Service e Ingress.
+  gateways:
+    operadores:
+      enabled: true
+      replicas: 1
+      ambientes:
+        # "Default" es la audiencia interna (sistemas de la institución).
+        - nombre: Default
+          descripcion: Sistemas internos de la institución
+          vhost: api.nexo.example
+        - nombre: Operadores
+          descripcion: APIs para entidades externas autorizadas, con control de acceso y límites
+          vhost: operadores.nexo.example
+      cors:
+        metodos: [GET, PUT, POST, DELETE, PATCH, OPTIONS]
+        encabezados: [authorization, Content-Type, SOAPAction, apikey, X-Correlation-ID]
+      ingress:
+        enabled: true
+        tlsSecret: ""
+        annotations: {}
+        # Hosts extra para WebSocket: [{host: ws.operadores.nexo.example}]
+        websocket: []
+      service:
+        annotations: {}
+    publico:
+      enabled: true
+      replicas: 1
+      ambientes:
+        - nombre: Publico
+          descripcion: APIs públicas autorizadas
+          vhost: publico.nexo.example
+      cors:
+        metodos: [GET, OPTIONS]
+        encabezados: [authorization, Content-Type, X-Correlation-ID]
+      ingress:
+        enabled: true
+        tlsSecret: ""
+        annotations: {}
+        websocket: []
+      service:
+        annotations: {}
+
+  # Keycloak como Key Manager: un Job (post-install y post-upgrade) lo registra o actualiza por la Admin REST API.
+  keyManager:
+    registrar: true
+    nombre: Keycloak
+    nombreVisible: Keycloak institucional
+    clientId: wso2-km
+    tiposConcesion: [client_credentials, authorization_code, refresh_token]
+    claimConsumidor: azp
+    claimScopes: scope
+    # Espera máxima a que el Control Plane responda.
+    esperaSegundos: 1500
+
+  # Fluent Bit junto a cada nodo de API Manager: lee los archivos de registro de WSO2 (analítica, auditoría y
+  # registro general) y los envía a OpenSearch, como en el laboratorio. En los gateways también publica las
+  # métricas nexo_gateway_* para Prometheus (puerto 2021).
+  registros:
+    enabled: true
+    image:
+      repository: fluent/fluent-bit
+      tag: "5.1.3"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+# ------------------------------------------------------------------------------------------------------------
+# WSO2 Micro Integrator 4.6.0 (Nexo Integrator). La imagen nexo/mi incluye los artefactos de integración.
+mi:
+  enabled: true
+  replicas: 1
+  image:
+    repository: nexo/mi
+    tag: "4.6.0"
+  jvm: "-Xms512m -Xmx1536m"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 4
+    cpu: 70
+  pdb:
+    maxUnavailable: 1
+  poolBd: 20
+  service:
+    annotations: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  extraEnv: []
+  egresoBackends:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [169.254.169.254/32]
+  sondas:
+    inicio: { periodSeconds: 10, failureThreshold: 60 }
+    vida: { periodSeconds: 20, timeoutSeconds: 5, failureThreshold: 6 }
+    lista: { periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 3 }
+
+# ------------------------------------------------------------------------------------------------------------
+# nexo-division: Envoy que divide el tráfico de los despliegues progresivos. Rutas y clústeres llegan por
+# xDS desde los motores (puerto 9466). Es un StatefulSet para que los motores lean las métricas de cada réplica.
+division:
+  enabled: true
+  replicas: 1
+  image:
+    repository: envoyproxy/envoy
+    tag: v1.38.5
+  nivelLog: warn
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  pdb:
+    maxUnavailable: 1
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  egresoBackends:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [169.254.169.254/32]
+
+# ------------------------------------------------------------------------------------------------------------
+# Consola Nexo: API (NestJS) y web (NGINX). Un solo host: "/" sirve la web y "/api" la API.
+consola:
+  etiquetaAmbiente: Producción
+  ingress:
+    enabled: true
+    host: consola.nexo.example
+    tlsSecret: ""
+    annotations: {}
+  api:
+    enabled: true
+    replicas: 1
+    image:
+      repository: nexo/console-api
+      tag: ""
+    poolBd: 10
+    # Orígenes CORS adicionales (el host de la Consola se agrega solo).
+    corsOrigenes: []
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+    pdb:
+      maxUnavailable: 1
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    extraEnv: []
+  web:
+    enabled: true
+    replicas: 1
+    image:
+      repository: nexo/console-web
+      tag: ""
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 128Mi
+    pdb:
+      maxUnavailable: 1
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    # Orígenes extra de la política de seguridad de contenido (connect-src); el Keycloak se agrega solo.
+    cspConnectExtra: []
+
+# ------------------------------------------------------------------------------------------------------------
+# Motores de Nexo (un solo binario). Cada motor tiene un líder por bloqueo de PostgreSQL: las réplicas extra
+# quedan en espera y toman el mando si la líder cae. Todas atienden el plano de control xDS de la división.
+motores:
+  enabled: true
+  replicas: 1
+  image:
+    repository: nexo/motores
+    tag: ""
+  lista: [despliegues, guardian, descubrimiento, siem]
+  guardian:
+    ventanaSegundos: 60
+    horarioHabil: "1-5 08:00-20:00"
+  # Destinos del SIEM, por ejemplo "syslog+tls://siem.institucion.example:6514". Vacío = sin reenvío.
+  siem:
+    destinos: ""
+  descubrimiento:
+    # Objetivos de red autorizados (host:puerto o CIDR:puerto), separados por coma.
+    objetivos: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  pdb:
+    maxUnavailable: 1
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  extraEnv: []
+  # Reglas de salida extra (SIEM, objetivos del descubrimiento, plataformas existentes).
+  egresoExtra: []
+
+# ------------------------------------------------------------------------------------------------------------
+# Agente de continuidad: uno por sitio (CPD y Google Cloud; el testigo corre fuera de Kubernetes). Se activa en
+# values-cpd.yaml y values-gcp-dr.yaml, con los datos de cada sitio.
+continuidad:
+  enabled: false
+  image:
+    repository: nexo/motores
+    tag: ""
+  sitio:
+    # Vacío = global.sitio.
+    id: ""
+    nombre: ""
+    # primario | respaldo
+    rol: primario
+    # IP que publica el DNS cuando este sitio queda activo (NEXO_SITE_SERVE_IP).
+    ipServicio: ""
+  # IP de entrada de cada sitio (NEXO_SITE_IP_<SITIO>).
+  ipSitios: {}
+  # Base de Nexo donde el agente deja su latido y su auditoría. Vacío = global.dependencias.postgresql.host.
+  # En el sitio de respaldo la base local está en solo lectura: apunte a la del primario para verlo en la Consola.
+  baseNexoHost: ""
+  # false = la conmutación la ejecuta una persona desde la Consola; true = automática con quórum de 2 de 3.
+  automatico: false
+  intervaloMs: 5000
+  ciclosCaida: 3
+  votoMaxSegundos: 20
+  # etcd del quórum (alcanzable desde los tres votantes).
+  etcd:
+    url: http://etcd-quorum.nexo.example:2379
+  dns:
+    # rfc2136 (DNS institucional con TSIG) | clouddns (Google Cloud DNS)
+    proveedor: rfc2136
+    nombre: api.nexo.example
+    ttl: 10
+    # rfc2136: servidor y zona.
+    servidor: ""
+    zona: ""
+    # clouddns: proyecto y zona administrada.
+    gcp:
+      proyecto: ""
+      zona: ""
+  # Qué revisa el agente para declarar caído al primario.
+  primario:
+    sitioId: cpd
+    urlsSalud: []
+    tcp: []
+    recorrido: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  extraEnv: []
+  # Reglas de salida (bases primaria y réplica, etcd, DNS, URLs de salud). Vacía = cualquier destino.
+  egreso: []
+
+# ------------------------------------------------------------------------------------------------------------
+# PostgreSQL con CloudNativePG (opcional). Requiere el operador CloudNativePG 1.25 o superior instalado.
+# Desactivado: se usa global.dependencias.postgresql (servicio externo).
+postgresql:
+  cloudnativepg:
+    enabled: false
+    # Espacio de nombres del operador (para la política de red).
+    operadorNamespace: cnpg-system
+    instancias: 2
+    imageName: ghcr.io/cloudnative-pg/postgresql:16
+    # Tamaño calculado desde la retención de la auditoría (ver la guía de valores por ambiente).
+    almacenamiento:
+      tamano: 500Gi
+      storageClass: ""
+    almacenamientoWal:
+      tamano: 50Gi
+      storageClass: ""
+    resources:
+      requests:
+        cpu: "2"
+        memory: 8Gi
+      limits:
+        cpu: "4"
+        memory: 8Gi
+    parametros:
+      max_connections: "400"
+      shared_buffers: 2GB
+      effective_cache_size: 6GB
+      work_mem: 16MB
+      maintenance_work_mem: 512MB
+    # Réplica de un clúster de otro sitio (DR): se crea con pg_basebackup y queda en espera.
+    replica:
+      enabled: false
+      origen:
+        nombre: cpd
+        host: ""
+        puerto: 5432
+        # Secrets con el certificado de cliente de streaming_replica y la CA del clúster de origen.
+        certificadoSecret: ""
+        caSecret: ""
+    # Reglas de red extra (NetworkPolicyIngressRule / NetworkPolicyEgressRule): por ejemplo, la entrada de la
+    # réplica del otro sitio o la salida hacia el almacenamiento de respaldos.
+    red:
+      ingresoExtra: []
+      egresoExtra: []

@@ -1,0 +1,9 @@
+# Estado y datos locales de OpenTofu: nunca al repositorio.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+# Valores del sitio (pueden tener datos de la institución); el modelo es dr.tfvars.example.
+*.tfvars
+!dr.tfvars.example

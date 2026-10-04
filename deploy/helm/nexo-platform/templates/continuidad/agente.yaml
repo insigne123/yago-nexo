@@ -1,0 +1,143 @@
+{{- /*
+Agente de continuidad del sitio (uno por sitio). Vota en el quórum de 2 de 3 (etcd), revisa la salud del
+primario y, al conmutar, cierra la escritura en el primario, promueve la réplica y cambia el DNS. Variables
+iguales a las del laboratorio de continuidad (deploy/compose: cont-agente-*).
+*/ -}}
+{{- if .Values.continuidad.enabled }}
+{{- $cfg := .Values.continuidad }}
+{{- $ctx := dict "ctx" $ "comp" "continuidad" "cfg" $cfg "rol" "continuidad" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $pg := .Values.global.dependencias.postgresql }}
+{{- $s := .Values.secretos.continuidad }}
+{{- $sitio := default .Values.global.sitio $cfg.sitio.id }}
+{{- $dns := $cfg.dns }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: metricas, port: 9465, targetPort: metricas }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  # Un solo agente por sitio: nunca dos votos del mismo sitio a la vez.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      {{- with $cfg.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "nexo.podComun" $ctx | nindent 6 }}
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 1000) | nindent 8 }}
+      containers:
+        - name: continuidad
+          image: {{ include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: ["continuidad"]
+          env:
+            - { name: TZ, value: {{ .Values.global.zonaHoraria | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_DB_PASSWORD" "secreto" .Values.secretos.nexoBd.existingSecret "clave" .Values.secretos.nexoBd.claves.password) | nindent 12 }}
+            - name: NEXO_DATABASE_URL
+              value: {{ include "nexo.pg.url" (dict "ctx" $ "usuario" $pg.usuarios.nexo "variable" "NEXO_DB_PASSWORD" "base" $pg.bases.nexo "host" $cfg.baseNexoHost) | quote }}
+            {{- include "nexo.pg.envNode" . | nindent 12 }}
+            - { name: NEXO_SITE_ID, value: {{ $sitio | quote }} }
+            - { name: NEXO_SITE_NAME, value: {{ default (upper $sitio) $cfg.sitio.nombre | quote }} }
+            - { name: NEXO_SITE_ROLE, value: {{ $cfg.sitio.rol | quote }} }
+            {{- with $cfg.sitio.ipServicio }}
+            - { name: NEXO_SITE_SERVE_IP, value: {{ . | quote }} }
+            {{- end }}
+            {{- range $id := keys $cfg.ipSitios | sortAlpha }}
+            - { name: {{ printf "NEXO_SITE_IP_%s" (upper $id) }}, value: {{ get $cfg.ipSitios $id | quote }} }
+            {{- end }}
+            - { name: NEXO_CONTINUITY_ETCD, value: {{ $cfg.etcd.url | quote }} }
+            - { name: NEXO_CONTINUITY_AUTOMATICO, value: {{ $cfg.automatico | quote }} }
+            - { name: NEXO_CONTINUITY_INTERVAL_MS, value: {{ $cfg.intervaloMs | quote }} }
+            - { name: NEXO_CONTINUITY_DOWN_CICLOS, value: {{ $cfg.ciclosCaida | quote }} }
+            - { name: NEXO_CONTINUITY_VOTO_MAX_SEG, value: {{ $cfg.votoMaxSegundos | quote }} }
+            - { name: NEXO_PRIMARY_SITE_ID, value: {{ $cfg.primario.sitioId | quote }} }
+            {{- with $cfg.primario.urlsSalud }}
+            - { name: NEXO_PRIMARY_HEALTH_URLS, value: {{ join "," . | quote }} }
+            {{- end }}
+            {{- with $cfg.primario.tcp }}
+            - { name: NEXO_PRIMARY_TCP, value: {{ join "," . | quote }} }
+            {{- end }}
+            {{- with $cfg.primario.recorrido }}
+            - { name: NEXO_PRIMARY_JOURNEY_URL, value: {{ . | quote }} }
+            {{- end }}
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_PRIMARY_DB_URL" "secreto" $s.existingSecret "clave" $s.claves.bdPrimaria) | nindent 12 }}
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_REPLICA_DB_URL" "secreto" $s.existingSecret "clave" $s.claves.bdReplica) | nindent 12 }}
+            - { name: NEXO_DNS, value: {{ $dns.proveedor | quote }} }
+            - { name: NEXO_DNS_NAME, value: {{ $dns.nombre | quote }} }
+            - { name: NEXO_DNS_TTL, value: {{ $dns.ttl | quote }} }
+            {{- if eq $dns.proveedor "rfc2136" }}
+            - { name: NEXO_DNS_SERVER, value: {{ required "continuidad.dns.servidor es obligatorio con rfc2136" $dns.servidor | quote }} }
+            - { name: NEXO_DNS_ZONE, value: {{ required "continuidad.dns.zona es obligatoria con rfc2136" $dns.zona | quote }} }
+            - { name: NEXO_DNS_TSIG_KEYFILE, value: "/etc/nexo/tsig/{{ $s.claves.tsig }}" }
+            {{- else if eq $dns.proveedor "clouddns" }}
+            - { name: NEXO_DNS_GCP_PROJECT, value: {{ required "continuidad.dns.gcp.proyecto es obligatorio con clouddns" $dns.gcp.proyecto | quote }} }
+            - { name: NEXO_DNS_GCP_ZONE, value: {{ required "continuidad.dns.gcp.zona es obligatoria con clouddns" $dns.gcp.zona | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_DNS_GCP_SA_KEY" "secreto" $s.existingSecret "clave" $s.claves.gcpSaKey) | nindent 12 }}
+            {{- end }}
+            {{- with $cfg.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - { name: metricas, containerPort: 9465 }
+          readinessProbe:
+            httpGet: { path: /ready, port: 9465 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 9465 }
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict "soloLectura" true) | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- if eq $dns.proveedor "rfc2136" }}
+            - name: tsig
+              mountPath: /etc/nexo/tsig
+              readOnly: true
+            {{- end }}
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        {{- if eq $dns.proveedor "rfc2136" }}
+        - name: tsig
+          secret:
+            secretName: {{ $s.existingSecret }}
+            items:
+              - key: {{ $s.claves.tsig }}
+                path: {{ $s.claves.tsig }}
+        {{- end }}
+{{- end }}

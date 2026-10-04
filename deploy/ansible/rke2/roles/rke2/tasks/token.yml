@@ -1,0 +1,24 @@
+---
+- name: Usar el token del inventario
+  ansible.builtin.set_fact:
+    rke2_token_efectivo: "{{ rke2_token }}"
+  no_log: true
+  when: rke2_token | length > 0
+
+- name: Leer el token generado por el primer servidor
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/rke2/server/node-token
+  delegate_to: "{{ rke2_primer_servidor }}"
+  register: rke2_token_primero
+  no_log: true
+  when:
+    - rke2_token | length == 0
+    - not rke2_es_primero
+
+- name: Usar el token del primer servidor
+  ansible.builtin.set_fact:
+    rke2_token_efectivo: "{{ rke2_token_primero.content | b64decode | trim }}"
+  no_log: true
+  when:
+    - rke2_token | length == 0
+    - not rke2_es_primero

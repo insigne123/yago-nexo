@@ -1,0 +1,48 @@
+---
+# Yago Nexo · instalación de RKE2 en el CPD y de la plataforma Nexo.
+#
+#   ansible-playbook -i inventario/<sitio>/hosts.yml site.yml --ask-vault-pass
+#
+# Cada jugada se puede repetir sin efectos nuevos: solo cambia lo que no está como se declaró.
+# Etiquetas: preparar, rke2, helm, plataforma.
+
+- name: Preparar los hosts (sistema operativo, kernel, hora, firewall y discos)
+  hosts: rke2_cluster
+  become: true
+  gather_facts: true
+  tags: [preparar]
+  roles:
+    - role: preparar_host
+
+- name: Instalar los servidores RKE2 (plano de control y etcd), de a uno
+  hosts: rke2_servidores
+  become: true
+  gather_facts: true
+  serial: 1
+  tags: [rke2]
+  roles:
+    - role: rke2
+      vars:
+        rke2_tipo: server
+
+- name: Instalar los agentes RKE2 (nodos de trabajo)
+  hosts: rke2_agentes
+  become: true
+  gather_facts: true
+  serial: "30%"
+  tags: [rke2]
+  roles:
+    - role: rke2
+      vars:
+        rke2_tipo: agent
+
+- name: Instalar Helm y la plataforma Nexo desde el primer servidor
+  hosts: rke2_servidores[0]
+  become: true
+  gather_facts: true
+  tags: [helm, plataforma]
+  roles:
+    - role: helm
+      tags: [helm]
+    - role: nexo_plataforma
+      tags: [plataforma]

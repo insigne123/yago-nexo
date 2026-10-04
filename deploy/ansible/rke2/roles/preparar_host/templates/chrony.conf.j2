@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+# Yago Nexo: hora sincronizada en todos los nodos (certificados, etcd y registros).
+{% for servidor in preparar_host_ntp %}
+server {{ servidor }} iburst
+{% endfor %}
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+logdir /var/log/chrony

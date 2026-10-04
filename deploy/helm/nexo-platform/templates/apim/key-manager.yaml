@@ -1,0 +1,174 @@
+{{- /*
+Registro de Keycloak como Key Manager de API Manager. Igual que el arranque del laboratorio
+(tools/lab-bootstrap), pero como Job de Helm: después de cada instalación o actualización crea el Key Manager
+o lo actualiza si ya existe. El secreto del cliente técnico se lee de un Secret, nunca de los valores.
+*/ -}}
+{{- if and .Values.apim.controlPlane.enabled .Values.apim.keyManager.registrar }}
+{{- $km := .Values.apim.keyManager }}
+{{- $ctx := dict "ctx" $ "comp" "km-registro" "cfg" (dict) "rol" "tarea" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $kc := .Values.global.keycloak }}
+{{- $base := printf "%s/realms/%s" (trimSuffix "/" $kc.url) $kc.realm }}
+{{- $endpoints := dict
+      "client_registration_endpoint" (printf "%s/clients-registrations/openid-connect" $base)
+      "introspection_endpoint" (printf "%s/protocol/openid-connect/token/introspect" $base)
+      "token_endpoint" (printf "%s/protocol/openid-connect/token" $base)
+      "revoke_endpoint" (printf "%s/protocol/openid-connect/revoke" $base)
+      "userinfo_endpoint" (printf "%s/protocol/openid-connect/userinfo" $base)
+      "authorize_endpoint" (printf "%s/protocol/openid-connect/auth" $base)
+      "scope_management_endpoint" (printf "%s/admin/realms/%s/client-scopes" (trimSuffix "/" $kc.url) $kc.realm) }}
+{{- $lista := list }}
+{{- range $k := keys $endpoints | sortAlpha }}{{ $lista = append $lista (dict "name" $k "value" (get $endpoints $k)) }}{{ end }}
+{{- $adicionales := merge (dict "client_id" $km.clientId "self_validate_jwt" true) $endpoints }}
+{{- $cuerpo := dict
+      "name" $km.nombre
+      "displayName" $km.nombreVisible
+      "type" "KeyCloak"
+      "description" "Keycloak de la institución como Key Manager de Nexo"
+      "enabled" true
+      "wellKnownEndpoint" (printf "%s/.well-known/openid-configuration" $base)
+      "issuer" $base
+      "clientRegistrationEndpoint" (get $endpoints "client_registration_endpoint")
+      "introspectionEndpoint" (get $endpoints "introspection_endpoint")
+      "tokenEndpoint" (get $endpoints "token_endpoint")
+      "revokeEndpoint" (get $endpoints "revoke_endpoint")
+      "userInfoEndpoint" (get $endpoints "userinfo_endpoint")
+      "authorizeEndpoint" (get $endpoints "authorize_endpoint")
+      "scopeManagementEndpoint" (get $endpoints "scope_management_endpoint")
+      "endpoints" $lista
+      "certificates" (dict "type" "JWKS" "value" (printf "%s/protocol/openid-connect/certs" $base))
+      "availableGrantTypes" $km.tiposConcesion
+      "consumerKeyClaim" $km.claimConsumidor
+      "scopesClaim" $km.claimScopes
+      "enableTokenGeneration" true
+      "enableTokenEncryption" false
+      "enableTokenHashing" false
+      "enableMapOAuthConsumerApps" true
+      "enableOAuthAppCreation" true
+      "enableSelfValidationJWT" true
+      "tokenValidation" (list)
+      "additionalProperties" $adicionales }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+data:
+  key-manager.json: |
+    {{- toPrettyJson $cuerpo | nindent 4 }}
+  registrar-key-manager.mjs: |
+    // Crea o actualiza el Key Manager en la Admin REST API v4 de API Manager. Idempotente.
+    import { readFileSync } from "node:fs";
+
+    const base = process.env.NEXO_WSO2_URL;
+    const auth = "Basic " + Buffer.from(`${process.env.NEXO_WSO2_USER}:${process.env.APIM_ADMIN_PASSWORD}`).toString("base64");
+    const esperaMs = Number(process.env.NEXO_ESPERA_SEGUNDOS ?? "1500") * 1000;
+    const cuerpo = JSON.parse(readFileSync("/config/key-manager.json", "utf8"));
+    cuerpo.additionalProperties.client_secret = process.env.KEYCLOAK_KM_CLIENT_SECRET;
+    const log = (msg, extra = {}) => console.log(JSON.stringify({ ts: new Date().toISOString(), msg, ...extra }));
+
+    async function api(method, path, body) {
+      const res = await fetch(`${base}/api/am/admin/v4${path}`, {
+        method,
+        headers: { authorization: auth, accept: "application/json", ...(body ? { "content-type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(20_000),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`${method} ${path}: ${res.status} ${text.slice(0, 300)}`);
+      return text ? JSON.parse(text) : {};
+    }
+
+    const limite = Date.now() + esperaMs;
+    let lista;
+    for (;;) {
+      try {
+        lista = await api("GET", "/key-managers");
+        break;
+      } catch (e) {
+        if (Date.now() > limite) throw e;
+        log("esperando al Control Plane", { error: e instanceof Error ? e.message : String(e) });
+        await new Promise((r) => setTimeout(r, 10_000));
+      }
+    }
+    const existente = (lista.list ?? []).find((k) => k.name === cuerpo.name);
+    if (existente) {
+      await api("PUT", `/key-managers/${existente.id}`, { ...cuerpo, id: existente.id });
+      log("Key Manager actualizado", { nombre: cuerpo.name });
+    } else {
+      await api("POST", "/key-managers", cuerpo);
+      log("Key Manager creado", { nombre: cuerpo.name });
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    # El Job queda un día para revisar su registro; se reemplaza en la siguiente instalación.
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: {{ add $km.esperaSegundos 300 }}
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      annotations:
+        checksum/config: {{ toJson $cuerpo | sha256sum }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ $nombre }}
+      automountServiceAccountToken: false
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 1000) | nindent 8 }}
+      containers:
+        - name: registrar
+          image: {{ include "nexo.imagen" (dict "ctx" $ "img" .Values.motores.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["node", "/config/registrar-key-manager.mjs"]
+          env:
+            - { name: NEXO_WSO2_URL, value: "https://{{ include "nexo.dns" (dict "ctx" $ "comp" "apim-cp") }}:9443" }
+            - { name: NEXO_WSO2_USER, value: {{ .Values.apim.usuarioAdmin | quote }} }
+            - { name: NEXO_ESPERA_SEGUNDOS, value: {{ $km.esperaSegundos | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "APIM_ADMIN_PASSWORD" "secreto" .Values.secretos.apim.existingSecret "clave" .Values.secretos.apim.claves.adminPassword) | nindent 12 }}
+            {{- include "nexo.envSecreto" (dict "nombre" "KEYCLOAK_KM_CLIENT_SECRET" "secreto" .Values.secretos.keycloakKm.existingSecret "clave" .Values.secretos.keycloakKm.claves.clientSecret) | nindent 12 }}
+            {{- if .Values.global.tlsInterno.inseguro }}
+            # Solo con los almacenes de llaves de ejemplo (dev y qa).
+            - { name: NODE_TLS_REJECT_UNAUTHORIZED, value: "0" }
+            {{- end }}
+            {{- if .Values.global.tlsInterno.caSecret }}
+            - { name: NODE_EXTRA_CA_CERTS, value: "/etc/nexo/ca/{{ .Values.global.tlsInterno.caClave }}" }
+            {{- end }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict "soloLectura" true) | nindent 12 }}
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+          volumeMounts:
+            - { name: config, mountPath: /config, readOnly: true }
+            {{- include "nexo.incluir" (dict "plantilla" "nexo.tls.montaje" "datos" . "indent" 12) }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $nombre }}
+        {{- include "nexo.incluir" (dict "plantilla" "nexo.tls.volumen" "datos" . "indent" 8) }}
+{{- end }}

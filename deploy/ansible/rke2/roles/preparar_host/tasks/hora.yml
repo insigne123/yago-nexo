@@ -1,0 +1,31 @@
+---
+- name: Configurar los servidores de hora
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: preparar_host_ntp | length > 0
+  notify: Reiniciar chrony
+
+- name: Activar chrony
+  ansible.builtin.service:
+    name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+    enabled: true
+    state: started
+
+- name: Aplicar la configuración de hora antes de seguir
+  ansible.builtin.meta: flush_handlers
+
+- name: Revisar la sincronización de la hora
+  ansible.builtin.command: chronyc -n tracking
+  register: preparar_host_chrony
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Avisar si la hora no está sincronizada
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: chrony todavía no está sincronizado. Revise {{ preparar_host_ntp }}."
+  when: preparar_host_chrony.rc != 0 or 'Normal' not in preparar_host_chrony.stdout

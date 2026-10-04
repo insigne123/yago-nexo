@@ -1,0 +1,197 @@
+{{- /*
+WSO2 API Control Plane 4.7.0: Publisher, Developer Portal, Admin, Key Manager residente y centro de eventos.
+StatefulSet para que cada nodo tenga un nombre DNS estable: los gateways y el Traffic Manager se suscriben al
+centro de eventos de cada nodo, y los nodos se replican los eventos entre sí.
+*/ -}}
+{{- if .Values.apim.controlPlane.enabled }}
+{{- $cfg := .Values.apim.controlPlane }}
+{{- $ctx := dict "ctx" $ "comp" "apim-cp" "cfg" $cfg "rol" "control-plane" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $imagen := include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
+{{- $seg := printf "%s/repository/resources/security" "/home/wso2carbon/wso2-config-volume" }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+  {{- include "nexo.incluir" (dict "plantilla" "nexo.anotacionesServicioHttps" "datos" (dict "ctx" $ "puertos" (list "https") "sticky" true "backendConfig" (ternary $nombre "" (eq $.Values.global.ingress.proveedor "gce")) "extra" $cfg.service.annotations) "indent" 2) }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: https, port: 9443, targetPort: https }
+    - { name: http, port: 9763, targetPort: http }
+    - { name: eventos, port: 5672, targetPort: eventos }
+    - { name: binario, port: 9611, targetPort: binario }
+    - { name: binario-tls, port: 9711, targetPort: binario-tls }
+    {{- if .Values.apim.metricasJmx.enabled }}
+    - { name: metricas, port: 9404, targetPort: metricas }
+    {{- end }}
+---
+# Servicio sin IP (headless): un nombre DNS por nodo, publicado aunque el nodo todavía no esté listo.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}-pares
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: https, port: 9443, targetPort: https }
+    - { name: eventos, port: 5672, targetPort: eventos }
+    - { name: binario, port: 9611, targetPort: binario }
+    - { name: binario-tls, port: 9711, targetPort: binario-tls }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  serviceName: {{ $nombre }}-pares
+  replicas: {{ $cfg.replicas }}
+  # Un nodo a la vez: el primero aplica el esquema de la base y queda listo antes de que arranque el segundo.
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      annotations:
+        checksum/config: {{ include "nexo.toml.cp" . | sha256sum }}
+        {{- with $cfg.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "nexo.podComun" $ctx | nindent 6 }}
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 802) | nindent 8 }}
+      initContainers:
+        {{- if $cfg.esquemaBd.aplicar }}
+        {{- $pg := .Values.global.dependencias.postgresql }}
+        - name: esquema-bd
+          image: {{ include "nexo.imagen" (dict "ctx" $ "img" $cfg.esquemaBd.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/bin/sh", "/scripts/aplicar-esquema.sh"]
+          env:
+            - { name: PGHOST, value: {{ include "nexo.pg.host" . | quote }} }
+            - { name: PGPORT, value: {{ $pg.puerto | quote }} }
+            - { name: PGUSER, value: {{ $pg.usuarios.apim | quote }} }
+            - { name: PGSSLMODE, value: {{ get (dict "deshabilitado" "disable" "requerido" "require" "verificado" "verify-full") $pg.ssl | quote }} }
+            {{- if and (eq $pg.ssl "verificado") .Values.global.tlsInterno.caSecret }}
+            - { name: PGSSLROOTCERT, value: "/etc/nexo/ca/{{ .Values.global.tlsInterno.caClave }}" }
+            {{- end }}
+            - { name: BD_APIM, value: {{ $pg.bases.apim | quote }} }
+            - { name: BD_COMPARTIDA, value: {{ $pg.bases.compartida | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "APIM_DB_PASSWORD" "secreto" .Values.secretos.apimBd.existingSecret "clave" .Values.secretos.apimBd.claves.password) | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict "soloLectura" true) | nindent 12 }}
+            # Usuario "postgres" de la imagen (psql necesita un usuario conocido).
+            runAsUser: 70
+            runAsGroup: 70
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          volumeMounts:
+            - { name: scripts, mountPath: /scripts, readOnly: true }
+            {{- include "nexo.incluir" (dict "plantilla" "nexo.tls.montaje" "datos" . "indent" 12) }}
+        {{- end }}
+        {{- include "nexo.apim.initConfig" (merge (dict "imagen" $imagen) $ctx) | nindent 8 }}
+      containers:
+        - name: apim-cp
+          image: {{ $imagen }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            {{- include "nexo.apim.env" (dict "ctx" $ "bd" true) | nindent 12 }}
+            - name: JVM_MEM_OPTS
+              value: {{ include "nexo.jvm" (dict "ctx" $ "cfg" $cfg "jmx" true) | quote }}
+          ports:
+            - { name: https, containerPort: 9443 }
+            - { name: http, containerPort: 9763 }
+            - { name: eventos, containerPort: 5672 }
+            - { name: binario, containerPort: 9611 }
+            - { name: binario-tls, containerPort: 9711 }
+            {{- if .Values.apim.metricasJmx.enabled }}
+            - { name: metricas, containerPort: 9404 }
+            {{- end }}
+          {{- include "nexo.sondasWso2" (dict "cfg" $cfg) | nindent 10 }}
+          {{- include "nexo.preStop" (dict "segundos" 15) | nindent 10 }}
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict) | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml
+              subPath: deployment.toml
+            {{- if .Values.apim.registros.enabled }}
+            - name: registros
+              mountPath: {{ $cfg.directorio }}/repository/logs
+            {{- end }}
+            {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.montajesSeguridad" "datos" (dict "ctx" $ "base" $seg) "indent" 12) }}
+        {{- if .Values.apim.registros.enabled }}
+        {{- include "nexo.apim.sidecarRegistros" (dict "ctx" $ "rol" "cp") | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: plantilla
+          configMap:
+            name: {{ $nombre }}
+        - name: scripts
+          configMap:
+            name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "apim-scripts") }}
+        - name: config
+          emptyDir: {}
+        {{- if .Values.apim.registros.enabled }}
+        {{- include "nexo.apim.volumenesRegistros" (dict "ctx" $ "rol" "cp") | nindent 8 }}
+        {{- end }}
+        {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.volumenesSeguridad" "datos" (dict "ctx" $) "indent" 8) }}
+{{- if and .Values.global.ingress.enabled $cfg.ingress.enabled }}
+{{- $hosts := concat (list (default $cfg.hostname $cfg.ingress.host)) (default (list) $cfg.ingress.hostsExtra) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+  {{- include "nexo.incluir" (dict "plantilla" "nexo.ingressAnotaciones" "datos" (dict "ctx" $ "extra" $cfg.ingress.annotations) "indent" 2) }}
+spec:
+  {{- with .Values.global.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- include "nexo.incluir" (dict "plantilla" "nexo.ingressTls" "datos" (dict "ctx" $ "hosts" $hosts "secret" $cfg.ingress.tlsSecret) "indent" 2) }}
+  rules:
+    {{- range $host := $hosts }}
+    - host: {{ $host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $nombre }}
+                port:
+                  name: https
+    {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,367 @@
+{{- /*
+Políticas de red: todo el espacio de nombres queda denegado por omisión (entrada y salida) y cada componente
+abre solo los flujos que necesita. Orígenes del Ingress, de Prometheus y del DNS: global.networkPolicies.
+Dependencias externas (PostgreSQL, RabbitMQ, OpenSearch, Keycloak...): global.dependencias.<dep>.red.
+*/ -}}
+{{- if .Values.global.networkPolicies.enabled }}
+{{- $np := .Values.global.networkPolicies }}
+{{- $d := .Values.global.dependencias }}
+{{- $pgPuerto := list (int $d.postgresql.puerto) }}
+{{- $kc := dict "red" $d.keycloak.red "puertos" (list (int $d.keycloak.puerto)) }}
+{{- $otel := dict "red" $d.otel.red "puertos" (list (int $d.otel.puerto)) }}
+{{- $os := dict "red" $d.opensearch.red "puertos" (list (int $d.opensearch.puerto)) }}
+{{- $pgRed := $d.postgresql.red }}
+{{- if and .Values.postgresql.cloudnativepg.enabled (not $pgRed) }}
+{{- $pgRed = list (dict "podSelector" (dict "matchLabels" (dict "cnpg.io/cluster" (include "nexo.nombre" (dict "ctx" $ "comp" "bd"))))) }}
+{{- end }}
+{{- $pg := dict "red" $pgRed "puertos" $pgPuerto }}
+# Todo denegado por omisión en el espacio de nombres.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "red-denegar-todo") }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" "red-denegar-todo") | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# Resolución de nombres para todos los pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "red-dns") }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" "red-dns") | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        {{- toYaml $np.dns | nindent 8 }}
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+
+{{- /* ------------------------------------------------------------------ Control Plane */}}
+{{- if .Values.apim.controlPlane.enabled }}
+{{- $c := dict "ctx" $ "comp" "apim-cp" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    # Portales y REST API por el Ingress.
+    - from:
+        {{- toYaml $np.ingreso | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443)) | nindent 6 }}
+    # Key Manager, REST API y centro de eventos para los demás componentes.
+    - from:
+        {{- include "nexo.np.gateways" $c | nindent 8 }}
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-tm") | nindent 8 }}
+        {{- include "nexo.np.comp" $c | nindent 8 }}
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "console-api") | nindent 8 }}
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "motores") | nindent 8 }}
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "km-registro") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443)) | nindent 6 }}
+    - from:
+        {{- include "nexo.np.gateways" $c | nindent 8 }}
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-tm") | nindent 8 }}
+        {{- include "nexo.np.comp" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 5672)) | nindent 6 }}
+    # Eventos entre nodos del Control Plane.
+    - from:
+        {{- include "nexo.np.comp" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9611 9711)) | nindent 6 }}
+    - from:
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9404 2020)) | nindent 6 }}
+  egress:
+    {{- include "nexo.np.salidaDep" $pg | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $kc | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $otel | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $os | nindent 4 }}
+    - to:
+        {{- include "nexo.np.comp" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443 5672 9611 9711)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.gateways" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443)) | nindent 6 }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ Traffic Manager */}}
+{{- if .Values.apim.trafficManager.enabled }}
+{{- $c := dict "ctx" $ "comp" "apim-tm" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    - from:
+        {{- include "nexo.np.gateways" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443 5672 9611 9711)) | nindent 6 }}
+    - from:
+        {{- include "nexo.np.comp" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443 5672 9611 9711)) | nindent 6 }}
+    - from:
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9404)) | nindent 6 }}
+  egress:
+    {{- include "nexo.np.salidaDep" $pg | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $otel | nindent 4 }}
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-cp") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443 5672)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.comp" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443 5672 9611 9711)) | nindent 6 }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ Gateways (uno por audiencia) */}}
+{{- range $clave := splitList "," (include "nexo.gateways" .) }}
+{{- if $clave }}
+{{- $gw := fromYaml (include "nexo.gatewayCfg" (dict "ctx" $ "clave" $clave)) }}
+{{- $c := dict "ctx" $ "comp" (printf "gw-%s" $clave) }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    # Llamadas de los consumidores por el Ingress (HTTPS y WebSocket seguro).
+    - from:
+        {{- toYaml $np.ingreso | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (ternary (list 8243 8099 9443) (list 8243 8099) (eq $.Values.global.ingress.proveedor "gce"))) | nindent 6 }}
+    - from:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-cp") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443)) | nindent 6 }}
+    # Sondas TLS de la Consola y descubrimiento de los motores.
+    - from:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "console-api") | nindent 8 }}
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "motores") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 8243 8280)) | nindent 6 }}
+    - from:
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9404 2020 2021)) | nindent 6 }}
+  egress:
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-cp") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443 5672)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-tm") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443 5672 9611 9711)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "mi") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 8290 8253)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "division") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 10000)) | nindent 6 }}
+    {{- include "nexo.np.salidaDep" $kc | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $otel | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $os | nindent 4 }}
+    # Sistemas de destino (backends) de esta audiencia.
+    {{- with $gw.egresoBackends }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ Micro Integrator */}}
+{{- if .Values.mi.enabled }}
+{{- $c := dict "ctx" $ "comp" "mi" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    - from:
+        {{- include "nexo.np.gateways" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 8290 8253)) | nindent 6 }}
+    - from:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "console-api") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9164)) | nindent 6 }}
+    - from:
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9201)) | nindent 6 }}
+  egress:
+    {{- include "nexo.np.salidaDep" $pg | nindent 4 }}
+    {{- include "nexo.np.salidaDep" (dict "red" $d.rabbitmq.red "puertos" (list (int $d.rabbitmq.puerto))) | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $otel | nindent 4 }}
+    {{- with .Values.mi.egresoBackends }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ nexo-division */}}
+{{- if .Values.division.enabled }}
+{{- $c := dict "ctx" $ "comp" "division" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    - from:
+        {{- include "nexo.np.gateways" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 10000)) | nindent 6 }}
+    - from:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "motores") | nindent 8 }}
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9902)) | nindent 6 }}
+  egress:
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "motores") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9466)) | nindent 6 }}
+    {{- with .Values.division.egresoBackends }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ Consola */}}
+{{- if .Values.consola.api.enabled }}
+{{- $c := dict "ctx" $ "comp" "console-api" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    - from:
+        {{- toYaml $np.ingreso | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 8090)) | nindent 6 }}
+    - from:
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 8090)) | nindent 6 }}
+  egress:
+    {{- include "nexo.np.salidaDep" $pg | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $kc | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $os | nindent 4 }}
+    {{- include "nexo.np.salidaDep" (dict "red" $d.prometheus.red "puertos" (list 9090)) | nindent 4 }}
+    {{- include "nexo.np.salidaDep" (dict "red" $d.rabbitmq.red "puertos" (list (int $d.rabbitmq.puertoAdmin))) | nindent 4 }}
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-cp") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "mi") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9164 8253)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.gateways" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 8243)) | nindent 6 }}
+{{- end }}
+{{- if .Values.consola.web.enabled }}
+{{- $c := dict "ctx" $ "comp" "console-web" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    - from:
+        {{- toYaml $np.ingreso | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 8080)) | nindent 6 }}
+  # Sin salidas: el navegador habla con la API y con Keycloak, no el servidor web.
+  egress: []
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ Motores */}}
+{{- if .Values.motores.enabled }}
+{{- $c := dict "ctx" $ "comp" "motores" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    - from:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "division") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9466)) | nindent 6 }}
+    - from:
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9465)) | nindent 6 }}
+  egress:
+    {{- include "nexo.np.salidaDep" $pg | nindent 4 }}
+    {{- include "nexo.np.salidaDep" $os | nindent 4 }}
+    {{- include "nexo.np.salidaDep" (dict "red" $d.alertmanager.red "puertos" (list 9093)) | nindent 4 }}
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-cp") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "division") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 10000 9902)) | nindent 6 }}
+    - to:
+        {{- include "nexo.np.gateways" $c | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 8243 8280)) | nindent 6 }}
+    # SIEM, objetivos del descubrimiento y plataformas existentes.
+    {{- with .Values.motores.egresoExtra }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ Agente de continuidad */}}
+{{- if .Values.continuidad.enabled }}
+{{- $c := dict "ctx" $ "comp" "continuidad" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress:
+    - from:
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9465)) | nindent 6 }}
+  egress:
+    {{- include "nexo.np.salidaDep" $pg | nindent 4 }}
+    {{- if .Values.continuidad.egreso }}
+    {{- toYaml .Values.continuidad.egreso | nindent 4 }}
+    {{- else }}
+    # Sin reglas propias: el agente llega al quórum, a las bases de ambos sitios, al DNS y a las URLs de salud
+    # del otro sitio. Acote con continuidad.egreso.
+    - {}
+    {{- end }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ Registro del Key Manager */}}
+{{- if and .Values.apim.controlPlane.enabled .Values.apim.keyManager.registrar }}
+{{- $c := dict "ctx" $ "comp" "km-registro" }}
+---
+{{ include "nexo.np.encabezado" $c }}
+  ingress: []
+  egress:
+    - to:
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" "apim-cp") | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9443)) | nindent 6 }}
+{{- end }}
+
+{{- /* ------------------------------------------------------------------ CloudNativePG */}}
+{{- $cnpg := .Values.postgresql.cloudnativepg }}
+{{- if $cnpg.enabled }}
+{{- $bd := include "nexo.nombre" (dict "ctx" $ "comp" "bd") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "red-bd") }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" "red-bd") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: {{ $bd }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- range $comp := list "apim-cp" "apim-tm" "mi" "console-api" "motores" "continuidad" }}
+        {{- include "nexo.np.comp" (dict "ctx" $ "comp" $comp) | nindent 8 }}
+        {{- end }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 5432)) | nindent 6 }}
+    # Replicación entre instancias y estado del gestor de instancias (operador).
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: {{ $bd }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $cnpg.operadorNamespace }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 5432 8000)) | nindent 6 }}
+    - from:
+        {{- toYaml $np.monitoreo | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 9187)) | nindent 6 }}
+    {{- with $cnpg.red.ingresoExtra }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: {{ $bd }}
+      {{- include "nexo.np.puertos" (dict "puertos" (list 5432 8000)) | nindent 6 }}
+    {{- with $np.apiServer }}
+    - to:
+        {{- toYaml . | nindent 8 }}
+      {{- include "nexo.np.puertos" (dict "puertos" $np.puertosApiServer) | nindent 6 }}
+    {{- end }}
+    {{- if $cnpg.replica.enabled }}
+    # Réplica: clona y sigue al primario del otro sitio.
+    {{- include "nexo.np.salidaDep" (dict "red" (list) "puertos" (list (int $cnpg.replica.origen.puerto))) | nindent 4 }}
+    {{- end }}
+    {{- with $cnpg.red.egresoExtra }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,27 @@
+Yago Nexo {{ .Chart.AppVersion }} · release {{ .Release.Name }} en {{ .Release.Namespace }} (ambiente {{ .Values.global.ambiente }}, sitio {{ .Values.global.sitio }})
+
+1. Estado de los pods (API Manager tarda varios minutos en quedar listo la primera vez):
+   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+2. Accesos:
+{{- if .Values.apim.controlPlane.enabled }}
+   Portales de API Manager:  https://{{ default .Values.apim.controlPlane.hostname .Values.apim.controlPlane.ingress.host }}/publisher  ·  /devportal  ·  /admin
+{{- end }}
+{{- range $clave := splitList "," (include "nexo.gateways" .) }}
+{{- if $clave }}
+{{- $gw := get $.Values.apim.gateways $clave }}
+   Gateway {{ $clave }}: {{ range $i, $a := $gw.ambientes }}{{ if $i }}, {{ end }}https://{{ $a.vhost }} ({{ $a.nombre }}){{ end }}
+{{- end }}
+{{- end }}
+{{- if or .Values.consola.api.enabled .Values.consola.web.enabled }}
+   Consola Nexo:             https://{{ .Values.consola.ingress.host }}
+{{- end }}
+
+3. Key Manager (Keycloak):
+{{- if and .Values.apim.controlPlane.enabled .Values.apim.keyManager.registrar }}
+   kubectl -n {{ .Release.Namespace }} logs job/{{ include "nexo.nombre" (dict "ctx" $ "comp" "km-registro") }}
+{{- else }}
+   No se registra en esta instalación (apim.keyManager.registrar=false).
+{{- end }}
+
+4. Verificación completa y vuelta atrás: guía "Instalación" del sitio de Nexo (docs/instalacion).

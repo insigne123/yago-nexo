@@ -1,0 +1,45 @@
+---
+- name: Buscar el binario de RKE2
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: [/usr/local/bin/rke2, /usr/bin/rke2]
+  register: rke2_binarios
+
+- name: Leer la versión instalada
+  ansible.builtin.command: "{{ (rke2_binarios.results | selectattr('stat.exists') | first).item }} --version"
+  register: rke2_version_instalada
+  changed_when: false
+  check_mode: false
+  when: rke2_binarios.results | selectattr('stat.exists') | list | length > 0
+
+- name: Decidir si hay que instalar
+  ansible.builtin.set_fact:
+    rke2_instalar: "{{ rke2_version_instalada.stdout is not defined or rke2_version not in rke2_version_instalada.stdout }}"
+
+- name: Crear la carpeta del instalador
+  ansible.builtin.file:
+    path: /usr/local/share/nexo
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Descargar el instalador de RKE2
+  ansible.builtin.get_url:
+    url: "{{ rke2_url_instalador }}"
+    dest: /usr/local/share/nexo/rke2-install.sh
+    owner: root
+    group: root
+    mode: "0700"
+  when: rke2_instalar | bool
+
+- name: Instalar RKE2 {{ rke2_version }}
+  ansible.builtin.command: /usr/local/share/nexo/rke2-install.sh
+  environment:
+    INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+    INSTALL_RKE2_TYPE: "{{ rke2_tipo }}"
+    INSTALL_RKE2_METHOD: "{{ rke2_metodo_instalacion }}"
+    INSTALL_RKE2_ARTIFACT_PATH: "{{ rke2_ruta_artefactos }}"
+  when: rke2_instalar | bool
+  changed_when: true
+  notify: Reiniciar RKE2

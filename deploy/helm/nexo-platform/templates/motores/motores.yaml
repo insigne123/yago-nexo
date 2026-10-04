@@ -1,0 +1,139 @@
+{{- /*
+Motores de Nexo: despliegues progresivos (y plano de control xDS de nexo-division), guardián de anomalías,
+descubrimiento y reenvío de la auditoría al SIEM. Variables iguales a las del laboratorio (deploy/compose:
+motores), con las direcciones del clúster y los valores de producción.
+*/ -}}
+{{- if .Values.motores.enabled }}
+{{- $cfg := .Values.motores }}
+{{- $ctx := dict "ctx" $ "comp" "motores" "cfg" $cfg "rol" "motores" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $pg := .Values.global.dependencias.postgresql }}
+{{- $os := .Values.global.dependencias.opensearch }}
+{{- $adminDivision := list }}
+{{- range $i := until (int .Values.division.replicas) }}
+{{- $adminDivision = append $adminDivision (printf "http://%s:9902" (include "nexo.dnsPar" (dict "ctx" $ "comp" "division" "i" $i))) }}
+{{- end }}
+{{- $gwDescubrimiento := list }}
+{{- range $clave := splitList "," (include "nexo.gateways" .) }}
+{{- if $clave }}
+{{- $svc := include "nexo.dns" (dict "ctx" $ "comp" (printf "gw-%s" $clave)) }}
+{{- $gwDescubrimiento = concat $gwDescubrimiento (list (printf "%s:8243" $svc) (printf "%s:8280" $svc)) }}
+{{- $gw := get $.Values.apim.gateways $clave }}
+{{- range $gw.ambientes }}{{ $gwDescubrimiento = append $gwDescubrimiento (printf "%s:443" .vhost) }}{{ end }}
+{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: metricas, port: 9465, targetPort: metricas }
+    - { name: xds, port: 9466, targetPort: xds }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  replicas: {{ $cfg.replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      {{- with $cfg.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "nexo.podComun" $ctx | nindent 6 }}
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 1000) | nindent 8 }}
+      containers:
+        - name: motores
+          image: {{ include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            {{- toYaml $cfg.lista | nindent 12 }}
+          env:
+            - { name: TZ, value: {{ .Values.global.zonaHoraria | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_DB_PASSWORD" "secreto" .Values.secretos.nexoBd.existingSecret "clave" .Values.secretos.nexoBd.claves.password) | nindent 12 }}
+            - name: NEXO_DATABASE_URL
+              value: {{ include "nexo.pg.url" (dict "ctx" $ "usuario" $pg.usuarios.nexo "variable" "NEXO_DB_PASSWORD" "base" $pg.bases.nexo) | quote }}
+            {{- include "nexo.pg.envNode" . | nindent 12 }}
+            - { name: NEXO_GUARDIAN_WINDOW_SEC, value: {{ $cfg.guardian.ventanaSegundos | quote }} }
+            - { name: NEXO_HORARIO_HABIL, value: {{ $cfg.guardian.horarioHabil | quote }} }
+            - { name: NEXO_ZONA_HORARIA, value: {{ .Values.global.zonaHoraria | quote }} }
+            - { name: NEXO_WSO2_URL, value: "https://{{ include "nexo.dns" (dict "ctx" $ "comp" "apim-cp") }}:9443" }
+            - { name: NEXO_WSO2_USER, value: {{ .Values.apim.usuarioAdmin | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_WSO2_PASSWORD" "secreto" .Values.secretos.apim.existingSecret "clave" .Values.secretos.apim.claves.adminPassword) | nindent 12 }}
+            {{- include "nexo.tls.envNode" . | nindent 12 }}
+            - { name: NEXO_OPENSEARCH_URL, value: "{{ ternary "https" "http" $os.tls }}://{{ $os.host }}:{{ $os.puerto }}" }
+            {{- if .Values.secretos.opensearch.existingSecret }}
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_OPENSEARCH_USER" "secreto" .Values.secretos.opensearch.existingSecret "clave" .Values.secretos.opensearch.claves.usuario) | nindent 12 }}
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_OPENSEARCH_PASSWORD" "secreto" .Values.secretos.opensearch.existingSecret "clave" .Values.secretos.opensearch.claves.password) | nindent 12 }}
+            {{- end }}
+            - { name: NEXO_ALERTMANAGER_URL, value: {{ .Values.global.dependencias.alertmanager.url | quote }} }
+            # División de tráfico: la URL que usan los gateways y la métrica de cada réplica de Envoy.
+            - { name: NEXO_DIVISION_ENV, value: {{ .Values.global.ambiente | quote }} }
+            - { name: NEXO_DIVISION_URL, value: "http://{{ include "nexo.dns" (dict "ctx" $ "comp" "division") }}:10000" }
+            - { name: NEXO_DIVISION_ADMIN_URLS, value: {{ join "," $adminDivision | quote }} }
+            - { name: {{ printf "NEXO_GATEWAYS_%s" (upper .Values.global.ambiente) }}, value: {{ include "nexo.ambientesGateway" . | quote }} }
+            - { name: NEXO_DISCOVERY_GATEWAYS, value: {{ join "," $gwDescubrimiento | quote }} }
+            {{- with $cfg.descubrimiento.objetivos }}
+            - { name: NEXO_DISCOVERY_TARGETS, value: {{ . | quote }} }
+            {{- end }}
+            {{- with $cfg.siem.destinos }}
+            - { name: NEXO_SIEM_DESTINOS, value: {{ . | quote }} }
+            {{- end }}
+            {{- if .Values.secretos.siem.existingSecret }}
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_SIEM_HTTP_TOKEN" "secreto" .Values.secretos.siem.existingSecret "clave" .Values.secretos.siem.claves.token) | nindent 12 }}
+            {{- end }}
+            {{- with $cfg.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - { name: metricas, containerPort: 9465 }
+            - { name: xds, containerPort: 9466 }
+          readinessProbe:
+            httpGet: { path: /ready, port: 9465 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 9465 }
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict "soloLectura" true) | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- include "nexo.incluir" (dict "plantilla" "nexo.tls.montaje" "datos" . "indent" 12) }}
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        {{- include "nexo.incluir" (dict "plantilla" "nexo.tls.volumen" "datos" . "indent" 8) }}
+{{- end }}

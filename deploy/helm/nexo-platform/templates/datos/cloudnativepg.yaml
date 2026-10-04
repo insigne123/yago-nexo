@@ -1,0 +1,112 @@
+{{- /*
+PostgreSQL con CloudNativePG (opcional, postgresql.cloudnativepg.enabled). Crea las bases de API Manager
+(apim_db y shared_db), de la Consola y los motores (nexo) y del integrador (mi_db), con sus dueños. Requiere el
+operador CloudNativePG 1.25 o superior. Los Secrets de las bases deben ser de tipo kubernetes.io/basic-auth
+(claves username y password).
+En modo réplica (sitio de respaldo) el clúster se clona desde el primario y queda en espera; las bases y los
+roles llegan por la replicación.
+*/ -}}
+{{- $cnpg := .Values.postgresql.cloudnativepg }}
+{{- if $cnpg.enabled }}
+{{- $ctx := dict "ctx" $ "comp" "bd" "rol" "base-de-datos" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $pg := .Values.global.dependencias.postgresql }}
+{{- $s := .Values.secretos }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  instances: {{ $cnpg.instancias }}
+  imageName: {{ $cnpg.imageName }}
+  primaryUpdateStrategy: unsupervised
+  enableSuperuserAccess: false
+  postgresql:
+    parameters:
+      {{- range $k, $v := $cnpg.parametros }}
+      {{ $k }}: {{ $v | quote }}
+      {{- end }}
+  storage:
+    size: {{ $cnpg.almacenamiento.tamano }}
+    {{- with (default $.Values.global.storageClass $cnpg.almacenamiento.storageClass) }}
+    storageClass: {{ . }}
+    {{- end }}
+  walStorage:
+    size: {{ $cnpg.almacenamientoWal.tamano }}
+    {{- with (default $.Values.global.storageClass $cnpg.almacenamientoWal.storageClass) }}
+    storageClass: {{ . }}
+    {{- end }}
+  resources:
+    {{- toYaml $cnpg.resources | nindent 4 }}
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: {{ ternary "required" "preferred" (eq .Values.global.antiAfinidad "requerida") }}
+  inheritedMetadata:
+    labels:
+      app.kubernetes.io/part-of: nexo-platform
+      nexo.yago.cl/rol: base-de-datos
+  {{- if $cnpg.replica.enabled }}
+  {{- $o := $cnpg.replica.origen }}
+  bootstrap:
+    pg_basebackup:
+      source: {{ $o.nombre }}
+  replica:
+    enabled: true
+    source: {{ $o.nombre }}
+  externalClusters:
+    - name: {{ $o.nombre }}
+      connectionParameters:
+        host: {{ required "postgresql.cloudnativepg.replica.origen.host es obligatorio" $o.host }}
+        port: {{ $o.puerto | quote }}
+        user: streaming_replica
+        dbname: postgres
+        sslmode: verify-full
+      sslKey:
+        name: {{ required "postgresql.cloudnativepg.replica.origen.certificadoSecret es obligatorio" $o.certificadoSecret }}
+        key: tls.key
+      sslCert:
+        name: {{ $o.certificadoSecret }}
+        key: tls.crt
+      sslRootCert:
+        name: {{ required "postgresql.cloudnativepg.replica.origen.caSecret es obligatorio" $o.caSecret }}
+        key: ca.crt
+  {{- else }}
+  bootstrap:
+    initdb:
+      database: {{ $pg.bases.nexo }}
+      owner: {{ $pg.usuarios.nexo }}
+      secret:
+        name: {{ $s.nexoBd.existingSecret }}
+  managed:
+    roles:
+      - name: {{ $pg.usuarios.apim }}
+        ensure: present
+        login: true
+        passwordSecret:
+          name: {{ $s.apimBd.existingSecret }}
+      - name: {{ $pg.usuarios.mi }}
+        ensure: present
+        login: true
+        passwordSecret:
+          name: {{ $s.miBd.existingSecret }}
+  {{- end }}
+{{- if not $cnpg.replica.enabled }}
+{{- range $id, $base := dict "apim" (list $pg.bases.apim $pg.usuarios.apim) "compartida" (list $pg.bases.compartida $pg.usuarios.apim) "mi" (list $pg.bases.mi $pg.usuarios.mi) }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ $nombre }}-{{ $id }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  name: {{ index $base 0 }}
+  owner: {{ index $base 1 }}
+  cluster:
+    name: {{ $nombre }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,45 @@
+---
+- name: Leer la versión de Helm instalada
+  ansible.builtin.command: /usr/local/bin/helm version --template "{{ '{{' }} .Version {{ '}}' }}"
+  register: helm_instalado
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Instalar Helm {{ helm_version }}
+  when: helm_instalado.rc != 0 or helm_instalado.stdout | trim != helm_version
+  block:
+    - name: Crear una carpeta temporal
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: helm
+      register: helm_tmp
+
+    - name: Descargar Helm y verificar su suma SHA-256
+      ansible.builtin.get_url:
+        url: "{{ helm_url_base }}/helm-{{ helm_version }}-{{ helm_arquitectura }}.tar.gz"
+        checksum: "sha256:{{ helm_url_base }}/helm-{{ helm_version }}-{{ helm_arquitectura }}.tar.gz.sha256sum"
+        dest: "{{ helm_tmp.path }}/helm.tar.gz"
+        mode: "0600"
+
+    - name: Desempaquetar Helm
+      ansible.builtin.unarchive:
+        src: "{{ helm_tmp.path }}/helm.tar.gz"
+        dest: "{{ helm_tmp.path }}"
+        remote_src: true
+
+    - name: Copiar el binario de Helm
+      ansible.builtin.copy:
+        src: "{{ helm_tmp.path }}/{{ helm_arquitectura }}/helm"
+        dest: /usr/local/bin/helm
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+  always:
+    - name: Borrar la carpeta temporal
+      ansible.builtin.file:
+        path: "{{ helm_tmp.path }}"
+        state: absent
+      when: helm_tmp.path is defined

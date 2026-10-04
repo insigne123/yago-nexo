@@ -1,0 +1,41 @@
+---
+# server (plano de control y etcd) | agent (nodo de trabajo). Lo fija cada jugada de site.yml.
+rke2_tipo: server
+# Versión fija de RKE2. Cambiarla en el inventario es una actualización del clúster (de a un nodo).
+rke2_version: v1.36.5+rke2r1
+rke2_url_instalador: https://get.rke2.io
+# tar (binarios en /usr/local) | rpm (RHEL y derivados, con la política SELinux de RKE2)
+rke2_metodo_instalacion: tar
+# Instalación sin Internet: carpeta del nodo con rke2-images.linux-amd64.tar.zst, rke2.linux-amd64.tar.gz y
+# sha256sum-amd64.txt de la misma versión.
+rke2_ruta_artefactos: ""
+rke2_perfil_cis: false
+rke2_cni: canal
+rke2_ingress: traefik
+# Dirección para registrar nodos (VIP o DNS de los servidores). Por omisión, el primer servidor.
+rke2_direccion_registro: "{{ hostvars[groups['rke2_servidores'][0]]['ansible_host'] | default(groups['rke2_servidores'][0]) }}"
+rke2_tls_san: []
+# Token compartido (vault). Vacío = el primer servidor genera uno y los demás lo leen de él.
+rke2_token: ""
+# Registro del que RKE2 descarga sus propias imágenes (espejo sin Internet). Vacío = registros públicos.
+rke2_registro_sistema: ""
+# Contenido de /etc/rancher/rke2/registries.yaml (espejos y credenciales de registros). Vacío = no se escribe.
+rke2_registros: {}
+# Servidores solo para el plano de control (las cargas van a los agentes).
+rke2_servidores_sin_cargas: true
+rke2_etcd_respaldo_cron: "0 */6 * * *"
+rke2_etcd_respaldo_retencion: 28
+rke2_etiquetas_nodo: []
+# CPI y CSI de vSphere incluidos en RKE2 (volúmenes persistentes en datastores).
+rke2_vsphere:
+  habilitado: false
+  vcenter: ""
+  puerto: 443
+  datacenter: ""
+  datastore_url: ""
+  verificar_tls: true
+rke2_vsphere_usuario: ""
+rke2_vsphere_password: ""
+rke2_espera_nodo_segundos: 900
+rke2_kubeconfig: /etc/rancher/rke2/rke2.yaml
+rke2_kubectl: /var/lib/rancher/rke2/bin/kubectl

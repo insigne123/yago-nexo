@@ -1,0 +1,251 @@
+{{- /*
+WSO2 Micro Integrator 4.6.0 (Nexo Integrator): flujos de integración, colas RabbitMQ y reproceso. Misma
+configuración que deploy/compose/mi, con las direcciones y credenciales de cada ambiente. La imagen nexo/mi
+incluye los artefactos de integración (wso2/mi/artifacts).
+*/ -}}
+{{- if .Values.mi.enabled }}
+{{- $cfg := .Values.mi }}
+{{- $ctx := dict "ctx" $ "comp" "mi" "cfg" $cfg "rol" "integrador" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $ks := .Values.secretos.almacenLlaves }}
+{{- $pass := "wso2carbon" }}
+{{- if $ks.existingSecret }}{{ $pass = "$env{WSO2_KEYSTORE_PASSWORD}" }}{{ end }}
+{{- $mq := .Values.global.dependencias.rabbitmq }}
+{{- $pg := .Values.global.dependencias.postgresql }}
+{{- $toml := include "nexo.mi.toml" (dict "ctx" $ "pass" $pass "ks" $ks "mq" $mq "pg" $pg "nombre" $nombre) }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+data:
+  deployment.toml: |
+    {{- $toml | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+  {{- with $cfg.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: http, port: 8290, targetPort: http }
+    - { name: https, port: 8253, targetPort: https }
+    - { name: gestion, port: 9164, targetPort: gestion }
+    - { name: metricas, port: 9201, targetPort: metricas }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  {{- if not $cfg.hpa.enabled }}
+  replicas: {{ $cfg.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      annotations:
+        checksum/config: {{ $toml | sha256sum }}
+        {{- with $cfg.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "nexo.podComun" $ctx | nindent 6 }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 802) | nindent 8 }}
+      containers:
+        - name: mi
+          image: {{ include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            {{- include "nexo.envWso2" $ctx | nindent 12 }}
+            {{- include "nexo.envSecreto" (dict "nombre" "MI_ADMIN_PASSWORD" "secreto" .Values.secretos.mi.existingSecret "clave" .Values.secretos.mi.claves.adminPassword) | nindent 12 }}
+            {{- include "nexo.envSecreto" (dict "nombre" "MI_DB_PASSWORD" "secreto" .Values.secretos.miBd.existingSecret "clave" .Values.secretos.miBd.claves.password) | nindent 12 }}
+            {{- include "nexo.envSecreto" (dict "nombre" "RABBITMQ_PASSWORD" "secreto" .Values.secretos.rabbitmq.existingSecret "clave" .Values.secretos.rabbitmq.claves.password) | nindent 12 }}
+            {{- if $ks.existingSecret }}
+            {{- include "nexo.envSecreto" (dict "nombre" "WSO2_KEYSTORE_PASSWORD" "secreto" $ks.existingSecret "clave" $ks.claves.password) | nindent 12 }}
+            {{- end }}
+            - name: JVM_MEM_OPTS
+              value: {{ printf "%s -XX:+ExitOnOutOfMemoryError" $cfg.jvm | quote }}
+            # API de Prometheus del integrador (métricas en 9201).
+            - name: JAVA_OPTS
+              value: "-DenablePrometheusApi=true"
+            {{- with $cfg.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - { name: http, containerPort: 8290 }
+            - { name: https, containerPort: 8253 }
+            - { name: gestion, containerPort: 9164 }
+            - { name: metricas, containerPort: 9201 }
+          startupProbe:
+            tcpSocket:
+              port: 8253
+            periodSeconds: {{ $cfg.sondas.inicio.periodSeconds }}
+            failureThreshold: {{ $cfg.sondas.inicio.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 9201
+            periodSeconds: {{ $cfg.sondas.vida.periodSeconds }}
+            timeoutSeconds: {{ $cfg.sondas.vida.timeoutSeconds }}
+            failureThreshold: {{ $cfg.sondas.vida.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9201
+            periodSeconds: {{ $cfg.sondas.lista.periodSeconds }}
+            timeoutSeconds: {{ $cfg.sondas.lista.timeoutSeconds }}
+            failureThreshold: {{ $cfg.sondas.lista.failureThreshold }}
+          {{- include "nexo.preStop" (dict "segundos" 10) | nindent 10 }}
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict) | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /home/wso2carbon/wso2-config-volume/conf/deployment.toml
+              subPath: deployment.toml
+              readOnly: true
+            {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.montajesSeguridad" "datos" (dict "ctx" $ "base" "/home/wso2carbon/wso2-config-volume/repository/resources/security") "indent" 12) }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $nombre }}
+        {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.volumenesSeguridad" "datos" (dict "ctx" $) "indent" 8) }}
+{{- if $cfg.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $nombre }}
+  minReplicas: {{ $cfg.hpa.minReplicas }}
+  maxReplicas: {{ $cfg.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $cfg.hpa.cpu }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 60 }
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 300 }
+{{- end }}
+{{- end }}
+
+{{- define "nexo.mi.toml" -}}
+# Yago Nexo · WSO2 Micro Integrator 4.6.0. Generado por el chart nexo-platform; no editar en el pod.
+
+[server]
+hostname = {{ printf "%s.%s.svc" .nombre .ctx.Release.Namespace | quote }}
+
+[keystore.primary]
+file_name = "repository/resources/security/{{ .ks.archivos.keystore }}"
+password = {{ .pass | quote }}
+alias = {{ .ks.alias | quote }}
+key_password = {{ .pass | quote }}
+
+[truststore]
+file_name = "repository/resources/security/{{ .ks.archivos.truststore }}"
+password = {{ .pass | quote }}
+alias = "symmetric.key.value"
+algorithm = "AES"
+
+# Usuarios de la Management API (puerto 9164).
+[internal_apis.file_user_store]
+enable = true
+
+[[internal_apis.users]]
+user.name = "admin"
+user.password = "$env{MI_ADMIN_PASSWORD}"
+
+# Colas RabbitMQ.
+[transport.rabbitmq]
+sender_enable = true
+listener_enable = true
+{{- range $tipo := list "sender" "listener" }}
+
+[[transport.rabbitmq.{{ $tipo }}]]
+name = "AMQPConnectionFactory"
+parameter.hostname = {{ $.mq.host | quote }}
+parameter.port = {{ $.mq.puerto }}
+parameter.username = {{ $.mq.usuario | quote }}
+parameter.password = "$env{RABBITMQ_PASSWORD}"
+{{- end }}
+
+# Base de Nexo para idempotencia y estados de integración.
+[[datasource]]
+id = "NEXO_MI_DB"
+url = {{ include "nexo.pg.jdbc" (dict "ctx" .ctx "base" .pg.bases.mi) | quote }}
+username = {{ .pg.usuarios.mi | quote }}
+password = "$env{MI_DB_PASSWORD}"
+driver = "org.postgresql.Driver"
+pool_options.maxActive = {{ .ctx.Values.mi.poolBd }}
+pool_options.validationQuery = "SELECT 1"
+{{- if .ctx.Values.global.otel.enabled }}
+
+# Trazas OpenTelemetry.
+[opentelemetry]
+enable = true
+type = "otlp"
+url = {{ .ctx.Values.global.otel.endpoint | quote }}
+service_name = "nexo-integrator"
+{{- end }}
+
+[mediation]
+flow.statistics.enable = true
+flow.statistics.capture_all = true
+
+# Métricas Prometheus.
+[[synapse_handlers]]
+name = "CustomObservabilityHandler"
+class = "org.wso2.micro.integrator.observability.metric.handler.MetricHandler"
+
+[prometheus_api.basic_security_handler]
+enable = false
+{{- end -}}

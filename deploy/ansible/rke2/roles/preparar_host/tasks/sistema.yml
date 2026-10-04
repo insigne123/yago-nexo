@@ -1,0 +1,79 @@
+---
+- name: Verificar que el sistema operativo está admitido
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in preparar_host_so_admitidos
+      - (ansible_distribution_major_version | string) in preparar_host_so_admitidos[ansible_os_family]
+      - ansible_architecture == "x86_64"
+    fail_msg: >-
+      {{ ansible_distribution }} {{ ansible_distribution_version }} ({{ ansible_architecture }}) no está admitido.
+      Admitidos: {{ preparar_host_so_admitidos }} en x86_64.
+    quiet: true
+
+- name: Calcular los mínimos del grupo de este nodo
+  ansible.builtin.set_fact:
+    preparar_host_minimo: >-
+      {{ preparar_host_minimos[(group_names | intersect(preparar_host_minimos.keys()) | first)]
+         | default({'vcpu': 2, 'memoria_mb': 4000}) }}
+
+- name: Verificar CPU y memoria
+  ansible.builtin.assert:
+    that:
+      - ansible_processor_vcpus | int >= preparar_host_minimo.vcpu | int
+      - ansible_memtotal_mb | int >= preparar_host_minimo.memoria_mb | int
+    fail_msg: >-
+      {{ inventory_hostname }} tiene {{ ansible_processor_vcpus }} vCPU y {{ ansible_memtotal_mb }} MB;
+      el mínimo para su grupo es {{ preparar_host_minimo.vcpu }} vCPU y {{ preparar_host_minimo.memoria_mb }} MB.
+    quiet: true
+
+- name: Verificar que el nombre del nodo es válido para Kubernetes
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname is match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
+    fail_msg: "{{ inventory_hostname }}: use minúsculas, dígitos y guiones (nombre DNS de Kubernetes)."
+    quiet: true
+
+- name: Fijar el nombre del host
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Revisar si hay memoria de intercambio activa
+  ansible.builtin.command: swapon --noheadings --show=NAME
+  register: preparar_host_swap
+  changed_when: false
+  check_mode: false
+
+- name: Desactivar la memoria de intercambio (Kubernetes no la admite)
+  ansible.builtin.command: swapoff -a
+  when: preparar_host_swap.stdout | length > 0
+  changed_when: true
+
+- name: Comentar la memoria de intercambio en fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#\s][^\n]*\sswap\s[^\n]*)$'
+    replace: '# \1'
+
+- name: Leer los servicios del sistema
+  ansible.builtin.service_facts:
+
+- name: Desactivar nm-cloud-setup (interfiere con la red de RKE2)
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop: [nm-cloud-setup.timer, nm-cloud-setup.service]
+  when: "'nm-cloud-setup.service' in ansible_facts.services"
+
+- name: Dejar fuera de NetworkManager las interfaces de Canal
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/conf.d/rke2-canal.conf
+    content: |
+      # Yago Nexo: NetworkManager no administra las interfaces del CNI de RKE2.
+      [keyfile]
+      unmanaged-devices=interface-name:cali*;interface-name:flannel*
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_os_family == "RedHat"
+  notify: Recargar NetworkManager

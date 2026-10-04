@@ -1,0 +1,296 @@
+{{- /*
+Consola Nexo: API (puerto 8090) y web (NGINX, puerto 8080) detrás de un solo host: "/" sirve la web y "/api"
+la API. Variables iguales a las del laboratorio (deploy/compose: console-api), con las direcciones del clúster.
+*/ -}}
+{{- $kc := .Values.global.keycloak }}
+{{- $issuer := printf "%s/realms/%s" (trimSuffix "/" $kc.url) $kc.realm }}
+{{- $hostConsola := .Values.consola.ingress.host }}
+{{- if .Values.consola.api.enabled }}
+{{- $cfg := .Values.consola.api }}
+{{- $ctx := dict "ctx" $ "comp" "console-api" "cfg" $cfg "rol" "consola" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $pg := .Values.global.dependencias.postgresql }}
+{{- $os := .Values.global.dependencias.opensearch }}
+{{- $sondasTls := list }}
+{{- range $clave := splitList "," (include "nexo.gateways" .) }}
+{{- if $clave }}
+{{- $sondasTls = append $sondasTls (printf "Gateway %s|%s:8243|Consumidores de la audiencia %s" $clave (include "nexo.dns" (dict "ctx" $ "comp" (printf "gw-%s" $clave))) $clave) }}
+{{- end }}
+{{- end }}
+{{- if .Values.apim.controlPlane.enabled }}
+{{- $sondasTls = append $sondasTls (printf "Control plane|%s:9443|Portales y REST API" (include "nexo.dns" (dict "ctx" $ "comp" "apim-cp"))) }}
+{{- end }}
+{{- if .Values.mi.enabled }}
+{{- $sondasTls = append $sondasTls (printf "Integrador|%s:8253|Gateway hacia el integrador" (include "nexo.dns" (dict "ctx" $ "comp" "mi"))) }}
+{{- end }}
+{{- $cors := list }}
+{{- if $hostConsola }}{{ $cors = append $cors (printf "https://%s" $hostConsola) }}{{ end }}
+{{- $cors = concat $cors $cfg.corsOrigenes }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+  {{- if eq .Values.global.ingress.proveedor "gce" }}
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+    cloud.google.com/backend-config: '{"default": "{{ $nombre }}"}'
+  {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: http, port: 8090, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  replicas: {{ $cfg.replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      {{- with $cfg.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "nexo.podComun" $ctx | nindent 6 }}
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 1000) | nindent 8 }}
+      containers:
+        - name: console-api
+          image: {{ include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - { name: NEXO_PORT, value: "8090" }
+            - { name: NEXO_VERSION, value: {{ .Chart.AppVersion | quote }} }
+            - { name: NEXO_ENVIRONMENT_LABEL, value: {{ .Values.consola.etiquetaAmbiente | quote }} }
+            - { name: TZ, value: {{ .Values.global.zonaHoraria | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_DB_PASSWORD" "secreto" .Values.secretos.nexoBd.existingSecret "clave" .Values.secretos.nexoBd.claves.password) | nindent 12 }}
+            - name: NEXO_DATABASE_URL
+              value: {{ include "nexo.pg.url" (dict "ctx" $ "usuario" $pg.usuarios.nexo "variable" "NEXO_DB_PASSWORD" "base" $pg.bases.nexo) | quote }}
+            - { name: NEXO_DATABASE_POOL, value: {{ $cfg.poolBd | quote }} }
+            {{- include "nexo.pg.envNode" . | nindent 12 }}
+            - { name: NEXO_CORS_ORIGINS, value: {{ join "," $cors | quote }} }
+            - { name: NEXO_AUTH_JWKS_URL, value: {{ printf "%s/protocol/openid-connect/certs" $issuer | quote }} }
+            - { name: NEXO_AUTH_ISSUER, value: {{ $issuer | quote }} }
+            - { name: NEXO_AUTH_ROLES_CLAIM, value: {{ $kc.claimRoles | quote }} }
+            - { name: NEXO_WSO2_URL, value: "https://{{ include "nexo.dns" (dict "ctx" $ "comp" "apim-cp") }}:9443" }
+            - { name: NEXO_WSO2_USER, value: {{ .Values.apim.usuarioAdmin | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_WSO2_PASSWORD" "secreto" .Values.secretos.apim.existingSecret "clave" .Values.secretos.apim.claves.adminPassword) | nindent 12 }}
+            - { name: NEXO_WSO2_PROD_GATEWAYS, value: {{ include "nexo.ambientesGateway" . | quote }} }
+            {{- include "nexo.tls.envNode" . | nindent 12 }}
+            - { name: NEXO_MI_URL, value: "https://{{ include "nexo.dns" (dict "ctx" $ "comp" "mi") }}:9164" }
+            - { name: NEXO_MI_USER, value: "admin" }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_MI_PASSWORD" "secreto" .Values.secretos.mi.existingSecret "clave" .Values.secretos.mi.claves.adminPassword) | nindent 12 }}
+            - { name: NEXO_OPENSEARCH_URL, value: "{{ ternary "https" "http" $os.tls }}://{{ $os.host }}:{{ $os.puerto }}" }
+            - { name: NEXO_PROMETHEUS_URL, value: {{ .Values.global.dependencias.prometheus.url | quote }} }
+            - { name: NEXO_RABBITMQ_API, value: {{ .Values.global.dependencias.rabbitmq.urlAdmin | quote }} }
+            - { name: NEXO_RABBITMQ_USER, value: {{ .Values.global.dependencias.rabbitmq.usuario | quote }} }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_RABBITMQ_PASSWORD" "secreto" .Values.secretos.rabbitmq.existingSecret "clave" .Values.secretos.rabbitmq.claves.password) | nindent 12 }}
+            - { name: NEXO_EXPORT_DIR, value: /tmp/nexo-exports }
+            - { name: NEXO_TLS_PROBES, value: {{ join ";" $sondasTls | quote }} }
+            {{- with $cfg.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - { name: http, containerPort: 8090 }
+          startupProbe:
+            httpGet: { path: /api/v1/health, port: 8090 }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /api/v1/health, port: 8090 }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /api/v1/health, port: 8090 }
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict "soloLectura" true) | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- include "nexo.incluir" (dict "plantilla" "nexo.tls.montaje" "datos" . "indent" 12) }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi
+        {{- include "nexo.incluir" (dict "plantilla" "nexo.tls.volumen" "datos" . "indent" 8) }}
+{{- end }}
+{{- if .Values.consola.web.enabled }}
+{{- $cfg := .Values.consola.web }}
+{{- $ctx := dict "ctx" $ "comp" "console-web" "cfg" $cfg "rol" "consola" }}
+{{- $nombre := include "nexo.nombre" $ctx }}
+{{- $kcOrigen := trimSuffix "/" $kc.url }}
+{{- $configWeb := dict
+      "apiBaseUrl" "/api/v1"
+      "environmentLabel" .Values.consola.etiquetaAmbiente
+      "version" .Chart.AppVersion
+      "auth" (dict "provider" "oidc" "oidc" (dict "authority" $issuer "clientId" $kc.clienteConsola "rolesClaimPath" $kc.claimRoles))
+      "demoBanner" false }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+data:
+  config.json: |
+    {{- toPrettyJson $configWeb | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+  {{- if eq .Values.global.ingress.proveedor "gce" }}
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+    cloud.google.com/backend-config: '{"default": "{{ $nombre }}"}'
+  {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "nexo.selector" $ctx | nindent 4 }}
+  ports:
+    - { name: http, port: 8080, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $nombre }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+spec:
+  replicas: {{ $cfg.replicas }}
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" $ctx | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexo.etiquetas" $ctx | nindent 8 }}
+      annotations:
+        checksum/config: {{ toJson $configWeb | sha256sum }}
+        {{- with $cfg.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "nexo.podComun" $ctx | nindent 6 }}
+      # NGINX corre sin privilegios (usuario nginx, 101); las carpetas que escribe son volúmenes temporales.
+      securityContext:
+        {{- include "nexo.podSeguridad" (dict "uid" 101) | nindent 8 }}
+      containers:
+        - name: console-web
+          image: {{ include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: NEXO_CSP_CONNECT_SRC
+              value: {{ join " " (concat (list "'self'" $kcOrigen) $cfg.cspConnectExtra) | quote }}
+            - name: NEXO_CSP_FRAME_SRC
+              value: {{ printf "'self' %s" $kcOrigen | quote }}
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 20
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          securityContext:
+            {{- include "nexo.contenedorSeguridad" (dict "soloLectura" true) | nindent 12 }}
+          volumeMounts:
+            - { name: config, mountPath: /etc/nexo, readOnly: true }
+            - { name: nginx-conf, mountPath: /etc/nginx/conf.d }
+            - { name: nginx-cache, mountPath: /var/cache/nginx }
+            - { name: nginx-run, mountPath: /run }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $nombre }}
+        - { name: nginx-conf, emptyDir: {} }
+        - { name: nginx-cache, emptyDir: {} }
+        - { name: nginx-run, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
+{{- end }}
+{{- if and .Values.global.ingress.enabled .Values.consola.ingress.enabled (or .Values.consola.api.enabled .Values.consola.web.enabled) }}
+{{- $ctx := dict "ctx" $ "comp" "consola" "rol" "consola" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "nexo.nombre" $ctx }}
+  labels:
+    {{- include "nexo.etiquetas" $ctx | nindent 4 }}
+  {{- include "nexo.incluir" (dict "plantilla" "nexo.ingressAnotaciones" "datos" (dict "ctx" $ "extra" .Values.consola.ingress.annotations) "indent" 2) }}
+spec:
+  {{- with .Values.global.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- include "nexo.incluir" (dict "plantilla" "nexo.ingressTls" "datos" (dict "ctx" $ "hosts" (list $hostConsola) "secret" .Values.consola.ingress.tlsSecret) "indent" 2) }}
+  rules:
+    - host: {{ required "consola.ingress.host es obligatorio" $hostConsola }}
+      http:
+        paths:
+          {{- if .Values.consola.api.enabled }}
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "console-api") }}
+                port:
+                  name: http
+          {{- end }}
+          {{- if .Values.consola.web.enabled }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "console-web") }}
+                port:
+                  name: http
+          {{- end }}
+{{- end }}

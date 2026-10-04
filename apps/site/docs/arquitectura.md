@@ -142,6 +142,6 @@ sequenceDiagram
 | Guardián de anomalías | Calcula líneas base por API y consumidor; alerta o bloquea mediante políticas de denegación del gateway, con duración limitada o con aprobación. | <EstadoCapacidad id="motor-anomalias" /> |
 | Despliegues progresivos | Divide el tráfico entre la versión estable y la nueva por pasos, compara errores y latencia, y vuelve atrás sola si un paso falla. | <EstadoCapacidad id="motor-despliegues" /> |
 | Continuidad | Agentes con quórum y procedimiento de conmutación y retorno descritos arriba. | <EstadoCapacidad id="motor-continuidad" /> |
-| Instaladores | Chart Helm por ambiente, RKE2 en vSphere y GKE en Google Cloud. | <EstadoCapacidad id="helm" /> |
+| Instaladores | Chart Helm por ambiente, RKE2 en vSphere y GKE en Google Cloud ([Instalación](./instalacion/index.md)). | <EstadoCapacidad id="helm" /> |
 
 La API de la Consola tiene su [contrato OpenAPI](./api-consola.md) publicado.

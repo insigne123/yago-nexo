@@ -1,0 +1,30 @@
+---
+nexo_plataforma_release: nexo-platform
+nexo_plataforma_namespace: nexo
+# Chart del repositorio (relativo a deploy/ansible/rke2) y carpeta de trabajo en el servidor.
+nexo_plataforma_chart_origen: "{{ playbook_dir }}/../../helm/nexo-platform/"
+nexo_plataforma_dir: /opt/nexo
+# Archivos de valores del chart, en orden (después de values.yaml).
+nexo_plataforma_valores:
+  - values-cpd.yaml
+# Valores propios del sitio en la máquina de control (opcional).
+nexo_plataforma_valores_sitio: ""
+# Secrets de texto que se crean antes de instalar: {nombre: {clave: valor}}. Vienen de Ansible Vault.
+nexo_plataforma_secretos: {}
+# Secrets que deben existir antes de instalar (creados aquí o a mano).
+nexo_plataforma_secretos_requeridos:
+  - nexo-apim
+  - nexo-bd-apim
+  - nexo-bd-mi
+  - nexo-bd-nexo
+  - nexo-mi
+  - nexo-rabbitmq
+  - nexo-keycloak-km
+# Nivel de Pod Security del espacio de nombres.
+nexo_plataforma_pod_security: restricted
+nexo_plataforma_espera: 30m
+# true = vuelve a ejecutar helm upgrade aunque nada haya cambiado.
+nexo_plataforma_forzar: false
+nexo_plataforma_kubeconfig: /etc/rancher/rke2/rke2.yaml
+nexo_plataforma_kubectl: /var/lib/rancher/rke2/bin/kubectl
+nexo_plataforma_helm: /usr/local/bin/helm

@@ -1,0 +1,42 @@
+# {{ ansible_managed }}
+# Yago Nexo · RKE2 {{ rke2_version }} · {{ 'servidor' if rke2_tipo == 'server' else 'agente' }} {{ inventory_hostname }}
+{% if not rke2_es_primero %}
+server: https://{{ rke2_direccion_registro }}:9345
+{% endif %}
+{% if rke2_token_efectivo is defined and rke2_token_efectivo | length > 0 %}
+token: {{ rke2_token_efectivo }}
+{% endif %}
+node-name: {{ inventory_hostname }}
+node-ip: {{ ansible_host | default(ansible_default_ipv4.address) }}
+{% if rke2_perfil_cis | bool %}
+profile: cis
+{% endif %}
+{% if rke2_registro_sistema | length > 0 %}
+system-default-registry: {{ rke2_registro_sistema }}
+{% endif %}
+{% if rke2_vsphere.habilitado | bool %}
+cloud-provider-name: rancher-vsphere
+{% endif %}
+{% if rke2_etiquetas_nodo | length > 0 %}
+node-label:
+{% for etiqueta in rke2_etiquetas_nodo %}
+  - "{{ etiqueta }}"
+{% endfor %}
+{% endif %}
+{% if rke2_tipo == 'server' %}
+write-kubeconfig-mode: "0600"
+cni: {{ rke2_cni }}
+ingress-controller: {{ rke2_ingress }}
+secrets-encryption: true
+etcd-snapshot-schedule-cron: "{{ rke2_etcd_respaldo_cron }}"
+etcd-snapshot-retention: {{ rke2_etcd_respaldo_retencion }}
+tls-san:
+  - {{ rke2_direccion_registro }}
+{% for san in rke2_tls_san %}
+  - {{ san }}
+{% endfor %}
+{% if rke2_servidores_sin_cargas | bool %}
+node-taint:
+  - "CriticalAddonsOnly=true:NoExecute"
+{% endif %}
+{% endif %}

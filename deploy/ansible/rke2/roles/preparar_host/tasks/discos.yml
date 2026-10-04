@@ -1,0 +1,47 @@
+---
+- name: Verificar que existen los discos de datos
+  ansible.builtin.stat:
+    path: "{{ item.dispositivo }}"
+  loop: "{{ preparar_host_discos }}"
+  register: preparar_host_discos_estado
+
+- name: Detener si falta un disco
+  ansible.builtin.assert:
+    that: item.stat.exists and item.stat.isblk
+    fail_msg: "{{ inventory_hostname }}: no existe el disco {{ item.item.dispositivo }}. Agréguelo a la máquina virtual en vSphere."
+    quiet: true
+  loop: "{{ preparar_host_discos_estado.results }}"
+  loop_control:
+    label: "{{ item.item.dispositivo }}"
+
+# Solo crea el sistema de archivos si el disco está vacío: nunca reformatea un disco con datos.
+- name: Crear el sistema de archivos
+  community.general.filesystem:
+    dev: "{{ item.dispositivo }}"
+    fstype: "{{ item.fs | default('xfs') }}"
+    force: false
+  loop: "{{ preparar_host_discos }}"
+
+- name: Montar los discos de datos
+  ansible.posix.mount:
+    path: "{{ item.punto_montaje }}"
+    src: "{{ item.dispositivo }}"
+    fstype: "{{ item.fs | default('xfs') }}"
+    opts: defaults,noatime
+    state: mounted
+  loop: "{{ preparar_host_discos }}"
+
+- name: Medir el espacio libre en /var/lib/rancher
+  ansible.builtin.command: df --output=avail -BG /var/lib/rancher
+  register: preparar_host_espacio
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Verificar el espacio libre para imágenes y volúmenes
+  ansible.builtin.assert:
+    that:
+      - preparar_host_espacio.rc != 0 or
+        (preparar_host_espacio.stdout_lines[-1] | regex_replace('[^0-9]', '') | int) >= preparar_host_espacio_minimo_gb | int
+    fail_msg: "{{ inventory_hostname }}: /var/lib/rancher tiene menos de {{ preparar_host_espacio_minimo_gb }} GB libres."
+    quiet: true
