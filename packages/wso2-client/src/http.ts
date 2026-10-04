@@ -53,7 +53,13 @@ export async function httpRequest<T>(agent: Agent, req: HttpRequest): Promise<T>
     init.body = new URLSearchParams(req.urlencoded).toString();
   }
   if (req.binary) headers.accept = "*/*";
-  const res: Response = await fetch(req.url, init);
+  let res: Response;
+  try {
+    res = await fetch(req.url, init);
+  } catch (err) {
+    const cause = err instanceof Error && err.cause instanceof Error ? `: ${err.cause.message}` : "";
+    throw new Error(`No se pudo conectar con ${req.method} ${req.url}${cause}`, { cause: err });
+  }
   if (!res.ok && !(req.accept ?? []).includes(res.status)) {
     throw new Wso2HttpError(res.status, req.method, req.url, await res.text());
   }

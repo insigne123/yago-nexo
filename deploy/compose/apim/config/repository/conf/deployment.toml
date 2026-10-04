@@ -30,6 +30,11 @@ password = "$env{APIM_DB_PASSWORD}"
 driver = "org.postgresql.Driver"
 validationQuery = "SELECT 1"
 
+# Llave de cifrado interno (secretos de Key Managers, llaves de aplicaciones). Fija y compartida
+# por todos los nodos: si cambia, WSO2 no puede descifrar lo ya guardado.
+[encryption]
+key = "$env{APIM_ENCRYPTION_KEY}"
+
 [keystore.tls]
 file_name = "wso2carbon.jks"
 type = "JKS"
@@ -66,7 +71,7 @@ websub_event_receiver_http_endpoint = "http://apim:9021"
 websub_event_receiver_https_endpoint = "https://apim:8021"
 
 [apim.sync_runtime_artifacts.gateway]
-gateway_labels = ["Default"]
+gateway_labels = ["Default", "Desarrollo", "QA", "Operadores", "Publico"]
 
 [[oauth.extensions.token_types]]
 name = "JWT"
@@ -81,6 +86,11 @@ type = "elk"
 # Funciones de IA que dependen de servicios externos de WSO2: apagadas.
 [apim.ai]
 enable = false
+
+# Autorregistro en el portal de desarrolladores (D-08); la cuenta queda pendiente de aprobación.
+[identity_mgt.user_self_registration]
+allow_self_registration = true
+lock_on_creation = false
 
 [apim.key_manager]
 enable_lightweight_apikey_generation = true

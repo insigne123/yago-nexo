@@ -1,0 +1,99 @@
+openapi: 3.0.3
+info:
+  title: Concesiones de Telecomunicaciones
+  version: 1.0.0
+  description: Consulta de concesiones vigentes y registro de solicitudes de concesión de servicios de telecomunicaciones.
+  contact:
+    name: División de Concesiones (sintético)
+    email: concesiones@ejemplo.invalid
+servers:
+  - url: https://apim:8243/concesiones/1.0.0
+    x-internal: false
+tags:
+  - name: concesiones
+    description: Concesiones de servicios de telecomunicaciones
+paths:
+  /concesiones:
+    get:
+      tags: [concesiones]
+      operationId: listarConcesiones
+      summary: Lista concesiones
+      parameters:
+        - name: region
+          in: query
+          schema: { type: string }
+        - name: estado
+          in: query
+          schema: { type: string, enum: [vigente, en_tramite, caducada] }
+      responses:
+        "200":
+          description: Lista de concesiones
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ListaConcesiones" }
+        "401": { description: No autenticado }
+        "429": { description: Límite de consumo excedido }
+    post:
+      tags: [concesiones]
+      operationId: registrarSolicitud
+      summary: Registra una solicitud de concesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SolicitudConcesion" }
+      responses:
+        "201": { description: Solicitud registrada }
+        "422": { description: Datos inválidos }
+  /concesiones/{id}:
+    get:
+      tags: [concesiones]
+      operationId: obtenerConcesion
+      summary: Obtiene una concesión
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Concesión
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Concesion" }
+        "404": { description: No existe }
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: http://keycloak:8080/realms/nexo/protocol/openid-connect/token
+          scopes: {}
+  schemas:
+    Concesion:
+      type: object
+      properties:
+        id: { type: string }
+        empresa: { type: string }
+        rutEmpresa: { type: string }
+        servicio: { type: string }
+        region: { type: string }
+        estado: { type: string }
+        fechaOtorgamiento: { type: string, format: date }
+    ListaConcesiones:
+      type: object
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Concesion" }
+    SolicitudConcesion:
+      type: object
+      required: [rutEmpresa, servicio, region]
+      properties:
+        rutEmpresa: { type: string }
+        servicio: { type: string }
+        region: { type: string }
+security:
+  - oauth2: []

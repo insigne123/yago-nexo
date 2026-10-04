@@ -2,7 +2,7 @@
 COMPOSE = docker compose --env-file .env
 PROFILES ?= --profile obs --profile legacy
 
-.PHONY: env build up core down clean status logs bootstrap hosts
+.PHONY: env build up core down clean status logs bootstrap hosts platform deploy-apis
 
 env:
 	@test -f .env || cp .env.example .env
@@ -38,7 +38,15 @@ logs:
 bootstrap:
 	cd ../.. && pnpm --filter @nexo/lab-bootstrap start
 
+## Aplica la plataforma como código (ambientes, tráfico, aprobaciones y gobierno)
+platform:
+	cd ../../tools/nexo-ctl && set -a && . ../../deploy/compose/.env && set +a && npx tsx src/cli.ts -c ../../nexo-ctl.config.yaml platform apply -s prod -f ../../wso2/apim/platform.yaml
+
+## Despliega las APIs versionadas en las tres etapas
+deploy-apis:
+	cd ../../tools/nexo-ctl && set -a && . ../../deploy/compose/.env && set +a && for st in dev qa prod; do npx tsx src/cli.ts -c ../../nexo-ctl.config.yaml api deploy ../../wso2/apim/apis/concesiones -s $$st -m "make deploy-apis"; done
+
 ## Agrega los nombres de los servicios a /etc/hosts (solo en el entorno de desarrollo)
 hosts:
-	@grep -q "nexo-lab" /etc/hosts || echo "127.0.0.1 apim keycloak mi rabbitmq opensearch prometheus grafana jaeger # nexo-lab" | sudo tee -a /etc/hosts >/dev/null
+	@grep -q "nexo-lab" /etc/hosts || echo "127.0.0.1 apim keycloak mi rabbitmq opensearch prometheus grafana jaeger otel-collector dev.nexo.lab qa.nexo.lab operadores.nexo.lab publico.nexo.lab # nexo-lab" | sudo tee -a /etc/hosts >/dev/null
 	@echo "listo"

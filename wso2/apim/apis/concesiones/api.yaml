@@ -1,0 +1,35 @@
+# Proyecto de API versionado (nexo-ctl api deploy wso2/apim/apis/concesiones --stage dev|qa|prod)
+name: Concesiones
+version: 1.0.0
+context: /concesiones
+description: Consulta y solicitud de concesiones de servicios de telecomunicaciones (datos sintéticos de laboratorio).
+type: HTTP
+contract: openapi.yaml
+owner:
+  business: División de Concesiones (sintético)
+  businessEmail: concesiones@ejemplo.invalid
+  technical: Equipo DevOps (sintético)
+  technicalEmail: devops@ejemplo.invalid
+metadata:
+  proposito: Consultar y registrar concesiones de servicios de telecomunicaciones
+  audiencia: operadores
+  clasificacion: publica
+security: [oauth2, oauth_basic_auth_api_key_mandatory]
+keyManagers: [Keycloak]
+policies: [OperadoresEstandar, OperadoresAmpliado, Interno, Unlimited]
+apiThrottlingPolicy: ApiProtegida
+endpoints:
+  dev: http://concesiones-v1:7001
+  qa: http://concesiones-v1:7001
+  prod: http://concesiones-v1:7001
+resiliency:
+  timeoutMs: 8000
+  retries: 2
+  retryDelayMs: 300
+  suspendInitialMs: 30000
+  suspendMaxMs: 300000
+  suspendFactor: 2
+environments:
+  dev: [Desarrollo]
+  qa: [QA]
+  prod: [Default, Operadores]

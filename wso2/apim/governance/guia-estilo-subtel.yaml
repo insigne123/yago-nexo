@@ -1,0 +1,276 @@
+# Guía de estilo de contratos OpenAPI · Yago Nexo (configurable por la institución)
+#
+# Se usa en dos lugares (D-03):
+#   1. En el pipeline (nexo-ctl api lint / api deploy): si hay errores, la promoción se bloquea.
+#   2. En WSO2 API Governance: la política "Nexo · Contratos institucionales" bloquea el
+#      despliegue y la publicación de APIs que no cumplan.
+#
+# Compatible con Spectral y con el validador de WSO2 (sin funciones personalizadas, sin $ref,
+# sin extends y sin uniones de JSONPath: por eso hay una regla por método HTTP). Cada regla indica su severidad: error (bloquea), warn (advierte), info.
+rules:
+  nexo-info-contacto:
+    description: El contrato debe declarar un contacto responsable (info.contact con nombre y correo).
+    message: "Falta info.contact con name y email."
+    severity: error
+    given: "$.info"
+    then:
+      - field: contact.name
+        function: truthy
+      - field: contact.email
+        function: truthy
+
+  nexo-info-descripcion:
+    description: La API debe explicar su propósito en info.description (al menos 30 caracteres).
+    message: "info.description falta o es demasiado corta."
+    severity: error
+    given: "$.info"
+    then:
+      - field: description
+        function: truthy
+      - field: description
+        function: length
+        functionOptions:
+          min: 30
+
+  nexo-version-semantica:
+    description: info.version debe seguir versionamiento semántico (MAYOR.MENOR.PARCHE).
+    message: "info.version debe tener la forma 1.2.3."
+    severity: error
+    given: "$.info.version"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+
+  nexo-rutas-kebab:
+    description: Las rutas usan minúsculas, números y guiones (kebab-case), sin barra final.
+    message: "La ruta {{property}} no cumple kebab-case en minúsculas."
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[a-zA-Z0-9]+\\}))+$"
+
+  nexo-operacion-resumen-get:
+    description: Cada operación debe tener un resumen (summary) para el portal de desarrolladores.
+    message: "La operación no tiene summary."
+    severity: error
+    given: "$.paths[*].get"
+    then:
+      field: summary
+      function: truthy
+
+  nexo-operacion-resumen-put:
+    description: Cada operación debe tener un resumen (summary) para el portal de desarrolladores.
+    message: "La operación no tiene summary."
+    severity: error
+    given: "$.paths[*].put"
+    then:
+      field: summary
+      function: truthy
+
+  nexo-operacion-resumen-post:
+    description: Cada operación debe tener un resumen (summary) para el portal de desarrolladores.
+    message: "La operación no tiene summary."
+    severity: error
+    given: "$.paths[*].post"
+    then:
+      field: summary
+      function: truthy
+
+  nexo-operacion-resumen-delete:
+    description: Cada operación debe tener un resumen (summary) para el portal de desarrolladores.
+    message: "La operación no tiene summary."
+    severity: error
+    given: "$.paths[*].delete"
+    then:
+      field: summary
+      function: truthy
+
+  nexo-operacion-resumen-patch:
+    description: Cada operación debe tener un resumen (summary) para el portal de desarrolladores.
+    message: "La operación no tiene summary."
+    severity: error
+    given: "$.paths[*].patch"
+    then:
+      field: summary
+      function: truthy
+
+  nexo-operacion-respuestas-get:
+    description: Cada operación debe documentar sus respuestas.
+    message: "La operación no declara responses."
+    severity: error
+    given: "$.paths[*].get"
+    then:
+      field: responses
+      function: truthy
+
+  nexo-operacion-respuestas-put:
+    description: Cada operación debe documentar sus respuestas.
+    message: "La operación no declara responses."
+    severity: error
+    given: "$.paths[*].put"
+    then:
+      field: responses
+      function: truthy
+
+  nexo-operacion-respuestas-post:
+    description: Cada operación debe documentar sus respuestas.
+    message: "La operación no declara responses."
+    severity: error
+    given: "$.paths[*].post"
+    then:
+      field: responses
+      function: truthy
+
+  nexo-operacion-respuestas-delete:
+    description: Cada operación debe documentar sus respuestas.
+    message: "La operación no declara responses."
+    severity: error
+    given: "$.paths[*].delete"
+    then:
+      field: responses
+      function: truthy
+
+  nexo-operacion-respuestas-patch:
+    description: Cada operación debe documentar sus respuestas.
+    message: "La operación no declara responses."
+    severity: error
+    given: "$.paths[*].patch"
+    then:
+      field: responses
+      function: truthy
+
+  nexo-servidores-https:
+    description: Los servidores declarados deben usar HTTPS (se aceptan rutas relativas, el host lo define el gateway).
+    message: "El servidor {{value}} no usa HTTPS."
+    severity: error
+    given: "$.servers[*].url"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(https://|/)"
+
+  nexo-sin-basic-auth:
+    description: No se permite autenticación HTTP básica en contratos institucionales.
+    message: "El esquema de seguridad usa HTTP basic."
+    severity: error
+    given: "$.components.securitySchemes[*]"
+    then:
+      field: scheme
+      function: pattern
+      functionOptions:
+        notMatch: "^[Bb]asic$"
+
+  nexo-etiquetas-get:
+    description: Las operaciones deben agruparse con tags para el catálogo.
+    message: "La operación no tiene tags."
+    severity: warn
+    given: "$.paths[*].get"
+    then:
+      field: tags
+      function: truthy
+
+  nexo-etiquetas-put:
+    description: Las operaciones deben agruparse con tags para el catálogo.
+    message: "La operación no tiene tags."
+    severity: warn
+    given: "$.paths[*].put"
+    then:
+      field: tags
+      function: truthy
+
+  nexo-etiquetas-post:
+    description: Las operaciones deben agruparse con tags para el catálogo.
+    message: "La operación no tiene tags."
+    severity: warn
+    given: "$.paths[*].post"
+    then:
+      field: tags
+      function: truthy
+
+  nexo-etiquetas-delete:
+    description: Las operaciones deben agruparse con tags para el catálogo.
+    message: "La operación no tiene tags."
+    severity: warn
+    given: "$.paths[*].delete"
+    then:
+      field: tags
+      function: truthy
+
+  nexo-etiquetas-patch:
+    description: Las operaciones deben agruparse con tags para el catálogo.
+    message: "La operación no tiene tags."
+    severity: warn
+    given: "$.paths[*].patch"
+    then:
+      field: tags
+      function: truthy
+
+  nexo-operation-id-get:
+    description: Cada operación debe tener operationId en camelCase (se usa para generar SDK).
+    message: "operationId falta o no está en camelCase."
+    severity: warn
+    given: "$.paths[*].get"
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+
+  nexo-operation-id-put:
+    description: Cada operación debe tener operationId en camelCase (se usa para generar SDK).
+    message: "operationId falta o no está en camelCase."
+    severity: warn
+    given: "$.paths[*].put"
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+
+  nexo-operation-id-post:
+    description: Cada operación debe tener operationId en camelCase (se usa para generar SDK).
+    message: "operationId falta o no está en camelCase."
+    severity: warn
+    given: "$.paths[*].post"
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+
+  nexo-operation-id-delete:
+    description: Cada operación debe tener operationId en camelCase (se usa para generar SDK).
+    message: "operationId falta o no está en camelCase."
+    severity: warn
+    given: "$.paths[*].delete"
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+
+  nexo-operation-id-patch:
+    description: Cada operación debe tener operationId en camelCase (se usa para generar SDK).
+    message: "operationId falta o no está en camelCase."
+    severity: warn
+    given: "$.paths[*].patch"
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-zA-Z0-9]*$"
+
+  nexo-propiedades-camel:
+    description: Las propiedades de los esquemas usan camelCase.
+    message: "La propiedad {{property}} no está en camelCase."
+    severity: warn
+    given: "$.components.schemas[*].properties"
+    then:
+      field: "@key"
+      function: casing
+      functionOptions:
+        type: camel

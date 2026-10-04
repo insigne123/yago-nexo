@@ -1,0 +1,22 @@
+# Contrato de ejemplo que NO cumple la guía de estilo (para la demostración de D-03).
+openapi: 3.0.3
+info:
+  title: Reportes Internos
+  version: v1
+servers:
+  - url: http://reportes.interno
+paths:
+  /obtenerReportes:
+    get:
+      responses:
+        "200": { description: ok }
+  /Reportes/Detalle/:
+    get:
+      summary: Detalle
+      responses:
+        "200": { description: ok }
+components:
+  securitySchemes:
+    basico:
+      type: http
+      scheme: basic

@@ -1,0 +1,76 @@
+# Yago Nexo · configuración de plataforma como código (se aplica con: nexo-ctl platform apply)
+# Fuente única de: ambientes de gateway por audiencia y por etapa, políticas de tráfico,
+# flujos de aprobación y gobierno de contratos.
+
+gatewayEnvironments:
+  # Etapas (BT-044). En producción real cada etapa es una instalación separada; en el
+  # laboratorio comparten nodo y se separan por host virtual.
+  - name: Desarrollo
+    displayName: Desarrollo
+    description: Gateway de desarrollo (datos sintéticos)
+    vhost: dev.nexo.lab
+  - name: QA
+    displayName: Pruebas (QA)
+    description: Gateway de pruebas de aceptación (datos sintéticos)
+    vhost: qa.nexo.lab
+  # Audiencias de producción (BT-020): Default = interna.
+  - name: Operadores
+    displayName: Producción · Operadores
+    description: APIs para operadores de telecomunicaciones con control de acceso y límites
+    vhost: operadores.nexo.lab
+  - name: Publico
+    displayName: Producción · Público
+    description: APIs públicas autorizadas
+    vhost: publico.nexo.lab
+
+throttling:
+  # Planes de suscripción por audiencia (BT-006). Sin cobro: billingPlan FREE (BT-021).
+  subscription:
+    - name: Interno
+      description: Sistemas internos de la institución
+      requestsPerMinute: 20000
+      burstPerSecond: 500
+    - name: OperadoresEstandar
+      description: Operadores de telecomunicaciones (plan estándar)
+      requestsPerMinute: 600
+      burstPerSecond: 20
+    - name: OperadoresAmpliado
+      description: Operadores con mayor volumen autorizado
+      requestsPerMinute: 3000
+      burstPerSecond: 100
+    - name: Publico
+      description: Consumo público autorizado
+      requestsPerMinute: 60
+      burstPerSecond: 5
+  # Límites por aplicación.
+  application:
+    - name: AppEstandar
+      description: Límite por aplicación consumidora
+      requestsPerMinute: 1200
+  # Límites a nivel de API con condiciones (por IP de origen).
+  advanced:
+    - name: ApiProtegida
+      description: Límite general por API y por IP de origen
+      requestsPerMinute: 30000
+
+workflows:
+  file: workflows/workflow-extensions.xml
+
+governance:
+  rulesets:
+    - name: Nexo · Guía de estilo institucional
+      file: governance/guia-estilo-subtel.yaml
+      ruleType: API_DEFINITION
+      artifactType: REST_API
+      description: Guía de estilo de contratos OpenAPI de Yago Nexo, configurable por la institución.
+  policies:
+    - name: Nexo · Contratos institucionales
+      description: Bloquea el despliegue y la publicación de APIs cuyo contrato tenga errores de la guía de estilo institucional.
+      rulesets: ["Nexo · Guía de estilo institucional"]
+      block: [API_DEPLOY, API_PUBLISH]
+      notify: [API_CREATE, API_UPDATE]
+    - name: Nexo · Revisión OWASP (aviso)
+      description: Informa los hallazgos del OWASP API Security Top 10 sin bloquear; se revisan en el pipeline.
+      rulesets: ["OWASP Top 10"]
+      block: []
+      notify: [API_CREATE, API_UPDATE, API_DEPLOY]

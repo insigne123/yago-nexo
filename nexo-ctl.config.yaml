@@ -1,0 +1,29 @@
+# nexo-ctl · etapas del LABORATORIO (un solo API Manager; etapas separadas por gateway y host virtual).
+# En SUBTEL cada etapa apunta a su propia instalación y credencial.
+stages:
+  dev:
+    apim: https://apim:9443
+    user: admin
+    passwordEnv: APIM_ADMIN_PASSWORD
+    insecureTls: true
+    publish: true
+    gateways:
+      - { name: Desarrollo, vhost: dev.nexo.lab }
+  qa:
+    apim: https://apim:9443
+    user: admin
+    passwordEnv: APIM_ADMIN_PASSWORD
+    insecureTls: true
+    publish: true
+    gateways:
+      - { name: QA, vhost: qa.nexo.lab }
+  prod:
+    apim: https://apim:9443
+    user: admin
+    passwordEnv: APIM_ADMIN_PASSWORD
+    insecureTls: true
+    publish: true
+    gateways:
+      - { name: Default, vhost: apim }
+      - { name: Operadores, vhost: operadores.nexo.lab }
+      - { name: Publico, vhost: publico.nexo.lab }

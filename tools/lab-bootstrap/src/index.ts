@@ -9,6 +9,7 @@
  *
  * Es idempotente: se puede ejecutar varias veces.
  */
+import { readFileSync } from "node:fs";
 import { Agent, fetch } from "undici";
 import { Wso2Client, Wso2HttpError, type ApiSummary } from "@nexo/wso2-client";
 
@@ -171,7 +172,8 @@ async function ensureConcesionesApi(): Promise<ApiSummary> {
     log("WSO2: API Concesiones ya existe", { id: found.id, estado: found.lifeCycleStatus });
     return found;
   }
-  const spec = await (await fetch(`${CFG.backendPublicUrl}/openapi.json`)).text();
+  // Contrato versionado en el repositorio (cumple la guía de estilo; la política de gobierno lo exige).
+  const spec = readFileSync(new URL("../../../wso2/apim/apis/concesiones/openapi.yaml", import.meta.url), "utf8");
   const api = await wso2.publisher.importOpenApi(spec, {
     name: "Concesiones",
     version: "1.0.0",
@@ -207,12 +209,34 @@ async function ensureConcesionesApi(): Promise<ApiSummary> {
   return { ...api, lifeCycleStatus: "PUBLISHED" };
 }
 
+/**
+ * Con los flujos de aprobación activos (D-08), crear la aplicación, sus credenciales y la
+ * suscripción queda pendiente. El arranque del laboratorio actúa como aprobador institucional
+ * usando la Admin REST API (lo mismo que hace la Consola Nexo).
+ */
+async function approvePending(workflowType: string, match: (props: Record<string, unknown>) => boolean): Promise<number> {
+  const pending = await wso2.admin.listWorkflows(workflowType);
+  let n = 0;
+  for (const w of pending.list) {
+    if (match((w.properties ?? {}) as Record<string, unknown>)) {
+      await wso2.admin.resolveWorkflow(w.referenceId, "APPROVED", "Aprobado por el arranque del laboratorio");
+      n++;
+    }
+  }
+  if (n) log(`Aprobación institucional: ${n} solicitud(es) ${workflowType} aprobadas`);
+  return n;
+}
+
 async function ensureConsumerApp(apiId: string): Promise<{ consumerKey: string; consumerSecret: string }> {
+  const appName = "OperadorDemo";
   const apps = await wso2.devportal.listApplications();
-  let app = apps.list.find((a) => a.name === "OperadorDemo");
+  let app = apps.list.find((a) => a.name === appName);
   if (!app) {
-    app = await wso2.devportal.createApplication("OperadorDemo", "Aplicación de un operador de telecomunicaciones (sintético)");
-    log("Dev Portal: aplicación creada", { id: app.applicationId });
+    app = await wso2.devportal.createApplication(appName, "Aplicación de un operador de telecomunicaciones (sintético)");
+    log("Dev Portal: aplicación creada", { id: app.applicationId, estado: app.status });
+  }
+  if (app.status && app.status !== "APPROVED") {
+    await approvePending("AM_APPLICATION_CREATION", (p) => p.applicationName === appName);
   }
   const keys = await wso2.devportal.listKeys(app.applicationId);
   let key = keys.list.find((k) => k.keyManager === "Keycloak" && k.keyType === "PRODUCTION");
@@ -222,16 +246,26 @@ async function ensureConsumerApp(apiId: string): Promise<{ consumerKey: string; 
       token_endpoint_auth_method: "client_secret_basic",
       tls_client_certificate_bound_access_tokens: "false",
     });
-    log("Dev Portal: llaves generadas en Keycloak", { consumerKey: key.consumerKey });
+    log("Dev Portal: credenciales solicitadas en Keycloak", { estado: key.keyState });
+  }
+  if (!key.consumerKey || key.keyState === "CREATED") {
+    await approvePending("AM_APPLICATION_REGISTRATION_PRODUCTION", (p) => p.applicationName === appName || !p.applicationName);
+    const again = await wso2.devportal.listKeys(app.applicationId);
+    key = again.list.find((k) => k.keyManager === "Keycloak" && k.keyType === "PRODUCTION") ?? key;
+    log("Dev Portal: credenciales emitidas", { consumerKey: key.consumerKey });
   }
   const subs = await wso2.devportal.listSubscriptions(app.applicationId);
   if (!subs.list.some((s) => s.apiId === apiId || s.apiInfo?.id === apiId)) {
     try {
-      await wso2.devportal.subscribe(app.applicationId, apiId, "Unlimited");
-      log("Dev Portal: suscripción creada");
+      const sub = await wso2.devportal.subscribe(app.applicationId, apiId, "Unlimited");
+      log("Dev Portal: suscripción solicitada", { estado: sub.status });
     } catch (e) {
       if (!(e instanceof Wso2HttpError && e.status === 409)) throw e;
     }
+  }
+  const subsNow = await wso2.devportal.listSubscriptions(app.applicationId);
+  if (subsNow.list.some((s) => (s.apiId === apiId || s.apiInfo?.id === apiId) && s.status === "ON_HOLD")) {
+    await approvePending("AM_SUBSCRIPTION_CREATION", (p) => p.applicationName === appName || !p.applicationName);
   }
   if (!key.consumerKey || !key.consumerSecret) throw new Error("las llaves no traen consumerKey/consumerSecret");
   return { consumerKey: key.consumerKey, consumerSecret: key.consumerSecret };
