@@ -1,0 +1,19 @@
+{
+  "apiBaseUrl": "/api/v1",
+  "environmentLabel": "Laboratorio Yago",
+  "version": "1.0.0",
+  "auth": {
+    "provider": "mock",
+    "oidc": {
+      "authority": "http://keycloak:8080/realms/nexo",
+      "clientId": "nexo-console",
+      "rolesClaimPath": "resource_access.nexo-console.roles"
+    },
+    "supabase": {
+      "url": "https://xxx.supabase.co",
+      "anonKey": "...",
+      "requireMfa": true
+    }
+  },
+  "demoBanner": true
+}
