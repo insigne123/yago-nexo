@@ -334,8 +334,12 @@
       "id": "enmascaramiento-logs",
       "grupo": "capa-yago",
       "nombre": "Enmascaramiento de datos personales en logs",
-      "descripcion": "Filtros que enmascaran RUT, correos y teléfonos antes de que los logs y la auditoría salgan de la plataforma.",
-      "estado": "En desarrollo"
+      "descripcion": "Filtro en Fluent Bit que oculta RUT, correos (conserva el dominio), teléfonos, tarjetas, tokens y claves en los logs de aplicación y en la analítica del gateway antes de cualquier salida, y marca el registro. La auditoría no se enmascara, porque la identidad de quien actúa es evidencia.",
+      "estado": "Disponible",
+      "evidencia": [
+        "deploy/compose/fluent-bit/enmascarar.lua",
+        "deploy/compose/fluent-bit/pruebas/probar-enmascaramiento.sh"
+      ]
     },
     {
       "id": "exportacion",
@@ -386,8 +390,13 @@
       "id": "respaldo",
       "grupo": "operacion",
       "nombre": "Respaldo y restauración",
-      "descripcion": "Respaldos cifrados de PostgreSQL (CloudNativePG y Barman) y reglas de retención por tipo de dato.",
-      "estado": "En desarrollo"
+      "descripcion": "Respaldo lógico cifrado (AES-256-GCM) de las bases PostgreSQL desde una instantánea consistente, con manifiesto firmado, retención por cantidad y antigüedad, y prueba de restauración automática que compara tabla por tabla y la cadena de auditoría, y mide el tiempo de recuperación. En producción se agrega archivado continuo de WAL con recuperación a un punto en el tiempo.",
+      "estado": "Disponible",
+      "evidencia": [
+        "tools/respaldo/src/respaldar.ts",
+        "tools/respaldo/src/restaurar.ts",
+        "apps/site/docs/operacion/respaldo-y-restauracion.md"
+      ]
     },
     {
       "id": "sbom",
