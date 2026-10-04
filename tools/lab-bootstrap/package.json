@@ -19,7 +19,8 @@
     "legado": "tsx src/legacy.ts",
     "check:d01": "tsx src/check-d01.ts",
     "check:siem": "tsx src/check-siem.ts",
-    "check:d05": "tsx src/check-d05.ts"
+    "check:d05": "tsx src/check-d05.ts",
+    "rendimiento": "tsx src/rendimiento.ts"
   },
   "dependencies": {
     "@nexo/shared": "workspace:*",
