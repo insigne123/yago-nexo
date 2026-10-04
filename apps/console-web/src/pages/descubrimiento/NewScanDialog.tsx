@@ -85,7 +85,7 @@ function ScanForm({ onClose }: { onClose: () => void }) {
       <Field
         id="scan-targets"
         label="Hosts o rangos autorizados"
-        hint="Uno por línea, por ejemplo 10.20.0.0/24 o intranet.subtel.invalid. Solo lo que SUBTEL haya autorizado por escrito."
+        hint="Uno por línea, por ejemplo 10.20.0.0/24 o intranet.institucion.invalid. Solo lo que la institución haya autorizado por escrito."
         error={errors.targets}
       >
         {(control) => (
