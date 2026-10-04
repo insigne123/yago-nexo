@@ -20,6 +20,21 @@ const TriageSchema = z.object({
   note: z.string().max(1000).optional(),
 });
 
+/**
+ * Totales del contrato (endpoints, gobernados, noGobernados, riesgoAlto). El motor de descubrimiento los
+ * registra con su propio vocabulario (hallazgos, nuevos, noGobernados, riesgoAlto, porFuente, errores):
+ * se conservan esos campos y se agregan los que espera el contrato.
+ */
+export function scanTotals(t: unknown): Record<string, unknown> | undefined {
+  if (!t || typeof t !== "object") return undefined;
+  const x = t as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+  const endpoints = num(x.endpoints) ?? num(x.hallazgos);
+  const noGobernados = num(x.noGobernados);
+  const gobernados = num(x.gobernados) ?? (endpoints !== undefined && noGobernados !== undefined ? endpoints - noGobernados : undefined);
+  return { ...x, endpoints, gobernados };
+}
+
 const scanRow = (r: Record<string, unknown>) => ({
   id: r.id,
   status: r.status,
@@ -27,7 +42,7 @@ const scanRow = (r: Record<string, unknown>) => ({
   finishedAt: r.finished_at ?? undefined,
   sources: r.sources,
   targets: r.targets,
-  totals: r.totals,
+  totals: scanTotals(r.totals),
   error: r.error ?? undefined,
   requestedBy: r.requested_by,
 });

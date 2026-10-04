@@ -13,6 +13,21 @@ import { parse } from "../common/validation.js";
 const ModeSchema = z.object({ mode: z.enum(["manual", "automatico"]) });
 const ReasonSchema = z.object({ reason: z.string().max(1000).optional() }).default({});
 
+/**
+ * Paso de una conmutación según el contrato ({name, status, detail, ts}). Los agentes de continuidad lo
+ * registran como {paso, ok, detalle}; ambos formatos se aceptan.
+ */
+export function failoverStep(s: unknown) {
+  const x = (s && typeof s === "object" ? s : {}) as Record<string, unknown>;
+  const status = typeof x.status === "string" ? x.status : x.ok === true ? "completado" : x.ok === false ? "fallido" : undefined;
+  return {
+    name: (typeof x.name === "string" ? x.name : typeof x.paso === "string" ? x.paso : undefined) as string | undefined,
+    status,
+    detail: (typeof x.detail === "string" ? x.detail : typeof x.detalle === "string" ? x.detalle : undefined) as string | undefined,
+    ts: typeof x.ts === "string" ? x.ts : undefined,
+  };
+}
+
 export const failoverRow = (r: Record<string, unknown>) => ({
   id: r.id,
   kind: r.kind,
@@ -23,7 +38,7 @@ export const failoverRow = (r: Record<string, unknown>) => ({
   finishedAt: r.finished_at ?? undefined,
   rtoSeconds: r.rto_seconds == null ? undefined : Number(r.rto_seconds),
   rpoSecondsEstimated: r.rpo_seconds_estimated == null ? undefined : Number(r.rpo_seconds_estimated),
-  steps: r.steps,
+  steps: Array.isArray(r.steps) ? r.steps.map(failoverStep) : [],
   status: r.status,
   approvedBy: r.approved_by ?? undefined,
 });
