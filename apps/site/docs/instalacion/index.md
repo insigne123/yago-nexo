@@ -73,3 +73,14 @@ El script revisa, sin conectarse a ningún clúster ni a Google Cloud:
 | Chart | `helm lint --strict` con cada archivo de valores; `helm template` validado con `kubeconform -strict` contra Kubernetes 1.36 (las CRD, con el catálogo de esquemas de CRD), incluidas las variantes con CloudNativePG e Ingress de GKE. |
 | Ansible | `ansible-playbook --syntax-check` y `ansible-lint` con el perfil `production`. |
 | OpenTofu | `tofu fmt -check`, `tofu init -backend=false`, `tofu validate` y `tofu test` con el proveedor de Google simulado. |
+
+## Pendiente {#pendiente}
+
+Lo que falta para la primera instalación real, además de ejecutarla:
+
+- **Imágenes de producción.** Las imágenes `nexo/*` siguen la receta de los Dockerfile del laboratorio, pero todavía no hay una tarea que las construya, firme y publique en cada versión.
+- **Credenciales de OpenSearch en la API de la Consola.** Los motores y Fluent Bit ya las usan; la API de la Consola todavía consulta OpenSearch sin usuario, así que con la seguridad de OpenSearch activa sus vistas de consumo no cargan.
+- **DNS de la institución.** El agente de continuidad cambia el DNS institucional con `nsupdate` (RFC 2136), que la imagen `nexo/motores` todavía no incluye. Con Cloud DNS no hace falta.
+- **Coordinación del integrador.** Con dos o más réplicas de Micro Integrator, los consumidores de colas marcados como coordinados corren en todas las réplicas, porque la coordinación de clúster del integrador aún no se configura.
+- **Artefactos de integración por ambiente.** Los de ejemplo apuntan a nombres del laboratorio; en cada ambiente se parametrizan con variables.
+- **Promoción con CloudNativePG** en el sitio de respaldo (ver [Google Cloud con GKE](./gcp-gke.md#pendiente)).
