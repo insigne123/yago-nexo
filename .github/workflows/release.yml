@@ -5,7 +5,8 @@ name: Versión
 # propias en GHCR firmadas, y crea la etiqueta y la versión en GitHub.
 #
 # Se dispara a mano (Actions → Versión → Run workflow) con el número de versión, que debe coincidir con
-# apps/site/src/data/release.json.
+# apps/site/src/data/release.json, o con un push cuyo mensaje de commit empiece con «Publicar versión »
+# (en ese caso la versión se toma de release.json). En ambos casos falla si la etiqueta ya existe.
 #
 # Verificar un artefacto:
 #   cosign verify-blob --bundle <archivo>.sigstore.json \
@@ -22,6 +23,8 @@ on:
       version:
         description: "Versión a publicar (por ejemplo 1.1.0)"
         required: true
+  push:
+    branches: ["main", "claude/**"]
 
 permissions:
   contents: write # etiqueta y versión en GitHub
@@ -34,10 +37,10 @@ concurrency:
 
 jobs:
   version:
-    name: Publicar versión ${{ inputs.version }}
+    name: Publicar versión
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Publicar versión ')
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ inputs.version }}
       REGISTRO: ghcr.io/insigne123
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +48,12 @@ jobs:
           fetch-depth: 0
 
       - name: La versión coincide con el sitio y no existe todavía
+        env:
+          SOLICITADA: ${{ inputs.version }}
         run: |
           declarada=$(jq -r .version apps/site/src/data/release.json)
+          VERSION="${SOLICITADA:-$declarada}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           [ "$declarada" = "$VERSION" ] || { echo "release.json dice $declarada, no $VERSION"; exit 1; }
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then echo "la etiqueta v$VERSION ya existe"; exit 1; fi
 
@@ -106,5 +113,7 @@ jobs:
           git tag -a "v$VERSION" -m "Yago Nexo $VERSION"
           git push origin "v$VERSION"
           nota="apps/site/blog/$(ls apps/site/blog | grep -E "nexo-${VERSION//./-}\.md$" | head -1)"
-          if [ -f "$nota" ]; then cuerpo="$nota"; else echo "Yago Nexo $VERSION" > /tmp/nota.md; cuerpo=/tmp/nota.md; fi
+          # La nota del sitio sin su encabezado YAML ni el marcador de resumen.
+          if [ -f "$nota" ]; then awk 'NR==1 && /^---$/ {f=1; next} f && /^---$/ {f=0; next} !f' "$nota" | grep -v '<!-- truncate -->' | sed 's#](/#](https://yago-nexo.web.app/#g' > /tmp/nota.md; else echo "Yago Nexo $VERSION" > /tmp/nota.md; fi
+          cuerpo=/tmp/nota.md
           gh release create "v$VERSION" --title "Yago Nexo $VERSION" --notes-file "$cuerpo" release/"$VERSION"/*
