@@ -70,7 +70,7 @@ El script revisa, sin conectarse a ningún clúster ni a Google Cloud:
 
 | Parte | Revisión |
 | --- | --- |
-| Chart | `helm lint --strict` con cada archivo de valores; `helm template` validado con `kubeconform -strict` contra Kubernetes 1.36 (las CRD, con el catálogo de esquemas de CRD), incluidas las variantes con CloudNativePG e Ingress de GKE. |
+| Chart | `helm lint --strict` con cada archivo de valores; `helm template` validado con `kubeconform -strict` contra Kubernetes 1.36 (las CRD, con el catálogo de esquemas de CRD), incluidas las variantes con CloudNativePG e Ingress de GKE; cada `deployment.toml` generado debe ser TOML válido. |
 | Ansible | `ansible-playbook --syntax-check` y `ansible-lint` con el perfil `production`. |
 | OpenTofu | `tofu fmt -check`, `tofu init -backend=false`, `tofu validate` y `tofu test` con el proveedor de Google simulado. |
 

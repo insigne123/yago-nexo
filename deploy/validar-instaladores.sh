@@ -5,7 +5,8 @@
 #   deploy/validar-instaladores.sh --instalar  antes instala en ~/.local/bin las herramientas que falten
 #
 # Qué revisa:
-#   1. Helm:     helm lint --strict con cada archivo de valores, y helm template | kubeconform -strict.
+#   1. Helm:     helm lint --strict con cada archivo de valores, y helm template | kubeconform -strict;
+#                además, que cada deployment.toml generado sea TOML válido.
 #                Los recursos de Kubernetes deben tener esquema; las CRD (ServiceMonitor, CloudNativePG,
 #                Traefik, GKE) se validan con el catálogo de esquemas de CRD y solo se omiten si falta el suyo.
 #   2. Ansible:  ansible-playbook --syntax-check y ansible-lint (perfil production) si está instalado.
@@ -135,6 +136,34 @@ print(f"{len(docs)} recursos: {sum(not es_crd(d) for d in docs)} de Kubernetes, 
 PY
 }
 
+# Revisa que cada deployment.toml generado sea TOML válido (sin tablas ni claves repetidas).
+validar_toml() {
+  python3 - "$1" <<'PY'
+import sys, yaml
+try:
+    import tomllib
+except ModuleNotFoundError:
+    print("Python sin tomllib (3.11 o superior): se omite la revisión de deployment.toml")
+    sys.exit(0)
+errores, n = 0, 0
+for d in yaml.safe_load_all(open(sys.argv[1], encoding="utf-8")):
+    if not d or d.get("kind") != "ConfigMap":
+        continue
+    for clave, texto in (d.get("data") or {}).items():
+        if not clave.endswith(".toml"):
+            continue
+        n += 1
+        try:
+            # La lista de los otros nodos la completa el contenedor de inicio.
+            tomllib.loads(texto.replace("@@PARES_EVENTOS@@", '"tcp://nodo:5672"'))
+        except tomllib.TOMLDecodeError as e:
+            errores += 1
+            print(f"{d['metadata']['name']}/{clave}: {e}")
+print(f"{n} deployment.toml revisados, {errores} con errores")
+sys.exit(1 if errores else 0)
+PY
+}
+
 validar_render() {
   # validar_render <nombre> [argumentos de helm template...]
   local nombre="$1"
@@ -142,6 +171,7 @@ validar_render() {
   local r="$TMP/$nombre"
   helm template nexo-platform "$CHART" --namespace nexo "$@" >"$r.yaml" || return 1
   separar "$r.yaml" "$r.k8s.yaml" "$r.crd.yaml" || return 1
+  validar_toml "$r.yaml" || return 1
   kubeconform -strict -summary -kubernetes-version "$K8S_VERSION" -cache "$CACHE/kubeconform" \
     -schema-location default "$r.k8s.yaml" || return 1
   if [ -s "$r.crd.yaml" ] && [ "$(head -c 3 "$r.crd.yaml")" != "[]" ]; then
