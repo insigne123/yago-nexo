@@ -39,12 +39,22 @@ export class MiManagementClient {
   }
 
   apis() {
-    return this.get<{ count: number; list: Array<{ name: string; url: string; context?: string }> }>("/apis");
+    return this.get<{ count: number; list: Array<{ name: string; url: string; urlList?: string[]; tracing?: string }> }>("/apis");
   }
 
   api(name: string) {
     return this.get<{ name: string; configuration: string; resources?: unknown[] }>(
       `/apis?apiName=${encodeURIComponent(name)}`,
+    );
+  }
+
+  endpoints() {
+    return this.get<{ count: number; list: Array<{ name: string; type: string; isActive: boolean }> }>("/endpoints");
+  }
+
+  endpoint(name: string) {
+    return this.get<{ name: string; address?: string; type?: string; isActive?: boolean; configuration?: string }>(
+      `/endpoints?endpointName=${encodeURIComponent(name)}`,
     );
   }
 

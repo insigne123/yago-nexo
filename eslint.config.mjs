@@ -29,4 +29,12 @@ export default tseslint.config(
       "no-console": "off",
     },
   },
+  {
+    // NestJS resuelve dependencias con los metadatos de tipo de los constructores (emitDecoratorMetadata):
+    // las clases inyectadas deben importarse como valor, no con `import type`.
+    files: ["apps/console-api/src/**/*.ts"],
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "off",
+    },
+  },
 );

@@ -1,0 +1,40 @@
+{
+  "name": "@nexo/console-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API de la Consola Nexo (NestJS). Contrato: openapi.yaml",
+  "main": "./dist/main.js",
+  "files": [
+    "dist",
+    "openapi.yaml"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.1.2",
+    "@nestjs/core": "^12.1.2",
+    "@nestjs/platform-express": "^12.1.2",
+    "@nexo/console-db": "workspace:*",
+    "@nexo/shared": "workspace:*",
+    "@nexo/wso2-client": "workspace:*",
+    "fflate": "^0.8.3",
+    "jose": "^6.2.3",
+    "@prometheus-io/client": "^0.16.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "undici": "^8.11.2",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

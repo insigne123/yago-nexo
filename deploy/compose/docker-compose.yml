@@ -133,6 +133,31 @@ services:
       rabbitmq: { condition: service_healthy }
       postgres: { condition: service_healthy }
 
+  # ------------------------------------------------------------------ Consola Nexo (API)
+  console-api:
+    build: ../../apps/console-api/.deploy
+    image: nexo-lab/console-api:0.1.0
+    hostname: console-api
+    environment:
+      NEXO_DATABASE_URL: postgres://nexo:${NEXO_DB_PASSWORD}@postgres:5432/nexo
+      NEXO_ENVIRONMENT_LABEL: Laboratorio Yago
+      NEXO_CORS_ORIGINS: http://localhost:5173,http://localhost:8091
+      NEXO_AUTH_JWKS_URL: http://keycloak:8080/realms/nexo/protocol/openid-connect/certs
+      NEXO_AUTH_ISSUER: http://keycloak:8080/realms/nexo
+      NEXO_WSO2_URL: https://apim:9443
+      NEXO_WSO2_PASSWORD: ${APIM_ADMIN_PASSWORD}
+      NEXO_MI_URL: https://mi:9164
+      NEXO_MI_PASSWORD: ${MI_ADMIN_PASSWORD}
+      NEXO_OPENSEARCH_URL: http://opensearch:9200
+      NEXO_PROMETHEUS_URL: http://prometheus:9090
+      NEXO_RABBITMQ_API: http://rabbitmq:15672/api
+      NEXO_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NEXO_EXPORT_DIR: /tmp/nexo-exports
+    ports: ["8090:8090"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+
   # ------------------------------------------------------------------ backends de ejemplo
   concesiones-v1:
     build: ../../services/demo-backends

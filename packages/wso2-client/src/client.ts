@@ -192,6 +192,9 @@ export class Wso2Client {
         accept: [201],
       }),
 
+    deleteRevision: (apiId: string, revisionId: string) =>
+      this.request({ method: "DELETE", path: `${PUBLISHER}/apis/${apiId}/revisions/${revisionId}` }),
+
     restoreRevision: (apiId: string, revisionId: string) =>
       this.request({ method: "POST", path: `${PUBLISHER}/apis/${apiId}/restore-revision?revisionId=${revisionId}` }),
 

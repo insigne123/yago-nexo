@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { buildSchema, isObjectType } from "graphql";
-import { Wso2HttpError, type ApiSummary, type Wso2Client } from "@nexo/wso2-client";
+import { DEFAULT_MAX_REVISIONS, pruneRevisions, Wso2HttpError, type ApiSummary, type Wso2Client } from "@nexo/wso2-client";
 import { clientFor, type CtlConfig, type StageConfig } from "../config.js";
 import { formatIssues, lintContract } from "../lint.js";
 
@@ -59,7 +59,7 @@ function endpointConfig(url: string, r: ApiProject["resiliency"] = {}) {
   };
 }
 
-function apiBody(p: ApiProject, stageName: string) {
+function apiBody(p: ApiProject & { dir: string }, stageName: string, baseDir: string) {
   const url = p.endpoints[stageName];
   if (!url) throw new Error(`El proyecto ${p.name} no define endpoint para la etapa ${stageName}`);
   const type = p.type ?? "HTTP";
@@ -84,7 +84,10 @@ function apiBody(p: ApiProject, stageName: string) {
       technicalOwner: p.owner.technical,
       technicalOwnerEmail: p.owner.technicalEmail,
     },
-    additionalProperties: Object.entries(p.metadata).map(([name, value]) => ({ name, value, display: true })),
+    // El contrato versionado en el repositorio queda referenciado en la ficha del catálogo (BT-018).
+    additionalProperties: Object.entries({ contrato: relative(baseDir, join(p.dir, p.contract)).split(sep).join("/"), ...p.metadata }).map(
+      ([name, value]) => ({ name, value, display: true }),
+    ),
   };
 }
 
@@ -145,7 +148,7 @@ export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfi
     }
   }
   const wso2 = clientFor(s);
-  const body = apiBody(p, stageName);
+  const body = apiBody(p, stageName, cfg.baseDir);
   let api = await findApi(wso2, p.name, p.version);
   if (!api) {
     if (type === "GRAPHQL") api = await wso2.publisher.importGraphQl(contract, { ...body, operations: graphqlOperations(contract) });
@@ -163,6 +166,8 @@ export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfi
     if (!gw) throw new Error(`La etapa ${stageName} no tiene el gateway ${name} en nexo-ctl.config.yaml`);
     return gw;
   });
+  const pruned = await pruneRevisions(wso2, api.id, Number(process.env.NEXO_MAX_REVISIONS ?? DEFAULT_MAX_REVISIONS));
+  if (pruned.length) console.log(`Revisiones antiguas sin desplegar eliminadas: ${pruned.join(", ")}`);
   const revision = await wso2.publisher.createRevision(api.id, `${opts.message} · etapa ${stageName}`);
   try {
     await wso2.publisher.deployRevision(api.id, revision.id, gateways);

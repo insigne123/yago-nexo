@@ -26,6 +26,7 @@ tags:
   - { name: auditoria, description: BT-031 y BT-032 }
   - { name: cumplimiento }
   - { name: exportacion, description: BT-049 y BT-060 }
+  - { name: plataforma, description: Salud, métricas y webhooks internos }
 
 paths:
   /me:
@@ -387,6 +388,64 @@ paths:
       summary: Estado y manifiesto del paquete
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ExportJob" } } } }
+
+  /exports/{id}/download:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [exportacion]
+      summary: Descarga del paquete (zip con manifiesto y hashes SHA-256)
+      responses:
+        "200": { description: Paquete, content: { application/zip: { schema: { type: string, format: binary } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /alerts/alertmanager:
+    post:
+      tags: [plataforma]
+      summary: Receptor de alertas de Alertmanager (webhook interno)
+      description: Autenticado con un token compartido (NEXO_ALERTS_TOKEN) cuando está configurado; no usa el JWT de usuarios.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                alerts:
+                  type: array
+                  items:
+                    type: object
+                    required: [status, labels]
+                    properties:
+                      status: { type: string }
+                      labels: { type: object, additionalProperties: { type: string } }
+                      annotations: { type: object, additionalProperties: { type: string } }
+                      fingerprint: { type: string }
+      responses:
+        "204": { description: Recibidas }
+        "401": { description: Token del webhook inválido }
+
+  /health:
+    get:
+      tags: [plataforma]
+      summary: Salud del servicio (incluye conexión a la base de datos)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { status: { type: string }, version: { type: string }, ambiente: { type: string } }
+
+  /metrics:
+    get:
+      tags: [plataforma]
+      summary: Métricas en formato Prometheus
+      security: []
+      responses:
+        "200": { description: OK, content: { text/plain: { schema: { type: string } } } }
 
 components:
   securitySchemes:

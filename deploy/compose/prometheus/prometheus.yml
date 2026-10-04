@@ -37,4 +37,6 @@ scrape_configs:
     static_configs:
       - targets: ["concesiones-v1:7001", "concesiones-v2:7001", "registro-soap:7001"]
         labels: { componente: backend }
-  # Los servicios de Nexo (Consola y motores) se agregan cuando se despliegan (Fase 2).
+  - job_name: nexo-services
+    metrics_path: /api/v1/metrics
+    static_configs: [{ targets: ["console-api:8090"], labels: { componente: consola } }]

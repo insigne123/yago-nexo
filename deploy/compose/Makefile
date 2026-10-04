@@ -9,6 +9,8 @@ env:
 
 build: env
 	cd ../.. && pnpm --filter @nexo/demo-backends build
+	cd ../.. && pnpm --filter "@nexo/console-api..." build && rm -rf apps/console-api/.deploy \
+	  && pnpm --filter @nexo/console-api deploy --prod --legacy apps/console-api/.deploy && cp apps/console-api/Dockerfile apps/console-api/.deploy/
 	$(COMPOSE) $(PROFILES) build
 
 ## Levanta todo el laboratorio
