@@ -61,7 +61,12 @@ Las migraciones se pueden reaplicar sin error (`if not exists`, `create or repla
    Sin estos secretos, `sd_tick()` sigue marcando vencimientos y encolando avisos, pero nadie los envía (queda una advertencia en el log de la base de datos).
 4. **Funciones Edge:** ver `functions/README.md` (se despliegan con `--no-verify-jwt`).
 5. **MFA:** la base de datos exige `aal2` (TOTP verificado) para ver cualquier dato (`nexo_sd_settings.require_mfa = true`). TOTP viene habilitado por omisión en Supabase Auth; esta entrega no cambia ajustes de Auth.
-6. **Cuentas y membresías:** cree las cuentas en Supabase Auth (panel o API de administración) y luego agréguelas a la mesa:
+6. **Cuentas y membresías:** en el proyecto compartido, primero autorice el correo (el trigger de `auth.users` de la otra aplicación rechaza los correos que no conoce; ver `compartido/README.md`), luego cree la cuenta en Supabase Auth (panel o API de administración) y por último agréguela a la mesa:
+
+   ```sql
+   insert into nexo_private.sd_cuentas_autorizadas (correo) values ('persona@yago.cl') on conflict do nothing;
+   ```
+
 
    ```sql
    insert into public.nexo_sd_organizations (name, slug, is_provider) values ('Yago', 'yago', true), ('SUBTEL', 'subtel', false)
