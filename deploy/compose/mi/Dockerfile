@@ -6,3 +6,6 @@ ADD --chown=wso2carbon:wso2 https://repo1.maven.org/maven2/org/postgresql/postgr
     /home/wso2carbon/wso2-config-volume/lib/postgresql-${PG_JDBC_VERSION}.jar
 COPY --chown=wso2carbon:wso2 config/ /home/wso2carbon/wso2-config-volume/
 ENV JAVA_OPTS="-DenablePrometheusApi=true"
+
+# La imagen base ya corre como wso2carbon (uid 10802); se declara explícito para que el análisis de configuración lo verifique.
+USER 10802

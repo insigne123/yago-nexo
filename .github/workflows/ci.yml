@@ -40,13 +40,11 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Trivy (dependencias y configuración)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,secret,misconfig
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: "0"
-          format: table
+      - name: Trivy (dependencias, secretos y configuración)
+        # Imagen oficial de Trivy fijada por digest (la acción trivy-action@0.33.1 dejó de existir y rompía el job).
+        # Falla ante cualquier hallazgo ALTO o CRÍTICO con corrección disponible.
+        run: |
+          docker run --rm -v "$PWD:/src:ro" \
+            aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa \
+            fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH --ignore-unfixed \
+            --skip-dirs node_modules --exit-code 1 --format table /src

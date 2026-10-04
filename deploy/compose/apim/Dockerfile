@@ -21,3 +21,6 @@ ENV JVM_MEM_OPTS="-Xms512m -Xmx1536m -javaagent:/home/wso2carbon/jmx/jmx_prometh
 
 # El entrypoint oficial copia wso2-config-volume sobre la instalación al iniciar.
 COPY --chown=wso2carbon:wso2 config/ /home/wso2carbon/wso2-config-volume/
+
+# La imagen base ya corre como wso2carbon (uid 10001); se declara explícito para que el análisis de configuración lo verifique.
+USER 10001
