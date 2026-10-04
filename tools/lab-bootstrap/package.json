@@ -18,7 +18,8 @@
     "check:d02": "tsx src/check-d02.ts",
     "legado": "tsx src/legacy.ts",
     "check:d01": "tsx src/check-d01.ts",
-    "check:siem": "tsx src/check-siem.ts"
+    "check:siem": "tsx src/check-siem.ts",
+    "check:d05": "tsx src/check-d05.ts"
   },
   "dependencies": {
     "@nexo/shared": "workspace:*",

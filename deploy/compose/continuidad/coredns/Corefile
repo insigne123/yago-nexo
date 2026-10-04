@@ -1,0 +1,14 @@
+# CoreDNS del laboratorio de continuidad: resuelve *.nexo.lab desde etcd (lo escribe el agente al conmutar).
+nexo.lab:53 {
+    etcd nexo.lab {
+        endpoint http://cont-etcd:2379
+        path /skydns
+    }
+    prometheus 0.0.0.0:9153
+    log
+    errors
+}
+. :53 {
+    forward . 1.1.1.1 8.8.8.8
+    cache 30
+}

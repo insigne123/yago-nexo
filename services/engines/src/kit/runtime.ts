@@ -45,6 +45,11 @@ export interface Engine {
   /** Llave del bloqueo de asesoría de PostgreSQL: un solo líder activo por motor. */
   lockKey: number;
   intervalMs: number;
+  /**
+   * false = todas las réplicas trabajan a la vez (no hay líder único). Lo usa el agente de continuidad (D-05):
+   * cada sitio corre su propio agente y todos deben votar. Por defecto true (un solo líder por el bloqueo).
+   */
+  singleton?: boolean;
   init?(ctx: EngineContext): Promise<void>;
   /** Una vuelta de trabajo. Lo que devuelve se publica en el latido (Consola). */
   tick(ctx: EngineContext): Promise<Record<string, unknown> | void>;
@@ -177,13 +182,15 @@ export async function runEngines(engines: Engine[]): Promise<void> {
           [engine.name, ctx.instance, leadership.leader, JSON.stringify(info)],
         )
         .catch(() => undefined);
+      // Olvida las instancias que ya no laten (réplicas o agentes retirados), para que la Consola no las muestre.
+      await ctx.db.query("DELETE FROM nexo.engine_heartbeat WHERE engine = $1 AND last_seen < now() - interval '3 minutes'", [engine.name]).catch(() => undefined);
     };
     const step = async () => {
       if (busy || stopping) return;
       busy = true;
       const end = duration.startTimer({ motor: engine.name });
       const work = (async () => {
-        const isLeader = await leadership.check();
+        const isLeader = engine.singleton === false ? true : await leadership.check();
         leaderGauge.set({ motor: engine.name }, isLeader ? 1 : 0);
         if (!isLeader) {
           await beat({ estado: "en espera (otra réplica es líder)" });

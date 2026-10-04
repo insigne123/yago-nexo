@@ -18,7 +18,6 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       APIM_DB_PASSWORD: ${APIM_DB_PASSWORD}
-      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
       NEXO_DB_PASSWORD: ${NEXO_DB_PASSWORD}
       MI_DB_PASSWORD: ${MI_DB_PASSWORD}
     volumes:
@@ -53,12 +52,26 @@ services:
       retries: 20
 
   # ------------------------------------------------------------------ identidad
+  # SSO institucional (en SUBTEL es su Keycloak): base propia, independiente de los sitios de Nexo.
+  keycloak-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      POSTGRES_DB: keycloak
+    volumes:
+      - kcdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 5s
+      retries: 20
+
   keycloak:
     image: keycloak/keycloak:26.8
     command: ["start-dev", "--import-realm"]
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
       KC_HOSTNAME: http://keycloak:8080
@@ -72,7 +85,7 @@ services:
       - ./keycloak/realm-nexo.json:/opt/keycloak/data/import/realm-nexo.json:ro
     ports: ["8080:8080", "9000:9000"]
     depends_on:
-      postgres: { condition: service_healthy }
+      keycloak-db: { condition: service_healthy }
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q 'UP' <&3"]
       interval: 10s
@@ -357,6 +370,97 @@ services:
       opensearch: { condition: service_healthy }
       opensearch-plantillas: { condition: service_completed_successfully }
 
+  # ------------------------------------------------------------------ laboratorio de continuidad de dos sitios (D-05)
+  # Perfil "cont": dos PostgreSQL con replicación por streaming (CPD primario, GCP réplica), etcd para el
+  # quórum de votos, CoreDNS para el nombre del sitio activo y un agente por sitio. `make continuidad`.
+  cont-cpd:
+    profiles: [cont]
+    image: postgres:16-alpine
+    hostname: cont-cpd
+    environment:
+      POSTGRES_PASSWORD: ${CONT_DB_PASSWORD}
+      REPL_PASSWORD: ${REPL_PASSWORD}
+    volumes:
+      - contcpd:/var/lib/postgresql/data
+      - ./continuidad/cpd-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 20
+
+  cont-gcp:
+    profiles: [cont]
+    image: postgres:16-alpine
+    hostname: cont-gcp
+    entrypoint: ["/gcp-entrypoint.sh"]
+    command: ["postgres"]
+    environment:
+      POSTGRES_PASSWORD: ${CONT_DB_PASSWORD}
+      REPL_PASSWORD: ${REPL_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - contgcp:/var/lib/postgresql/data
+      - ./continuidad/gcp-entrypoint.sh:/gcp-entrypoint.sh:ro
+    depends_on:
+      cont-cpd: { condition: service_healthy }
+
+  cont-etcd:
+    profiles: [cont]
+    image: quay.io/coreos/etcd:v3.6.5
+    hostname: cont-etcd
+    command: ["etcd", "--advertise-client-urls=http://cont-etcd:2379", "--listen-client-urls=http://0.0.0.0:2379"]
+    environment: { ETCD_DATA_DIR: /etcd-data }
+
+  cont-coredns:
+    profiles: [cont]
+    image: coredns/coredns:1.12.0
+    hostname: cont-coredns
+    command: ["-conf", "/etc/coredns/Corefile"]
+    volumes:
+      - ./continuidad/coredns:/etc/coredns:ro
+    depends_on: [cont-etcd]
+
+  cont-agente-cpd: &cont-agente
+    profiles: [cont]
+    image: nexo-lab/motores:0.1.0
+    command: ["continuidad"]
+    environment: &cont-env
+      NEXO_DATABASE_URL: postgres://nexo:${NEXO_DB_PASSWORD}@postgres:5432/nexo
+      NEXO_CONTINUITY_ETCD: http://cont-etcd:2379
+      NEXO_CONTINUITY_AUTOMATICO: "true"
+      NEXO_CONTINUITY_INTERVAL_MS: "3000"
+      NEXO_CONTINUITY_DOWN_CICLOS: "2"
+      NEXO_DNS: etcd
+      NEXO_DNS_ETCD_URL: http://cont-etcd:2379
+      NEXO_DNS_SERVER: cont-coredns:53
+      NEXO_DNS_NAME: activo.nexo.lab
+      NEXO_PRIMARY_SITE_ID: cpd
+      NEXO_PRIMARY_TCP: cont-cpd:5432
+      NEXO_PRIMARY_DB_URL: postgres://postgres:${CONT_DB_PASSWORD}@cont-cpd:5432/postgres
+      NEXO_REPLICA_DB_URL: postgres://postgres:${CONT_DB_PASSWORD}@cont-gcp:5432/postgres
+      NEXO_SITE_IP_CPD: 10.80.0.1
+      NEXO_SITE_ID: cpd
+      NEXO_SITE_ROLE: primario
+      NEXO_SITE_SERVE_IP: 10.80.0.1
+    depends_on:
+      cont-etcd: { condition: service_started }
+      postgres: { condition: service_healthy }
+
+  cont-agente-gcp:
+    <<: *cont-agente
+    environment:
+      <<: *cont-env
+      NEXO_SITE_ID: gcp
+      NEXO_SITE_ROLE: respaldo
+      NEXO_SITE_SERVE_IP: 10.80.0.2
+
+  cont-agente-testigo:
+    <<: *cont-agente
+    environment:
+      <<: *cont-env
+      NEXO_SITE_ID: testigo
+      NEXO_SITE_ROLE: testigo
+
 volumes:
   gwpublogs:
   pgdata:
@@ -366,3 +470,6 @@ volumes:
   osdata:
   fbstorage:
   nginxlogs:
+  kcdata:
+  contcpd:
+  contgcp:

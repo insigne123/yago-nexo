@@ -2,7 +2,7 @@
 COMPOSE = docker compose --env-file .env
 PROFILES ?= --profile obs --profile legacy
 
-.PHONY: env build up core down clean status logs bootstrap legado hosts platform deploy-apis
+.PHONY: env build up core down clean status logs bootstrap legado continuidad hosts platform deploy-apis
 
 env:
 	@test -f .env || cp .env.example .env
@@ -51,6 +51,11 @@ platform:
 ## Despliega las APIs versionadas en las tres etapas
 deploy-apis:
 	cd ../../tools/nexo-ctl && set -a && . ../../deploy/compose/.env && set +a && for st in dev qa prod; do npx tsx src/cli.ts -c ../../nexo-ctl.config.yaml api deploy ../../wso2/apim/apis/concesiones -s $$st -m "make deploy-apis"; done
+
+## Levanta el laboratorio de continuidad de dos sitios (D-05)
+continuidad:
+	$(COMPOSE) --profile cont up -d --build
+	@echo "Agentes de continuidad CPD, GCP y testigo arriba"
 
 ## Agrega los nombres de los servicios a /etc/hosts (solo en el entorno de desarrollo)
 hosts:

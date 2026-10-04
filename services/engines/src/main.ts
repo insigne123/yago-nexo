@@ -6,6 +6,7 @@
  */
 import type { Engine } from "./kit/runtime.js";
 import { runEngines } from "./kit/runtime.js";
+import { continuityEngine } from "./continuity/engine.js";
 import { discoveryEngine } from "./discovery/engine.js";
 import { guardianEngine } from "./guardian/engine.js";
 import { rolloutEngine } from "./rollout/engine.js";
@@ -16,6 +17,7 @@ const ENGINES: Record<string, Engine> = {
   guardian: guardianEngine,
   descubrimiento: discoveryEngine,
   siem: siemEngine,
+  continuidad: continuityEngine,
 };
 
 async function main() {
