@@ -69,6 +69,12 @@ pipeline:
       key_name: propiedades
       parser: json_props
       reserve_data: on
+    # Enmascaramiento de datos personales y secretos antes de cualquier salida (BT-029). La auditoría y el SIEM
+    # no se enmascaran: la identidad de quien actúa es evidencia. Prueba: pruebas/probar-enmascaramiento.sh
+    - name: lua
+      match_regex: ^apim\.(carbon|metrics)$
+      script: /fluent-bit/etc/nexo/enmascarar.lua
+      call: enmascarar
     - name: modify
       match: "*"
       add:

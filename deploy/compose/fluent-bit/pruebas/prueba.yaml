@@ -1,0 +1,35 @@
+# Pipeline de prueba del filtro enmascarar.lua: entradas de ejemplo → filtro → stdout (lo usa probar-enmascaramiento.sh).
+service:
+  flush: 1
+  log_level: warn
+  grace: 1
+
+pipeline:
+  inputs:
+    - name: dummy
+      tag: apim.carbon
+      samples: 1
+      dummy: '{"mensaje":"Solicitud de concesión del RUT 12.345.678-9 (empresa 76086428-5) recibida de ana.perez@dominio.cl, contacto +56 9 8765 4321"}'
+    - name: dummy
+      tag: apim.carbon
+      samples: 1
+      dummy: '{"mensaje":"pago con tarjeta 4111 1111 1111 1111; Authorization: Bearer abc.def.ghi; jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.firma; password=S3creta! {\"client_secret\":\"superSecreto123\"}"}'
+    - name: dummy
+      tag: apim.metrics
+      samples: 1
+      dummy: '{"apiName":"Concesiones","requestTimestamp":"1791123845153","correlationId":"eb0f0056-395a-4352-9e8b-cfb8f50bcbe2","headers":{"Authorization":"valor-del-header"}}'
+    - name: dummy
+      tag: apim.carbon
+      samples: 1
+      dummy: '{"mensaje":"solicitud procesada en 35 ms"}'
+
+  filters:
+    - name: lua
+      match_regex: ^apim\.(carbon|metrics)$
+      script: /fluent-bit/etc/nexo/enmascarar.lua
+      call: enmascarar
+
+  outputs:
+    - name: stdout
+      match: "*"
+      format: json_lines

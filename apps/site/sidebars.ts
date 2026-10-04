@@ -10,6 +10,12 @@ const sidebars: SidebarsConfig = {
     "ciclo-de-vida-y-soporte",
     {
       type: "category",
+      label: "Operación",
+      collapsed: false,
+      items: ["operacion/respaldo-y-restauracion"],
+    },
+    {
+      type: "category",
       label: "API de la Consola",
       link: { type: "doc", id: "api-consola" },
       collapsed: true,

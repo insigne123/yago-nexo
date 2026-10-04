@@ -27,3 +27,9 @@ supabase/**/.temp/
 
 # Registros de aceptación generados (se regeneran con pnpm --filter @nexo/aceptacion start)
 release/aceptacion/
+
+# Respaldos de bases de datos y claves de cifrado (tools/respaldo): nunca al repositorio
+/release/respaldos/
+deploy/compose/respaldo-lab.key
+deploy/compose/*.key
+tools/respaldo/respaldo.config.json
