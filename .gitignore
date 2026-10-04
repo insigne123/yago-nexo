@@ -24,3 +24,6 @@ out/
 
 # Caché local de la CLI de Supabase
 supabase/**/.temp/
+
+# Registros de aceptación generados (se regeneran con pnpm --filter @nexo/aceptacion start)
+release/aceptacion/
