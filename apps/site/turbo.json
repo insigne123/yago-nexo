@@ -9,7 +9,8 @@
         "$TURBO_ROOT$/deploy/compose/**",
         "$TURBO_ROOT$/tools/lab-bootstrap/src/index.ts",
         "$TURBO_ROOT$/LICENSE",
-        "$TURBO_ROOT$/NOTICE"
+        "$TURBO_ROOT$/NOTICE",
+        "$TURBO_ROOT$/release/evidencias/**"
       ],
       "outputs": ["build/**"]
     }

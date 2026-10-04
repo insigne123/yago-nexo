@@ -161,6 +161,7 @@ const config: Config = {
           items: [
             { label: "Hoja de ruta", to: "/docs/hoja-de-ruta" },
             { label: "Ciclo de vida y soporte", to: "/docs/ciclo-de-vida-y-soporte" },
+            { label: "Demostraciones registradas", to: "/evidencias" },
             { label: "Novedades", to: "/novedades" },
             { label: "RSS de novedades", href: "pathname:///novedades/rss.xml" },
           ],
