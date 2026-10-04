@@ -1,0 +1,34 @@
+{
+  "$comentario": "Configuración del laboratorio (deploy/compose). Para producción copie este archivo a respaldo.config.json o indique otro con NEXO_RESPALDO_CONFIG. Las contraseñas se leen de la variable indicada en claveEnv; las rutas son relativas a este archivo.",
+  "modo": "docker",
+  "destino": "../../release/respaldos",
+  "clave": "../../deploy/compose/respaldo-lab.key",
+  "generarClaveSiFalta": true,
+  "retencion": { "conservar": 7, "maximoDias": 35 },
+  "objetivos": { "rtoMinutos": 60, "rpoHoras": 24 },
+  "huellaContenido": true,
+  "docker": { "imagen": "postgres:16-alpine", "red": "nexo-lab_default" },
+  "restauracion": { "imagen": "postgres:16-alpine", "trabajos": 2, "esperaListoSeg": 90 },
+  "servidores": [
+    {
+      "nombre": "principal",
+      "host": "postgres",
+      "puerto": 5432,
+      "cliente": { "host": "127.0.0.1", "puerto": 15432 },
+      "usuario": "postgres",
+      "claveEnv": "POSTGRES_PASSWORD",
+      "bases": "todas",
+      "globales": true
+    },
+    {
+      "nombre": "keycloak",
+      "host": "keycloak-db",
+      "puerto": 5432,
+      "contenedor": "nexo-lab-keycloak-db-1",
+      "usuario": "keycloak",
+      "claveEnv": "KEYCLOAK_DB_PASSWORD",
+      "bases": ["keycloak"],
+      "globales": true
+    }
+  ]
+}

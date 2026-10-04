@@ -2,7 +2,7 @@
 COMPOSE = docker compose --env-file .env
 PROFILES ?= --profile obs --profile legacy
 
-.PHONY: env build up core down clean status logs bootstrap legado continuidad hosts platform deploy-apis
+.PHONY: env build up core down clean status logs bootstrap legado continuidad hosts platform deploy-apis respaldo restaurar-prueba
 
 env:
 	@test -f .env || cp .env.example .env
@@ -51,6 +51,14 @@ platform:
 ## Despliega las APIs versionadas en las tres etapas
 deploy-apis:
 	cd ../../tools/nexo-ctl && set -a && . ../../deploy/compose/.env && set +a && for st in dev qa prod; do npx tsx src/cli.ts -c ../../nexo-ctl.config.yaml api deploy ../../wso2/apim/apis/concesiones -s $$st -m "make deploy-apis"; done
+
+## Respaldo cifrado de las bases PostgreSQL del laboratorio (queda en release/respaldos/)
+respaldo:
+	cd ../.. && pnpm --filter "@nexo/respaldo^..." build && set -a && . deploy/compose/.env && set +a && pnpm --filter @nexo/respaldo respaldar
+
+## Prueba de restauración del último respaldo en un PostgreSQL temporal: compara cada tabla y mide el RTO
+restaurar-prueba:
+	cd ../.. && pnpm --filter "@nexo/respaldo^..." build && pnpm --filter @nexo/respaldo restaurar
 
 ## Levanta el laboratorio de continuidad de dos sitios
 continuidad:

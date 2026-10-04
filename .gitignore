@@ -24,3 +24,9 @@ out/
 
 # Caché local de la CLI de Supabase
 supabase/**/.temp/
+
+# Respaldos de bases de datos y claves de cifrado (tools/respaldo): nunca al repositorio
+/release/respaldos/
+deploy/compose/respaldo-lab.key
+*.key
+tools/respaldo/respaldo.config.json
