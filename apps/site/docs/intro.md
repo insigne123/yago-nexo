@@ -37,7 +37,7 @@ WSO2 se menciona solo para identificar el origen de los componentes de la base; 
 
 ## Qué existe hoy
 
-La versión <VersionActual formato="numero" /> es la primera versión estable de Yago Nexo. Cada capacidad marcada como *Disponible* está implementada y verificada en el laboratorio de referencia, con la ruta del repositorio donde comprobarla. Los instaladores para producción (CPD y Google Cloud) todavía figuran *En desarrollo*. Está disponible lo siguiente:
+La versión <VersionActual formato="numero" /> es la versión estable vigente de Yago Nexo (la primera estable fue la 1.0.0). Cada capacidad marcada como *Disponible* está implementada y verificada en el laboratorio de referencia, con la ruta del repositorio donde comprobarla. Los instaladores para producción (CPD y Google Cloud) todavía figuran *En desarrollo*. Está disponible lo siguiente:
 
 <ListaCapacidades estado="Disponible" />
 

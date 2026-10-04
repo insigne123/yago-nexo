@@ -1,0 +1,30 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de rendimiento · Yago Nexo</title>
+<style>body{font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#1f2937;margin:24px}h1{color:#1F3864;font-size:18pt}h2{color:#1D6F6A;font-size:13pt;margin-top:22px}
+table{border-collapse:collapse;width:100%;margin:8px 0}th{background:#1F3864;color:#fff;font-weight:bold}th,td{border:1px solid #BFC9D6;padding:4px 6px;text-align:center;font-size:8.5pt}
+td:first-child{text-align:left}tr:nth-child(even) td{background:#F5F8FB}.ok{color:#166534;font-weight:bold}.mal{color:#9a3412;font-weight:bold}.nota{color:#595959;font-size:9pt}</style></head><body>
+<h1>Informe de rendimiento · Yago Nexo 1.1.0</h1>
+<p>Fecha: 2026-10-04T18:43:26.208Z · Commit 7a11f60 · Máquina vm (4 vCPU, 16 GB RAM) · k6 v2.3.0 (commit/e088784614, go1.27.1, linux/amd64)</p>
+<h2>Resultado</h2>
+<p>La plataforma sostuvo la capacidad de diseño de <b>250 tx/s</b> cumpliendo los umbrales (error &lt; 1%, p99 &lt; 1.000 ms en REST y &lt; 2.000 ms en integración), frente a un pico promedio de 28 tx/s de la línea base.
+En la prueba de estrés, el último escalón que cumplió fue <b>350 tx/s</b>.</p>
+<h2>Fases a tasa constante</h2>
+<table><tr><th>Fase</th><th>Tasa objetivo (tx/s)</th><th>Tasa lograda (tx/s)</th><th>Solicitudes</th><th>Error</th><th>Operadores p50/p95/p99 (ms)</th><th>Público p50/p95/p99 (ms)</th><th>Integración p50/p95/p99 (ms)</th><th>Resultado</th></tr>
+<tr><td>Nominal: pico promedio de la línea base</td><td>28</td><td>28</td><td>5.043</td><td>0.00%</td><td>5,9 / 11,5 / 19,2</td><td>8,8 / 18,1 / 28,4</td><td>17,2 / 31,7 / 77,1</td><td class="ok">Cumple</td></tr>
+<tr><td>Pico esperado (ráfaga × crecimiento)</td><td>125</td><td>126</td><td>22.682</td><td>0.00%</td><td>6,5 / 20,1 / 46,8</td><td>8 / 22,4 / 47,4</td><td>17,1 / 54,7 / 112,3</td><td class="ok">Cumple</td></tr>
+<tr><td>Capacidad de diseño</td><td>250</td><td>249,9</td><td>74.980</td><td>0.00%</td><td>17,8 / 127,2 / 302,2</td><td>11,7 / 76,4 / 165</td><td>49,8 / 285,5 / 644,3</td><td class="ok">Cumple</td></tr></table>
+<h2>Estrés por escalones</h2>
+<table><tr><th>Escalón</th><th>Tasa objetivo (tx/s)</th><th>Tasa lograda (tx/s)</th><th>Solicitudes</th><th>Error</th><th>Operadores p50/p95/p99 (ms)</th><th>Público p50/p95/p99 (ms)</th><th>Integración p50/p95/p99 (ms)</th><th>Resultado</th></tr>
+<tr><td>Estrés 350 tx/s</td><td>350</td><td>348,5</td><td>31.364</td><td>0.00%</td><td>87,5 / 564,2 / 986,5</td><td>32,5 / 288,5 / 610</td><td>345,2 / 1.072,9 / 1.552,2</td><td class="ok">Cumple</td></tr>
+<tr><td>Estrés 450 tx/s</td><td>450</td><td>392,8</td><td>35.349</td><td>0.06%</td><td>1.802,7 / 6.855 / 10.409,6</td><td>61,1 / 435,7 / 1.062,4</td><td>3.310,2 / 7.352,7 / 10.557,5</td><td class="mal">p99 operadores 10409.6 ms > 1000 ms; p99 publico 1062.4 ms > 1000 ms; p99 integracion 10557.5 ms > 2000 ms; k6 no sostuvo la tasa (5153 iteraciones no lanzadas)</td></tr></table>
+<h2>Uso de recursos (CPU promedio / memoria máxima en MiB)</h2>
+<table><tr><th>Fase</th><th>apim</th><th>gw-publico</th><th>mi</th><th>keycloak</th><th>postgres</th><th>rabbitmq</th><th>opensearch</th><th>concesiones-v1</th><th>registro-soap</th></tr><tr><td>Nominal: pico promedio de la línea base</td><td>27% / 2.673</td><td>16,8% / 1.354</td><td>17,2% / 877</td><td>1,3% / 788</td><td>1,9% / 123</td><td>12,2% / 214</td><td>2,1% / 1.483</td><td>2,5% / 55</td><td>0,9% / 22</td></tr>
+<tr><td>Pico esperado (ráfaga × crecimiento)</td><td>60,8% / 2.673</td><td>40,4% / 1.405</td><td>49,5% / 1.028</td><td>0,3% / 787</td><td>4,6% / 130</td><td>13,2% / 221</td><td>6% / 1.483</td><td>8,3% / 62</td><td>3,3% / 23</td></tr>
+<tr><td>Capacidad de diseño</td><td>76,8% / 2.674</td><td>48,9% / 1.430</td><td>66% / 1.245</td><td>1,1% / 787</td><td>7,2% / 160</td><td>19% / 237</td><td>5% / 1.484</td><td>12,8% / 69</td><td>3,6% / 25</td></tr>
+<tr><td>Estrés 350 tx/s</td><td>81,6% / 2.663</td><td>50,4% / 1.430</td><td>64,9% / 1.603</td><td>0,3% / 784</td><td>5,6% / 159</td><td>19,5% / 242</td><td>16,5% / 1.471</td><td>12,6% / 67</td><td>3,4% / 25</td></tr>
+<tr><td>Estrés 450 tx/s</td><td>85,1% / 3.223</td><td>57,4% / 1.428</td><td>65,9% / 1.651</td><td>2,6% / 780</td><td>5,6% / 159</td><td>16,9% / 240</td><td>5,6% / 1.463</td><td>12,6% / 66</td><td>2,9% / 28</td></tr></table>
+<p class="nota">CPU en % de un núcleo (100% = 1 vCPU), según docker stats cada 3 s.</p>
+<h2>Cómo se midió</h2>
+<p>k6 genera tasa constante de llegadas (no depende de cuánto tarda cada respuesta) con la mezcla 50% gateway de operadores (REST), 30% gateway público (REST) y 20% integración (gateway → Micro Integrator con validación, llamada SOAP, transformación y publicación en RabbitMQ, con llave de idempotencia única). Cada llamada lleva un token OAuth2 de Keycloak; el token se obtiene antes de medir. La latencia es de extremo a extremo vista por el consumidor, incluido el backend de prueba.</p>
+<p class="nota">Durante la prueba se pausó la regla del guardián de anomalías «Abuso de volumen en Concesiones», que de otro modo bloquea la carga sostenida de una sola aplicación (es lo que debe hacer); se reactivó al terminar. Laboratorio en una sola máquina compartida por unos 30 contenedores (WSO2, Keycloak, PostgreSQL, RabbitMQ, OpenSearch, observabilidad, backends de prueba y el propio generador de carga). En el laboratorio, el plano de control de WSO2 y el gateway de operadores comparten un contenedor; en producción el gateway corre en instancias dedicadas de 2 vCPU según la planilla de dimensionamiento.</p>
+<p class="nota">Se reproduce con: pnpm --filter @nexo/lab-bootstrap rendimiento (script tests/rendimiento/mezcla.js).</p>
+</body></html>

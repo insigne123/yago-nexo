@@ -1,6 +1,6 @@
 {
   "name": "@nexo/lab-bootstrap",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Configura el laboratorio: Keycloak como Key Manager, APIs de ejemplo, aplicación, suscripción y prueba de punta a punta",

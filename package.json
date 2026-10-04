@@ -1,7 +1,7 @@
 {
   "name": "yago-nexo",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Yago Nexo: plataforma de gestión de APIs e integración (distribución de Yago sobre WSO2 API Manager y Micro Integrator)",
   "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@10.28.0",

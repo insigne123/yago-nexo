@@ -4,6 +4,8 @@ import Layout from "@theme/Layout";
 import type { ReactNode } from "react";
 
 import indice from "@site/src/data/evidencias.json";
+import release from "@site/src/data/release.json";
+import rendimiento from "@site/src/data/rendimiento.json";
 
 import styles from "./evidencias.module.css";
 
@@ -26,6 +28,68 @@ interface Evidencia {
 }
 
 const evidencias = (indice as { evidencias: Evidencia[] }).evidencias;
+
+/** Resumen del informe de rendimiento (lo genera tools/lab-bootstrap/src/rendimiento.ts; ver resultados.json). */
+interface Fase {
+  nombre: string;
+  tasaObjetivo: number;
+  tasaLograda: number;
+  solicitudes: number;
+  tasaError: number;
+  cumple: boolean;
+  motivo: string;
+  p99: { operadores: number; publico: number; integracion: number };
+}
+interface Rendimiento {
+  fecha: string;
+  version: string;
+  commit: string;
+  maquina: string;
+  fases: Fase[];
+  estres: Fase[];
+  limite: number | null;
+  nota: string;
+  pdf: string;
+  html: string;
+}
+const informe = rendimiento as Rendimiento;
+const REPO = "https://github.com/insigne123/yago-nexo";
+const num = (n: number) => n.toLocaleString("es-CL", { maximumFractionDigits: 1 });
+
+function TablaFases({ fases }: { fases: Fase[] }): ReactNode {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Fase</th>
+          <th>Objetivo (tx/s)</th>
+          <th>Lograda (tx/s)</th>
+          <th>Solicitudes</th>
+          <th>Error</th>
+          <th>p99 operadores (ms)</th>
+          <th>p99 público (ms)</th>
+          <th>p99 integración (ms)</th>
+          <th>Resultado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {fases.map((f) => (
+          <tr key={f.nombre}>
+            <td>{f.nombre}</td>
+            <td>{num(f.tasaObjetivo)}</td>
+            <td>{num(f.tasaLograda)}</td>
+            <td>{num(f.solicitudes)}</td>
+            <td>{(f.tasaError * 100).toLocaleString("es-CL", { maximumFractionDigits: 2 })} %</td>
+            <td>{num(f.p99.operadores)}</td>
+            <td>{num(f.p99.publico)}</td>
+            <td>{num(f.p99.integracion)}</td>
+            <td>{f.cumple ? "Cumple" : f.motivo}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 const duracion = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
@@ -135,6 +199,52 @@ export default function Evidencias(): ReactNode {
             El commit indicado en cada ficha identifica el código exacto con que se grabó. El laboratorio está descrito
             en <Link to="/docs/laboratorio">Laboratorio</Link>.
           </p>
+        </section>
+
+        <section aria-labelledby="rendimiento">
+          <Heading as="h2" id="rendimiento">
+            Informe de rendimiento
+          </Heading>
+          <p>
+            Prueba con k6 a tasa constante de llegadas, con la mezcla 50 % gateway de operadores, 30 % gateway público y
+            20 % integración (gateway, Micro Integrator con validación, llamada SOAP, transformación y cola). Umbrales:
+            error menor a 1 %, p99 menor a 1.000 ms en REST y a 2.000 ms en integración. {informe.version}, commit{" "}
+            {informe.commit}, {fecha(informe.fecha)}, {informe.maquina}.
+          </p>
+          <TablaFases fases={informe.fases} />
+          {informe.estres.length > 0 && (
+            <>
+              <p>
+                Estrés por escalones hasta que deja de cumplir:{" "}
+                {informe.limite
+                  ? `el último escalón que cumplió fue ${num(informe.limite)} tx/s.`
+                  : "ningún escalón adicional cumplió los umbrales."}
+              </p>
+              <TablaFases fases={informe.estres} />
+            </>
+          )}
+          <p>{informe.nota}</p>
+          <p>
+            Informe completo: <a href={informe.pdf}>PDF</a> · <a href={informe.html}>HTML</a>. Se reproduce con{" "}
+            <code>pnpm --filter @nexo/lab-bootstrap rendimiento</code>.
+          </p>
+        </section>
+
+        <section aria-labelledby="descargas">
+          <Heading as="h2" id="descargas">
+            Descargas de la versión {release.version}
+          </Heading>
+          <p>
+            La <a href={`${REPO}/releases/tag/v${release.version}`}>versión {release.version} en GitHub</a> publica el
+            inventario de componentes (SBOM CycloneDX), el inventario de licencias, las sumas SHA-256 y la lista de
+            imágenes, cada archivo con su firma Sigstore, y las imágenes de contenedor propias firmadas en GHCR. Para
+            verificar un archivo con <code>cosign</code>:
+          </p>
+          <pre>
+            <code>{`cosign verify-blob --bundle <archivo>.sigstore.json \\
+  --certificate-identity-regexp '^${REPO}/\\.github/workflows/release\\.yml@' \\
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com <archivo>`}</code>
+          </pre>
         </section>
 
         {evidencias.length === 0 ? (

@@ -1,6 +1,6 @@
 {
   "name": "@nexo/respaldo",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Respaldo cifrado de PostgreSQL y prueba de restauración verificada, con RTO medido y retención (BT-053, BT-058, BT-059)",

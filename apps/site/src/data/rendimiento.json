@@ -1,0 +1,84 @@
+{
+  "fecha": "2026-10-04T18:43:26.208Z",
+  "version": "Yago Nexo 1.1.0",
+  "commit": "7a11f60",
+  "maquina": "4 vCPU y 16 GB de RAM compartidos por todo el laboratorio",
+  "fases": [
+    {
+      "nombre": "Nominal: pico promedio de la línea base",
+      "tasaObjetivo": 28,
+      "tasaLograda": 28,
+      "solicitudes": 5043,
+      "tasaError": 0,
+      "cumple": true,
+      "motivo": "cumple",
+      "p99": {
+        "operadores": 19.2,
+        "publico": 28.4,
+        "integracion": 77.1
+      }
+    },
+    {
+      "nombre": "Pico esperado (ráfaga × crecimiento)",
+      "tasaObjetivo": 125,
+      "tasaLograda": 126,
+      "solicitudes": 22682,
+      "tasaError": 0,
+      "cumple": true,
+      "motivo": "cumple",
+      "p99": {
+        "operadores": 46.8,
+        "publico": 47.4,
+        "integracion": 112.3
+      }
+    },
+    {
+      "nombre": "Capacidad de diseño",
+      "tasaObjetivo": 250,
+      "tasaLograda": 249.9,
+      "solicitudes": 74980,
+      "tasaError": 0,
+      "cumple": true,
+      "motivo": "cumple",
+      "p99": {
+        "operadores": 302.2,
+        "publico": 165,
+        "integracion": 644.3
+      }
+    }
+  ],
+  "estres": [
+    {
+      "nombre": "Estrés 350 tx/s",
+      "tasaObjetivo": 350,
+      "tasaLograda": 348.5,
+      "solicitudes": 31364,
+      "tasaError": 0,
+      "cumple": true,
+      "motivo": "cumple",
+      "p99": {
+        "operadores": 986.5,
+        "publico": 610,
+        "integracion": 1552.2
+      }
+    },
+    {
+      "nombre": "Estrés 450 tx/s",
+      "tasaObjetivo": 450,
+      "tasaLograda": 392.8,
+      "solicitudes": 35349,
+      "tasaError": 0.0005657708628005657,
+      "cumple": false,
+      "motivo": "p99 operadores 10409.6 ms > 1000 ms; p99 publico 1062.4 ms > 1000 ms; p99 integracion 10557.5 ms > 2000 ms; k6 no sostuvo la tasa (5153 iteraciones no lanzadas)",
+      "p99": {
+        "operadores": 10409.6,
+        "publico": 1062.4,
+        "integracion": 10557.5
+      }
+    }
+  ],
+  "limite": 350,
+  "nota": "Durante la prueba se pausó la regla del guardián de anomalías «Abuso de volumen en Concesiones», que de otro modo bloquea la carga sostenida de una sola aplicación (es lo que debe hacer); se reactivó al terminar. Laboratorio en una sola máquina compartida por unos 30 contenedores (WSO2, Keycloak, PostgreSQL, RabbitMQ, OpenSearch, observabilidad, backends de prueba y el propio generador de carga). En el laboratorio, el plano de control de WSO2 y el gateway de operadores comparten un contenedor; en producción el gateway corre en instancias dedicadas de 2 vCPU según la planilla de dimensionamiento.",
+  "pdf": "/evidencias/rendimiento/informe-rendimiento.pdf",
+  "html": "/evidencias/rendimiento/informe-rendimiento.html"
+}

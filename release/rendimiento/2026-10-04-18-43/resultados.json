@@ -1,0 +1,467 @@
+{
+  "fecha": "2026-10-04T18:43:26.208Z",
+  "entorno": {
+    "producto": "Yago Nexo 1.1.0",
+    "commit": "7a11f60",
+    "host": "vm",
+    "vcpu": 4,
+    "ramGB": 16,
+    "k6": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/amd64)",
+    "nota": "Durante la prueba se pausó la regla del guardián de anomalías «Abuso de volumen en Concesiones», que de otro modo bloquea la carga sostenida de una sola aplicación (es lo que debe hacer); se reactivó al terminar. Laboratorio en una sola máquina compartida por unos 30 contenedores (WSO2, Keycloak, PostgreSQL, RabbitMQ, OpenSearch, observabilidad, backends de prueba y el propio generador de carga). En el laboratorio, el plano de control de WSO2 y el gateway de operadores comparten un contenedor; en producción el gateway corre en instancias dedicadas de 2 vCPU según la planilla de dimensionamiento."
+  },
+  "fases": [
+    {
+      "id": "nominal",
+      "nombre": "Nominal: pico promedio de la línea base",
+      "tasaObjetivo": 28,
+      "duracion": "3m",
+      "tasaLograda": 28,
+      "solicitudes": 5043,
+      "iteracionesPerdidas": 0,
+      "tasaError": 0,
+      "checksOk": 1,
+      "latencia": {
+        "operadores": {
+          "med": 5.9,
+          "p90": 9.4,
+          "p95": 11.5,
+          "p99": 19.2,
+          "max": 62
+        },
+        "publico": {
+          "med": 8.8,
+          "p90": 14.5,
+          "p95": 18.1,
+          "p99": 28.4,
+          "max": 50.3
+        },
+        "integracion": {
+          "med": 17.2,
+          "p90": 25.9,
+          "p95": 31.7,
+          "p99": 77.1,
+          "max": 400.1
+        },
+        "total": {
+          "med": 7.9,
+          "p90": 18.5,
+          "p95": 22.4,
+          "p99": 36.6,
+          "max": 400.1
+        }
+      },
+      "cumple": true,
+      "motivo": "cumple",
+      "recursos": {
+        "apim": {
+          "cpuProm": 27,
+          "cpuMax": 132.9,
+          "memMaxMiB": 2673
+        },
+        "gw-publico": {
+          "cpuProm": 16.8,
+          "cpuMax": 39.5,
+          "memMaxMiB": 1354
+        },
+        "mi": {
+          "cpuProm": 17.2,
+          "cpuMax": 35,
+          "memMaxMiB": 877
+        },
+        "keycloak": {
+          "cpuProm": 1.3,
+          "cpuMax": 33.3,
+          "memMaxMiB": 788
+        },
+        "postgres": {
+          "cpuProm": 1.9,
+          "cpuMax": 4.6,
+          "memMaxMiB": 123
+        },
+        "rabbitmq": {
+          "cpuProm": 12.2,
+          "cpuMax": 130.1,
+          "memMaxMiB": 214
+        },
+        "opensearch": {
+          "cpuProm": 2.1,
+          "cpuMax": 6.5,
+          "memMaxMiB": 1483
+        },
+        "concesiones-v1": {
+          "cpuProm": 2.5,
+          "cpuMax": 4.4,
+          "memMaxMiB": 55
+        },
+        "registro-soap": {
+          "cpuProm": 0.9,
+          "cpuMax": 2.6,
+          "memMaxMiB": 22
+        }
+      }
+    },
+    {
+      "id": "pico",
+      "nombre": "Pico esperado (ráfaga × crecimiento)",
+      "tasaObjetivo": 125,
+      "duracion": "3m",
+      "tasaLograda": 126,
+      "solicitudes": 22682,
+      "iteracionesPerdidas": 0,
+      "tasaError": 0,
+      "checksOk": 1,
+      "latencia": {
+        "operadores": {
+          "med": 6.5,
+          "p90": 14.6,
+          "p95": 20.1,
+          "p99": 46.8,
+          "max": 158.5
+        },
+        "publico": {
+          "med": 8,
+          "p90": 16.7,
+          "p95": 22.4,
+          "p99": 47.4,
+          "max": 141.2
+        },
+        "integracion": {
+          "med": 17.1,
+          "p90": 36.6,
+          "p95": 54.7,
+          "p99": 112.3,
+          "max": 341.9
+        },
+        "total": {
+          "med": 8.3,
+          "p90": 21.7,
+          "p95": 29.9,
+          "p99": 66.3,
+          "max": 341.9
+        }
+      },
+      "cumple": true,
+      "motivo": "cumple",
+      "recursos": {
+        "apim": {
+          "cpuProm": 60.8,
+          "cpuMax": 112.7,
+          "memMaxMiB": 2673
+        },
+        "gw-publico": {
+          "cpuProm": 40.4,
+          "cpuMax": 98.5,
+          "memMaxMiB": 1405
+        },
+        "mi": {
+          "cpuProm": 49.5,
+          "cpuMax": 126.1,
+          "memMaxMiB": 1028
+        },
+        "keycloak": {
+          "cpuProm": 0.3,
+          "cpuMax": 2.7,
+          "memMaxMiB": 787
+        },
+        "postgres": {
+          "cpuProm": 4.6,
+          "cpuMax": 9.8,
+          "memMaxMiB": 130
+        },
+        "rabbitmq": {
+          "cpuProm": 13.2,
+          "cpuMax": 85.3,
+          "memMaxMiB": 221
+        },
+        "opensearch": {
+          "cpuProm": 6,
+          "cpuMax": 65.7,
+          "memMaxMiB": 1483
+        },
+        "concesiones-v1": {
+          "cpuProm": 8.3,
+          "cpuMax": 9.6,
+          "memMaxMiB": 62
+        },
+        "registro-soap": {
+          "cpuProm": 3.3,
+          "cpuMax": 17,
+          "memMaxMiB": 23
+        }
+      }
+    },
+    {
+      "id": "diseno",
+      "nombre": "Capacidad de diseño",
+      "tasaObjetivo": 250,
+      "duracion": "5m",
+      "tasaLograda": 249.9,
+      "solicitudes": 74980,
+      "iteracionesPerdidas": 22,
+      "tasaError": 0,
+      "checksOk": 1,
+      "latencia": {
+        "operadores": {
+          "med": 17.8,
+          "p90": 78.7,
+          "p95": 127.2,
+          "p99": 302.2,
+          "max": 766.4
+        },
+        "publico": {
+          "med": 11.7,
+          "p90": 48.1,
+          "p95": 76.4,
+          "p99": 165,
+          "max": 556.5
+        },
+        "integracion": {
+          "med": 49.8,
+          "p90": 185.7,
+          "p95": 285.5,
+          "p99": 644.3,
+          "max": 1515.5
+        },
+        "total": {
+          "med": 19.5,
+          "p90": 94.1,
+          "p95": 151.4,
+          "p99": 366.8,
+          "max": 1515.5
+        }
+      },
+      "cumple": true,
+      "motivo": "cumple",
+      "recursos": {
+        "apim": {
+          "cpuProm": 76.8,
+          "cpuMax": 118,
+          "memMaxMiB": 2674
+        },
+        "gw-publico": {
+          "cpuProm": 48.9,
+          "cpuMax": 116.3,
+          "memMaxMiB": 1430
+        },
+        "mi": {
+          "cpuProm": 66,
+          "cpuMax": 97.3,
+          "memMaxMiB": 1245
+        },
+        "keycloak": {
+          "cpuProm": 1.1,
+          "cpuMax": 36,
+          "memMaxMiB": 787
+        },
+        "postgres": {
+          "cpuProm": 7.2,
+          "cpuMax": 16.2,
+          "memMaxMiB": 160
+        },
+        "rabbitmq": {
+          "cpuProm": 19,
+          "cpuMax": 74.3,
+          "memMaxMiB": 237
+        },
+        "opensearch": {
+          "cpuProm": 5,
+          "cpuMax": 37,
+          "memMaxMiB": 1484
+        },
+        "concesiones-v1": {
+          "cpuProm": 12.8,
+          "cpuMax": 16.4,
+          "memMaxMiB": 69
+        },
+        "registro-soap": {
+          "cpuProm": 3.6,
+          "cpuMax": 4.4,
+          "memMaxMiB": 25
+        }
+      }
+    }
+  ],
+  "estres": [
+    {
+      "id": "estres-350",
+      "nombre": "Estrés 350 tx/s",
+      "tasaObjetivo": 350,
+      "duracion": "90s",
+      "tasaLograda": 348.5,
+      "solicitudes": 31364,
+      "iteracionesPerdidas": 139,
+      "tasaError": 0,
+      "checksOk": 1,
+      "latencia": {
+        "operadores": {
+          "med": 87.5,
+          "p90": 420.6,
+          "p95": 564.2,
+          "p99": 986.5,
+          "max": 2026
+        },
+        "publico": {
+          "med": 32.5,
+          "p90": 193.8,
+          "p95": 288.5,
+          "p99": 610,
+          "max": 1404.2
+        },
+        "integracion": {
+          "med": 345.2,
+          "p90": 867.2,
+          "p95": 1072.9,
+          "p99": 1552.2,
+          "max": 3031.1
+        },
+        "total": {
+          "med": 89.4,
+          "p90": 510.5,
+          "p95": 689,
+          "p99": 1165.7,
+          "max": 3031.1
+        }
+      },
+      "cumple": true,
+      "motivo": "cumple",
+      "recursos": {
+        "apim": {
+          "cpuProm": 81.6,
+          "cpuMax": 101,
+          "memMaxMiB": 2663
+        },
+        "gw-publico": {
+          "cpuProm": 50.4,
+          "cpuMax": 81.1,
+          "memMaxMiB": 1430
+        },
+        "mi": {
+          "cpuProm": 64.9,
+          "cpuMax": 93,
+          "memMaxMiB": 1603
+        },
+        "keycloak": {
+          "cpuProm": 0.3,
+          "cpuMax": 1.6,
+          "memMaxMiB": 784
+        },
+        "postgres": {
+          "cpuProm": 5.6,
+          "cpuMax": 6.9,
+          "memMaxMiB": 159
+        },
+        "rabbitmq": {
+          "cpuProm": 19.5,
+          "cpuMax": 74.5,
+          "memMaxMiB": 242
+        },
+        "opensearch": {
+          "cpuProm": 16.5,
+          "cpuMax": 64.2,
+          "memMaxMiB": 1471
+        },
+        "concesiones-v1": {
+          "cpuProm": 12.6,
+          "cpuMax": 16.1,
+          "memMaxMiB": 67
+        },
+        "registro-soap": {
+          "cpuProm": 3.4,
+          "cpuMax": 5.4,
+          "memMaxMiB": 25
+        }
+      }
+    },
+    {
+      "id": "estres-450",
+      "nombre": "Estrés 450 tx/s",
+      "tasaObjetivo": 450,
+      "duracion": "90s",
+      "tasaLograda": 392.8,
+      "solicitudes": 35349,
+      "iteracionesPerdidas": 5153,
+      "tasaError": 0.0005657708628005657,
+      "checksOk": 0.9994342131319132,
+      "latencia": {
+        "operadores": {
+          "med": 1802.7,
+          "p90": 5622.6,
+          "p95": 6855,
+          "p99": 10409.6,
+          "max": 15523
+        },
+        "publico": {
+          "med": 61.1,
+          "p90": 297.6,
+          "p95": 435.7,
+          "p99": 1062.4,
+          "max": 2371.1
+        },
+        "integracion": {
+          "med": 3310.2,
+          "p90": 6333.5,
+          "p95": 7352.7,
+          "p99": 10557.5,
+          "max": 15304.1
+        },
+        "total": {
+          "med": 894.5,
+          "p90": 4959.1,
+          "p95": 6318.6,
+          "p99": 9496.5,
+          "max": 15523
+        }
+      },
+      "cumple": false,
+      "motivo": "p99 operadores 10409.6 ms > 1000 ms; p99 publico 1062.4 ms > 1000 ms; p99 integracion 10557.5 ms > 2000 ms; k6 no sostuvo la tasa (5153 iteraciones no lanzadas)",
+      "recursos": {
+        "apim": {
+          "cpuProm": 85.1,
+          "cpuMax": 110.6,
+          "memMaxMiB": 3223
+        },
+        "gw-publico": {
+          "cpuProm": 57.4,
+          "cpuMax": 73.5,
+          "memMaxMiB": 1428
+        },
+        "mi": {
+          "cpuProm": 65.9,
+          "cpuMax": 95,
+          "memMaxMiB": 1651
+        },
+        "keycloak": {
+          "cpuProm": 2.6,
+          "cpuMax": 20.8,
+          "memMaxMiB": 780
+        },
+        "postgres": {
+          "cpuProm": 5.6,
+          "cpuMax": 10.7,
+          "memMaxMiB": 159
+        },
+        "rabbitmq": {
+          "cpuProm": 16.9,
+          "cpuMax": 66.8,
+          "memMaxMiB": 240
+        },
+        "opensearch": {
+          "cpuProm": 5.6,
+          "cpuMax": 16.3,
+          "memMaxMiB": 1463
+        },
+        "concesiones-v1": {
+          "cpuProm": 12.6,
+          "cpuMax": 16.8,
+          "memMaxMiB": 66
+        },
+        "registro-soap": {
+          "cpuProm": 2.9,
+          "cpuMax": 4.6,
+          "memMaxMiB": 28
+        }
+      }
+    }
+  ],
+  "limite": 350
+}

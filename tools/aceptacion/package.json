@@ -1,6 +1,6 @@
 {
   "name": "@nexo/aceptacion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Pruebas de aceptación con evidencia: ejecuta las verificaciones automáticas del laboratorio y emite un registro por caso con los campos exigidos (ambiente, versión, topología, recursos, configuración, datos, pasos, duración, carga, resultado esperado, tolerancia, ejecutor, testigo, aprobador y evidencia)",

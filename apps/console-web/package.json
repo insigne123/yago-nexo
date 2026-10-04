@@ -1,6 +1,6 @@
 {
   "name": "@nexo/console-web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Consola Nexo (web): catálogo, impacto, motores D-01, D-02, D-04 y D-05, consumo, auditoría y cumplimiento",

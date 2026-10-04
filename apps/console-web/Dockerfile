@@ -7,7 +7,7 @@ FROM nginxinc/nginx-unprivileged:1.29-alpine
 
 LABEL org.opencontainers.image.title="Consola Nexo (web)" \
       org.opencontainers.image.vendor="Sociedad de Inversiones Yago SpA" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="1.1.0" \
       org.opencontainers.image.description="Interfaz de la Consola Nexo: catálogo, impacto, motores D-01, D-02, D-04 y D-05, consumo, auditoría y cumplimiento"
 
 # Orígenes permitidos por la política de seguridad de contenido (CSP). En SUBTEL se agregan la
