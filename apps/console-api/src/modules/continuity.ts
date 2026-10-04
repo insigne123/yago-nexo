@@ -15,11 +15,12 @@ const ReasonSchema = z.object({ reason: z.string().max(1000).optional() }).defau
 
 /**
  * Paso de una conmutación según el contrato ({name, status, detail, ts}). Los agentes de continuidad lo
- * registran como {paso, ok, detalle}; ambos formatos se aceptan.
+ * registran como {paso, ok, detalle} (y «pendiente» cuando queda una tarea manual); ambos formatos se aceptan.
  */
 export function failoverStep(s: unknown) {
   const x = (s && typeof s === "object" ? s : {}) as Record<string, unknown>;
-  const status = typeof x.status === "string" ? x.status : x.ok === true ? "completado" : x.ok === false ? "fallido" : undefined;
+  const status =
+    typeof x.status === "string" ? x.status : x.pendiente === true ? "pendiente" : x.ok === true ? "completado" : x.ok === false ? "fallido" : undefined;
   return {
     name: (typeof x.name === "string" ? x.name : typeof x.paso === "string" ? x.paso : undefined) as string | undefined,
     status,

@@ -54,6 +54,8 @@ export function formatBytes(bytes: number | null | undefined): string {
 
 export function formatDuration(seconds: number | null | undefined): string {
   if (isMissing(seconds)) return EMPTY;
+  // Bajo 10 s se muestra con un decimal (un RTO de 0,2 s no es «0 s»).
+  if (seconds < 9.95) return `${new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 }).format(Math.max(0, seconds))} s`;
   const s = Math.max(0, Math.round(seconds));
   if (s < 60) return `${s} s`;
   const m = Math.floor(s / 60);

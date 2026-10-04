@@ -34,6 +34,7 @@ describe("pasos de una conmutación", () => {
   it("traduce {paso, ok, detalle} del agente a {name, status, detail}", () => {
     expect(failoverStep({ paso: "promover la réplica", ok: true, detalle: "lista en 160 ms" })).toEqual({ name: "promover la réplica", status: "completado", detail: "lista en 160 ms", ts: undefined });
     expect(failoverStep({ paso: "conmutación", ok: false, detalle: "sin quórum" }).status).toBe("fallido");
+    expect(failoverStep({ paso: "re-sincronizar la réplica", ok: false, pendiente: true }).status).toBe("pendiente");
   });
   it("deja pasar los pasos que ya vienen en el formato del contrato", () => {
     expect(failoverStep({ name: "a", status: "en_curso", detail: "b", ts: "2026-10-04T00:00:00Z" })).toEqual({ name: "a", status: "en_curso", detail: "b", ts: "2026-10-04T00:00:00Z" });
