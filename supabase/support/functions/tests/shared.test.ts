@@ -141,8 +141,8 @@ Deno.test("sin proveedores configurados todo queda simulado y no se llama a la r
 Deno.test("Resend recibe remitente, destinatario, asunto, texto y HTML", async () => {
   const net = fakeFetch(200, { id: "re_123" });
   const env: Record<string, string> = {
-    RESEND_API_KEY: "re_clave",
-    RESEND_FROM: "Soporte <soporte@yago.cl>",
+    NEXO_SD_RESEND_API_KEY: "re_clave",
+    NEXO_SD_RESEND_FROM: "Soporte <soporte@yago.cl>",
   };
   const result = await sendEmail("a@ejemplo.invalid", message, { env: (k) => env[k], fetch: net.impl });
   assertEquals(result, { ok: true, simulated: false, providerId: "re_123", detail: { proveedor: "resend" } });
@@ -157,7 +157,7 @@ Deno.test("Resend recibe remitente, destinatario, asunto, texto y HTML", async (
 
 Deno.test("WhatsApp usa un mensaje de plantilla con el número en dígitos", async () => {
   const net = fakeFetch(200, { messages: [{ id: "wamid.1" }] });
-  const env: Record<string, string> = { WHATSAPP_TOKEN: "tok", WHATSAPP_PHONE_ID: "12345" };
+  const env: Record<string, string> = { NEXO_SD_WHATSAPP_TOKEN: "tok", NEXO_SD_WHATSAPP_PHONE_ID: "12345" };
   const result = await sendWhatsApp("+56 9 0000 0001", message, { env: (k) => env[k], fetch: net.impl });
   assertEquals(result.providerId, "wamid.1");
   assertEquals(net.calls[0]?.url, "https://graph.facebook.com/v23.0/12345/messages");
@@ -172,9 +172,9 @@ Deno.test("WhatsApp usa un mensaje de plantilla con el número en dígitos", asy
 Deno.test("Twilio recibe TwiML en español con autenticación básica", async () => {
   const net = fakeFetch(201, { sid: "CA123" });
   const env: Record<string, string> = {
-    TWILIO_ACCOUNT_SID: "AC1",
-    TWILIO_AUTH_TOKEN: "secreto",
-    TWILIO_FROM_NUMBER: "+15550000000",
+    NEXO_SD_TWILIO_ACCOUNT_SID: "AC1",
+    NEXO_SD_TWILIO_AUTH_TOKEN: "secreto",
+    NEXO_SD_TWILIO_FROM_NUMBER: "+15550000000",
   };
   const result = await sendVoice("+56900000001", message, { env: (k) => env[k], fetch: net.impl });
   assertEquals(result.providerId, "CA123");
@@ -190,7 +190,7 @@ Deno.test("los errores 4xx son definitivos y los 5xx se reintentan", async () =>
   assert(isPermanentStatus(422));
   assertFalse(isPermanentStatus(429));
   assertFalse(isPermanentStatus(503));
-  const env: Record<string, string> = { RESEND_API_KEY: "k" };
+  const env: Record<string, string> = { NEXO_SD_RESEND_API_KEY: "k" };
   const rejected = await sendEmail("x", message, {
     env: (k) => env[k],
     fetch: fakeFetch(422, { message: "invalid" }).impl,
@@ -210,9 +210,22 @@ Deno.test("los secretos con prefijo NEXO_SD_ tienen prioridad (proyecto comparti
     readSecret((k) => env[k], "RESEND_API_KEY"),
     "clave-de-la-mesa",
   );
+  // Sin habilitarlo, el nombre genérico (posible secreto de otro producto) se ignora.
   assertEquals(
-    readSecret((k) => ({ WHATSAPP_TOKEN: "generico" })[k], "WHATSAPP_TOKEN"),
+    readSecret((k) => ({ WHATSAPP_TOKEN: "generico" } as Record<string, string>)[k], "WHATSAPP_TOKEN"),
+    undefined,
+  );
+  assertEquals(
+    readSecret(
+      (k) => ({ WHATSAPP_TOKEN: "generico", NEXO_SD_USE_GENERIC_SECRETS: "true" } as Record<string, string>)[k],
+      "WHATSAPP_TOKEN",
+    ),
     "generico",
+  );
+  // Un prefijado vacío no tapa nada ni habilita el genérico por sí solo.
+  assertEquals(
+    readSecret((k) => ({ NEXO_SD_RESEND_API_KEY: " ", RESEND_API_KEY: "ajeno" } as Record<string, string>)[k], "RESEND_API_KEY"),
+    undefined,
   );
   assertEquals(
     readSecret(() => "  ", "TWILIO_AUTH_TOKEN"),

@@ -80,7 +80,7 @@ Deno.test("notify: envía, simula y reprograma según el resultado de cada canal
     }
     throw new Error(`RPC inesperada ${fn}`);
   });
-  const env: Record<string, string> = { WHATSAPP_TOKEN: "tok", WHATSAPP_PHONE_ID: "1" };
+  const env: Record<string, string> = { NEXO_SD_WHATSAPP_TOKEN: "tok", NEXO_SD_WHATSAPP_PHONE_ID: "1" };
   const fetchImpl = ((input: string | URL | Request) =>
     Promise.resolve(
       String(input).includes("graph.facebook.com")
@@ -104,7 +104,7 @@ Deno.test("notify: envía, simula y reprograma según el resultado de cada canal
   assertEquals(
     (byId["n1"]?.["p_result"] as Record<string, unknown>)["simulado"],
     true,
-    "correo sin RESEND_API_KEY",
+    "correo sin NEXO_SD_RESEND_API_KEY",
   );
   assertEquals((byId["n4"]?.["p_result"] as Record<string, unknown>)["simulado"], true, "voz sin Twilio");
   assertEquals(byId["n3"]?.["p_ok"], false);
@@ -116,8 +116,8 @@ Deno.test("notify: envía, simula y reprograma según el resultado de cada canal
 // nexo-sd-inbound
 // ---------------------------------------------------------------------------
 const inboundEnv: Record<string, string> = {
-  WHATSAPP_VERIFY_TOKEN: "token-verificacion",
-  WHATSAPP_APP_SECRET: "secreto-de-app",
+  NEXO_SD_WHATSAPP_VERIFY_TOKEN: "token-verificacion",
+  NEXO_SD_WHATSAPP_APP_SECRET: "secreto-de-app",
   NEXO_INBOUND_SECRET: "secreto-correo",
 };
 
