@@ -2,7 +2,7 @@
  * D-07 · Generación automática de clientes (SDK) desde el contrato OpenAPI publicado, en al menos tres
  * lenguajes. Desde el Dev Portal se descargan los SDK de la API Concesiones en Java, JavaScript, Python, C# y
  * Android; se revisa que cada uno traiga la clase de la API con las operaciones del contrato y el cliente
- * Python generado se usa para llamar a la API a través del gateway.
+ * JavaScript generado se instala y se usa para llamar a la API a través del gateway.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -84,33 +84,46 @@ export const d07: Demo = {
     c.verificar("SDK generados con todas las operaciones del contrato", correctos >= 3, `${correctos} de ${LENGUAJES.length} lenguajes`);
     await c.esperar(1500);
 
-    c.paso("El cliente Python generado llama a la API a través del gateway");
-    const dir = join(c.archivos, "sdk-python");
+    c.paso("El cliente JavaScript generado se instala como indica su README y consulta la API por el gateway");
+    const dir = join(c.archivos, "sdk-javascript");
     mkdirSync(dir, { recursive: true });
-    const raiz = Object.entries(unzipSync(zips.python!)).reduce((base, [f, data]) => {
-      const destino = join(dir, f);
-      if (f.endsWith("/")) return base;
-      mkdirSync(join(destino, ".."), { recursive: true });
-      writeFileSync(destino, data);
-      return f.split("/")[0]!;
-    }, "");
+    let raiz = "";
+    for (const [f, data] of Object.entries(unzipSync(zips.javascript!))) {
+      if (f.endsWith("/")) continue;
+      mkdirSync(join(dir, f, ".."), { recursive: true });
+      writeFileSync(join(dir, f), data);
+      raiz = f.split("/")[0]!;
+    }
+    const proyecto = join(dir, raiz);
+    const inst = await c.ejecutarComando("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], {
+      cwd: proyecto,
+      mostrar: `cd ${raiz} && npm install   # dependencias y compilación (babel) del SDK generado`,
+      filtro: (l) => (/compiled|added \d+ packages|ERR/i.test(l) ? l : undefined),
+      tablas: false,
+    });
+    c.exigir("SDK JavaScript instalado y compilado", inst.codigo === 0, `código ${inst.codigo}`);
     const token = await tokenAplicacion(await credencialesDe("OperadorDemo"));
     const script = [
-      "import openapi_client, os",
-      "conf = openapi_client.Configuration(host='https://apim:8243/concesiones/1.0.0', access_token=os.environ['TOKEN'])",
-      "conf.verify_ssl = False",
-      "api = openapi_client.ConcesionesApi(openapi_client.ApiClient(conf))",
-      "lista = api.listar_concesiones(estado='vigente')",
-      "print('total vigentes:', lista.total, '· primeras:', [x.empresa for x in lista.items[:3]])",
-      "una = api.obtener_concesion(lista.items[0].id)",
-      "print('detalle:', una.id, una.servicio, una.region, una.estado)",
+      'const Sdk = require("./dist/index.js");',
+      "const cliente = Sdk.ApiClient.instance;",
+      'cliente.basePath = "https://apim:8243/concesiones/1.0.0";',
+      "for (const a of Object.values(cliente.authentications)) a.accessToken = process.env.TOKEN;",
+      "const api = new Sdk.ConcesionesApi();",
+      'api.listarConcesiones({ estado: "vigente" }, (err, lista) => {',
+      '  if (err) { console.error("error", err.status); process.exit(1); }',
+      '  console.log("total vigentes:", lista.total, "· primeras:", lista.items.slice(0, 3).map((x) => x.empresa).join(", "));',
+      "  api.obtenerConcesion(lista.items[0].id, (e2, una) => {",
+      '    if (e2) { console.error("error", e2.status); process.exit(1); }',
+      '    console.log("detalle:", una.id, una.servicio, una.region, una.estado);',
+      "  });",
+      "});",
     ].join("\n");
-    writeFileSync(join(dir, "usar_sdk.py"), `${script}\n`);
-    c.log("usar_sdk.py (con el paquete openapi_client recién generado):", "tenue");
-    for (const l of script.split("\n")) c.log(`  ${l.replace(/access_token=os.environ\['TOKEN'\]/, "access_token=TOKEN")}`, "tenue");
-    const r = await c.ejecutarComando("python3", ["-W", "ignore", "usar_sdk.py"], { cwd: dir, env: { TOKEN: token, PYTHONPATH: join(dir, raiz) }, mostrar: "python3 usar_sdk.py" });
+    writeFileSync(join(proyecto, "usar_sdk.js"), `${script}\n`);
+    c.log("usar_sdk.js (usa el SDK recién generado; el laboratorio tiene certificado autofirmado):", "tenue");
+    for (const l of script.split("\n")) c.log(`  ${l}`, "tenue", false);
+    const r = await c.ejecutarComando("node", ["--no-warnings", "usar_sdk.js"], { cwd: proyecto, env: { TOKEN: token, NODE_TLS_REJECT_UNAUTHORIZED: "0" }, mostrar: "TOKEN=… node usar_sdk.js", tablas: false });
     const salida = r.salida.join("\n");
-    c.verificar("el cliente Python generado consulta la API por el gateway", r.codigo === 0 && /total vigentes: \d+/.test(salida), /total vigentes: (\d+)/.exec(salida)?.[0] ?? `código ${r.codigo}`);
+    c.verificar("el cliente JavaScript generado consulta la API por el gateway", r.codigo === 0 && /total vigentes: \d+/.test(salida), /total vigentes: (\d+)/.exec(salida)?.[0] ?? `código ${r.codigo}`);
 
     c.paso("Resumen: un SDK por lenguaje, generado desde el contrato publicado");
     c.panel(
@@ -122,7 +135,7 @@ export const d07: Demo = {
     await c.esperar(5000);
 
     return {
-      medido: `${correctos} SDK generados desde el contrato publicado (Java, JavaScript, Python, C# y Android), con sus ${operaciones.length} operaciones; el cliente Python generado consultó la API por el gateway`,
+      medido: `${correctos} SDK generados desde el contrato publicado (Java, JavaScript, Python, C# y Android), con sus ${operaciones.length} operaciones; el cliente JavaScript generado consultó la API por el gateway`,
       datos: { lenguajes: correctos, operaciones },
     };
   },

@@ -73,9 +73,13 @@ export const d04: Demo = {
       await c.esperar(1200);
       await c.clic(c.app.getByTestId("btn-approve-rollout"));
       c.log(`aprobado por luis.aprobador (regla de cuatro ojos: quien solicita no aprueba)`, "tenue");
+      await c.esperar(1500);
+      await c.app.mouse.move(600, 420);
+      await c.app.mouse.wheel(0, 330); // gráfico del peso y tabla de pasos, en vivo
       const t0 = Date.now();
       const fin = await esperarHasta(async () => (await consola<Rollout>(apr, "GET", `/rollouts/${r.data.id}`)).data, (x) => x.status !== "en_curso" && x.status !== "pendiente_aprobacion", 150, 2000);
       const seg = Math.round((Date.now() - t0) / 1000);
+      await c.app.mouse.wheel(0, -330); // vuelve arriba: estado final y banner de resultado
       return { r: fin?.valor, seg };
     };
     const erroresHasta = () => carga!.segundos.reduce((n, s) => n + s.errores, 0);
@@ -104,9 +108,7 @@ export const d04: Demo = {
       "canary 1.1.0 · sombra 10 s · 5/25/50/100 % · pasos de 10 s",
     );
     await c.app.getByTestId("rollout-completed").waitFor({ timeout: 20_000 }).catch(() => undefined);
-    await c.app.mouse.move(600, 400);
-    await c.app.mouse.wheel(0, 380);
-    await c.esperar(3000);
+    await c.esperar(2500);
     const e3 = erroresHasta();
     const plan = buena.r?.stepsDone.map((s) => (s.kind === "sombra" ? "sombra" : `${s.weight}%`)).join(" → ");
     c.exigir("canary completado: la versión nueva recibe el 100 %", buena.r?.status === "completado", `${plan} en ${buena.seg} s`);

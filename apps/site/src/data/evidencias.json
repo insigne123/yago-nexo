@@ -1,6 +1,6 @@
 {
   "$comment": "Índice de las demostraciones registradas de Yago Nexo. Lo genera tools/evidencias (pnpm --filter @nexo/evidencias grabar). Los videos se publican junto al sitio en /evidencias/<archivo>.",
-  "generado": "2026-10-04T17:23:15.715Z",
+  "generado": "2026-10-04T17:27:30.658Z",
   "evidencias": [
     {
       "id": "X-00",
@@ -284,6 +284,107 @@
         "rtoMotorSeg": 0.371,
         "rpoEstimadoSeg": 0,
         "segundosRetorno": 5
+      }
+    },
+    {
+      "id": "D-06",
+      "title": "GraphQL y APIs de eventos con contratos AsyncAPI",
+      "claim": "La plataforma publica y protege APIs GraphQL y APIs dirigidas por eventos descritas con AsyncAPI (WebSocket), en el mismo gateway, portal y control de acceso que las APIs REST y SOAP.",
+      "file": "D-06_graphql_asyncapi.webm",
+      "duration_seconds": 51.5,
+      "frames": 772,
+      "sha256": "86e61ae456a963ed59e7ce3ea8e98365b921df8af2d0d9fa2fc5dc8c5b1e0f41",
+      "size_bytes": 1141939,
+      "version": "1.0.0",
+      "commit": "60dce1f",
+      "recorded_at": "2026-10-04T14:23:15-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "consulta GraphQL respondida por el gateway en 161 ms y 3 eventos AsyncAPI recibidos por WebSocket, ambos con token OAuth",
+      "checks": [
+        {
+          "texto": "consulta GraphQL respondida por el gateway",
+          "ok": true,
+          "detalle": "3 estados · 2 concesiones"
+        },
+        {
+          "texto": "sin token el gateway la rechaza",
+          "ok": true,
+          "detalle": "HTTP 401"
+        },
+        {
+          "texto": "eventos recibidos por WebSocket con token OAuth",
+          "ok": true,
+          "detalle": "3 eventos"
+        },
+        {
+          "texto": "check-d06: GraphQL y eventos AsyncAPI a través del gateway",
+          "ok": true
+        }
+      ],
+      "data": {
+        "msGraphQL": 161,
+        "eventos": 3
+      }
+    },
+    {
+      "id": "BT-005",
+      "title": "Publicar, proteger y enrutar una API en el gateway",
+      "claim": "Una API definida por su contrato OpenAPI se publica en el gateway desde el pipeline, queda protegida con OAuth (Keycloak), suscripción y límite del plan, y enruta cada llamada al sistema de destino.",
+      "file": "BT-005_publicar_proteger.webm",
+      "duration_seconds": 47.5,
+      "frames": 713,
+      "sha256": "6e999ece9632bde1c1c4c1230130959977a46cfef29a63028d4db1c8b68d1409",
+      "size_bytes": 1087835,
+      "version": "1.0.0",
+      "commit": "60dce1f",
+      "recorded_at": "2026-10-04T14:25:56-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "API publicada por el pipeline y protegida: 401 sin token, 403 sin suscripción, 200 suscrita y 40 de 60 llamadas limitadas (429) por el plan",
+      "checks": [
+        {
+          "texto": "pipeline terminó sin errores",
+          "ok": true,
+          "detalle": "código 0"
+        },
+        {
+          "texto": "API creada y publicada en WSO2",
+          "ok": true,
+          "detalle": "PUBLISHED"
+        },
+        {
+          "texto": "sin token: el gateway rechaza (401)",
+          "ok": true,
+          "detalle": "HTTP 401"
+        },
+        {
+          "texto": "token válido pero sin suscripción: rechazo (403)",
+          "ok": true,
+          "detalle": "HTTP 403"
+        },
+        {
+          "texto": "suscrita y con token: 200 con la respuesta del sistema de destino",
+          "ok": true,
+          "detalle": "HTTP 200"
+        },
+        {
+          "texto": "el gateway aplica el límite del plan (429)",
+          "ok": true,
+          "detalle": "20 atendidas · 40 limitadas"
+        },
+        {
+          "texto": "las llamadas autorizadas llegaron al sistema de destino",
+          "ok": true,
+          "detalle": "http://ocultas:7001/legacy · 21 llamadas"
+        }
+      ],
+      "data": {
+        "sinToken": 401,
+        "sinSuscripcion": 403,
+        "suscrita": 200,
+        "limite": {
+          "200": 20,
+          "429": 40
+        }
       }
     }
   ]
