@@ -1,0 +1,217 @@
+# Yago Nexo · sitio de respaldo en Google Cloud (GKE regional, southamerica-west1), en espera tibia
+#
+# Se aplica encima de values.yaml:
+#   helm upgrade --install nexo-platform deploy/helm/nexo-platform -n nexo \
+#     -f deploy/helm/nexo-platform/values-gcp-dr.yaml -f <valores-propios-del-sitio>.yaml
+#
+# Espera tibia: cerca del 50 % de las instancias del CPD (mínimo 1), con los mismos recursos por pod para que
+# cada réplica rinda igual que en el CPD. Al conmutar, el autoescalamiento sube gateways e integrador.
+# La base de datos local es una réplica en espera: hasta que el agente de continuidad la promueve, API Manager
+# y los motores solo leen (publicar APIs o crear aplicaciones falla en este sitio mientras sea respaldo).
+# Las direcciones salen de las salidas de OpenTofu (deploy/opentofu/gcp-dr).
+
+global:
+  ambiente: prod
+  sitio: gcp
+  # Artifact Registry del proyecto (salida "registro_imagenes" de OpenTofu). Los nodos lo leen con su cuenta
+  # de servicio: no hace falta imagePullSecrets.
+  imageRegistry: southamerica-west1-docker.pkg.dev/nexo-dr-ejemplo/nexo
+  imagePullSecrets: []
+  antiAfinidad: preferida
+  distribuirPorZona: true
+  nodeSelector:
+    cloud.google.com/gke-nodepool: plataforma
+  tlsInterno:
+    inseguro: false
+    caSecret: nexo-ca-interna
+  # El mismo controlador que en el CPD (Traefik), instalado en GKE detrás de una IP regional fija: así cada
+  # sitio tiene una sola IP de entrada y el agente de continuidad solo cambia un registro DNS.
+  ingress:
+    proveedor: traefik
+    className: traefik
+    tlsSecret: nexo-tls
+    traefik:
+      serversTransport:
+        crear: true
+        serverName: wso2.nexo.internal
+  networkPolicies:
+    ingreso:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: traefik
+    monitoreo:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: observabilidad
+    # Plano de control privado de GKE (variable cidr_plano_control de OpenTofu); solo lo usa CloudNativePG.
+    apiServer:
+      - ipBlock: { cidr: 172.16.0.0/28 }
+  serviceMonitors:
+    # Actívelo si el sitio tiene Prometheus Operator (Google Managed Prometheus usa otros recursos).
+    enabled: false
+  otel:
+    endpoint: http://otel-collector.observabilidad.svc:4317
+  keycloak:
+    url: https://sso.nexo.example
+    realm: nexo
+  dependencias:
+    postgresql:
+      # Réplica en espera del PostgreSQL del CPD (replicación por streaming).
+      host: postgresql-nexo.datos.svc
+      ssl: requerido
+    rabbitmq:
+      host: rabbitmq.datos.svc
+      urlAdmin: http://rabbitmq.datos.svc:15672/api
+    opensearch:
+      host: opensearch.observabilidad.svc
+      tls: true
+    prometheus:
+      url: http://prometheus.observabilidad.svc:9090
+    alertmanager:
+      url: http://alertmanager.observabilidad.svc:9093
+
+secretos:
+  almacenLlaves:
+    existingSecret: nexo-wso2-almacen
+  opensearch:
+    existingSecret: nexo-opensearch
+
+apim:
+  controlPlane:
+    replicas: 1
+    hostname: apim.nexo.example
+    ingress:
+      hostsExtra: [apim-gcp.nexo.example]
+    jvm: "-Xms4g -Xmx5g"
+    resources:
+      requests: { cpu: "4", memory: 8Gi }
+      limits: { cpu: "4", memory: 8Gi }
+    # La base es una réplica en solo lectura: el esquema llega por la replicación.
+    esquemaBd:
+      aplicar: false
+    cors:
+      origenes: "https://consola.nexo.example"
+  trafficManager:
+    replicas: 1
+    jvm: "-Xms2g -Xmx2560m"
+    resources:
+      requests: { cpu: "2", memory: 4Gi }
+      limits: { cpu: "2", memory: 4Gi }
+  gatewayComun:
+    jvm: "-Xms2g -Xmx2560m"
+    resources:
+      requests: { cpu: "2", memory: 4Gi }
+      limits: { cpu: "2", memory: 4Gi }
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 4
+      cpu: 60
+    # Sistemas de destino alcanzables desde Google Cloud (por la interconexión con el CPD). Ejemplo.
+    egresoBackends:
+      - to:
+          - ipBlock: { cidr: 10.20.0.0/16 }
+          - ipBlock: { cidr: 10.30.0.0/16 }
+  gateways:
+    operadores:
+      replicas: 1
+      ambientes:
+        - nombre: Default
+          descripcion: Sistemas internos de la institución
+          vhost: api.nexo.example
+        - nombre: Operadores
+          descripcion: APIs para entidades externas autorizadas, con control de acceso y límites
+          vhost: operadores.nexo.example
+      ingress:
+        websocket:
+          - host: ws-operadores.nexo.example
+    publico:
+      replicas: 1
+      ambientes:
+        - nombre: Publico
+          descripcion: APIs públicas autorizadas
+          vhost: publico.nexo.example
+  # El Key Manager llega con la base replicada desde el CPD.
+  keyManager:
+    registrar: false
+
+mi:
+  replicas: 1
+  jvm: "-Xms2g -Xmx2560m"
+  resources:
+    requests: { cpu: "2", memory: 4Gi }
+    limits: { cpu: "2", memory: 4Gi }
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 2
+    cpu: 60
+  egresoBackends:
+    - to:
+        - ipBlock: { cidr: 10.20.0.0/16 }
+        - ipBlock: { cidr: 10.30.0.0/16 }
+
+division:
+  replicas: 1
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { cpu: "1", memory: 512Mi }
+  egresoBackends:
+    - to:
+        - ipBlock: { cidr: 10.20.0.0/16 }
+        - ipBlock: { cidr: 10.30.0.0/16 }
+
+consola:
+  etiquetaAmbiente: Producción · Google Cloud (respaldo)
+  ingress:
+    host: consola.nexo.example
+  api:
+    replicas: 1
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: "1", memory: 1Gi }
+  web:
+    replicas: 1
+
+motores:
+  replicas: 1
+  siem:
+    destinos: "syslog+tls://siem.nexo.example:6514"
+  resources:
+    requests: { cpu: 500m, memory: 1Gi }
+    limits: { cpu: "1", memory: 1Gi }
+  egresoExtra:
+    - to:
+        - ipBlock: { cidr: 10.40.0.10/32 }
+      ports:
+        - { protocol: TCP, port: 6514 }
+
+continuidad:
+  enabled: true
+  sitio:
+    id: gcp
+    nombre: Google Cloud
+    rol: respaldo
+    # IP regional fija de la entrada en Google Cloud (salida "ip_entrada" de OpenTofu).
+    ipServicio: 203.0.113.10
+  ipSitios:
+    cpd: 10.50.0.10
+    gcp: 203.0.113.10
+  automatico: false
+  etcd:
+    url: http://etcd-quorum.nexo.example:2379
+  dns:
+    # Cloud DNS (zona y cuenta de servicio creadas por OpenTofu; la llave va en el Secret nexo-continuidad).
+    proveedor: clouddns
+    nombre: activo.nexo.example
+    ttl: 10
+    gcp:
+      proyecto: nexo-dr-ejemplo
+      zona: nexo-publica
+  primario:
+    sitioId: cpd
+    # Lo que este agente revisa del CPD (por la interconexión).
+    urlsSalud:
+      - https://apim-cpd.nexo.example/services/Version
+    tcp:
+      - 10.50.0.20:5432

@@ -1,0 +1,51 @@
+{{- /*
+ServiceMonitor por componente (Prometheus Operator). Mismos objetivos que deploy/compose/prometheus/prometheus.yml.
+*/ -}}
+{{- if .Values.global.serviceMonitors.enabled }}
+{{- $lista := list }}
+{{- if .Values.apim.metricasJmx.enabled }}
+{{- if .Values.apim.controlPlane.enabled }}{{ $lista = append $lista (list "apim-cp" (list (dict "port" "metricas" "path" "/metrics"))) }}{{ end }}
+{{- if .Values.apim.trafficManager.enabled }}{{ $lista = append $lista (list "apim-tm" (list (dict "port" "metricas" "path" "/metrics"))) }}{{ end }}
+{{- end }}
+{{- range $clave := splitList "," (include "nexo.gateways" .) }}
+{{- if $clave }}
+{{- $eps := list }}
+{{- if $.Values.apim.metricasJmx.enabled }}{{ $eps = append $eps (dict "port" "metricas" "path" "/metrics") }}{{ end }}
+{{- if $.Values.apim.registros.enabled }}{{ $eps = append $eps (dict "port" "fb-metricas" "path" "/metrics") }}{{ end }}
+{{- if $eps }}{{ $lista = append $lista (list (printf "gw-%s" $clave) $eps) }}{{ end }}
+{{- end }}
+{{- end }}
+{{- if .Values.mi.enabled }}{{ $lista = append $lista (list "mi" (list (dict "port" "metricas" "path" "/metric-service/metrics"))) }}{{ end }}
+{{- if .Values.division.enabled }}{{ $lista = append $lista (list "division" (list (dict "port" "metricas" "path" "/stats/prometheus"))) }}{{ end }}
+{{- if .Values.consola.api.enabled }}{{ $lista = append $lista (list "console-api" (list (dict "port" "http" "path" "/api/v1/metrics"))) }}{{ end }}
+{{- if .Values.motores.enabled }}{{ $lista = append $lista (list "motores" (list (dict "port" "metricas" "path" "/metrics"))) }}{{ end }}
+{{- if .Values.continuidad.enabled }}{{ $lista = append $lista (list "continuidad" (list (dict "port" "metricas" "path" "/metrics"))) }}{{ end }}
+{{- range $item := $lista }}
+{{- $comp := index $item 0 }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" $comp) }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" $comp) | nindent 4 }}
+    {{- with $.Values.global.serviceMonitors.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" (dict "ctx" $ "comp" $comp) | nindent 6 }}
+  endpoints:
+    {{- range $ep := index $item 1 }}
+    - port: {{ $ep.port }}
+      path: {{ $ep.path }}
+      interval: {{ $.Values.global.serviceMonitors.intervalo }}
+      relabelings:
+        - targetLabel: componente
+          replacement: {{ $comp }}
+        - targetLabel: sitio
+          replacement: {{ $.Values.global.sitio }}
+    {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,102 @@
+# Yago Nexo · desarrollo, en el clúster no productivo (espacio de nombres nexo-dev)
+#
+#   helm upgrade --install nexo-dev deploy/helm/nexo-platform -n nexo-dev -f deploy/helm/nexo-platform/values-dev.yaml
+#
+# Una instancia de cada servicio, con recursos reducidos y solo datos sintéticos. Credenciales propias de desarrollo
+# (los Secrets se crean en nexo-dev). Usa los almacenes de llaves de ejemplo de WSO2: el TLS interno no se verifica.
+
+global:
+  ambiente: dev
+  sitio: cpd
+  imageRegistry: harbor.nexo.example
+  imagePullSecrets:
+    - name: harbor-nexo
+  tlsInterno:
+    inseguro: true
+  ingress:
+    proveedor: traefik
+    className: traefik
+    tlsSecret: nexo-dev-tls
+    traefik:
+      serversTransport:
+        crear: true
+        # Certificados de ejemplo de WSO2 (CN=localhost): sin verificación, solo fuera de producción.
+        insecureSkipVerify: true
+  keycloak:
+    url: https://sso-dev.nexo.example
+    realm: nexo-dev
+  dependencias:
+    postgresql:
+      host: postgresql.datos-dev.svc
+    rabbitmq:
+      host: rabbitmq.datos-dev.svc
+      urlAdmin: http://rabbitmq.datos-dev.svc:15672/api
+    opensearch:
+      host: opensearch.observabilidad.svc
+
+apim:
+  controlPlane:
+    replicas: 1
+    hostname: apim-dev.nexo.example
+    jvm: "-Xms1g -Xmx2g"
+    resources:
+      requests: { cpu: "1", memory: 3Gi }
+      limits: { cpu: "2", memory: 3Gi }
+  trafficManager:
+    replicas: 1
+    jvm: "-Xms512m -Xmx1g"
+    resources:
+      requests: { cpu: 250m, memory: 1536Mi }
+      limits: { cpu: "1", memory: 1536Mi }
+  gatewayComun:
+    jvm: "-Xms512m -Xmx1536m"
+    resources:
+      requests: { cpu: 500m, memory: 2Gi }
+      limits: { cpu: "1", memory: 2Gi }
+    hpa:
+      enabled: false
+  gateways:
+    operadores:
+      replicas: 1
+      ambientes:
+        - nombre: Desarrollo
+          descripcion: Gateway de desarrollo (datos sintéticos)
+          vhost: dev.nexo.example
+    publico:
+      replicas: 1
+      ambientes:
+        - nombre: Publico
+          descripcion: APIs públicas en desarrollo (datos sintéticos)
+          vhost: publico-dev.nexo.example
+
+mi:
+  replicas: 1
+  jvm: "-Xms512m -Xmx1g"
+  resources:
+    requests: { cpu: 250m, memory: 1536Mi }
+    limits: { cpu: "1", memory: 1536Mi }
+
+division:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+consola:
+  etiquetaAmbiente: Desarrollo
+  ingress:
+    host: consola-dev.nexo.example
+  api:
+    replicas: 1
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+  web:
+    replicas: 1
+
+motores:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+

@@ -1,0 +1,34 @@
+{{- /*
+PodDisruptionBudget de cada componente: en un mantenimiento (drenado de nodos) sale a lo más una réplica a la
+vez. Con una sola réplica no bloquea el drenado.
+*/ -}}
+{{- $lista := list }}
+{{- if .Values.apim.controlPlane.enabled }}{{ $lista = append $lista (list "apim-cp" .Values.apim.controlPlane.pdb) }}{{ end }}
+{{- if .Values.apim.trafficManager.enabled }}{{ $lista = append $lista (list "apim-tm" .Values.apim.trafficManager.pdb) }}{{ end }}
+{{- range $clave := splitList "," (include "nexo.gateways" .) }}
+{{- if $clave }}
+{{- $gw := fromYaml (include "nexo.gatewayCfg" (dict "ctx" $ "clave" $clave)) }}
+{{- $lista = append $lista (list (printf "gw-%s" $clave) $gw.pdb) }}
+{{- end }}
+{{- end }}
+{{- if .Values.mi.enabled }}{{ $lista = append $lista (list "mi" .Values.mi.pdb) }}{{ end }}
+{{- if .Values.division.enabled }}{{ $lista = append $lista (list "division" .Values.division.pdb) }}{{ end }}
+{{- if .Values.consola.api.enabled }}{{ $lista = append $lista (list "console-api" .Values.consola.api.pdb) }}{{ end }}
+{{- if .Values.consola.web.enabled }}{{ $lista = append $lista (list "console-web" .Values.consola.web.pdb) }}{{ end }}
+{{- if .Values.motores.enabled }}{{ $lista = append $lista (list "motores" .Values.motores.pdb) }}{{ end }}
+{{- range $item := $lista }}
+{{- $comp := index $item 0 }}
+{{- $pdb := index $item 1 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" $comp) }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" $comp) | nindent 4 }}
+spec:
+  maxUnavailable: {{ $pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "nexo.selector" (dict "ctx" $ "comp" $comp) | nindent 6 }}
+{{- end }}

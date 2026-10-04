@@ -1,0 +1,23 @@
+apiVersion: v2
+name: nexo-platform
+description: >-
+  Yago Nexo en Kubernetes: WSO2 API Manager 4.7.0 (Control Plane, Traffic Manager y Universal Gateways por
+  audiencia), WSO2 Micro Integrator 4.6.0 y la capa Yago (Consola, motores, división de tráfico y agente de
+  continuidad). Las dependencias con estado (PostgreSQL, RabbitMQ, OpenSearch y Keycloak) se consumen como
+  servicios externos.
+type: application
+# Versión del chart (instalador en desarrollo: 0.x).
+version: 0.1.0
+# Versión de Nexo que instala por omisión (etiqueta de las imágenes nexo/*).
+appVersion: "1.0.0"
+kubeVersion: ">=1.30.0-0"
+keywords:
+  - nexo
+  - wso2
+  - api-manager
+  - micro-integrator
+home: https://yago-nexo.web.app
+maintainers:
+  - name: Sociedad de Inversiones Yago SpA
+annotations:
+  nexo.yago.cl/componentes-base: "wso2am-acp 4.7.0, wso2am-tm 4.7.0, wso2am-universal-gw 4.7.0, wso2mi 4.6.0, envoy 1.38.5"

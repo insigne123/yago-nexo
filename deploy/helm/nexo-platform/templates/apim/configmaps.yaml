@@ -1,0 +1,87 @@
+{{- /* Configuración de WSO2 API Manager: deployment.toml de cada rol y scripts de inicio. */ -}}
+{{- if .Values.apim.controlPlane.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "apim-cp") }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" "apim-cp" "rol" "control-plane") | nindent 4 }}
+data:
+  deployment.toml: |
+    {{- include "nexo.toml.cp" . | nindent 4 }}
+{{- end }}
+{{- if .Values.apim.trafficManager.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "apim-tm") }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" "apim-tm" "rol" "traffic-manager") | nindent 4 }}
+data:
+  deployment.toml: |
+    {{- include "nexo.toml.tm" . | nindent 4 }}
+{{- end }}
+{{- range $clave := splitList "," (include "nexo.gateways" .) }}
+{{- if $clave }}
+{{- $gw := fromYaml (include "nexo.gatewayCfg" (dict "ctx" $ "clave" $clave)) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" (printf "gw-%s" $clave)) }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" (printf "gw-%s" $clave) "rol" "gateway") | nindent 4 }}
+data:
+  deployment.toml: |
+    {{- include "nexo.toml.gw" (dict "ctx" $ "clave" $clave "gw" $gw) | nindent 4 }}
+{{- end }}
+{{- end }}
+{{- if or .Values.apim.controlPlane.enabled .Values.apim.trafficManager.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "apim-scripts") }}
+  labels:
+    {{- include "nexo.etiquetas" (dict "ctx" $ "comp" "apim-scripts") | nindent 4 }}
+data:
+  # Completa la lista de los otros nodos del mismo rol (centro de eventos o Traffic Manager) y deja el
+  # deployment.toml final en /config. Cada nodo se excluye a sí mismo.
+  preparar-config.sh: |
+    #!/bin/sh
+    set -eu
+    yo="$(hostname)"
+    pares=""
+    i=0
+    while [ "$i" -lt "$NEXO_REPLICAS" ]; do
+      par="${NEXO_STS}-${i}"
+      if [ "$par" != "$yo" ]; then
+        pares="${pares:+$pares, }\"tcp://${par}.${NEXO_HEADLESS}:5672\""
+      fi
+      i=$((i + 1))
+    done
+    sed "s|@@PARES_EVENTOS@@|${pares}|" /plantilla/deployment.toml > /config/deployment.toml
+    echo "deployment.toml listo para ${yo} (otros nodos: ${pares:-ninguno})"
+  # Aplica los esquemas oficiales de WSO2 API Manager si faltan. Idempotente: revisa una tabla de cada esquema.
+  aplicar-esquema.sh: |
+    #!/bin/sh
+    set -eu
+    export PGPASSWORD="$APIM_DB_PASSWORD"
+    until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$BD_APIM" >/dev/null 2>&1; do
+      echo "esperando PostgreSQL en ${PGHOST}:${PGPORT}..."
+      sleep 3
+    done
+    aplicar() {
+      base="$1"; marca="$2"; script="$3"
+      if psql -d "$base" -tAc "SELECT to_regclass('$marca')" | grep -q "$marca"; then
+        echo "[$base] el esquema ya existe ($marca)"
+      else
+        echo "[$base] aplicando $script"
+        psql -d "$base" -v ON_ERROR_STOP=1 -q -f "$script"
+      fi
+    }
+    aplicar "$BD_COMPARTIDA" reg_resource /dbscripts/shared_db.sql
+    aplicar "$BD_APIM" am_api /dbscripts/apim_db.sql
+    echo "esquemas listos"
+{{- end }}
