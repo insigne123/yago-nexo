@@ -149,7 +149,7 @@ export const CASOS: Caso[] = [
     requisitos: ["D-02"],
     titulo: "Guardián de anomalías: bloqueo automático y liberación con cuatro ojos",
     comando: "pnpm --filter @nexo/lab-bootstrap check:d02",
-    condicionesPrevias: `${LAB}; tráfico base de aprendizaje.`,
+    condicionesPrevias: `${LAB}; tráfico base de aprendizaje, y al menos una hora sin pruebas de carga sostenida de la misma aplicación (la línea base del guardián son los últimos 60 minutos: una prueba de carga la eleva y una ráfaga deja de ser anómala).`,
     pasos: ["Genera tráfico normal", "Genera una anomalía", "Verifica el bloqueo", "Libera con aprobación de una segunda persona"],
     datos: "Tráfico sintético.",
     carga: "Tráfico normal y una ráfaga anómala.",
