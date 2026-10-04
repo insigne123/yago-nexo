@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { Command } from "commander";
 import { loadConfig, stage } from "./config.js";
 import { platformApply } from "./commands/platform.js";
-import { deployApi, exportApis, listApis, rollbackApi, runLint } from "./commands/api.js";
+import { deployApi, exportApis, lintAll, listApis, rollbackApi, runLint } from "./commands/api.js";
 
 const program = new Command();
 program
@@ -43,6 +43,18 @@ api
   .action((contrato: string, o: { ruleset: string }) =>
     run(() => {
       if (!runLint(resolve(contrato), { ruleset: resolve(o.ruleset) })) process.exitCode = 2;
+    })(),
+  );
+api
+  .command("lint-all")
+  .description("Valida todos los contratos de wso2/apim/apis contra su guía de estilo (paso del pipeline de CI)")
+  .option("-d, --dir <carpeta>", "carpeta de proyectos de API", "wso2/apim/apis")
+  .option("-g, --governance <carpeta>", "carpeta de guías de estilo", "wso2/apim/governance")
+  .action((o: { dir: string; governance: string }) =>
+    run(() => {
+      const cfg = loadConfig(program.opts().config);
+      const at = (p: string) => (existsSync(resolve(p)) ? resolve(p) : resolve(cfg.baseDir, p));
+      if (!lintAll(at(o.dir), at(o.governance))) process.exitCode = 2;
     })(),
   );
 api

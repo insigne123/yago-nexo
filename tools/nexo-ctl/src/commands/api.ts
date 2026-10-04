@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { basename, join, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { buildSchema, isObjectType } from "graphql";
@@ -141,6 +141,33 @@ export function runLint(contract: string, opts: LintOptions): boolean {
   console.log(formatIssues(res));
   console.log(`  Resultado: ${res.errors.length} errores, ${res.warnings.length} advertencias, ${res.infos.length} info.`);
   return res.errors.length === 0;
+}
+
+/**
+ * Valida todos los contratos versionados (OpenAPI y AsyncAPI) de una carpeta de proyectos de API contra su
+ * guía de estilo. Es el paso del pipeline de integración continua: si un contrato tiene errores, falla (D-03).
+ * Se omiten las carpetas que empiezan con «_» (ejemplos que no cumplen a propósito).
+ */
+export function lintAll(apisDir: string, governanceDir: string): boolean {
+  let ok = true;
+  let n = 0;
+  for (const name of readdirSync(apisDir).sort()) {
+    const dir = join(apisDir, name);
+    if (name.startsWith("_") || !statSync(dir).isDirectory() || !existsSync(join(dir, "api.yaml"))) continue;
+    const p = loadProject(dir);
+    if (p.type === "GRAPHQL") {
+      graphqlOperations(readFileSync(join(dir, p.contract), "utf8"));
+      console.log(`Esquema GraphQL ${name}/${p.contract} válido.`);
+      n++;
+      continue;
+    }
+    const isAsync = p.type === "WS" || p.type === "WEBSUB" || p.type === "SSE";
+    const ruleset = join(governanceDir, isAsync ? "guia-asyncapi.yaml" : "guia-estilo-institucional.yaml");
+    if (!runLint(join(dir, p.contract), { ruleset })) ok = false;
+    n++;
+  }
+  console.log(ok ? `Contratos: ${n} validados, todos cumplen la guía de estilo.` : "CONTRATOS RECHAZADOS: hay errores de la guía de estilo (D-03).");
+  return ok;
 }
 
 /**
