@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es-CL">
+  <head>
+    <meta charset="utf-8" />
+    <title>Estudio de grabación · Yago Nexo</title>
+    <link rel="stylesheet" href="/__estudio/estudio.css" />
+  </head>
+  <body data-vista="portada">
+    <header id="banner">
+      <span class="marca"><img src="/__estudio/logo.svg" alt="" /> <b id="b-producto">Yago Nexo</b></span>
+      <span id="b-ambiente"></span>
+      <span id="b-reloj" class="tabular"></span>
+    </header>
+
+    <main id="principal">
+      <section id="portada" class="tarjeta">
+        <div class="tarjeta-cuerpo">
+          <p class="sobretitulo">Demostración registrada</p>
+          <h1><span id="p-id"></span><span id="p-nombre"></span></h1>
+          <dl class="ficha">
+            <dt>Producto</dt><dd id="p-version"></dd>
+            <dt>Grabación</dt><dd id="p-fecha"></dd>
+            <dt>Ambiente</dt><dd id="p-ambiente"></dd>
+          </dl>
+          <div class="afirmacion">
+            <p class="etiqueta">Lo que se demuestra</p>
+            <p id="p-afirmacion"></p>
+          </div>
+          <p class="nota">Escenario real contra el laboratorio: sin datos simulados, sin cortes y sin acelerar.</p>
+        </div>
+      </section>
+
+      <section id="monitor">
+        <div class="barra-navegador">
+          <span class="puntos"><i></i><i></i><i></i></span>
+          <span id="m-url" class="url"></span>
+          <span class="en-vivo">● navegador en vivo</span>
+        </div>
+        <div class="pantalla"><img id="m-img" alt="Pantalla del navegador" /></div>
+      </section>
+
+      <section id="terminal">
+        <div class="barra-terminal"><span id="t-titulo">Salida del escenario</span></div>
+        <pre id="t-lineas"></pre>
+      </section>
+
+      <section id="panel"><div id="panel-cuerpo"></div></section>
+
+      <section id="resultado" class="tarjeta">
+        <div class="tarjeta-cuerpo">
+          <p class="sobretitulo" id="r-sobretitulo">Resultado medido</p>
+          <h1 id="r-titulo"></h1>
+          <p id="r-medido" class="medido"></p>
+          <ul id="r-verificaciones"></ul>
+          <p class="nota" id="r-nota"></p>
+        </div>
+      </section>
+    </main>
+
+    <footer id="rotulo">
+      <span id="r-paso" class="paso"></span>
+      <span id="r-texto"></span>
+      <span id="r-tiempo" class="tabular"></span>
+    </footer>
+    <script src="/__estudio/estudio.js"></script>
+  </body>
+</html>

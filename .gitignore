@@ -24,3 +24,6 @@ out/
 
 # Caché local de la CLI de Supabase
 supabase/**/.temp/
+
+# Videos de las demostraciones registradas (se publican con el sitio, no van a git)
+/release/evidencias/
