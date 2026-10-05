@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ORG_SUBTEL, sessionFor } from "../test/render";
+import { ORG_CLIENTE, sessionFor } from "../test/render";
 import { can, ticketOrgs, toSessionContext } from "./permissions";
 
 const OTHER_ORG = "33333333-3333-4333-8333-333333333333";
@@ -7,9 +7,9 @@ const OTHER_ORG = "33333333-3333-4333-8333-333333333333";
 describe("permisos de la interfaz", () => {
   it("el reportante crea y comenta tickets de su organización, pero no opera", () => {
     const ctx = sessionFor("reportante");
-    expect(can(ctx, "ticket:create", ORG_SUBTEL)).toBe(true);
+    expect(can(ctx, "ticket:create", ORG_CLIENTE)).toBe(true);
     expect(can(ctx, "ticket:create", OTHER_ORG)).toBe(false);
-    expect(can(ctx, "ticket:comment", ORG_SUBTEL)).toBe(true);
+    expect(can(ctx, "ticket:comment", ORG_CLIENTE)).toBe(true);
     for (const capability of [
       "ticket:change_status",
       "ticket:assign",
@@ -18,22 +18,22 @@ describe("permisos de la interfaz", () => {
       "queue:view",
       "oncall:manage",
     ] as const) {
-      expect(can(ctx, capability, ORG_SUBTEL)).toBe(false);
+      expect(can(ctx, capability, ORG_CLIENTE)).toBe(false);
     }
-    expect(can(ctx, "pause:acknowledge", ORG_SUBTEL)).toBe(false);
-    expect(can(ctx, "remote:decide", ORG_SUBTEL)).toBe(false);
+    expect(can(ctx, "pause:acknowledge", ORG_CLIENTE)).toBe(false);
+    expect(can(ctx, "remote:decide", ORG_CLIENTE)).toBe(false);
   });
 
   it("la contraparte acusa pausas, habilita accesos y aprueba paquetes de su organización", () => {
     const ctx = sessionFor("contraparte");
-    expect(can(ctx, "pause:acknowledge", ORG_SUBTEL)).toBe(true);
-    expect(can(ctx, "remote:decide", ORG_SUBTEL)).toBe(true);
-    expect(can(ctx, "patch:approve", ORG_SUBTEL)).toBe(true);
+    expect(can(ctx, "pause:acknowledge", ORG_CLIENTE)).toBe(true);
+    expect(can(ctx, "remote:decide", ORG_CLIENTE)).toBe(true);
+    expect(can(ctx, "patch:approve", ORG_CLIENTE)).toBe(true);
     expect(can(ctx, "pause:acknowledge", OTHER_ORG)).toBe(false);
-    expect(can(ctx, "ticket:change_status", ORG_SUBTEL)).toBe(false);
+    expect(can(ctx, "ticket:change_status", ORG_CLIENTE)).toBe(false);
   });
 
-  it("el agente opera tickets de cualquier organización pero no acusa por SUBTEL", () => {
+  it("el agente opera tickets de cualquier organización pero no acusa por el cliente", () => {
     const ctx = sessionFor("agente");
     for (const capability of [
       "ticket:change_status",
@@ -45,9 +45,9 @@ describe("permisos de la interfaz", () => {
     ] as const) {
       expect(can(ctx, capability, OTHER_ORG)).toBe(true);
     }
-    expect(can(ctx, "pause:acknowledge", ORG_SUBTEL)).toBe(false);
-    expect(can(ctx, "patch:approve", ORG_SUBTEL)).toBe(false);
-    expect(can(sessionFor("supervisor"), "patch:approve", ORG_SUBTEL)).toBe(true);
+    expect(can(ctx, "pause:acknowledge", ORG_CLIENTE)).toBe(false);
+    expect(can(ctx, "patch:approve", ORG_CLIENTE)).toBe(false);
+    expect(can(sessionFor("supervisor"), "patch:approve", ORG_CLIENTE)).toBe(true);
   });
 
   it("sin MFA o sin sesión no hay permisos", () => {
@@ -65,16 +65,16 @@ describe("permisos de la interfaz", () => {
       is_supervisor: false,
       memberships: [
         {
-          org_id: ORG_SUBTEL,
-          org_name: "SUBTEL",
-          org_slug: "subtel",
+          org_id: ORG_CLIENTE,
+          org_name: "Cliente",
+          org_slug: "cliente",
           is_provider: false,
           role: "reportante",
           display_name: "Ana",
         },
       ],
     });
-    expect(ctx?.memberships[0]?.orgName).toBe("SUBTEL");
+    expect(ctx?.memberships[0]?.orgName).toBe("Cliente");
     expect(ticketOrgs(ctx!)).toHaveLength(1);
     expect(
       toSessionContext({

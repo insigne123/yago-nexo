@@ -10,12 +10,12 @@ begin;
 -- Canal entrante
 -- ---------------------------------------------------------------------------
 select nexo_test.eq(
-  public.nexo_sd_inbound_message('email', 'Reportante.Demo@SUBTEL.invalid', 'Camila', 'El portal no carga',
+  public.nexo_sd_inbound_message('email', 'Reportante.Demo@CLIENTE.invalid', 'Camila', 'El portal no carga',
     'Desde las 08:00 el portal de desarrolladores no carga.', 'msg-001', now() - interval '2 minutes') ->> 'resultado',
   'ticket', 'un correo de un miembro registrado crea un ticket');
 select id as t_mail, number as n_mail from public.nexo_sd_tickets where external_ref = 'email:msg-001' \gset
 select nexo_test.ok(
-  (select org_id = nexo_test.org('subtel-demo') and reporter_id = nexo_test.uid('reportante.demo@subtel.invalid')
+  (select org_id = nexo_test.org('cliente-demo') and reporter_id = nexo_test.uid('reportante.demo@cliente.invalid')
       and channel = 'email' and intake_status = 'aceptado'
    from public.nexo_sd_tickets where id = :'t_mail'),
   'el remitente se asocia a su organización y queda como reportante (correo sin distinguir mayúsculas)');
@@ -28,16 +28,16 @@ select nexo_test.eq(
 select nexo_test.eq((select count(*)::int from public.nexo_sd_sla_clocks where ticket_id = :'t_mail'), 3,
   'el ticket del correo tiene sus relojes');
 select nexo_test.eq(
-  public.nexo_sd_inbound_message('email', 'reportante.demo@subtel.invalid', 'Camila', 'El portal no carga',
+  public.nexo_sd_inbound_message('email', 'reportante.demo@cliente.invalid', 'Camila', 'El portal no carga',
     'Repetido', 'msg-001', now()) ->> 'resultado',
   'duplicado', 'el mismo mensaje no crea un segundo ticket');
 
 select nexo_test.eq(
-  public.nexo_sd_inbound_message('email', 'reportante.demo@subtel.invalid', 'Camila', 'Re: [' || :'n_mail' || '] El portal no carga',
+  public.nexo_sd_inbound_message('email', 'reportante.demo@cliente.invalid', 'Camila', 'Re: [' || :'n_mail' || '] El portal no carga',
     'Ya volvió a cargar, pero lento.', 'msg-002', now()) ->> 'resultado',
   'comentario', 'una respuesta con el número del ticket se agrega como comentario');
 select nexo_test.ok(
-  (select author_id = nexo_test.uid('reportante.demo@subtel.invalid') and visibility = 'publico'
+  (select author_id = nexo_test.uid('reportante.demo@cliente.invalid') and visibility = 'publico'
    from public.nexo_sd_ticket_events where payload ->> 'external_ref' = 'email:msg-002'),
   'el comentario queda a nombre del remitente');
 
@@ -61,13 +61,13 @@ select nexo_test.eq(
     'msg-004', now()) ->> 'resultado',
   'cuarentena', 'el personal de Yago no abre tickets por correo sin número (queda en cuarentena)');
 
-update public.nexo_sd_members set phone_e164 = '+56922222222' where email = 'contraparte.demo@subtel.invalid';
+update public.nexo_sd_members set phone_e164 = '+56922222222' where email = 'contraparte.demo@cliente.invalid';
 select nexo_test.eq(
   public.nexo_sd_inbound_message('whatsapp', '56922222222', 'Diego', null,
     'La API de concesiones responde 500 a todos.', 'wamid.ABC', now() - interval '3 days') ->> 'resultado',
   'ticket', 'un WhatsApp de un número registrado crea un ticket');
 select nexo_test.ok(
-  (select reporter_id = nexo_test.uid('contraparte.demo@subtel.invalid') and channel = 'whatsapp'
+  (select reporter_id = nexo_test.uid('contraparte.demo@cliente.invalid') and channel = 'whatsapp'
       and channel_sender = '+56922222222' and title = 'La API de concesiones responde 500 a todos.'
       and created_at = now()
    from public.nexo_sd_tickets where external_ref = 'whatsapp:wamid.ABC'),
@@ -76,13 +76,13 @@ select nexo_test.ok(
 -- Revisión de la cuarentena por un agente.
 select nexo_test.login('agente1.demo@yago.invalid');
 select nexo_test.throws(
-  $$select public.nexo_sd_accept_quarantined_ticket('$$ || :'t_cuar' || $$', nexo_test.org('subtel-demo'), nexo_test.uid('agente2.demo@yago.invalid'), null)$$,
+  $$select public.nexo_sd_accept_quarantined_ticket('$$ || :'t_cuar' || $$', nexo_test.org('cliente-demo'), nexo_test.uid('agente2.demo@yago.invalid'), null)$$,
   'el reportante asignado debe ser de la organización', '23514');
-select public.nexo_sd_accept_quarantined_ticket(:'t_cuar', nexo_test.org('subtel-demo'),
-  nexo_test.uid('reportante.demo@subtel.invalid'), :'s3');
+select public.nexo_sd_accept_quarantined_ticket(:'t_cuar', nexo_test.org('cliente-demo'),
+  nexo_test.uid('reportante.demo@cliente.invalid'), :'s3');
 reset role;
 select nexo_test.ok(
-  (select intake_status = 'aceptado' and org_id = nexo_test.org('subtel-demo') and severity = 'S3'
+  (select intake_status = 'aceptado' and org_id = nexo_test.org('cliente-demo') and severity = 'S3'
       and classification_source = 'asistente' and sla_started_at = now()
    from public.nexo_sd_tickets where id = :'t_cuar'),
   'al aceptar se asigna la organización, se clasifica con el asistente y el SLA parte en ese momento');
@@ -146,9 +146,9 @@ select nexo_test.eq(
 -- Resumen mensual con datos controlados (julio de 2026)
 -- ---------------------------------------------------------------------------
 insert into public.nexo_sd_tickets (org_id, title, classification_answers, created_at, external_ref) values
-  (nexo_test.org('subtel-demo'), 'Julio S1 a tiempo', :'s1', nexo_test.cl('2026-07-10 10:00'), 'test:jul-a'),
-  (nexo_test.org('subtel-demo'), 'Julio S1 con atraso', :'s1', nexo_test.cl('2026-07-20 10:00'), 'test:jul-b'),
-  (nexo_test.org('subtel-demo'), 'Julio S4', :'s4', nexo_test.cl('2026-07-15 10:00'), 'test:jul-c');
+  (nexo_test.org('cliente-demo'), 'Julio S1 a tiempo', :'s1', nexo_test.cl('2026-07-10 10:00'), 'test:jul-a'),
+  (nexo_test.org('cliente-demo'), 'Julio S1 con atraso', :'s1', nexo_test.cl('2026-07-20 10:00'), 'test:jul-b'),
+  (nexo_test.org('cliente-demo'), 'Julio S4', :'s4', nexo_test.cl('2026-07-15 10:00'), 'test:jul-c');
 insert into public.nexo_sd_clock_pauses (ticket_id, reason, justification, started_at)
 select id, 'red', 'Corte de enlace del proveedor durante 10 minutos.', created_at + interval '10 minutes'
 from public.nexo_sd_tickets where external_ref = 'test:jul-b';
@@ -167,36 +167,36 @@ select nexo_test.eq(
   (select string_agg(format('%s %s: %s/%s/%s %s%% prom %s máx %s', severity, metric, total, met_on_time, breached,
                             coalesce(compliance_pct::text, '-'), coalesce(avg_effective_minutes::text, '-'),
                             coalesce(max_effective_minutes::text, '-')), ' | ' order by severity, metric)
-   from public.nexo_sd_sla_summary('2026-07', nexo_test.org('subtel-demo')) where total > 0),
+   from public.nexo_sd_sla_summary('2026-07', nexo_test.org('cliente-demo')) where total > 0),
   'S1 acuse: 2/1/1 50.00% prom 55.0 máx 80.0 | S1 diagnostico: 2/2/0 100.00% prom 90.0 máx 90.0 | '
   || 'S1 solucion: 2/1/1 50.00% prom 245.0 máx 290.0 | S4 acuse: 1/1/0 100.00% prom 120.0 máx 120.0',
   'cumplimiento por severidad y métrica, con minutos efectivos (sin pausas) y hábiles para S4');
-select nexo_test.eq((select count(*)::int from public.nexo_sd_sla_summary('2026-07', nexo_test.org('subtel-demo'))), 10,
+select nexo_test.eq((select count(*)::int from public.nexo_sd_sla_summary('2026-07', nexo_test.org('cliente-demo'))), 10,
   'el resumen trae todas las métricas comprometidas aunque no tengan casos (S1-S3: 3, S4: 1)');
 select nexo_test.throws($$select * from public.nexo_sd_sla_summary('julio')$$, 'el período debe ser AAAA-MM', '22023');
 
-select public.nexo_sd_monthly_report_data('2026-07', nexo_test.org('subtel-demo')) as informe \gset
+select public.nexo_sd_monthly_report_data('2026-07', nexo_test.org('cliente-demo')) as informe \gset
 select nexo_test.ok(
   (select (d -> 'tickets' ->> 'total') = '3' and (d -> 'tickets' -> 'por_severidad') = '{"S1": 2, "S4": 1}'::jsonb
       and jsonb_array_length(d -> 'resumen') = 10 and jsonb_array_length(d -> 'incumplimientos') = 2
       and (d -> 'pausas' -> 0 ->> 'motivo') = 'red' and (d -> 'pausas' -> 0 ->> 'minutos')::numeric = 10
    from (select (:'informe')::jsonb as d) x),
   'los datos del informe incluyen tickets, resumen, pausas e incumplimientos');
-select public.nexo_sd_record_monthly_report(nexo_test.org('subtel-demo'), '2026-07', (:'informe')::jsonb,
-  'informes/' || nexo_test.org('subtel-demo') || '/2026-07.pdf', null) as rep1 \gset
-select public.nexo_sd_record_monthly_report(nexo_test.org('subtel-demo'), '2026-07', (:'informe')::jsonb,
-  'informes/' || nexo_test.org('subtel-demo') || '/2026-07.pdf', null) as rep2 \gset
+select public.nexo_sd_record_monthly_report(nexo_test.org('cliente-demo'), '2026-07', (:'informe')::jsonb,
+  'informes/' || nexo_test.org('cliente-demo') || '/2026-07.pdf', null) as rep1 \gset
+select public.nexo_sd_record_monthly_report(nexo_test.org('cliente-demo'), '2026-07', (:'informe')::jsonb,
+  'informes/' || nexo_test.org('cliente-demo') || '/2026-07.pdf', null) as rep2 \gset
 select nexo_test.eq(:'rep1'::uuid, :'rep2'::uuid, 'regenerar el informe del mismo mes lo reemplaza');
 select nexo_test.ok(
   (select count(distinct recipient_user_id) = 2 from public.nexo_sd_notifications where template = 'sd_informe_mensual'),
   'la contraparte y el reportante reciben el aviso del informe');
-select nexo_test.login('reportante.demo@subtel.invalid');
+select nexo_test.login('reportante.demo@cliente.invalid');
 select nexo_test.eq((select count(*)::int from public.nexo_sd_monthly_reports where period = '2026-07'), 1,
   'la organización ve su informe mensual');
 select nexo_test.ok(public.nexo_sd_mark_notifications_read(null) >= 1, 'el reportante marca sus avisos como leídos');
 select nexo_test.eq(
   (select count(*)::int from public.nexo_sd_notifications
-   where recipient_user_id = nexo_test.uid('reportante.demo@subtel.invalid') and read_at is null), 0,
+   where recipient_user_id = nexo_test.uid('reportante.demo@cliente.invalid') and read_at is null), 0,
   'ya no le quedan avisos sin leer');
 select nexo_test.login('sin.membresia@ejemplo.invalid');
 select nexo_test.eq((select count(*)::int from public.nexo_sd_monthly_reports), 0, 'sin membresía no ve informes');

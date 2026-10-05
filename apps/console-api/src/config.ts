@@ -14,7 +14,7 @@ export const config = {
   databaseUrl: env("NEXO_DATABASE_URL"),
   corsOrigins: env("NEXO_CORS_ORIGINS", "http://localhost:5173").split(",").map((s) => s.trim()),
   auth: {
-    /** JWKS del proveedor: Keycloak (SUBTEL) o Supabase Auth (demo). */
+    /** JWKS del proveedor: Keycloak (institución) o Supabase Auth (demo). */
     jwksUrl: env("NEXO_AUTH_JWKS_URL", "http://keycloak:8080/realms/nexo/protocol/openid-connect/certs"),
     issuer: env("NEXO_AUTH_ISSUER", "http://keycloak:8080/realms/nexo"),
     audience: opt("NEXO_AUTH_AUDIENCE"),

@@ -2,7 +2,7 @@
 
 Interfaz de la Consola Nexo: catálogo con ficha de gobierno, dependencias e impacto, descubrimiento (D-01), anomalías (D-02), despliegues progresivos (D-04), continuidad (D-05), consumo (BT-021), mensajes fallidos (BT-051), auditoría (BT-031/032), cumplimiento y exportación.
 
-El mismo build sirve para la demo (Firebase Hosting) y para los servidores de SUBTEL (contenedor NGINX): lo que cambia por ambiente se lee al iniciar desde `/config.json`.
+El mismo build sirve para la demo (Firebase Hosting) y para los servidores de la institución (contenedor NGINX): lo que cambia por ambiente se lee al iniciar desde `/config.json`.
 
 Tecnología: Vite 8, React 19, TypeScript 5.9, Tailwind CSS 4, React Router 7, TanStack Query 5, React Flow 12, ECharts 6, oidc-client-ts 3, supabase-js 2 y MSW 2. El cliente de la API se genera desde el contrato `apps/console-api/openapi.yaml`.
 
@@ -103,16 +103,16 @@ En desarrollo, las llamadas a `/api` se envían a la API de la Consola en `http:
 - Los roles se leen de `app_metadata.roles` del token. Se asignan desde el backend, por ejemplo: `update auth.users set raw_app_meta_data = raw_app_meta_data || '{"roles":["aprobador"]}' where email = 'persona@ejemplo.invalid';`
 - La `anonKey` es la clave pública del proyecto; nunca use la `service_role` en la Consola.
 
-## Contenedor NGINX (SUBTEL)
+## Contenedor NGINX (producción)
 
 ```bash
 pnpm --filter @nexo/console-web build
 cd apps/console-web
 docker build -t nexo/console-web:1.0.0 .
 docker run -p 8090:8080 \
-  -v "$PWD/config.subtel.json:/etc/nexo/config.json:ro" \
-  -e NEXO_CSP_CONNECT_SRC="'self' https://sso.subtel.cl https://api-consola.subtel.cl" \
-  -e NEXO_CSP_FRAME_SRC="'self' https://sso.subtel.cl" \
+  -v "$PWD/config.produccion.json:/etc/nexo/config.json:ro" \
+  -e NEXO_CSP_CONNECT_SRC="'self' https://sso.institucion.example https://api-consola.institucion.example" \
+  -e NEXO_CSP_FRAME_SRC="'self' https://sso.institucion.example" \
   nexo/console-web:1.0.0
 ```
 

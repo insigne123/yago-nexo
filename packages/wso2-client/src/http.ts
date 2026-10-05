@@ -1,7 +1,7 @@
 import { Agent, fetch, FormData, type RequestInit, type Response } from "undici";
 
 export interface TlsOptions {
-  /** En laboratorio WSO2 usa certificados autofirmados. En producción se entrega la CA de SUBTEL. */
+  /** En laboratorio WSO2 usa certificados autofirmados. En producción se entrega la CA de la institución. */
   rejectUnauthorized?: boolean;
   ca?: string;
 }

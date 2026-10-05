@@ -52,7 +52,7 @@ services:
       retries: 20
 
   # ------------------------------------------------------------------ identidad
-  # SSO institucional (en SUBTEL es su Keycloak): base propia, independiente de los sitios de Nexo.
+  # SSO institucional (en producción, el Keycloak de la institución): base propia, independiente de los sitios de Nexo.
   keycloak-db:
     image: postgres:16-alpine
     environment:
@@ -189,7 +189,7 @@ services:
       NEXO_ALERTMANAGER_URL: http://alertmanager:9093
       NEXO_DIVISION_URL: http://nexo-division:10000
       NEXO_DIVISION_ADMIN_URLS: http://nexo-division:9902
-      # D-01: fuentes de la plataforma "actual" y objetivos de red autorizados (en SUBTEL los define SUBTEL).
+      # D-01: fuentes de la plataforma "actual" y objetivos de red autorizados (en producción los define la institución).
       NEXO_DISCOVERY_APISIX_ADMIN: http://apisix:9180
       NEXO_DISCOVERY_APISIX_KEY: ${APISIX_ADMIN_KEY}
       NEXO_DISCOVERY_APISIX_ADDRESS: apisix:9080
@@ -246,7 +246,7 @@ services:
     ports: ["7003:7001"]
     depends_on: [concesiones-v1]
 
-  # ------------------------------------------------------------------ plataforma "actual" de SUBTEL (para D-01 y migración)
+  # ------------------------------------------------------------------ plataforma "actual" de la institución (para D-01 y migración)
   nginx-legacy:
     profiles: [legacy]
     image: nginx:alpine

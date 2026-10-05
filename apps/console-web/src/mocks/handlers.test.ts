@@ -50,7 +50,7 @@ async function call(method: string, path: string, username?: string, payload?: u
 const ROLLOUT = {
   apiId: "api-concesiones",
   strategy: "canary",
-  candidateEndpoint: "https://concesiones-v14.interno.subtel.invalid",
+  candidateEndpoint: "https://concesiones-v14.interno.cliente.invalid",
   steps: [5, 25, 50, 100],
   stepDurationSec: 60,
   thresholds: { maxErrorRate: 0.02, maxP99Ms: 800, minRequests: 20 },
@@ -144,7 +144,7 @@ describe("API simulada: el estado cambia con las acciones y el tiempo", () => {
   it("una versión defectuosa se revierte sola en el primer paso", async () => {
     const created = await call("POST", "/rollouts", "ana.desarrollo", {
       ...ROLLOUT,
-      candidateEndpoint: "https://concesiones-v14-mala.interno.subtel.invalid",
+      candidateEndpoint: "https://concesiones-v14-mala.interno.cliente.invalid",
     });
     await call("POST", `/rollouts/${String(created.body.id)}/approve`, "luis.aprobador");
     now += 6_500;

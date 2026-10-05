@@ -3,7 +3,7 @@ import pg from "pg";
 /**
  * Operaciones de PostgreSQL para la conmutación (D-05). En el laboratorio el sitio de respaldo tiene una
  * réplica por streaming; al conmutar se promueve con pg_promote(). El RPO estimado sale del rezago de
- * replicación en el momento de promover (bytes de WAL recibidos aún no aplicados). En SUBTEL el procedimiento
+ * replicación en el momento de promover (bytes de WAL recibidos aún no aplicados). En producción el procedimiento
  * es el mismo con CloudNativePG en GKE.
  */
 async function withClient<T>(url: string, fn: (c: pg.Client) => Promise<T>): Promise<T> {

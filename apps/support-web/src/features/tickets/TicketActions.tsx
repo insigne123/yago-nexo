@@ -98,7 +98,7 @@ function AssignControl({
 function PauseControl({ ticket }: { ticket: TicketDetail }) {
   const supabase = useSupabase();
   const action = useRunAction(ticketKeys(ticket.id));
-  const [reason, setReason] = useState<PauseReason>("infraestructura_subtel");
+  const [reason, setReason] = useState<PauseReason>("infraestructura_cliente");
   const [justification, setJustification] = useState("");
   const [note, setNote] = useState("");
   const open = ticket.pauses.find((p) => !p.ended_at);
@@ -136,7 +136,7 @@ function PauseControl({ ticket }: { ticket: TicketDetail }) {
         e.preventDefault();
         void action.run(
           () => actions.pause(supabase, ticket.id, reason, justification.trim()),
-          "Reloj en pausa. SUBTEL fue avisada para acusarla.",
+          "Reloj en pausa. Se avisó al cliente para que la acuse.",
         );
       }}
     >
@@ -155,7 +155,7 @@ function PauseControl({ ticket }: { ticket: TicketDetail }) {
         label="Justificación"
         value={justification}
         onChange={(e) => setJustification(e.target.value)}
-        help="Visible para SUBTEL. Indique la evidencia (al menos 10 caracteres)."
+        help="Visible para el cliente. Indique la evidencia (al menos 10 caracteres)."
         rows={3}
         required
       />
@@ -204,7 +204,7 @@ function RemoteAccessRequestControl({ ticket }: { ticket: TicketDetail }) {
   const [scope, setScope] = useState("");
   const [justification, setJustification] = useState("");
   if (ticket.remote.some((r) => r.status === "pendiente")) {
-    return <p className="text-sm text-slate-700">Hay una solicitud de acceso remoto pendiente de SUBTEL.</p>;
+    return <p className="text-sm text-slate-700">Hay una solicitud de acceso remoto pendiente del cliente.</p>;
   }
   return (
     <form
@@ -213,7 +213,7 @@ function RemoteAccessRequestControl({ ticket }: { ticket: TicketDetail }) {
         e.preventDefault();
         void action.run(
           () => actions.requestRemoteAccess(supabase, ticket.id, scope.trim(), justification.trim()),
-          "Solicitud enviada. El reloj queda en pausa hasta que SUBTEL habilite el acceso.",
+          "Solicitud enviada. El reloj queda en pausa hasta que el cliente habilite el acceso.",
         );
       }}
     >

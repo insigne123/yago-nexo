@@ -4,7 +4,7 @@
 -- * No crea usuarios ni escribe en auth.users (el proyecto es compartido y otro producto
 --   tiene un trigger ahí). Vincula como miembros solo las cuentas de demostración que ya
 --   existan en Supabase Auth con estos correos (dominio .invalid, que nunca se entrega):
---     reportante.demo@subtel.invalid · contraparte.demo@subtel.invalid
+--     reportante.demo@cliente.invalid · contraparte.demo@cliente.invalid
 --     agente1.demo@yago.invalid · agente2.demo@yago.invalid · supervisor.demo@yago.invalid
 -- * Sin teléfonos: ningún aviso de prueba puede llegar a un número real.
 -- * Se puede ejecutar más de una vez (no duplica filas ni consume correlativos).
@@ -12,14 +12,14 @@
 
 insert into public.nexo_sd_organizations (name, slug, is_provider) values
   ('Yago', 'yago', true),
-  ('SUBTEL (demo)', 'subtel-demo', false)
+  ('Cliente (demo)', 'cliente-demo', false)
 on conflict (slug) do nothing;
 
 insert into public.nexo_sd_members (user_id, org_id, role, display_name, email)
 select u.id, o.id, v.role, v.display_name, v.email
 from (values
-  ('reportante.demo@subtel.invalid', 'subtel-demo', 'reportante', 'Camila Rojas (demo)'),
-  ('contraparte.demo@subtel.invalid', 'subtel-demo', 'contraparte', 'Diego Soto (demo)'),
+  ('reportante.demo@cliente.invalid', 'cliente-demo', 'reportante', 'Camila Rojas (demo)'),
+  ('contraparte.demo@cliente.invalid', 'cliente-demo', 'contraparte', 'Diego Soto (demo)'),
   ('agente1.demo@yago.invalid', 'yago', 'agente', 'Agente de primer contacto (demo)'),
   ('agente2.demo@yago.invalid', 'yago', 'agente', 'Técnico de turno (demo)'),
   ('supervisor.demo@yago.invalid', 'yago', 'supervisor', 'Supervisión y seguridad (demo)')
@@ -75,8 +75,8 @@ from (values
    '{"esConsultaOCambio":false,"servicioProductivoCaido":false,"existeAlternativa":false,"degradacionOSeguridad":true,"soloNoProductivoOMenor":false}',
    'Integración', 'API de trámites', 'prod', '35 days', false)
 ) as v(ref, title, description, answers, category, component, environment, age, security)
-join public.nexo_sd_organizations o on o.slug = 'subtel-demo'
-left join auth.users u on lower(u.email) = 'reportante.demo@subtel.invalid'
+join public.nexo_sd_organizations o on o.slug = 'cliente-demo'
+left join auth.users u on lower(u.email) = 'reportante.demo@cliente.invalid'
 where not exists (select 1 from public.nexo_sd_tickets t where t.external_ref = v.ref)
 order by now() - v.age::interval;
 
@@ -101,10 +101,10 @@ update public.nexo_sd_tickets t
        resolved_at = t.created_at + interval '20 hours'
  where t.external_ref = 'seed:6' and t.status = 'nuevo';
 
--- Pausa cerrada en el ticket S2 (infraestructura de SUBTEL), con acuse de la contraparte.
+-- Pausa cerrada en el ticket S2 (infraestructura del cliente), con acuse de la contraparte.
 insert into public.nexo_sd_clock_pauses (ticket_id, reason, justification, started_at, created_by)
-select t.id, 'infraestructura_subtel',
-       'Mantención programada del balanceador de SUBTEL; sin acceso al nodo 2 (demo).',
+select t.id, 'infraestructura_cliente',
+       'Mantención programada del balanceador del cliente; sin acceso al nodo 2 (demo).',
        now() - interval '3 hours', null
 from public.nexo_sd_tickets t
 where t.external_ref = 'seed:2'

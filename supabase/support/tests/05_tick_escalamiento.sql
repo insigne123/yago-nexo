@@ -14,8 +14,8 @@ update public.nexo_sd_members set phone_e164 = '+56900000003', whatsapp_opt_in =
  where email = 'supervisor.demo@yago.invalid';
 
 insert into public.nexo_sd_tickets (org_id, title, classification_answers, created_at, external_ref) values
-  (nexo_test.org('subtel-demo'), 'Tick S2', :'s2', now(), 'test:t2'),
-  (nexo_test.org('subtel-demo'), 'Tick S3 hábil', :'s3', nexo_test.cl('2026-10-05 10:00'), 'test:t3');
+  (nexo_test.org('cliente-demo'), 'Tick S2', :'s2', now(), 'test:t2'),
+  (nexo_test.org('cliente-demo'), 'Tick S3 hábil', :'s3', nexo_test.cl('2026-10-05 10:00'), 'test:t3');
 
 create temp view avisos as
   select t.external_ref as ref, n.*
@@ -84,8 +84,8 @@ select nexo_test.eq(
 -- B) S1 sin acuse: nivel 1 al recibir, nivel 2 a los 10 minutos y nivel 3 a los 20, con llamada.
 --    (Se crean recién aquí: los ticks de la sección A usaron instantes posteriores.)
 insert into public.nexo_sd_tickets (org_id, title, classification_answers, created_at, external_ref) values
-  (nexo_test.org('subtel-demo'), 'Tick S1 sin acuse', :'s1', now(), 'test:t1'),
-  (nexo_test.org('subtel-demo'), 'Tick S1 acusado', :'s1', now(), 'test:t1b');
+  (nexo_test.org('cliente-demo'), 'Tick S1 sin acuse', :'s1', now(), 'test:t1'),
+  (nexo_test.org('cliente-demo'), 'Tick S1 acusado', :'s1', now(), 'test:t1b');
 update public.nexo_sd_tickets set status = 'acusado' where external_ref = 'test:t1b';
 select nexo_test.eq((select escalation_level from public.nexo_sd_tickets where external_ref = 'test:t1'), 1,
   'el S1 nace avisado al nivel 1');
@@ -140,7 +140,7 @@ select nexo_test.eq(
 
 -- D) Incidente de seguridad: plazos de la Ley 21.663 desde la configuración.
 insert into public.nexo_sd_security_incidents (title, detected_at, org_id)
-values ('Incidente de prueba', now(), nexo_test.org('subtel-demo'));
+values ('Incidente de prueba', now(), nexo_test.org('cliente-demo'));
 select nexo_test.ok(
   (select early_alert_due_at = detected_at + interval '3 hours'
       and second_report_due_at = detected_at + interval '72 hours'

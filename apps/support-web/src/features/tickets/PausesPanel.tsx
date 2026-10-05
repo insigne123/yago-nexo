@@ -53,7 +53,7 @@ function AcknowledgeForm({ pause, ticketId }: { pause: PauseRow; ticketId: strin
   );
 }
 
-/** Pausas del reloj: motivo tipificado, justificación, duración y acuse de SUBTEL (BT-061). */
+/** Pausas del reloj: motivo tipificado, justificación, duración y acuse del cliente (BT-061). */
 export function PausesPanel({ ticket, ctx, now }: { ticket: TicketDetail; ctx: SessionContext; now: Date }) {
   const pauses = [...ticket.pauses].sort((a, b) => a.started_at.localeCompare(b.started_at));
   const canAck = can(ctx, "pause:acknowledge", ticket.org_id);
@@ -69,19 +69,19 @@ export function PausesPanel({ ticket, ctx, now }: { ticket: TicketDetail; ctx: S
               <div className="flex flex-wrap items-center gap-2">
                 <strong>{PAUSE_REASON_LABEL[p.reason]}</strong>
                 {p.ended_at ? <Tag>Cerrada</Tag> : <Tag tone="alerta">En curso</Tag>}
-                {p.subtel_ack_status === "aceptada" ? <Tag tone="info">Acusada por SUBTEL</Tag> : null}
-                {p.subtel_ack_status === "objetada" ? <Tag tone="peligro">Objetada por SUBTEL</Tag> : null}
-                {!p.subtel_ack_status ? <Tag>Sin acuse de SUBTEL</Tag> : null}
+                {p.client_ack_status === "aceptada" ? <Tag tone="info">Acusada por el cliente</Tag> : null}
+                {p.client_ack_status === "objetada" ? <Tag tone="peligro">Objetada por el cliente</Tag> : null}
+                {!p.client_ack_status ? <Tag>Sin acuse del cliente</Tag> : null}
               </div>
               <p className="mt-1 text-slate-700">{p.justification}</p>
               <p className="mt-1 text-xs text-slate-600">
                 Desde {formatDateTime(p.started_at)}
                 {p.ended_at ? ` hasta ${formatDateTime(p.ended_at)}` : ""} · {formatDuration(seconds)}
               </p>
-              {p.subtel_ack_note ? (
-                <p className="mt-1 text-xs text-slate-600">Nota de SUBTEL: {p.subtel_ack_note}</p>
+              {p.client_ack_note ? (
+                <p className="mt-1 text-xs text-slate-600">Nota del cliente: {p.client_ack_note}</p>
               ) : null}
-              {canAck && !p.subtel_ack_at ? <AcknowledgeForm pause={p} ticketId={ticket.id} /> : null}
+              {canAck && !p.client_ack_at ? <AcknowledgeForm pause={p} ticketId={ticket.id} /> : null}
             </li>
           );
         })}

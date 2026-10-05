@@ -44,9 +44,9 @@ select nexo_test.throws(
   'respuestas nulas: error', '22023');
 
 -- La severidad del ticket sale de las respuestas aunque el cliente envíe otra.
-select nexo_test.login('reportante.demo@subtel.invalid');
+select nexo_test.login('reportante.demo@cliente.invalid');
 insert into public.nexo_sd_tickets (org_id, title, description, classification_answers)
-values (nexo_test.org('subtel-demo'), 'Prueba de clasificación', 'Todo caído',
+values (nexo_test.org('cliente-demo'), 'Prueba de clasificación', 'Todo caído',
         '{"esConsultaOCambio": false, "servicioProductivoCaido": true, "existeAlternativa": false, "degradacionOSeguridad": false, "soloNoProductivoOMenor": false}');
 select nexo_test.eq(
   (select t.severity || ' / ' || t.classification_rule from public.nexo_sd_tickets t where t.title = 'Prueba de clasificación'),
@@ -54,10 +54,10 @@ select nexo_test.eq(
   'el ticket web toma severidad y regla del asistente');
 select nexo_test.throws(
   $$insert into public.nexo_sd_tickets (org_id, title, description, severity, classification_answers)
-    values (nexo_test.org('subtel-demo'), 'Intento', 'x', 'S1', '{"esConsultaOCambio": true, "servicioProductivoCaido": false, "existeAlternativa": false, "degradacionOSeguridad": false, "soloNoProductivoOMenor": false}')$$,
+    values (nexo_test.org('cliente-demo'), 'Intento', 'x', 'S1', '{"esConsultaOCambio": true, "servicioProductivoCaido": false, "existeAlternativa": false, "degradacionOSeguridad": false, "soloNoProductivoOMenor": false}')$$,
   'la API no puede escribir la columna severity', '42501');
 select nexo_test.throws(
-  $$insert into public.nexo_sd_tickets (org_id, title, description) values (nexo_test.org('subtel-demo'), 'Sin asistente', 'x')$$,
+  $$insert into public.nexo_sd_tickets (org_id, title, description) values (nexo_test.org('cliente-demo'), 'Sin asistente', 'x')$$,
   'un ticket web sin respuestas del asistente se rechaza', '23514');
 reset role;
 

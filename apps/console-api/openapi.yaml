@@ -3,7 +3,7 @@ info:
   title: API de la Consola Nexo
   version: 1.0.0
   description: |
-    API de la Consola Nexo (Yago). Todas las rutas requieren un JWT válido (Keycloak en SUBTEL,
+    API de la Consola Nexo (Yago). Todas las rutas requieren un JWT válido (Keycloak de la institución,
     Supabase Auth en la demo). La autorización se basa en la matriz rol-permiso de `@nexo/shared`.
     Las acciones de cuatro ojos (aprobaciones) exigen que quien aprueba sea distinto de quien inició.
     Toda acción de escritura genera un evento de auditoría encadenado.

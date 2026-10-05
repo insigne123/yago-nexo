@@ -5,8 +5,8 @@ begin;
 \set s2 '{"esConsultaOCambio":false,"servicioProductivoCaido":false,"existeAlternativa":false,"degradacionOSeguridad":true,"soloNoProductivoOMenor":false}'
 
 insert into public.nexo_sd_tickets (org_id, title, classification_answers, external_ref) values
-  (nexo_test.org('subtel-demo'), 'Credenciales expuestas', :'s2', 'test:inc'),
-  (nexo_test.org('subtel-demo'), 'Tráfico anómalo en el gateway', :'s2', 'test:inc2');
+  (nexo_test.org('cliente-demo'), 'Credenciales expuestas', :'s2', 'test:inc'),
+  (nexo_test.org('cliente-demo'), 'Tráfico anómalo en el gateway', :'s2', 'test:inc2');
 select id as t_inc from public.nexo_sd_tickets where external_ref = 'test:inc' \gset
 select id as t_inc2 from public.nexo_sd_tickets where external_ref = 'test:inc2' \gset
 
@@ -24,7 +24,7 @@ values (:'t_inc', 'Credenciales expuestas en un repositorio', 'Clave de servicio
         array['Key Manager', 'API de concesiones'], 99);
 select nexo_test.ok(
   (select early_alert_hours = 3 and second_report_hours = 72 and final_report_days = 15
-      and org_id = nexo_test.org('subtel-demo') and created_by = nexo_test.uid('agente1.demo@yago.invalid')
+      and org_id = nexo_test.org('cliente-demo') and created_by = nexo_test.uid('agente1.demo@yago.invalid')
    from public.nexo_sd_security_incidents where ticket_id = :'t_inc'),
   'el incidente copia los plazos de la configuración (no los que envía el cliente) y la organización del ticket');
 select nexo_test.ok((select is_security_incident from public.nexo_sd_tickets where id = :'t_inc'),
@@ -55,7 +55,7 @@ select nexo_test.login('supervisor.demo@yago.invalid');
 select nexo_test.eq(
   nexo_test.affected($$update public.nexo_sd_settings set security_early_alert_hours = 2$$), 1,
   'un supervisor ajusta el plazo de la alerta temprana');
-insert into public.nexo_sd_security_incidents (title, org_id) values ('Incidente con plazo ajustado', nexo_test.org('subtel-demo'));
+insert into public.nexo_sd_security_incidents (title, org_id) values ('Incidente con plazo ajustado', nexo_test.org('cliente-demo'));
 select nexo_test.ok(
   (select early_alert_hours = 2 and early_alert_due_at = detected_at + interval '2 hours'
    from public.nexo_sd_security_incidents where title = 'Incidente con plazo ajustado'),
@@ -65,10 +65,10 @@ select nexo_test.eq(
   'los incidentes anteriores conservan su plazo');
 reset role;
 
-select nexo_test.login('contraparte.demo@subtel.invalid');
-select nexo_test.ok((select count(*) >= 2 from public.nexo_sd_security_incidents where org_id = nexo_test.org('subtel-demo')),
+select nexo_test.login('contraparte.demo@cliente.invalid');
+select nexo_test.ok((select count(*) >= 2 from public.nexo_sd_security_incidents where org_id = nexo_test.org('cliente-demo')),
   'la contraparte ve los incidentes de su organización');
-select nexo_test.login('reportante.demo@subtel.invalid');
+select nexo_test.login('reportante.demo@cliente.invalid');
 select nexo_test.eq((select count(*)::int from public.nexo_sd_security_incidents), 0, 'el reportante no ve incidentes');
 select nexo_test.throws(
   $$insert into public.nexo_sd_security_incidents (title) values ('Intento del reportante')$$,
@@ -80,9 +80,9 @@ reset role;
 -- ---------------------------------------------------------------------------
 select nexo_test.login('agente1.demo@yago.invalid');
 insert into public.nexo_sd_patch_packages (org_id, version, title, description, rollback_plan, ticket_id, status) values
-  (nexo_test.org('subtel-demo'), '1.0.2', 'Rotación de credenciales', 'Rota la clave expuesta y revoca tokens.',
+  (nexo_test.org('cliente-demo'), '1.0.2', 'Rotación de credenciales', 'Rota la clave expuesta y revoca tokens.',
    'Restaurar la clave anterior desde el respaldo cifrado y reiniciar el Key Manager.', :'t_inc', 'pendiente_aprobacion'),
-  (nexo_test.org('subtel-demo'), '1.0.3', 'Paquete en borrador', 'Todavía en preparación.',
+  (nexo_test.org('cliente-demo'), '1.0.3', 'Paquete en borrador', 'Todavía en preparación.',
    'Revertir el despliegue a la revisión anterior con Argo CD.', null, 'aprobado');
 select nexo_test.eq((select status from public.nexo_sd_patch_packages where version = '1.0.3'), 'borrador',
   'un paquete nuevo no puede nacer aprobado');
@@ -94,9 +94,9 @@ select nexo_test.throws($$update public.nexo_sd_patch_packages set status = 'apl
   'no se aplica un paquete sin aprobación', '23514');
 reset role;
 
-select nexo_test.login('reportante.demo@subtel.invalid');
+select nexo_test.login('reportante.demo@cliente.invalid');
 select nexo_test.eq(
-  (select string_agg(version, ',' order by version) from public.nexo_sd_patch_packages where org_id = nexo_test.org('subtel-demo')),
+  (select string_agg(version, ',' order by version) from public.nexo_sd_patch_packages where org_id = nexo_test.org('cliente-demo')),
   '1.0.1,1.0.2', 'la organización ve los paquetes que salieron de borrador (no los borradores)');
 reset role;
 
@@ -104,7 +104,7 @@ select nexo_test.login('supervisor.demo@yago.invalid');
 select public.nexo_sd_decide_patch((select id from public.nexo_sd_patch_packages where version = '1.0.2'), true,
   'Aprobado para la ventana del jueves.');
 insert into public.nexo_sd_patch_packages (org_id, version, title, description, rollback_plan, status) values
-  (nexo_test.org('subtel-demo'), '1.0.4', 'Paquete del supervisor', 'Ajuste de cuotas.',
+  (nexo_test.org('cliente-demo'), '1.0.4', 'Paquete del supervisor', 'Ajuste de cuotas.',
    'Restaurar la política de cuotas anterior desde el repositorio GitOps.', 'pendiente_aprobacion');
 select nexo_test.throws(
   $$select public.nexo_sd_decide_patch((select id from public.nexo_sd_patch_packages where version = '1.0.4'), true, 'Me apruebo')$$,
@@ -115,7 +115,7 @@ select nexo_test.ok(
    from public.nexo_sd_patch_packages where version = '1.0.2'),
   'un supervisor distinto de quien lo preparó aprueba el paquete');
 
-select nexo_test.login('contraparte.demo@subtel.invalid');
+select nexo_test.login('contraparte.demo@cliente.invalid');
 select nexo_test.throws(
   $$select public.nexo_sd_decide_patch((select id from public.nexo_sd_patch_packages where version = '1.0.4'), false, null)$$,
   'rechazar exige un motivo', '22023');
@@ -123,7 +123,7 @@ select public.nexo_sd_decide_patch((select id from public.nexo_sd_patch_packages
   'Aprobado por la contraparte técnica.');
 reset role;
 select nexo_test.eq((select status from public.nexo_sd_patch_packages where version = '1.0.4'), 'aprobado',
-  'la contraparte de SUBTEL aprueba un paquete');
+  'la contraparte del cliente aprueba un paquete');
 
 select nexo_test.login('agente1.demo@yago.invalid');
 update public.nexo_sd_patch_packages set status = 'aplicado' where version = '1.0.2';
@@ -144,12 +144,12 @@ insert into public.nexo_sd_rca_reports (ticket_id, title, summary, root_cause)
 values (:'t_inc', 'RCA: credenciales expuestas', 'Una clave quedó en un repositorio público.',
         'Falta de escaneo de secretos en el repositorio auxiliar.');
 select nexo_test.ok(
-  (select org_id = nexo_test.org('subtel-demo') and author_id = nexo_test.uid('agente1.demo@yago.invalid')
+  (select org_id = nexo_test.org('cliente-demo') and author_id = nexo_test.uid('agente1.demo@yago.invalid')
       and status = 'borrador' and published_at is null
    from public.nexo_sd_rca_reports where ticket_id = :'t_inc'),
   'el RCA toma la organización del ticket y queda en borrador');
 reset role;
-select nexo_test.login('reportante.demo@subtel.invalid');
+select nexo_test.login('reportante.demo@cliente.invalid');
 select nexo_test.eq((select count(*)::int from public.nexo_sd_rca_reports where ticket_id = :'t_inc'), 0,
   'la organización no ve el RCA en borrador');
 select nexo_test.throws(
@@ -157,7 +157,7 @@ select nexo_test.throws(
   'el reportante no escribe RCA', '42501');
 select nexo_test.login('agente1.demo@yago.invalid');
 update public.nexo_sd_rca_reports set status = 'publicado' where ticket_id = :'t_inc';
-select nexo_test.login('reportante.demo@subtel.invalid');
+select nexo_test.login('reportante.demo@cliente.invalid');
 select nexo_test.ok(
   (select count(*) = 1 and bool_and(published_at is not null) from public.nexo_sd_rca_reports where ticket_id = :'t_inc'),
   'al publicarlo, la organización ve el RCA');

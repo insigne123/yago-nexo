@@ -1,5 +1,5 @@
 -- Pausas del reloj: el tiempo en pausa no cuenta (corrido y hábil), solo motivos tipificados,
--- una pausa abierta por ticket, acceso remoto con pausa automática y acuse de SUBTEL.
+-- una pausa abierta por ticket, acceso remoto con pausa automática y acuse del cliente.
 begin;
 
 \set s1 '{"esConsultaOCambio":false,"servicioProductivoCaido":true,"existeAlternativa":false,"degradacionOSeguridad":false,"soloNoProductivoOMenor":false}'
@@ -7,11 +7,11 @@ begin;
 \set s3 '{"esConsultaOCambio":false,"servicioProductivoCaido":false,"existeAlternativa":false,"degradacionOSeguridad":false,"soloNoProductivoOMenor":true}'
 
 insert into public.nexo_sd_tickets (org_id, title, classification_answers, created_at, external_ref) values
-  (nexo_test.org('subtel-demo'), 'Pausa corrida', :'s2', now() - interval '60 minutes', 'test:p24'),
-  (nexo_test.org('subtel-demo'), 'Pausa hábil', :'s3', nexo_test.cl('2026-10-05 10:00'), 'test:phab'),
-  (nexo_test.org('subtel-demo'), 'Pausa tardía', :'s1', now() - interval '90 minutes', 'test:ptarde'),
-  (nexo_test.org('subtel-demo'), 'Acceso remoto', :'s1', now() - interval '20 minutes', 'test:remoto'),
-  (nexo_test.org('subtel-demo'), 'Acuse en pausa', :'s1', now() - interval '20 minutes', 'test:acuse');
+  (nexo_test.org('cliente-demo'), 'Pausa corrida', :'s2', now() - interval '60 minutes', 'test:p24'),
+  (nexo_test.org('cliente-demo'), 'Pausa hábil', :'s3', nexo_test.cl('2026-10-05 10:00'), 'test:phab'),
+  (nexo_test.org('cliente-demo'), 'Pausa tardía', :'s1', now() - interval '90 minutes', 'test:ptarde'),
+  (nexo_test.org('cliente-demo'), 'Acceso remoto', :'s1', now() - interval '20 minutes', 'test:remoto'),
+  (nexo_test.org('cliente-demo'), 'Acuse en pausa', :'s1', now() - interval '20 minutes', 'test:acuse');
 
 create temp view relojes as
   select t.external_ref as ref, c.*
@@ -51,16 +51,16 @@ select nexo_test.eq(
   (select string_agg(e.type, ',' order by e.created_at, e.seq) from public.nexo_sd_ticket_events e
    join public.nexo_sd_tickets t on t.id = e.ticket_id
    where t.external_ref = 'test:p24' and e.type in ('pause', 'resume') and e.visibility = 'publico'),
-  'pause,resume', 'la pausa y la reanudación son visibles para SUBTEL en la línea de tiempo');
+  'pause,resume', 'la pausa y la reanudación son visibles para el cliente en la línea de tiempo');
 select nexo_test.ok(
   (select count(*) > 0 from public.nexo_sd_notifications n join public.nexo_sd_tickets t on t.id = n.ticket_id
    where t.external_ref = 'test:p24' and n.template = 'sd_pausa_iniciada'
-     and n.recipient_user_id = nexo_test.uid('contraparte.demo@subtel.invalid')),
+     and n.recipient_user_id = nexo_test.uid('contraparte.demo@cliente.invalid')),
   'la contraparte recibe el aviso para acusar la pausa');
 
 -- 2) Pausa en calendario hábil: solo descuenta minutos hábiles (lunes 17:00 a martes 10:00 = 2 h).
 insert into public.nexo_sd_clock_pauses (ticket_id, reason, justification, started_at)
-select id, 'decision_subtel', 'SUBTEL pidió esperar la ventana de cambios del martes.', nexo_test.cl('2026-10-05 17:00')
+select id, 'decision_cliente', 'El cliente pidió esperar la ventana de cambios del martes.', nexo_test.cl('2026-10-05 17:00')
 from public.nexo_sd_tickets where external_ref = 'test:phab';
 select nexo_test.eq(
   (select remaining_seconds_at_pause from relojes where ref = 'test:phab' and metric = 'acuse'),
@@ -105,7 +105,7 @@ select nexo_test.throws(
   'la pausa por acceso remoto no se abre a mano', '22023');
 select nexo_test.ok(
   public.nexo_sd_pause_ticket((select id from public.nexo_sd_tickets where external_ref = 'test:acuse'),
-                              'infraestructura_subtel', 'Servidor de SUBTEL sin energía en el CPD.') is not null,
+                              'infraestructura_cliente', 'Servidor del cliente sin energía en el CPD.') is not null,
   'un agente pausa con motivo tipificado y justificación');
 reset role;
 
@@ -132,24 +132,24 @@ select nexo_test.eq(
   'acceso_remoto_pendiente/true', 'la solicitud abre una pausa automática por acceso remoto pendiente');
 select nexo_test.eq(
   (select string_agg(metric || '=' || status, ',' order by metric) from relojes where ref = 'test:remoto'),
-  'acuse=pausado,diagnostico=pausado,solucion=pausado', 'los relojes quedan en pausa mientras SUBTEL no habilita');
+  'acuse=pausado,diagnostico=pausado,solucion=pausado', 'los relojes quedan en pausa mientras el cliente no habilita');
 select nexo_test.ok(
   (select count(*) > 0 from public.nexo_sd_notifications n join public.nexo_sd_tickets t on t.id = n.ticket_id
    where t.external_ref = 'test:remoto' and n.template = 'sd_acceso_remoto_solicitado'),
   'la contraparte recibe la solicitud de acceso');
 
-select nexo_test.login('reportante.demo@subtel.invalid');
+select nexo_test.login('reportante.demo@cliente.invalid');
 select nexo_test.throws(
   $$select public.nexo_sd_decide_remote_access((select r.id from public.nexo_sd_remote_access_requests r
       join public.nexo_sd_tickets t on t.id = r.ticket_id where t.external_ref = 'test:remoto' limit 1), true, 'ok')$$,
   'el reportante no habilita accesos remotos', '42501');
-select nexo_test.login('contraparte.demo@subtel.invalid');
+select nexo_test.login('contraparte.demo@cliente.invalid');
 select public.nexo_sd_decide_remote_access(
   (select r.id from public.nexo_sd_remote_access_requests r join public.nexo_sd_tickets t on t.id = r.ticket_id
    where t.external_ref = 'test:remoto'), true, 'Habilitado por la VPN de proveedores.');
 reset role;
 select nexo_test.ok(
-  (select r.status = 'habilitado' and r.enabled_at is not null and r.decided_by = nexo_test.uid('contraparte.demo@subtel.invalid')
+  (select r.status = 'habilitado' and r.enabled_at is not null and r.decided_by = nexo_test.uid('contraparte.demo@cliente.invalid')
    from public.nexo_sd_remote_access_requests r join public.nexo_sd_tickets t on t.id = r.ticket_id
    where t.external_ref = 'test:remoto'),
   'la contraparte habilita el acceso (queda registrado quién y cuándo)');
@@ -185,18 +185,18 @@ select nexo_test.ok((select bool_and(ended_at is not null) from pausas where ref
 select nexo_test.eq((select reason from pausas where ref = 'test:remoto' and ended_at is null), 'acceso_remoto_pendiente',
   'la pausa abierta es la de acceso remoto pendiente');
 
--- 7) Acuse de la pausa por SUBTEL.
-select nexo_test.login('reportante.demo@subtel.invalid');
+-- 7) Acuse de la pausa por el cliente.
+select nexo_test.login('reportante.demo@cliente.invalid');
 select nexo_test.throws(
   $$select public.nexo_sd_acknowledge_pause((select id from pausas where ref = 'test:p24'), true, null)$$,
   'el reportante no acusa pausas (solo la contraparte)', '42501');
-select nexo_test.login('contraparte.demo@subtel.invalid');
+select nexo_test.login('contraparte.demo@cliente.invalid');
 select nexo_test.throws(
   $$select public.nexo_sd_acknowledge_pause((select id from pausas where ref = 'test:p24'), false, 'no')$$,
   'objetar exige un motivo', '22023');
 select public.nexo_sd_acknowledge_pause((select id from pausas where ref = 'test:p24'), true, 'Confirmado: corte del proveedor.');
 select nexo_test.ok(
-  (select subtel_ack_status = 'aceptada' and subtel_ack_by = nexo_test.uid('contraparte.demo@subtel.invalid')
+  (select client_ack_status = 'aceptada' and client_ack_by = nexo_test.uid('contraparte.demo@cliente.invalid')
    from pausas where ref = 'test:p24'),
   'la contraparte acusa la pausa');
 select nexo_test.throws(

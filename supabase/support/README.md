@@ -1,6 +1,6 @@
 # Mesa de soporte Nexo · Base de datos (Supabase)
 
-Base de datos, reglas de seguridad, motor del SLA y tareas programadas de la mesa de soporte 24x7 con la que Yago cumple el SLA ofrecido a SUBTEL (licitación 606-26-LE26). La interfaz está en `apps/support-web` y las funciones Edge en `functions/`.
+Base de datos, reglas de seguridad, motor del SLA y tareas programadas de la mesa de soporte 24x7 con la que Yago cumple el SLA comprometido con cada cliente. La interfaz está en `apps/support-web` y las funciones Edge en `functions/`.
 
 ```
 supabase/support/
@@ -36,6 +36,8 @@ La prueba `tests/09_estructura_proyecto_compartido.sql` verifica estas reglas en
 | `20261004130500_nexo_sd_rls_y_permisos.sql` | Permisos por objeto y columna, y todas las políticas de RLS. |
 | `20261004130600_nexo_sd_almacenamiento_realtime.sql` | Bucket privado `nexo-sd-adjuntos` (25 MB, tipos permitidos), políticas de storage que replican la visibilidad de los tickets, y tablas en `supabase_realtime`. |
 | `20261004130700_nexo_sd_cron.sql` | pg_cron y pg_net (si están disponibles), invocación de funciones Edge con secretos de Vault y los trabajos `nexo_sd_sla_tick` (cada minuto), `nexo_sd_notify_dispatch` (cada minuto) y `nexo_sd_monthly_report` (día 1, 12:20 UTC). |
+| `20261004140000_nexo_sd_cuentas_autorizadas.sql` | Lista de correos autorizados que lee la excepción del trigger de `auth.users` en el proyecto compartido, sin acceso para ningún rol de la API. |
+| `20261005090000_nexo_sd_nombres_neutros.sql` | Lleva una base creada con la versión anterior a los nombres neutros (`client_ack_*`, `infraestructura_cliente`, `decision_cliente`): renombra columnas y restricciones, migra motivos y eventos, y recrea las funciones que los usan. **Aplíquela antes de desplegar la aplicación web y las funciones de esta versión.** |
 
 Las migraciones se pueden reaplicar sin error (`if not exists`, `create or replace`, `drop policy if exists`, `on conflict do nothing`); las pruebas las aplican dos veces para comprobarlo.
 
@@ -69,7 +71,7 @@ Las migraciones se pueden reaplicar sin error (`if not exists`, `create or repla
 
 
    ```sql
-   insert into public.nexo_sd_organizations (name, slug, is_provider) values ('Yago', 'yago', true), ('SUBTEL', 'subtel', false)
+   insert into public.nexo_sd_organizations (name, slug, is_provider) values ('Yago', 'yago', true), ('Cliente', 'cliente', false)
    on conflict (slug) do nothing;
    insert into public.nexo_sd_members (user_id, org_id, role, display_name, email, phone_e164, whatsapp_opt_in, voice_opt_in)
    select u.id, o.id, 'agente', 'Nombre Apellido', u.email, '+569XXXXXXXX', true, true
@@ -78,7 +80,7 @@ Las migraciones se pueden reaplicar sin error (`if not exists`, `create or repla
    ```
 
    Los roles `agente` y `supervisor` solo existen en la organización proveedora (Yago). Los avisos por WhatsApp y voz requieren teléfono y la aceptación del canal (`whatsapp_opt_in`, `voice_opt_in`).
-7. **Semilla (opcional, solo demostración):** `seed.sql` crea las organizaciones «SUBTEL (demo)» y «Yago», tickets de ejemplo, un RCA y un paquete de corrección, y vincula solo las cuentas de demostración `*.demo@*.invalid` que ya existan en Auth (no crea usuarios). Los avisos que genera quedan marcados como simulados.
+7. **Semilla (opcional, solo demostración):** `seed.sql` crea las organizaciones «Cliente (demo)» y «Yago», tickets de ejemplo, un RCA y un paquete de corrección, y vincula solo las cuentas de demostración `*.demo@*.invalid` que ya existan en Auth (no crea usuarios). Los avisos que genera quedan marcados como simulados.
 
 ## Modelo del SLA
 
@@ -92,7 +94,7 @@ Las migraciones se pueden reaplicar sin error (`if not exists`, `create or repla
 - **Recepción 24x7x365 para todas las severidades.** Calendario hábil: lunes a viernes de 09:00 a 18:00 en America/Santiago, sin los feriados de `nexo_sd_holidays` (1 día hábil = 9 horas). Un plazo que se cumple al cierre vence a las 18:00 de ese día.
 - **Severidad determinista:** al crear o reclasificar un ticket, la base de datos calcula la severidad y la regla con `nexo_private.sd_classify` a partir de las cinco respuestas del asistente; el cliente no puede escribir la severidad. Los tickets de correo o WhatsApp sin asistente quedan con severidad provisional (`inbound_provisional_severity`, S1 por omisión: ante la duda se trata como crítica) hasta que un agente los reclasifica.
 - **Relojes:** al aceptar un ticket se crean tres relojes (acuse, diagnóstico y solución) que parten en la recepción. Los hitos se marcan al llegar al estado: `acusado` cumple el acuse, `en_diagnostico` el diagnóstico, y `solucion_temporal` o `resuelto` la solución. Un salto de estado marca también los hitos anteriores.
-- **Pausas:** solo con motivo tipificado (`infraestructura_subtel`, `red`, `terceros`, `decision_subtel`, `acceso_remoto_pendiente`), justificación, autor, inicio y fin, y acuse opcional de la contraparte de SUBTEL, que puede aceptarla u objetarla. El tiempo en pausa no cuenta: en 24x7 se descuenta el tiempo corrido y en calendario hábil solo los minutos hábiles. Una pausa que empieza cuando el plazo ya venció no lo salva. Hay como máximo una pausa abierta por ticket.
+- **Pausas:** solo con motivo tipificado (`infraestructura_cliente`, `red`, `terceros`, `decision_cliente`, `acceso_remoto_pendiente`), justificación, autor, inicio y fin, y acuse opcional de la contraparte del cliente, que puede aceptarla u objetarla. El tiempo en pausa no cuenta: en 24x7 se descuenta el tiempo corrido y en calendario hábil solo los minutos hábiles. Una pausa que empieza cuando el plazo ya venció no lo salva. Hay como máximo una pausa abierta por ticket.
 - **Acceso remoto (BT-065):** al solicitarlo, el reloj se pausa solo (`acceso_remoto_pendiente`) hasta que la contraparte lo habilita, lo rechaza o se revoca. Al cerrar la sesión se registra la referencia de la bitácora (`session_log_ref`).
 - **`sd_tick()`** (cada minuto): avisa al 50 % del plazo al nivel 1 del turno, al 80 % a los niveles 1 y 2, y al vencer (100 %) marca el incumplimiento y avisa a los niveles 1, 2 y 3. Los S1 sin acuse se escalan al nivel 2 a los 10 minutos y al nivel 3 a los 20, con llamada de voz. Si nadie cubre un nivel, el aviso va a los supervisores. Los avisos no se duplican (`dedup_key`).
 - **Cuarentena:** un mensaje de un remitente no registrado queda sin organización y sin relojes. El nivel 1 recibe un aviso; el agente lo acepta (el SLA parte en ese momento) o lo descarta.
@@ -131,7 +133,7 @@ El script usa los binarios de PostgreSQL 16 (`/usr/lib/postgresql/16/bin`, o `PG
 | `01_calendario_habil.sql` | Suma y diferencia de minutos hábiles: fines de semana, feriados de 2026 y 2027 (incluido el 17-09-2027 de la Ley 20.983), cambios de horario, inicio fuera de jornada y cierre a las 18:00 |
 | `02_clasificacion.sql` | `sd_classify` contra las 32 combinaciones de `tests/fixtures/severity_matrix.json` (la misma matriz que verifica Vitest contra `classifySeverity`) y severidad impuesta en los tickets |
 | `03_relojes.sql` | Relojes por severidad, vencimientos hábiles, correlativo, hitos por estado, transiciones y reclasificación |
-| `04_pausas.sql` | Pausas corridas y hábiles, pausa tardía, motivos tipificados, acceso remoto con pausa automática y acuse de SUBTEL |
+| `04_pausas.sql` | Pausas corridas y hábiles, pausa tardía, motivos tipificados, acceso remoto con pausa automática y acuse del cliente |
 | `05_tick_escalamiento.sql` | `sd_tick()`: avisos al 50, 80 y 100 %, vencimiento, escalamiento de S1 sin acuse (nivel 1, 2 y 3 con voz), plazo hábil, Ley 21.663 y despacho con pg_net |
 | `06_rls.sql` | anon sin acceso, MFA obligatorio, aislamiento entre organizaciones, reportante sin cambios de estado, agente con operación completa, storage y la política restrictiva |
 | `07_canal_entrante_informes.sql` | Correo y WhatsApp entrantes, cuarentena, bandeja de salida con reintentos y resumen mensual |

@@ -121,7 +121,7 @@ async function ensureKeyManager(): Promise<void> {
     name: "Keycloak",
     displayName: "Keycloak institucional",
     type: "KeyCloak",
-    description: "Keycloak como Key Manager de Nexo (BT-025). En SUBTEL apunta al Keycloak institucional.",
+    description: "Keycloak como Key Manager de Nexo (BT-025). En producción apunta al Keycloak institucional.",
     enabled: true,
     wellKnownEndpoint: `${base}/.well-known/openid-configuration`,
     issuer: base,

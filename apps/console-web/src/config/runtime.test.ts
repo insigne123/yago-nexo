@@ -8,12 +8,12 @@ const jsonResponse = (body: unknown, status = 200) =>
   });
 
 const OIDC = {
-  apiBaseUrl: "https://api.subtel.invalid/api/v1/",
-  environmentLabel: "Producción SUBTEL",
+  apiBaseUrl: "https://api.cliente.invalid/api/v1/",
+  environmentLabel: "Producción",
   version: "1.0.0",
   auth: {
     provider: "oidc",
-    oidc: { authority: "https://sso.subtel.invalid/realms/nexo", clientId: "nexo-console" },
+    oidc: { authority: "https://sso.cliente.invalid/realms/nexo", clientId: "nexo-console" },
   },
   demoBanner: false,
 };
@@ -37,11 +37,11 @@ describe("configuración en tiempo de ejecución", () => {
     const fetchImpl = vi.fn(async () => jsonResponse(OIDC));
     const config = await loadRuntimeConfig({ url: "/config.json", fetchImpl });
     expect(fetchImpl).toHaveBeenCalledWith("/config.json", expect.objectContaining({ cache: "no-store" }));
-    expect(config.apiBaseUrl).toBe("https://api.subtel.invalid/api/v1");
+    expect(config.apiBaseUrl).toBe("https://api.cliente.invalid/api/v1");
     expect(config.auth).toEqual({
       provider: "oidc",
       oidc: {
-        authority: "https://sso.subtel.invalid/realms/nexo",
+        authority: "https://sso.cliente.invalid/realms/nexo",
         clientId: "nexo-console",
         rolesClaimPath: "resource_access.nexo-console.roles",
         scope: "openid profile email",
@@ -88,7 +88,7 @@ describe("configuración en tiempo de ejecución", () => {
   it("explica qué campo falta en el proveedor elegido", () => {
     try {
       parseRuntimeConfig({
-        auth: { provider: "oidc", oidc: { authority: "https://sso.subtel.invalid/realms/nexo" } },
+        auth: { provider: "oidc", oidc: { authority: "https://sso.cliente.invalid/realms/nexo" } },
       });
       expect.unreachable("debió fallar");
     } catch (error) {

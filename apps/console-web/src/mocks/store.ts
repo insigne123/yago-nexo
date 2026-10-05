@@ -123,7 +123,7 @@ const HIDDEN_BY_SOURCE: Record<
 > = {
   apisix: {
     source: "apisix",
-    host: "apisix.lab.subtel.invalid",
+    host: "apisix.lab.cliente.invalid",
     port: 9080,
     path: "/interno/fiscalizacion-beta",
     protocol: "HTTP/1.1",
@@ -140,7 +140,7 @@ const HIDDEN_BY_SOURCE: Record<
   },
   nginx: {
     source: "nginx",
-    host: "intranet-legacy.subtel.invalid",
+    host: "intranet-legacy.cliente.invalid",
     port: 80,
     path: "/ws/ConcesionesLegacy?wsdl",
     protocol: "SOAP 1.1",
@@ -993,7 +993,7 @@ export class MockStore {
       apiName: `${api.name} ${api.version}`,
       strategy,
       candidateEndpoint: input.candidateEndpoint,
-      stableEndpoint: `https://${slug}-estable.interno.subtel.invalid`,
+      stableEndpoint: `https://${slug}-estable.interno.cliente.invalid`,
       steps,
       stepDurationSec: input.stepDurationSec ?? 60,
       thresholds: { ...DEFAULT_THRESHOLDS, ...input.thresholds },
@@ -1346,7 +1346,7 @@ export class MockStore {
         tipo: "configuracion",
         nombre: "Configuración de la plataforma (sin secretos)",
         archivo: "configuracion/deployment.toml",
-        contenido: '[server]\nhostname = "api.subtel.invalid"\n',
+        contenido: '[server]\nhostname = "api.cliente.invalid"\n',
       },
     );
     return files;

@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { DirectoryEntry, PauseRow, RemoteAccessRow, TicketDetail } from "../../lib/types";
-import { ORG_SUBTEL, renderWithProviders, sessionFor } from "../../test/render";
+import { ORG_CLIENTE, renderWithProviders, sessionFor } from "../../test/render";
 import { PausesPanel } from "./PausesPanel";
 import { RemoteAccessPanel } from "./RemoteAccessPanel";
 import { TicketActions } from "./TicketActions";
@@ -12,17 +12,17 @@ const NOW = new Date("2026-10-05T13:00:00Z");
 const pause: PauseRow = {
   id: "p1",
   ticket_id: "t1",
-  reason: "infraestructura_subtel",
-  justification: "Servidor de SUBTEL en mantención programada.",
+  reason: "infraestructura_cliente",
+  justification: "Servidor del cliente en mantención programada.",
   started_at: "2026-10-05T12:40:00Z",
   ended_at: null,
   created_by: "usuario-agente",
   ended_by: null,
   remote_access_request_id: null,
-  subtel_ack_status: null,
-  subtel_ack_by: null,
-  subtel_ack_at: null,
-  subtel_ack_note: null,
+  client_ack_status: null,
+  client_ack_by: null,
+  client_ack_at: null,
+  client_ack_note: null,
 };
 
 const remote: RemoteAccessRow = {
@@ -44,7 +44,7 @@ const remote: RemoteAccessRow = {
 const ticket: TicketDetail = {
   id: "t1",
   number: "SD-2026-0001",
-  org_id: ORG_SUBTEL,
+  org_id: ORG_CLIENTE,
   title: "Gateways de producción responden 5xx",
   description: "Todo caído",
   severity: "S1",
@@ -72,7 +72,7 @@ const ticket: TicketDetail = {
   created_at: "2026-10-05T12:30:00Z",
   updated_at: "2026-10-05T12:30:00Z",
   clocks: [],
-  org: { id: ORG_SUBTEL, name: "SUBTEL (demo)" },
+  org: { id: ORG_CLIENTE, name: "Cliente (demo)" },
   pauses: [pause],
   remote: [remote],
 };
@@ -116,7 +116,7 @@ describe("lo que ve cada perfil en la ficha del ticket", () => {
     expect(screen.getByRole("button", { name: "Reanudar reloj" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Escalar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Marcar como incidente de seguridad" })).toBeInTheDocument();
-    expect(screen.getByText("Hay una solicitud de acceso remoto pendiente de SUBTEL.")).toBeInTheDocument();
+    expect(screen.getByText("Hay una solicitud de acceso remoto pendiente del cliente.")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Cambiar estado" })).toHaveDisplayValue("Acusado");
   });
 
@@ -140,13 +140,13 @@ describe("lo que ve cada perfil en la ficha del ticket", () => {
       </>,
       sessionFor("reportante"),
     );
-    expect(screen.getByText("Servidor de SUBTEL en mantención programada.")).toBeInTheDocument();
+    expect(screen.getByText("Servidor del cliente en mantención programada.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Acusar pausa" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Habilitar acceso" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Revocar acceso" })).not.toBeInTheDocument();
   });
 
-  it("el agente no acusa pausas en nombre de SUBTEL, pero puede revocar el acceso", () => {
+  it("el agente no acusa pausas en nombre del cliente, pero puede revocar el acceso", () => {
     renderWithProviders(
       <>
         <PausesPanel ticket={ticket} ctx={sessionFor("agente")} now={NOW} />
@@ -165,12 +165,12 @@ describe("lo que ve cada perfil en la ficha del ticket", () => {
       sessionFor("reportante"),
     );
     expect(screen.getByLabelText("Comentario")).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Nota interna \(no visible para SUBTEL\)/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nota interna \(no visible para el cliente\)/)).not.toBeInTheDocument();
     unmount();
     renderWithProviders(
       <Timeline ticket={ticket} events={[]} ctx={sessionFor("agente")} />,
       sessionFor("agente"),
     );
-    expect(screen.getByLabelText(/Nota interna \(no visible para SUBTEL\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Nota interna \(no visible para el cliente\)/)).toBeInTheDocument();
   });
 });

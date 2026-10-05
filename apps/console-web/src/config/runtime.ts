@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Configuración en tiempo de ejecución (`/config.json`).
  *
- * El mismo build corre en la demo (Firebase Hosting) y en los servidores de SUBTEL; lo que
+ * El mismo build corre en la demo (Firebase Hosting) y en los servidores de la institución; lo que
  * cambia entre ambientes (URL de la API, proveedor de identidad, rótulos) se lee al iniciar.
  */
 

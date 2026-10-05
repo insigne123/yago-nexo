@@ -39,7 +39,7 @@ const SOLO_CODIGOS = new RegExp(String.raw`^\s*${LISTA_CODIGOS}\s*$`);
 const REEMPLAZOS = [
   // Proveedores de identidad de un despliegue concreto → descripción genérica.
   [
-    /\(\s*Keycloak en SUBTEL,\s*Supabase Auth en la demo\s*\)/g,
+    /\(\s*Keycloak de la institución,\s*Supabase Auth en la demo\s*\)/g,
     "(emitido por el Keycloak de la institución)",
   ],
   // Códigos de requisitos entre paréntesis: "(BT-024)", "(BT-031 y BT-032)".

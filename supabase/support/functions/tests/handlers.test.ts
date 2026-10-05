@@ -246,7 +246,7 @@ Deno.test("inbound: un correo válido pasa remitente, asunto y texto a la base d
       method: "POST",
       headers: { "x-nexo-inbound-secret": "secreto-correo" },
       body: JSON.stringify({
-        From: '"Camila Rojas" <Camila.Rojas@Subtel.invalid>',
+        From: '"Camila Rojas" <Camila.Rojas@Cliente.invalid>',
         Subject: "Re: [SD-2026-0001] Portal",
         HtmlBody: "<p>Hola,</p><p>sigue <b>fallando</b> &amp; lento</p>",
         MessageID: "<abc@mail>",
@@ -256,7 +256,7 @@ Deno.test("inbound: un correo válido pasa remitente, asunto y texto a la base d
   );
   assertEquals(res.status, 200);
   assertEquals((await res.json()).resultado, "cuarentena");
-  assertEquals(calls[0]?.args["p_sender"], "camila.rojas@subtel.invalid");
+  assertEquals(calls[0]?.args["p_sender"], "camila.rojas@cliente.invalid");
   assertEquals(calls[0]?.args["p_sender_name"], "Camila Rojas");
   assertEquals(calls[0]?.args["p_subject"], "Re: [SD-2026-0001] Portal");
   assertEquals(calls[0]?.args["p_body"], "Hola,\n sigue fallando & lento");
@@ -269,7 +269,7 @@ Deno.test("inbound: un correo válido pasa remitente, asunto y texto a la base d
 // nexo-sd-monthly-report
 // ---------------------------------------------------------------------------
 const sampleReport: ReportData = {
-  organizacion: { id: "00000000-0000-4000-8000-0000000000aa", nombre: "SUBTEL (demo)" },
+  organizacion: { id: "00000000-0000-4000-8000-0000000000aa", nombre: "Cliente (demo)" },
   periodo: "2026-09",
   generado_en: "2026-10-01T12:20:00Z",
   resumen: [
@@ -301,7 +301,7 @@ const sampleReport: ReportData = {
     },
   ],
   tickets: { total: 2, por_severidad: { S1: 2 }, por_estado: { resuelto: 2 } },
-  pausas: [{ motivo: "infraestructura_subtel", cantidad: 1, minutos: "10.0", objetadas: 0 }],
+  pausas: [{ motivo: "infraestructura_cliente", cantidad: 1, minutos: "10.0", objetadas: 0 }],
   incumplimientos: [
     {
       numero: "SD-2026-0002",
@@ -327,7 +327,7 @@ Deno.test("monthly-report: genera un PDF válido con el resumen", async () => {
   assertEquals(new TextDecoder().decode(bytes.slice(0, 5)), "%PDF-");
   const doc = await PDFDocument.load(bytes);
   assert(doc.getPageCount() >= 1);
-  assertEquals(doc.getTitle(), "Informe mensual SLA 2026-09 - SUBTEL (demo)");
+  assertEquals(doc.getTitle(), "Informe mensual SLA 2026-09 - Cliente (demo)");
   assertEquals(toWinAnsi("Revisión ≥ 2 h → listo"), "Revisión >= 2 h -> listo");
   assertEquals(formatTarget(5400, "habil"), "10 días hábiles");
   assertEquals(formatTarget(480, "habil"), "8 h hábiles");
@@ -338,7 +338,7 @@ function fakeBackend(ctx: { user_id: string | null; is_staff: boolean; mfa_ok: b
   const uploads: string[] = [];
   const records: Array<{ orgId: string; period: string; generatedBy: string | null }> = [];
   const backend: ReportBackend = {
-    listClientOrgs: () => Promise.resolve([{ id: sampleReport.organizacion.id, name: "SUBTEL (demo)" }]),
+    listClientOrgs: () => Promise.resolve([{ id: sampleReport.organizacion.id, name: "Cliente (demo)" }]),
     reportData: (period) => Promise.resolve({ ...sampleReport, periodo: period }),
     uploadPdf: (path) => {
       uploads.push(path);

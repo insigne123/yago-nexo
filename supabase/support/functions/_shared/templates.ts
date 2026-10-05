@@ -103,7 +103,7 @@ export function renderNotification(template: string, payload: Payload): Rendered
       body = `Justificación: ${str(payload, "justificacion")}. Revise la pausa y acúsela en la mesa de soporte.`;
       break;
     case "sd_pausa_objetada":
-      headline = `${numero}: SUBTEL objetó una pausa del reloj`;
+      headline = `${numero}: El cliente objetó una pausa del reloj`;
       body = `Nota de la contraparte: ${str(payload, "nota")}.`;
       break;
     case "sd_acceso_remoto_solicitado":

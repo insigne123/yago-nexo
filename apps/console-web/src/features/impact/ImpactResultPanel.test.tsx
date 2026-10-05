@@ -11,7 +11,7 @@ const graphNodes: GraphNode[] = [
   { id: "flujo-reclamos", type: "flujo", label: "Ingreso de reclamos" },
   { id: "api-reclamos", type: "api", label: "Reclamos 2.1.0" },
   { id: "cons-mesa", type: "consumidor", label: "Mesa de Ayuda Ciudadana" },
-  { id: "cons-portal", type: "consumidor", label: "Portal de Trámites SUBTEL" },
+  { id: "cons-portal", type: "consumidor", label: "Portal de Trámites" },
   { id: "rep-reclamos", type: "reporte", label: "Reporte mensual de reclamos" },
 ];
 const nodes = new Map(graphNodes.map((n) => [n.id, n]));
@@ -61,7 +61,7 @@ describe("resultado de la simulación de impacto", () => {
     const consumers = within(screen.getByTestId("impact-group-consumidores"));
     expect(consumers.getByRole("heading")).toHaveTextContent("Consumidores (2)");
     expect(consumers.getByText("Mesa de Ayuda Ciudadana")).toBeInTheDocument();
-    expect(consumers.getByText("Portal de Trámites SUBTEL")).toBeInTheDocument();
+    expect(consumers.getByText("Portal de Trámites")).toBeInTheDocument();
     expect(
       within(screen.getByTestId("impact-group-reportes")).getByText("Reporte mensual de reclamos"),
     ).toBeInTheDocument();

@@ -39,13 +39,13 @@ describe("NGINX", () => {
     # comentario
     server {
       listen 80;
-      server_name legacy.subtel.lab;
+      server_name legacy.cliente.lab;
       location /interno/ { proxy_pass http://ocultas:7001; }
       location /privado/ { auth_basic "restringido"; proxy_pass http://otra:8080; }
       location = /health { return 200 "ok"; }
       location ~ \\.php$ { fastcgi_pass php:9000; }
     }
-    server { listen 443 ssl; server_name api.subtel.lab; location / { proxy_pass https://backend; } }`;
+    server { listen 443 ssl; server_name api.cliente.lab; location / { proxy_pass https://backend; } }`;
 
   it("inventaria las locations con su destino, autenticación y TLS", () => {
     const locs = parseNginxConfig(conf);

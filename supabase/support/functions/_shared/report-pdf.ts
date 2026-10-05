@@ -43,10 +43,10 @@ const METRIC_LABEL: Record<string, string> = {
   solucion: "Solución",
 };
 const PAUSE_LABEL: Record<string, string> = {
-  infraestructura_subtel: "Infraestructura de SUBTEL",
+  infraestructura_cliente: "Infraestructura del cliente",
   red: "Red",
   terceros: "Terceros",
-  decision_subtel: "Decisión de SUBTEL",
+  decision_cliente: "Decisión del cliente",
   acceso_remoto_pendiente: "Acceso remoto pendiente",
 };
 const STATUS_LABEL: Record<string, string> = {
@@ -320,7 +320,7 @@ export async function renderMonthlyReportPdf(data: ReportData): Promise<Uint8Arr
     w.text("Sin pausas en el período.");
   } else {
     w.table(
-      ["Motivo", "Cantidad", "Minutos", "Objetadas por SUBTEL"],
+      ["Motivo", "Cantidad", "Minutos", "Objetadas por el cliente"],
       [190, 70, 70, 120],
       data.pausas.map((p) => [
         PAUSE_LABEL[p.motivo] ?? p.motivo,

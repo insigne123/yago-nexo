@@ -2,8 +2,8 @@
 -- administración); aquí se insertan directo en el stub de auth.users. Son las mismas
 -- cuentas que la semilla vincula por correo si existen.
 insert into auth.users (id, email) values
-  ('00000000-0000-4000-8000-000000000001', 'reportante.demo@subtel.invalid'),
-  ('00000000-0000-4000-8000-000000000002', 'contraparte.demo@subtel.invalid'),
+  ('00000000-0000-4000-8000-000000000001', 'reportante.demo@cliente.invalid'),
+  ('00000000-0000-4000-8000-000000000002', 'contraparte.demo@cliente.invalid'),
   ('00000000-0000-4000-8000-000000000011', 'agente1.demo@yago.invalid'),
   ('00000000-0000-4000-8000-000000000012', 'agente2.demo@yago.invalid'),
   ('00000000-0000-4000-8000-000000000013', 'supervisor.demo@yago.invalid'),

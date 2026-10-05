@@ -1086,8 +1086,8 @@ declare
   c         public.nexo_sd_sla_clocks;
   v_elapsed numeric;
   v_labels  jsonb := jsonb_build_object(
-    'infraestructura_subtel', 'infraestructura de SUBTEL', 'red', 'red', 'terceros', 'terceros',
-    'decision_subtel', 'decisión de SUBTEL', 'acceso_remoto_pendiente', 'acceso remoto pendiente');
+    'infraestructura_cliente', 'infraestructura del cliente', 'red', 'red', 'terceros', 'terceros',
+    'decision_cliente', 'decisión del cliente', 'acceso_remoto_pendiente', 'acceso remoto pendiente');
 begin
   for c in
     select k.* from public.nexo_sd_sla_clocks k
@@ -1153,10 +1153,10 @@ begin
       new.ended_by, new.ended_at);
   end if;
 
-  if new.subtel_ack_at is not null and old.subtel_ack_at is null then
+  if new.client_ack_at is not null and old.client_ack_at is null then
     perform nexo_private.sd_add_event(
-      new.ticket_id, 'pause', 'publico', new.subtel_ack_note,
-      jsonb_build_object('pausa_id', new.id, 'acuse_subtel', new.subtel_ack_status), new.subtel_ack_by, new.subtel_ack_at);
+      new.ticket_id, 'pause', 'publico', new.client_ack_note,
+      jsonb_build_object('pausa_id', new.id, 'acuse_cliente', new.client_ack_status), new.client_ack_by, new.client_ack_at);
   end if;
   return null;
 end;
@@ -1258,7 +1258,7 @@ begin
 
   insert into public.nexo_sd_clock_pauses (ticket_id, reason, justification, started_at, created_by, remote_access_request_id)
   values (new.ticket_id, 'acceso_remoto_pendiente',
-          'Acceso remoto solicitado, pendiente de habilitación por SUBTEL. Alcance: ' || new.scope,
+          'Acceso remoto solicitado, pendiente de habilitación por el cliente. Alcance: ' || new.scope,
           new.requested_at, new.requested_by, new.id)
   returning id into v_pause;
 

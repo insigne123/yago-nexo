@@ -79,7 +79,7 @@
         <format>
           <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
             <soap:Body>
-              <tns:ConsultarOperadorRequest xmlns:tns="urn:subtel:registro:operadores:v1">
+              <tns:ConsultarOperadorRequest xmlns:tns="urn:nexo:demo:registro:operadores:v1">
                 <tns:rut>$1</tns:rut>
               </tns:ConsultarOperadorRequest>
             </soap:Body>
@@ -88,7 +88,7 @@
         <args><arg evaluator="xml" expression="get-property('rut')"/></args>
       </payloadFactory>
       <property name="messageType" value="application/soap+xml" scope="axis2"/>
-      <property name="SOAPAction" value="urn:subtel:registro:operadores:v1/ConsultarOperador" scope="transport"/>
+      <property name="SOAPAction" value="urn:nexo:demo:registro:operadores:v1/ConsultarOperador" scope="transport"/>
       <call>
         <endpoint key="RegistroOperadoresEP"/>
       </call>

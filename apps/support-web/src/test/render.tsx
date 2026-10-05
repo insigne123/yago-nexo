@@ -36,7 +36,7 @@ export function fakeSupabase(): SupabaseClient {
   } as unknown as SupabaseClient;
 }
 
-export const ORG_SUBTEL = "11111111-1111-4111-8111-111111111111";
+export const ORG_CLIENTE = "11111111-1111-4111-8111-111111111111";
 export const ORG_YAGO = "22222222-2222-4222-8222-222222222222";
 
 export function sessionFor(role: "reportante" | "contraparte" | "agente" | "supervisor"): SessionContext {
@@ -49,9 +49,9 @@ export function sessionFor(role: "reportante" | "contraparte" | "agente" | "supe
     isSupervisor: role === "supervisor",
     memberships: [
       {
-        orgId: staff ? ORG_YAGO : ORG_SUBTEL,
-        orgName: staff ? "Yago" : "SUBTEL (demo)",
-        orgSlug: staff ? "yago" : "subtel-demo",
+        orgId: staff ? ORG_YAGO : ORG_CLIENTE,
+        orgName: staff ? "Yago" : "Cliente (demo)",
+        orgSlug: staff ? "yago" : "cliente-demo",
         isProvider: staff,
         role,
         displayName: `Persona ${role}`,

@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Esquema y acceso a datos de la Consola Nexo (PostgreSQL estándar: SUBTEL o Supabase)",
+  "description": "Esquema y acceso a datos de la Consola Nexo (PostgreSQL estándar: propio de la institución o Supabase)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

@@ -79,8 +79,8 @@ begin
   if not nexo_private.sd_is_staff() then
     raise exception 'nexo_sd: solo los agentes y supervisores de Yago pausan relojes' using errcode = '42501';
   end if;
-  if p_reason is null or p_reason not in ('infraestructura_subtel', 'red', 'terceros', 'decision_subtel') then
-    raise exception 'nexo_sd: motivo de pausa no tipificado. Use infraestructura_subtel, red, terceros o decision_subtel; la pausa por acceso remoto pendiente se abre sola al solicitar el acceso'
+  if p_reason is null or p_reason not in ('infraestructura_cliente', 'red', 'terceros', 'decision_cliente') then
+    raise exception 'nexo_sd: motivo de pausa no tipificado. Use infraestructura_cliente, red, terceros o decision_cliente; la pausa por acceso remoto pendiente se abre sola al solicitar el acceso'
       using errcode = '22023';
   end if;
   if coalesce(char_length(btrim(p_justification)), 0) < 10 then
@@ -121,7 +121,7 @@ begin
   end if;
 
   if v_pause.reason = 'acceso_remoto_pendiente' and v_pause.remote_access_request_id is not null then
-    -- Reanudar sin esperar a SUBTEL equivale a desistir de la solicitud de acceso.
+    -- Reanudar sin esperar al cliente equivale a desistir de la solicitud de acceso.
     update public.nexo_sd_remote_access_requests r
        set status = 'revocado', revoked_by = auth.uid(), revoked_at = now(),
            decision_note = coalesce(nullif(btrim(p_note), ''), 'Solicitud retirada por Yago')
@@ -139,7 +139,7 @@ begin
 end;
 $$;
 
--- La contraparte de SUBTEL acusa (acepta u objeta) una pausa.
+-- La contraparte del cliente acusa (acepta u objeta) una pausa.
 create or replace function public.nexo_sd_acknowledge_pause(
   p_pause_id uuid, p_accept boolean default true, p_note text default null)
 returns void
@@ -160,7 +160,7 @@ begin
   if not nexo_private.sd_has_org_role(v_org, array['contraparte']) then
     raise exception 'nexo_sd: solo la contraparte de la organización acusa las pausas' using errcode = '42501';
   end if;
-  if v_pause.subtel_ack_at is not null then
+  if v_pause.client_ack_at is not null then
     raise exception 'nexo_sd: la pausa ya fue acusada' using errcode = '23514';
   end if;
   if not coalesce(p_accept, true) and coalesce(char_length(btrim(p_note)), 0) < 10 then
@@ -168,10 +168,10 @@ begin
   end if;
 
   update public.nexo_sd_clock_pauses p
-     set subtel_ack_status = case when coalesce(p_accept, true) then 'aceptada' else 'objetada' end,
-         subtel_ack_by = auth.uid(),
-         subtel_ack_at = now(),
-         subtel_ack_note = nullif(btrim(p_note), '')
+     set client_ack_status = case when coalesce(p_accept, true) then 'aceptada' else 'objetada' end,
+         client_ack_by = auth.uid(),
+         client_ack_at = now(),
+         client_ack_note = nullif(btrim(p_note), '')
    where p.id = p_pause_id;
 
   if not coalesce(p_accept, true) then
@@ -790,7 +790,7 @@ begin
       from (
         select p.reason, count(*) as n,
                round(sum(extract(epoch from (coalesce(p.ended_at, least(now(), v_to)) - p.started_at))) / 60.0, 1) as minutes,
-               count(*) filter (where p.subtel_ack_status = 'objetada') as objected
+               count(*) filter (where p.client_ack_status = 'objetada') as objected
         from public.nexo_sd_clock_pauses p
         join public.nexo_sd_tickets t on t.id = p.ticket_id
         where t.org_id = p_org_id and p.started_at >= v_from and p.started_at < v_to

@@ -28,8 +28,8 @@ function eventText(event: TicketEventRow): string {
       }
       return event.body ?? "Cambio de estado";
     case "pause":
-      if (p["acuse_subtel"])
-        return `SUBTEL ${p["acuse_subtel"] === "aceptada" ? "acusó" : "objetó"} la pausa`;
+      if (p["acuse_cliente"])
+        return `El cliente ${p["acuse_cliente"] === "aceptada" ? "acusó" : "objetó"} la pausa`;
       return `Reloj en pausa: ${PAUSE_REASON_LABEL[p["motivo"] as PauseReason] ?? String(p["motivo"] ?? "")}`;
     case "resume":
       return "Reloj reanudado";
@@ -131,7 +131,7 @@ function CommentForm({ ticket, ctx }: { ticket: TicketDetail; ctx: SessionContex
             onChange={(e) => setInternal(e.target.checked)}
             className="h-4 w-4"
           />
-          Nota interna (no visible para SUBTEL)
+          Nota interna (no visible para el cliente)
         </label>
       ) : null}
       <div>

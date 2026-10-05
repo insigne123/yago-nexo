@@ -30,7 +30,7 @@ function nsupdate(args: readonly string[], script: string, timeoutMs: number): P
  *  - etcd: laboratorio. CoreDNS (plugin etcd) sirve el nombre; el agente escribe el registro en etcd por su API.
  *  - clouddns: Google Cloud DNS, por su API REST (si la zona vive en GCP).
  *  - rfc2136: DNS institucional (BIND, PowerDNS, Infoblox…) mediante la herramienta estándar `nsupdate`,
- *    con la clave TSIG que entregue SUBTEL. No se arma el protocolo a mano: se delega en nsupdate.
+ *    con la clave TSIG que entregue la institución. No se arma el protocolo a mano: se delega en nsupdate.
  */
 export interface DnsTarget {
   name: string;

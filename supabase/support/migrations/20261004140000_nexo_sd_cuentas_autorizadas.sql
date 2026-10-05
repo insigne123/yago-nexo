@@ -18,6 +18,10 @@ create table if not exists nexo_private.sd_cuentas_autorizadas (
 
 alter table nexo_private.sd_cuentas_autorizadas enable row level security;
 revoke all on nexo_private.sd_cuentas_autorizadas from public, anon, authenticated;
+-- Sin acceso para ningún rol de la API: la escriben el rol de servicio y la lee el dueño (la excepción del trigger).
+drop policy if exists nexo_sd_cuentas_autorizadas_sin_acceso on nexo_private.sd_cuentas_autorizadas;
+create policy nexo_sd_cuentas_autorizadas_sin_acceso on nexo_private.sd_cuentas_autorizadas
+  as restrictive for all to public using (false) with check (false);
 
 comment on table nexo_private.sd_cuentas_autorizadas is
   'Correos autorizados para tener cuenta en la mesa de soporte Nexo; los lee la excepción de public.crear_persona en el proyecto compartido.';

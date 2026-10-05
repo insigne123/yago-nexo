@@ -129,7 +129,7 @@ async function concesionesHandler(req: IncomingMessage, res: ServerResponse, url
 
 // ------------------------------------------------------------------ SOAP 1.2 estilo PISEE
 
-const NS = "urn:subtel:registro:operadores:v1";
+const NS = "urn:nexo:demo:registro:operadores:v1";
 
 function wsdl(baseUrl: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>

@@ -9,10 +9,10 @@ begin;
 
 -- Como backend (puede fijar created_at): dos tickets 24x7 recientes y dos hábiles el viernes 09-10 16:00.
 insert into public.nexo_sd_tickets (org_id, title, classification_answers, created_at, external_ref) values
-  (nexo_test.org('subtel-demo'), 'Reloj S1', :'s1', now() - interval '10 minutes', 'test:s1'),
-  (nexo_test.org('subtel-demo'), 'Reloj S2', :'s2', now() - interval '5 hours', 'test:s2'),
-  (nexo_test.org('subtel-demo'), 'Reloj S3', :'s3', nexo_test.cl('2026-10-09 16:00'), 'test:s3'),
-  (nexo_test.org('subtel-demo'), 'Reloj S4', :'s4', nexo_test.cl('2026-10-09 16:00'), 'test:s4');
+  (nexo_test.org('cliente-demo'), 'Reloj S1', :'s1', now() - interval '10 minutes', 'test:s1'),
+  (nexo_test.org('cliente-demo'), 'Reloj S2', :'s2', now() - interval '5 hours', 'test:s2'),
+  (nexo_test.org('cliente-demo'), 'Reloj S3', :'s3', nexo_test.cl('2026-10-09 16:00'), 'test:s3'),
+  (nexo_test.org('cliente-demo'), 'Reloj S4', :'s4', nexo_test.cl('2026-10-09 16:00'), 'test:s4');
 
 create temp view relojes as
   select t.external_ref as ref, c.*
@@ -65,8 +65,8 @@ select nexo_test.eq(
   (select count(distinct number)::int from public.nexo_sd_tickets where external_ref like 'test:s%'), 4,
   'cada ticket tiene un número distinto');
 insert into public.nexo_sd_tickets (org_id, title, classification_answers, created_at, external_ref) values
-  (nexo_test.org('subtel-demo'), 'Fin de año', :'s4', nexo_test.cl('2026-12-31 23:30'), 'test:anio-2026'),
-  (nexo_test.org('subtel-demo'), 'Año nuevo', :'s4', nexo_test.cl('2027-01-01 00:30'), 'test:anio-2027');
+  (nexo_test.org('cliente-demo'), 'Fin de año', :'s4', nexo_test.cl('2026-12-31 23:30'), 'test:anio-2026'),
+  (nexo_test.org('cliente-demo'), 'Año nuevo', :'s4', nexo_test.cl('2027-01-01 00:30'), 'test:anio-2027');
 select nexo_test.eq((select number from public.nexo_sd_tickets where external_ref = 'test:anio-2027'), 'SD-2027-0001',
   'el correlativo se reinicia con el año local (01-01-2027 00:30 en Santiago)');
 select nexo_test.ok((select number like 'SD-2026-%' from public.nexo_sd_tickets where external_ref = 'test:anio-2026'),

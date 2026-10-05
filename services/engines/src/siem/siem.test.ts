@@ -39,10 +39,10 @@ describe("syslog RFC 5424", () => {
 
 describe("destinos", () => {
   it("interpreta syslog TCP, syslog TLS y HTTP sin guardar credenciales en la llave", () => {
-    const d = parseDestinations("syslog+tcp://fluent-bit:5140?encuadre=lf, syslog+tls://siem.subtel.invalid, https://usuario:clave@colector.invalid/hec");
+    const d = parseDestinations("syslog+tcp://fluent-bit:5140?encuadre=lf, syslog+tls://siem.cliente.invalid, https://usuario:clave@colector.invalid/hec");
     expect(d.map((x) => [x.kind, x.key, x.port, x.framing])).toEqual([
       ["syslog", "syslog+tcp://fluent-bit:5140", 5140, "lf"],
-      ["syslog", "syslog+tls://siem.subtel.invalid", 6514, "octetos"],
+      ["syslog", "syslog+tls://siem.cliente.invalid", 6514, "octetos"],
       ["http", "https://colector.invalid/hec", undefined, undefined],
     ]);
   });

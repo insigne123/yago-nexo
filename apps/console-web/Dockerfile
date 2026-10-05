@@ -10,9 +10,9 @@ LABEL org.opencontainers.image.title="Consola Nexo (web)" \
       org.opencontainers.image.version="1.1.0" \
       org.opencontainers.image.description="Interfaz de la Consola Nexo: catálogo, impacto, motores D-01, D-02, D-04 y D-05, consumo, auditoría y cumplimiento"
 
-# Orígenes permitidos por la política de seguridad de contenido (CSP). En SUBTEL se agregan la
+# Orígenes permitidos por la política de seguridad de contenido (CSP). En producción se agregan la
 # API de la Consola y el Keycloak institucional; en la demo, el proyecto de Supabase. Ejemplo:
-#   NEXO_CSP_CONNECT_SRC="'self' https://sso.subtel.cl https://api-consola.subtel.cl"
+#   NEXO_CSP_CONNECT_SRC="'self' https://sso.institucion.example https://api-consola.institucion.example"
 ENV NEXO_CSP_CONNECT_SRC="'self'" \
     NEXO_CSP_FRAME_SRC="'self'"
 

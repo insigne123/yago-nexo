@@ -148,7 +148,7 @@ function PatchItem({ patch, orgName }: { patch: PatchPackageRow; orgName: string
   );
 }
 
-/** Lista de paquetes de corrección (la usan Yago y, en Documentos, SUBTEL). */
+/** Lista de paquetes de corrección (la usan Yago y, en Documentos, el cliente). */
 export function PatchList({
   patches,
   orgNames,

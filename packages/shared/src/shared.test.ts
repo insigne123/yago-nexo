@@ -7,7 +7,7 @@ import { formatRut, isValidRut, rutDv, SyntheticData } from "./synthetic.js";
 describe("cadena de auditoría", () => {
   const sample = (i: number) => ({
     source: "consola",
-    actor: `usuario${i}@subtel.invalid`,
+    actor: `usuario${i}@cliente.invalid`,
     actorType: "usuario" as const,
     action: "catalog.update",
     resource: `api/${i}`,

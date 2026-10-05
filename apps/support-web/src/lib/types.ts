@@ -11,7 +11,7 @@ export type Metric = "acuse" | "diagnostico" | "solucion";
 export type Calendar = "24x7" | "habil";
 export type ClockStatus = "en_curso" | "pausado" | "cumplido" | "incumplido" | "no_aplica";
 export type PauseReason =
-  "infraestructura_subtel" | "red" | "terceros" | "decision_subtel" | "acceso_remoto_pendiente";
+  "infraestructura_cliente" | "red" | "terceros" | "decision_cliente" | "acceso_remoto_pendiente";
 export type MemberRole = "reportante" | "contraparte" | "agente" | "supervisor";
 export type Visibility = "publico" | "interno";
 export type EventType =
@@ -96,10 +96,10 @@ export interface PauseRow {
   created_by: string | null;
   ended_by: string | null;
   remote_access_request_id: string | null;
-  subtel_ack_status: "aceptada" | "objetada" | null;
-  subtel_ack_by: string | null;
-  subtel_ack_at: string | null;
-  subtel_ack_note: string | null;
+  client_ack_status: "aceptada" | "objetada" | null;
+  client_ack_by: string | null;
+  client_ack_at: string | null;
+  client_ack_note: string | null;
 }
 
 export interface RemoteAccessRow {

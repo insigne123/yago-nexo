@@ -1,5 +1,5 @@
 # nexo-ctl · etapas del LABORATORIO (un solo API Manager; etapas separadas por gateway y host virtual).
-# En SUBTEL cada etapa apunta a su propia instalación y credencial.
+# En producción cada etapa apunta a su propia instalación y credencial.
 stages:
   dev:
     apim: https://apim:9443

@@ -51,10 +51,10 @@ describe("configuración xDS de nexo-division", () => {
   });
 
   it("conserva la ruta base del backend y valida TLS hacia backends HTTPS", () => {
-    const r = { ...base, prefix: "/rutas/registro", stableUrl: "https://registro.subtel.invalid/api/v2" };
+    const r = { ...base, prefix: "/rutas/registro", stableUrl: "https://registro.cliente.invalid/api/v2" };
     expect(renderRouteConfig([r]).virtual_hosts[0]!.routes[0]!.route).toMatchObject({ prefix_rewrite: "/api/v2/" });
     const c = clusters([r])[0] as { transport_socket: { typed_config: { sni: string; common_tls_context: { validation_context: unknown } } } };
-    expect(c.transport_socket.typed_config.sni).toBe("registro.subtel.invalid");
+    expect(c.transport_socket.typed_config.sni).toBe("registro.cliente.invalid");
     expect(c.transport_socket.typed_config.common_tls_context.validation_context).toBeDefined();
   });
 

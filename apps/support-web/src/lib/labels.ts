@@ -70,19 +70,19 @@ export const CLOCK_STATUS_LABEL: Record<ClockStatus, string> = {
 };
 
 export const PAUSE_REASON_LABEL: Record<PauseReason, string> = {
-  infraestructura_subtel: "Infraestructura de SUBTEL",
+  infraestructura_cliente: "Infraestructura del cliente",
   red: "Red",
   terceros: "Terceros",
-  decision_subtel: "Decisión de SUBTEL",
+  decision_cliente: "Decisión del cliente",
   acceso_remoto_pendiente: "Acceso remoto pendiente",
 };
 
 /** Motivos que un agente puede elegir (el de acceso remoto lo abre la solicitud de acceso). */
 export const MANUAL_PAUSE_REASONS: PauseReason[] = [
-  "infraestructura_subtel",
+  "infraestructura_cliente",
   "red",
   "terceros",
-  "decision_subtel",
+  "decision_cliente",
 ];
 
 export const ROLE_LABEL: Record<MemberRole, string> = {
@@ -120,7 +120,7 @@ export const EVENT_LABEL: Record<EventType, string> = {
 };
 
 export const REMOTE_STATUS_LABEL: Record<RemoteAccessStatus, string> = {
-  pendiente: "Pendiente de SUBTEL",
+  pendiente: "Pendiente del cliente",
   habilitado: "Habilitado",
   rechazado: "Rechazado",
   revocado: "Revocado",
