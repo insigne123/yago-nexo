@@ -3,10 +3,13 @@ import {
   ARRASTRE_MINIMO_MS,
   ARRASTRE_MS,
   arrastreAlCerrar,
+  CIERRE_POR_VISTA,
+  CIERRE_POR_VISTA_COMPACTA,
   listaComprobaciones,
   MAX_COMPROBACIONES,
   normalizar,
   ordenCierre,
+  planCierre,
   recortar,
   resumenVerificaciones,
   textoFirma,
@@ -217,5 +220,36 @@ describe("arrastreAlCerrar (lo comprobado justo antes de cambiar de paso)", () =
     const a = arrastreAlCerrar(1, ["a"], vivas, [T - 60_000, T - 1000], T)!;
     expect(a.items).toEqual([{ clave: "d0", texto: "a", estado: "ok", valor: "2" }]);
     expect(a.hastaMs).toBe(T - 1000 + ARRASTRE_MS);
+  });
+});
+
+describe("planCierre (el cierre muestra todas las verificaciones)", () => {
+  it("hasta 14, una vista con la letra normal y el cierre de siempre", () => {
+    expect(planCierre(11, { cierreS: 3 })).toEqual({
+      porPagina: CIERRE_POR_VISTA,
+      paginas: 1,
+      compacto: false,
+      segundos: 3,
+    });
+    expect(planCierre(14, { cierreS: 3 }).paginas).toBe(1);
+  });
+
+  it("de 15 a 24, todas en una sola vista compacta (nunca «1 de 2» con «N de N»)", () => {
+    expect(planCierre(15, { cierreS: 3 })).toEqual({
+      porPagina: 15,
+      paginas: 1,
+      compacto: true,
+      segundos: 3,
+    });
+    expect(planCierre(CIERRE_POR_VISTA_COMPACTA, { cierreS: 3 }).paginas).toBe(1);
+  });
+
+  it("con más, pagina y el cierre dura lo necesario para mostrar cada página, sin pasar lo disponible", () => {
+    const p = planCierre(30, { cierreS: 3, disponibleS: 60 });
+    expect(p.paginas).toBe(2);
+    expect(p.paginas * p.porPagina).toBeGreaterThanOrEqual(30);
+    expect(p.segundos).toBe(6);
+    expect(planCierre(30, { cierreS: 3, disponibleS: 4 }).segundos).toBe(4);
+    expect(planCierre(30, { cierreS: 3, disponibleS: 1 }).segundos).toBe(3);
   });
 });

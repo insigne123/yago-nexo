@@ -82,10 +82,13 @@ describe("guiones D-01..D-05 y BT-005: narración y duración (V03, V11)", () =>
     expect(PASOS_D05.at(-1)!.titulo).toMatch(/lo pide una persona y lo aprueba otra/);
   });
 
-  it("D-02 tiene 4 partes y declara la línea base de 61 ventanas de 30 s para A y B", () => {
+  it("D-02 tiene 4 partes y declara la línea base (las 60 ventanas de 30 s anteriores) para A y B", () => {
     expect(PASOS_D02.map((p) => p.titulo.slice(0, 7))).toEqual(["Parte 1", "Parte 2", "Parte 3", "Parte 4"]);
+    // Se consultan 61 ventanas: la actual, que se compara, y las 60 anteriores, que son la línea base.
     expect(VENTANAS_LINEA_BASE).toBe(61);
-    expect(d02.afirmacion).toMatch(/61 ventanas de 30 s/);
+    expect(d02.afirmacion).toMatch(/60 ventanas anteriores de 30 s/);
+    // Una sola forma de contarla en pantalla: nada de «61 ventanas» ni «31 min» en la narración.
+    expect(JSON.stringify([d02.afirmacion, PASOS_D02])).not.toMatch(/61 ventanas|31 min/);
     expect(PASOS_D02[0]!.comprueba!.join(" ")).toMatch(/consumidor A.*consumidor B/);
   });
 

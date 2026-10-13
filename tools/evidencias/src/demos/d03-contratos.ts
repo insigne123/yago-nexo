@@ -24,6 +24,7 @@ import {
   comando,
   lineaShell,
   argsNexoCtl,
+  moverSiHay,
   nexoCtl,
   type PasoGuion,
 } from "./ayudas-d.js";
@@ -118,7 +119,7 @@ export const PASOS_D03: PasoGuion[] = [
       "Si alguien se salta el pipeline y carga el contrato a mano en WSO2, la política de gobierno impide desplegarlo e informa cada regla incumplida.",
     porQueImporta: "El control no depende de usar el pipeline: también protege la puerta manual.",
     comprueba: ["WSO2 bloquea el despliegue del contrato no conforme"],
-    estimadoS: 16,
+    estimadoS: 20,
   },
   {
     titulo: "Contrato corregido: validado, versionado y publicado",
@@ -145,6 +146,30 @@ async function borrarApi() {
   )) {
     await w.request({ method: "DELETE", path: `/api/am/publisher/v4/apis/${a.id}` });
   }
+}
+
+/**
+ * Cifras exactas del paso de CI («nexo-ctl contratos»): cuántos validó (línea «Contratos: N validados»), cuántos
+ * contratos OpenAPI/AsyncAPI quedaron con 0 errores, cuántos esquemas GraphQL (no pasan por la guía de estilo)
+ * y cuántas advertencias sumaron.
+ */
+export function resumenContratos(salida: readonly string[]): {
+  validados?: number;
+  sinErrores: number;
+  esquemas: number;
+  advertencias: number;
+} {
+  const validados = salida.map((l) => /Contratos: (\d+) validados/.exec(l)?.[1]).find(Boolean);
+  let sinErrores = 0;
+  let advertencias = 0;
+  for (const l of salida) {
+    const m = /Resultado: (\d+) errores, (\d+) advertencias/.exec(l);
+    if (!m) continue;
+    if (m[1] === "0") sinErrores++;
+    advertencias += Number(m[2]);
+  }
+  const esquemas = salida.filter((l) => /Esquema GraphQL .* válido/.test(l)).length;
+  return { ...(validados ? { validados: Number(validados) } : {}), sinErrores, esquemas, advertencias };
 }
 
 const SIN_RUTA = (l: string) =>
@@ -188,15 +213,16 @@ export const d03: Demo = {
     const guia = parse(readFileSync(GUIA, "utf8")) as {
       rules: Record<string, { description: string; severity: string }>;
     };
-    const filas = Object.entries(guia.rules)
-      .filter(([id]) => !/-(put|post|delete|patch)$/.test(id))
+    const visibles = Object.entries(guia.rules).filter(([id]) => !/-(put|post|delete|patch)$/.test(id));
+    const filas = visibles
       .map(
         ([id, r]) =>
           `<tr><td><code>${escaparHtml(id.replace(/-get$/, ""))}</code></td><td class="${r.severity === "error" ? "mal" : ""}">${r.severity}</td><td>${escaparHtml(r.description)}</td></tr>`,
       )
       .join("");
+    // Las reglas que la guía repite por método HTTP (…-get, …-post, …) van en una sola fila.
     c.panel(
-      `<h3>wso2/apim/governance/guia-estilo-institucional.yaml (${Object.keys(guia.rules).length} reglas)</h3><table><tr><th>Regla</th><th>Severidad</th><th>Qué exige</th></tr>${filas}</table>`,
+      `<h3>wso2/apim/governance/guia-estilo-institucional.yaml · ${Object.keys(guia.rules).length} reglas (${visibles.length} filas: las que se repiten por método HTTP van una vez)</h3><table><tr><th>Regla</th><th>Severidad</th><th>Qué exige</th></tr>${filas}</table>`,
     );
     await c.vista("terminal-panel");
     c.log(
@@ -208,12 +234,19 @@ export const d03: Demo = {
       filtro: (l) =>
         /Resultado|Contratos:|Esquema|Validación del contrato/.test(l) ? SIN_RUTA(l) : undefined,
     });
-    const cumplen = ci.salida.filter((l) => /Resultado: 0 errores/.test(l)).length;
     c.log(`(código de salida ${ci.codigo})`, ci.codigo === 0 ? "tenue" : "mal");
+    const r = resumenContratos(ci.salida);
+    if (r.advertencias > 0)
+      c.log(
+        `# ${r.advertencias} advertencias de la guía, que no bloquean: el pipeline se detiene solo ante errores`,
+        "tenue",
+      );
     e.comprueba(
       "los contratos versionados cumplen la guía",
       ci.codigo === 0,
-      `código ${ci.codigo}${cumplen ? ` · ${cumplen} contratos sin errores` : ""}`,
+      r.validados !== undefined
+        ? `código ${ci.codigo} · ${r.validados} validados: ${r.sinErrores} contratos con 0 errores${r.esquemas ? ` y ${r.esquemas} esquema GraphQL válido` : ""}`
+        : `código ${ci.codigo}`,
     );
 
     // ── 2. Contrato que no cumple: pipeline bloqueado ──────────────────────────────────────────────
@@ -221,6 +254,8 @@ export const d03: Demo = {
     writeFileSync(join(dir, "openapi.yaml"), malo);
     await c.vista("dividido");
     await c.ir("https://apim:9443/publisher/apis");
+    // El cursor sale de las tarjetas (no deja abierta la ayuda de ninguna) y queda en el total de APIs.
+    await moverSiHay(c, c.app.getByText(/Total:\s*\d+\s*APIs?/).first(), 8000);
     const r1 = await nexoCtl(c, ["api", "deploy", dir, "-s", "dev", "-m", "Primera versión"], {
       local: true,
       filtro: SIN_RUTA,
@@ -254,17 +289,25 @@ export const d03: Demo = {
     } as never);
     const idManual = String((manual as { id?: string }).id ?? "");
     c.log(`  API creada en el Publisher (${idManual.slice(0, 8)}…), sin desplegar`, "tenue");
+    // La ficha de la API se abre (y termina de cargar) antes de intentar desplegarla.
+    if (idManual) {
+      await c.app.goto(`https://apim:9443/publisher/apis/${idManual}/overview`).catch(() => undefined);
+      await aparece(c.app.getByText(NOMBRE).first(), 20_000);
+    }
     c.log(
       `admin → POST https://apim:9443/api/am/publisher/v4/apis/${idManual.slice(0, 8)}…/revisions   # revisión para desplegarla`,
       "cmd",
     );
     let bloqueo = "";
+    let estadoHttp: number | undefined;
     let creoRevision = false;
     try {
       await w.publisher.createRevision(idManual, "carga manual");
       creoRevision = true;
     } catch (err) {
       bloqueo = (err as { body?: string }).body ?? String(err);
+      const st = (err as { status?: unknown }).status;
+      estadoHttp = typeof st === "number" ? st : undefined;
     }
     const detalle = (() => {
       try {
@@ -281,25 +324,35 @@ export const d03: Demo = {
         };
       }
     })();
+    // El 903300 es el código de error de WSO2 (no un estado HTTP): se muestran los dos.
     c.log(
-      `  HTTP ${detalle.codigo ?? (creoRevision ? 201 : "?")} · ${detalle.mensaje || (creoRevision ? "revisión creada" : "")}`,
+      creoRevision
+        ? "  HTTP 201 · revisión creada"
+        : `  HTTP ${estadoHttp ?? "?"} · código WSO2 ${detalle.codigo ?? "?"}: ${detalle.mensaje}`,
       creoRevision ? "mal" : "aviso",
     );
-    for (const v of detalle.violaciones.slice(0, 7))
-      c.log(`  [bloqueante] ${v.ruleName}: ${v.message}`, "aviso");
-    e.comprueba(
-      "WSO2 bloquea el despliegue del contrato no conforme",
-      !creoRevision && /governance/i.test(detalle.mensaje) && detalle.violaciones.length > 0,
-      `${detalle.violaciones.length} violaciones bloqueantes`,
-    );
+    // WSO2 puede informar la misma regla y el mismo mensaje más de una vez: se agrupan y se dice cuántas.
+    const distintas = new Map<string, number>();
+    for (const v of detalle.violaciones) {
+      const k = `${v.ruleName}: ${v.message}`;
+      distintas.set(k, (distintas.get(k) ?? 0) + 1);
+    }
+    for (const [k, veces] of [...distintas].slice(0, 7))
+      c.log(`  [bloqueante] ${k}${veces > 1 ? ` (informada ${veces} veces)` : ""}`, "aviso");
     if (idManual) {
-      await c.app.goto(`https://apim:9443/publisher/apis/${idManual}/overview`).catch(() => undefined);
       const cumplimiento = c.app.getByText("Compliance", { exact: true }).first();
       if (await aparece(cumplimiento, 6000)) {
         await e.clic(cumplimiento);
-        await e.esperar(2500);
-        await ampliar(c, c.app.getByText(/violation|infracci|incumpl/i).first(), 2400);
+        const infraccion = c.app.getByText(/violation|infracci|incumpl/i).first();
+        if (await aparece(infraccion, 10_000)) await ampliar(c, infraccion, 2400);
       }
+    }
+    e.comprueba(
+      "WSO2 bloquea el despliegue del contrato no conforme",
+      !creoRevision && /governance/i.test(detalle.mensaje) && detalle.violaciones.length > 0,
+      `${detalle.violaciones.length} violaciones bloqueantes de ${new Set(detalle.violaciones.map((v) => v.ruleName)).size} reglas`,
+    );
+    if (idManual) {
       await w
         .request({ method: "DELETE", path: `/api/am/publisher/v4/apis/${idManual}` })
         .catch(() => undefined);
@@ -326,15 +379,19 @@ export const d03: Demo = {
       1500,
     );
     const creada = encontrada?.valor;
+    // Primero la ficha en el Publisher con su estado a la vista; después la verificación y la ampliación.
+    const estadoPublicado = c.app.getByText(/PUBLISHED|Published|Publicad/).first();
+    let publicadoEnPantalla = false;
+    if (creada) {
+      await c.app.goto(`https://apim:9443/publisher/apis/${creada.id}/overview`).catch(() => undefined);
+      publicadoEnPantalla = await aparece(estadoPublicado, 20_000);
+    }
     e.comprueba(
       "contrato corregido promovido y publicado",
       r2.codigo === 0 && !!creada && creada.lifeCycleStatus === "PUBLISHED",
       creada ? `${creada.lifeCycleStatus} en Desarrollo` : `código ${r2.codigo}`,
     );
-    if (creada) {
-      await c.app.goto(`https://apim:9443/publisher/apis/${creada.id}/overview`).catch(() => undefined);
-      await ampliar(c, c.app.getByText(/PUBLISHED|Published|Publicad/).first(), 2400);
-    }
+    if (publicadoEnPantalla) await ampliar(c, estadoPublicado, 2400);
 
     // ── 5. Guía endurecida ─────────────────────────────────────────────────────────────────────────
     await abrir(c, PASOS_D03[4]!);

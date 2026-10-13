@@ -18,8 +18,10 @@ import {
   ampliar,
   aparece,
   comando,
+  consolaAlDia,
   corto,
   desplazarSiHay,
+  moverSiHay,
   seg,
   type PasoGuion,
 } from "./ayudas-d.js";
@@ -64,7 +66,7 @@ export const PASOS_D01: PasoGuion[] = [
       "Elige las fuentes, escribe las direcciones de la red autorizada y lanza el escaneo. El motor compara lo que encuentra con el catálogo gobernado.",
     porQueImporta: "Se ejecuta bajo demanda o programado, sin instalar nada en los sistemas que se revisan.",
     comprueba: ["escaneo terminado"],
-    estimadoS: 26,
+    estimadoS: 29,
   },
   {
     titulo: "Hallazgos ordenados por exposición",
@@ -79,7 +81,7 @@ export const PASOS_D01: PasoGuion[] = [
       "backend accesible sin pasar por el gateway",
       "ordenados por puntaje de exposición",
     ],
-    estimadoS: 22,
+    estimadoS: 28,
   },
   {
     titulo: "Reporte de exposición en CSV y PDF",
@@ -188,6 +190,17 @@ export const d01: Demo = {
     const segEscaneo = (Date.now() - t0) / 1000;
     logs.detener();
     const scan = fin?.valor;
+    // Indicadores y verificación cuando la Consola ya muestra el escaneo terminado y sus totales (la tabla de
+    // escaneos se actualiza sola mientras hay uno en curso, con unos segundos de retraso).
+    if (scan) {
+      await consolaAlDia(c, c.app.getByTestId(`scan-status-${scan.id}`), { texto: /terminado/i, ms: 5000 });
+      if (scan.totals?.noGobernados !== undefined)
+        await consolaAlDia(c, c.app.getByTestId("kpi-ungoverned"), {
+          // La tarjeta junta su etiqueta y su cifra sin espacio («No gobernados5»): se busca la cifra sola.
+          texto: new RegExp(`(?:^|\\D)${scan.totals.noGobernados}(?:\\D|$)`),
+          ms: 3000,
+        });
+    }
     e.indicadores({
       "endpoints encontrados": scan?.totals?.endpoints ?? "?",
       "no gobernados": scan?.totals?.noGobernados ?? "?",
@@ -213,6 +226,20 @@ export const d01: Demo = {
         f.exposureScore >= 70 ? "aviso" : undefined,
       );
     }
+    // «Riesgo alto» cuenta el puntaje (70 o más), esté o no el endpoint en el catálogo: por eso puede ser mayor
+    // que «No gobernados». Se dice con las cifras de los hallazgos.
+    const altos = hallazgos.filter((f) => f.exposureScore >= 70);
+    const altosGobernados = altos.filter((f) => !!f.matchedApiId).length;
+    c.log(
+      `riesgo alto = puntaje de 70 o más, esté o no en el catálogo: ${altos.length} hallazgos (${altos.length - altosGobernados} no gobernados y ${altosGobernados} ligados a una API gobernada)`,
+      "tenue",
+    );
+    const filas = c.app.getByTestId("table-findings").locator("tbody tr");
+    /** Lleva a la vista (y el cursor a) la fila de la tabla que respalda una verificación. */
+    const verFila = async (texto: string) => {
+      const fila = filas.filter({ hasText: texto }).first();
+      if (await desplazarSiHay(c, fila, 1500)) await moverSiHay(c, fila.locator("td").nth(1));
+    };
     const nginx = hallazgos.find((f) => f.source === "nginx" && f.path === "/interno/reportes/titulares");
     e.comprueba(
       "NGINX: datos personales sin autenticación",
@@ -220,6 +247,7 @@ export const d01: Demo = {
       nginx ? `${nginx.path} · puntaje ${nginx.exposureScore}` : "no encontrado",
     );
     const apisix = hallazgos.find((f) => f.source === "apisix" && f.path === "/fiscalizacion");
+    await verFila("/fiscalizacion");
     e.comprueba(
       "APISIX: ruta fuera del catálogo",
       !!apisix && apisix.authDetected.startsWith("requerida") && !apisix.matchedApiId,
@@ -228,6 +256,7 @@ export const d01: Demo = {
     const directa = hallazgos.find(
       (f) => f.source === "red" && f.host === "ocultas" && f.path === "/espectro/asignaciones",
     );
+    await verFila("/espectro/asignaciones");
     e.comprueba(
       "servicio directo con contrato publicado",
       !!directa && directa.specFound && directa.personalDataSuspected,
@@ -239,6 +268,7 @@ export const d01: Demo = {
         f.host === "concesiones-v1" &&
         f.reasons.some((r) => r.includes("sin pasar por el gateway")),
     );
+    if (bypass) await verFila(`${bypass.host}${bypass.port ? `:${bypass.port}` : ""}${bypass.path}`);
     e.comprueba(
       "backend accesible sin pasar por el gateway",
       !!bypass,

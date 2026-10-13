@@ -58,7 +58,7 @@ export const NARRACION_D06: DefinicionPaso[] = [
     quePasa:
       "El portal muestra el contrato AsyncAPI de EventosRed y sus canales. La herramienta del producto lo valida contra la guía de estilo AsyncAPI.",
     porQueImporta:
-      "Los eventos también tienen contrato: quien se suscribe sabe qué canales y mensajes recibirá, según las reglas de la institución.",
+      "Los eventos también tienen contrato: quien se suscribe sabe qué canales y mensajes recibirá. Solo los errores de la guía bloquean.",
     comprueba: [
       "el contrato AsyncAPI publicado describe sus canales",
       "el contrato cumple la guía de estilo AsyncAPI",
@@ -171,13 +171,45 @@ async function asyncApiPublicado(
   }
 }
 
-/** Abre una suscripción WebSocket y junta eventos hasta `n` o hasta `ms`. */
+/** El primer mensaje de cada conexión es un saludo del backend de eventos, no un evento de la red. */
+export const esBienvenida = (e: Record<string, unknown>) => e.tipo === "bienvenida";
+
+/**
+ * Lee el rechazo de una consulta GraphQL fuera del esquema: WSO2 responde {code, message, description} (o
+ * {fault: {...}}, o errors[] de GraphQL). Del detalle de graphql-java («Field 'x' in type 'T' is undefined») se
+ * dice en español qué campo no existe.
+ */
+export function motivoRechazoGraphql(cuerpo: unknown, texto = ""): { mensaje: string; detalle?: string } {
+  const b = (cuerpo ?? {}) as {
+    code?: unknown;
+    message?: string;
+    description?: string;
+    errors?: Array<{ message?: string }>;
+    fault?: { message?: string; description?: string };
+  };
+  const mensaje = b.fault?.message ?? b.message ?? b.errors?.[0]?.message;
+  const descripcion = b.fault?.description ?? b.description ?? b.errors?.[0]?.message ?? "";
+  const campo = /Field '(\w+)' in type '(\w+)' is undefined/.exec(descripcion);
+  const detalle = campo ? `el campo ${campo[1]} no existe en el tipo ${campo[2]}` : undefined;
+  if (!mensaje)
+    return {
+      mensaje: texto.replace(/\s+/g, " ").slice(0, 80) || "sin cuerpo",
+      ...(detalle ? { detalle } : {}),
+    };
+  return { mensaje, ...(detalle ? { detalle } : {}) };
+}
+
+/**
+ * Abre una suscripción WebSocket y junta mensajes hasta que `n` de ellos cumplan `cuenta` (por defecto, todos)
+ * o hasta `ms`.
+ */
 function suscribir(
   url: string,
   token: string | undefined,
   n: number,
   ms: number,
   alEvento?: (e: Record<string, unknown>, i: number) => void,
+  cuenta: (e: Record<string, unknown>) => boolean = () => true,
 ) {
   return new Promise<{ abierta: boolean; eventos: Array<Record<string, unknown>>; rechazo?: string }>(
     (ok) => {
@@ -206,7 +238,7 @@ function suscribir(
         }
         eventos.push(e);
         alEvento?.(e, eventos.length);
-        if (eventos.length >= n) fin();
+        if (eventos.filter(cuenta).length >= n) fin();
       });
       sock.on("unexpected-response", (_q, res) => {
         rechazo = `HTTP ${res.statusCode}`;
@@ -369,17 +401,14 @@ export const d06: Demo = {
       token,
       cuerpo: { query: FUERA_DE_ESQUEMA },
     });
-    const cuerpoFuera = fuera.data as {
-      data?: unknown;
-      errors?: Array<{ message?: string }>;
-      fault?: { message?: string; description?: string };
-    };
-    const motivo = cuerpoFuera?.fault
-      ? `${cuerpoFuera.fault.message ?? ""} ${cuerpoFuera.fault.description ?? ""}`.trim()
-      : (cuerpoFuera?.errors?.[0]?.message ?? fuera.texto.slice(0, 120));
+    const cuerpoFuera = fuera.data as { data?: unknown; errors?: unknown[] };
+    const motivo = motivoRechazoGraphql(fuera.data, fuera.texto);
     const rechazada = fuera.status >= 400 || (!!cuerpoFuera?.errors?.length && !cuerpoFuera.data);
     c.log(`→ ${FUERA_DE_ESQUEMA}`, "cmd");
-    c.log(`  HTTP ${fuera.status} · ${motivo.slice(0, 150)}`, rechazada ? "ok" : "mal");
+    c.log(
+      `  HTTP ${fuera.status} · ${motivo.mensaje}${motivo.detalle ? ` (${motivo.detalle})` : ""}`,
+      rechazada ? "ok" : "mal",
+    );
     e.indicadores({
       "GraphQL con token": `HTTP ${r.status}`,
       "sin token": `HTTP ${sinToken.status}`,
@@ -388,7 +417,7 @@ export const d06: Demo = {
     e.comprueba(
       "campo fuera del esquema: rechazado",
       rechazada,
-      `HTTP ${fuera.status} · ${motivo.slice(0, 60)}`,
+      `HTTP ${fuera.status} · ${motivo.mensaje}${motivo.detalle ? `: ${motivo.detalle}` : ""}`,
     );
     await e.esperar(2000);
 
@@ -424,10 +453,22 @@ export const d06: Demo = {
       ],
       "nexo-ctl api lint wso2/apim/apis/eventos-red/asyncapi.yaml -r guia-asyncapi.yaml",
     );
+    // Cifras de la línea «Resultado: …» de nexo-ctl: las advertencias se informan, pero solo los errores bloquean.
+    const resultado = lint.salida
+      .map((l) => /Resultado: (\d+) errores, (\d+) advertencias/.exec(l))
+      .find(Boolean);
+    const advertencias = Number(resultado?.[2] ?? 0);
+    if (advertencias > 0)
+      c.log(
+        `# ${advertencias} advertencias de la guía AsyncAPI, que no bloquean: nexo-ctl termina con error solo si hay errores`,
+        "tenue",
+      );
     e.comprueba(
       "el contrato cumple la guía de estilo AsyncAPI",
       lint.codigo === 0,
-      `código de salida ${lint.codigo}`,
+      resultado
+        ? `código de salida ${lint.codigo} · ${resultado[1]} errores · ${advertencias} advertencias`
+        : `código de salida ${lint.codigo}`,
     );
     await e.esperar(1500);
 
@@ -439,15 +480,28 @@ export const d06: Demo = {
       "suscripción WebSocket a wss://apim:8099/eventos/red/1.0.0/ws con Authorization: Bearer … (cliente ws del guion)",
       "cmd",
     );
-    const con = await suscribir(url, token, 3, 25_000, (ev1, i) =>
-      c.log(`  evento ${i}: ${JSON.stringify(ev1).slice(0, 150)}`),
+    // Se esperan dos eventos de la red; el saludo con que abre cada conexión no se cuenta como evento.
+    let nEvento = 0;
+    const con = await suscribir(
+      url,
+      token,
+      2,
+      25_000,
+      (ev1) =>
+        c.log(
+          esBienvenida(ev1)
+            ? `  mensaje de bienvenida de la conexión (no es un evento): ${JSON.stringify(ev1).slice(0, 110)}`
+            : `  evento ${++nEvento}: ${JSON.stringify(ev1).slice(0, 150)}`,
+        ),
+      (ev1) => !esBienvenida(ev1),
     );
+    const deLaRed = con.eventos.filter((x) => !esBienvenida(x));
     if (con.abierta) c.log("  suscripción abierta a través del gateway", "ok");
-    e.indicadores({ "eventos recibidos": con.eventos.length });
+    e.indicadores({ "eventos recibidos": deLaRed.length });
     e.comprueba(
       "con token: llegan eventos por WebSocket",
-      con.abierta && con.eventos.length >= 2,
-      `${con.eventos.length} eventos`,
+      con.abierta && deLaRed.length >= 2,
+      `${deLaRed.length} eventos de la red${deLaRed.length < con.eventos.length ? " (más el mensaje de bienvenida)" : ""}`,
     );
     c.log("la misma suscripción, sin token", "cmd");
     const sin = await suscribir(url, undefined, 1, 6000);
@@ -469,14 +523,14 @@ export const d06: Demo = {
     await e.esperar(2000);
 
     return {
-      medido: `API GraphQL nativa publicada con su esquema (${consultas.length} consultas) y protegida (con token ${r.status}, sin token ${sinToken.status}, fuera del esquema ${fuera.status}); contrato AsyncAPI ${contrato?.version ?? "?"} y ${con.eventos.length} eventos recibidos por WebSocket con token OAuth`,
+      medido: `API GraphQL nativa publicada con su esquema (${consultas.length} consultas) y protegida (con token ${r.status}, sin token ${sinToken.status}, fuera del esquema ${fuera.status}); contrato AsyncAPI ${contrato?.version ?? "?"} y ${deLaRed.length} eventos recibidos por WebSocket con token OAuth`,
       datos: {
         msGraphQL: ms,
         consultas,
         sinToken: sinToken.status,
         fueraDeEsquema: fuera.status,
         canales: contrato?.canales ?? [],
-        eventos: con.eventos.length,
+        eventos: deLaRed.length,
       },
     };
   },

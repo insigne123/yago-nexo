@@ -1,8 +1,8 @@
 /**
  * BT-049 · Exportación de APIs, contratos, políticas, configuraciones, metadatos y datos de gestión en formatos
  * documentados. La administradora genera el paquete desde la Consola; se verifica el SHA-256 de cada artefacto
- * contra el manifiesto y se leen todos con herramientas estándar (Python: zipfile, YAML, XML, JSON), sin
- * software del proveedor.
+ * contra el manifiesto y se leen todos con bibliotecas abiertas de uso común (Python: zipfile, xml y json de la
+ * biblioteca estándar, y PyYAML para YAML), sin software del proveedor.
  *
  * Veracidad (V12, 0-11 e): la configuración de la plataforma (platform.yaml) se busca DENTRO del paquete
  * exportado; si el paquete no la trae, la verificación falla (ya no se lee desde el repositorio). Los datos de
@@ -99,12 +99,12 @@ export const NARRACION_BT049: DefinicionPaso[] = [
     comprueba: ["sumas SHA-256 del manifiesto", "incluye APIs (contrato y políticas), flujos y metadatos"],
   },
   {
-    titulo: "Se leen con herramientas estándar",
+    titulo: "Se leen con herramientas abiertas de uso común",
     quePasa:
-      "Un programa de Python con bibliotecas estándar abre cada artefacto (ZIP, YAML, XML, JSON). Al lado, el contrato OpenAPI del paquete.",
+      "Un programa de Python abre cada artefacto con bibliotecas abiertas de uso común: zipfile, xml y json de la biblioteca estándar, y PyYAML.",
     porQueImporta:
       "Los formatos son abiertos y documentados: se pueden leer y migrar sin software de Yago Nexo ni de WSO2.",
-    comprueba: ["todos los artefactos se leen con herramientas estándar"],
+    comprueba: ["todos los artefactos se leen con herramientas abiertas"],
   },
   {
     titulo: "Configuración de la plataforma dentro del paquete",
@@ -129,7 +129,7 @@ export const bt049: Demo = {
   archivo: "BT-049_exportacion",
   nombre: "Exportación de APIs, contratos, políticas, configuración y metadatos",
   afirmacion:
-    "La Consola genera un paquete de exportación con las APIs (contrato y políticas), los flujos de integración, el catálogo, el grafo de dependencias y la configuración de la plataforma, con un manifiesto de sumas SHA-256; los datos de gestión (auditoría y consumo) se exportan aparte por su API; todo se lee con herramientas estándar.",
+    "La Consola genera un paquete de exportación con las APIs (contrato y políticas), los flujos de integración, el catálogo, el grafo de dependencias y la configuración de la plataforma, con un manifiesto de sumas SHA-256; los datos de gestión (auditoría y consumo) se exportan aparte por su API; todo se lee con herramientas abiertas de uso común (Python y PyYAML).",
   pasos: NARRACION_BT049.length,
   agenda: NARRACION_BT049.map((p) => p.titulo),
   usuarioInicial: "admin.nexo",
@@ -149,6 +149,15 @@ export const bt049: Demo = {
     await c.ir("/exportacion");
     await e.clic(c.app.getByTestId("btn-create-export"));
     await c.app.getByTestId("btn-download-export").waitFor({ timeout: 60_000 });
+    // Con el paquete listo, el aviso «Exportación iniciada» ya no aporta y tapa la tabla del manifiesto: se cierra.
+    const avisoInicio = c.app
+      .getByTestId("toast")
+      .filter({ hasText: /Exportación iniciada/ })
+      .first();
+    if (await avisoInicio.isVisible().catch(() => false))
+      await e
+        .clic(avisoInicio.getByRole("button", { name: /Cerrar aviso/ }))
+        .catch(() => c.avisar("no se pudo cerrar el aviso de exportación"));
     const zipRuta = await c.descargar(c.app.getByTestId("btn-download-export"), "nexo-export.zip");
     const zip = unzipSync(new Uint8Array(readFileSync(zipRuta)));
     const dir = join(c.archivos, "export");
@@ -199,16 +208,20 @@ export const bt049: Demo = {
       [...tipos].join(", "),
     );
 
-    // 3 ── Lectura con herramientas estándar ─────────────────────────────────────────────────────────
+    // 3 ── Lectura con bibliotecas abiertas de uso común ───────────────────────────────────────────────
     await e.paso(NARRACION_BT049[2]!);
     writeFileSync(join(c.archivos, "leer_exportacion.py"), LECTOR);
     await c.vista("terminal");
+    c.log(
+      "leer_exportacion.py: zipfile, xml.etree y json (biblioteca estándar de Python) y PyYAML (yaml.safe_load)",
+      "tenue",
+    );
     const lectura = await c.ejecutarComando("python3", [join(c.archivos, "leer_exportacion.py"), dir], {
       mostrar: "python3 leer_exportacion.py export/",
       tablas: false,
     });
     e.comprueba(
-      "todos los artefactos se leen con herramientas estándar",
+      "todos los artefactos se leen con herramientas abiertas",
       lectura.codigo === 0 && lectura.salida.length >= man.items.length,
       `${lectura.salida.length} lecturas · código ${lectura.codigo}`,
     );
@@ -278,8 +291,12 @@ export const bt049: Demo = {
     writeFileSync(join(dir, "gestion-consumo.csv"), csv);
     const filas = csv.trim() ? csv.trim().split("\n").length - 1 : 0;
     c.log(
-      `→ GET /api/v1/usage/export → ${uso.status} ${uso.headers.get("content-type")} · ${filas} filas`,
+      `→ GET /api/v1/usage/export?from=${hoy}&to=${hoy} → ${uso.status} ${uso.headers.get("content-type")} · ${filas} filas`,
       "cmd",
+    );
+    c.log(
+      `  consumo del día ${hoy} (UTC) de todo el laboratorio: consumidores y endpoints con sus llamadas de ese día`,
+      "tenue",
     );
     for (const l of csv.split("\n").slice(0, 4)) c.log(`  ${l}`);
     e.indicadores({
@@ -299,7 +316,7 @@ export const bt049: Demo = {
     await e.esperar(2000);
 
     return {
-      medido: `paquete con ${man.items.length} artefactos (${[...tipos].join(", ")}), ${iguales} sumas SHA-256 coincidentes, lectura con herramientas estándar y configuración de la plataforma ${plataforma ? "incluida" : "AUSENTE"}; auditoría (${Array.isArray(eventos) ? eventos.length : 0} eventos) y consumo exportados aparte por la API`,
+      medido: `paquete con ${man.items.length} artefactos (${[...tipos].join(", ")}), ${iguales} sumas SHA-256 coincidentes, lectura con bibliotecas abiertas de uso común (Python y PyYAML) y configuración de la plataforma ${plataforma ? "incluida" : "AUSENTE"}; auditoría (${Array.isArray(eventos) ? eventos.length : 0} eventos) y consumo exportados aparte por la API`,
       datos: {
         artefactos: man.items.length,
         tipos: [...tipos],

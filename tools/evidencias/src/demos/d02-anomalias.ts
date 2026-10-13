@@ -1,9 +1,10 @@
 /**
  * D-02 · Detección de anomalías de consumo por comportamiento, con alerta y bloqueo configurable, en 4 partes
  * (V14):
- *   1. la línea base: el guardián compara cada ventana de 30 s con las 60 anteriores (61 ventanas, ≈ 31 min).
- *      Antes de grabar corren 31 min de tráfico normal de dos consumidores: A (OperadorDemo, 2 llamadas/s) y
- *      B (ConsumidorAltoVolumen, 25 llamadas/s). Se mide en la analítica del gateway y se declara en pantalla;
+ *   1. la línea base: el guardián compara cada ventana de 30 s con las 60 anteriores (30 min; con la actual se
+ *      consultan 61 ventanas). Antes de grabar corren ≥ 31 min de tráfico normal de dos consumidores: A
+ *      (OperadorDemo, 2 llamadas/s) y B (ConsumidorAltoVolumen, 25 llamadas/s). Se mide en la analítica del
+ *      gateway y se declara en pantalla;
  *   2. el administrador configura la regla en la Consola (volumen, sensibilidad, bloqueo automático por 2 min);
  *   3. A irrumpe con 20 llamadas/s: el guardián lo detecta contra SU línea base, alerta y lo bloquea en el
  *      gateway (política de denegación de WSO2), mientras B, que llama aún más pero como siempre, sigue atendido;
@@ -19,7 +20,15 @@ import { pathToFileURL } from "node:url";
 import { setTimeout as dormir } from "node:timers/promises";
 import type { Page } from "playwright-core";
 import type { Contexto, Demo } from "../lib/grabador.js";
-import { consola, credencialesDe, GATEWAY, tokenAplicacion, tokenPersona, wso2 } from "../lib/lab.js";
+import {
+  consola,
+  credencialesDe,
+  GATEWAY,
+  sqlConsola,
+  tokenAplicacion,
+  tokenPersona,
+  wso2,
+} from "../lib/lab.js";
 import { esperarHasta } from "./comun.js";
 import {
   abrir,
@@ -30,7 +39,9 @@ import {
   asegurarConsumidor,
   cargaContinua,
   clicSiHay,
+  consolaAlDia,
   curl,
+  dec,
   n,
   seg,
   ventanasConTrafico,
@@ -75,9 +86,9 @@ type Block = { id: string; active: boolean; conditionValue: string; releasedBy?:
 
 export const PASOS_D02: PasoGuion[] = [
   {
-    titulo: "Parte 1 · La línea base: 31 min de tráfico normal",
+    titulo: "Parte 1 · La línea base: las 60 ventanas de 30 s anteriores",
     quePasa:
-      "Durante 31 min antes de grabar, A llamó 2 veces por segundo y B, de alto volumen, 25. Cada ventana de 30 s se compara con las 60 anteriores.",
+      "Antes de grabar, A llamó 2 veces por segundo y B, de alto volumen, 25. Cada ventana de 30 s se compara con las 60 anteriores (30 min).",
     porQueImporta:
       "Cada consumidor se compara con su propio comportamiento, no con un umbral fijo igual para todos.",
     comprueba: [
@@ -161,7 +172,7 @@ export const d02: Demo = {
   archivo: "D-02_anomalias",
   nombre: "Detección de anomalías de consumo con alerta y bloqueo configurable",
   afirmacion:
-    "El guardián compara el consumo de cada consumidor con su propia línea base (61 ventanas de 30 s, unos 31 min de tráfico normal); ante una ráfaga anómala alerta y, según la regla, lo bloquea en el gateway hasta que un aprobador lo libere o venza el bloqueo, sin afectar a los consumidores que se comportan como siempre.",
+    "El guardián compara el consumo de cada consumidor con su propia línea base (las 60 ventanas anteriores de 30 s, 30 min de tráfico normal); ante una ráfaga anómala alerta y, según la regla, lo bloquea en el gateway hasta que un aprobador lo libere o venza el bloqueo, sin afectar a los consumidores que se comportan como siempre.",
   pasos: PASOS_D02.length,
   agenda: agendaDe(PASOS_D02),
   usuarioInicial: "admin.nexo",
@@ -190,10 +201,17 @@ export const d02: Demo = {
         throw new Error(
           `línea base insuficiente para ${app}: ${v.ventanas} de ${VENTANAS_LINEA_BASE - 1} ventanas de ${VENTANA_S} s con tráfico. Antes de grabar: pnpm --filter @nexo/evidencias exec tsx src/demos/d02-anomalias.ts --linea-base 32`,
         );
+      // La cifra por ventana se mide y se muestra en el paso 1 (una sola medición a la vista).
       notas.push(
-        `línea base de ${app}: ${v.ventanas} ventanas de ${VENTANA_S} s con tráfico (≈ ${v.porVentana} llamadas por ventana)`,
+        `línea base de ${app}: ${v.ventanas} de ${VENTANAS_LINEA_BASE - 1} ventanas de ${VENTANA_S} s con tráfico`,
       );
     }
+    // Eventos de anomalías de pruebas anteriores y reglas que dejaron otras tomas de D-02 (en pausa): fuera, para
+    // que la Consola muestre solo lo de esta toma. Las reglas activas de la instalación no se borran (se pausan).
+    sqlConsola(
+      "DELETE FROM nexo.anomaly_event; DELETE FROM nexo.anomaly_rule WHERE NOT enabled AND name LIKE 'Ráfaga de consumo en Concesiones (%';",
+    );
+    notas.push("eventos de anomalías y reglas de tomas anteriores de D-02 borrados de la Consola");
     const adm = await tokenPersona("admin.nexo");
     previas = (await consola<Rule[]>(adm, "GET", "/anomaly-rules")).data.filter((r) => r.enabled);
     for (const r of previas) await activar(adm, r, false);
@@ -251,7 +269,7 @@ export const d02: Demo = {
     await abrir(c, PASOS_D02[0]!);
     await c.ir("/anomalias?pestana=eventos");
     c.log(
-      `GET ${"http://localhost:9200"}/nexo-apim-metrics-*/_search   # analítica del gateway: ventanas de ${VENTANA_S} s con tráfico, últimas ${VENTANAS_LINEA_BASE}`,
+      `GET ${"http://localhost:9200"}/nexo-apim-metrics-*/_search   # analítica del gateway: ventanas de ${VENTANA_S} s con tráfico, las ${VENTANAS_LINEA_BASE - 1} anteriores a la actual`,
       "cmd",
     );
     const base = await ventanasConTrafico({
@@ -268,9 +286,9 @@ export const d02: Demo = {
     e.indicadores({
       "A · llamadas por ventana": n(base[A]!.porVentana),
       "B · llamadas por ventana": n(base[B]!.porVentana),
-      "ventanas de línea base": `${VENTANAS_LINEA_BASE} × ${VENTANA_S} s`,
+      "línea base": `${VENTANAS_LINEA_BASE - 1} × ${VENTANA_S} s`,
     });
-    // La línea base son las 60 ventanas completas anteriores a la actual (61 con la actual, ≈ 31 min).
+    // La línea base son las 60 ventanas completas anteriores a la actual (30 min); la actual es la que se compara.
     e.comprueba(
       "consumidor A: 60 de 60 ventanas previas con tráfico",
       base[A]!.ventanas >= VENTANAS_LINEA_BASE - 1,
@@ -341,12 +359,33 @@ export const d02: Demo = {
     }, 500);
     const rr = await rafaga.resultado;
     clearInterval(vigilar);
+    // Cifras finales de la ráfaga, las mismas que escribe la terminal (el último segundo también cuenta).
+    e.indicadores({
+      "A · llamadas por segundo": "0 · detenida",
+      "A · rechazadas": rr.errores,
+      "B · errores": (cargaB?.errores() ?? 0) - erroresB0,
+    });
     const segBloqueo = bloqueadoEn ? (bloqueadoEn - t0) / 1000 : undefined;
     c.log(
       `códigos que recibió A: ${Object.entries(rr.porCodigo)
         .map(([k, v]) => `${k}×${v}`)
-        .join("  ")}`,
+        .join(
+          "  ",
+        )}${rr.sinRespuesta ? `  sin respuesta×${rr.sinRespuesta}` : ""} · ${rr.errores} rechazadas`,
     );
+    // Primero la Consola: el evento nuevo a la vista (y ampliado) antes de marcar lo que demuestra.
+    const ev = (
+      await esperarHasta(
+        async () =>
+          (await consola<Anomaly[]>(apr, "GET", "/anomalies")).data.find((x) => x.ruleId === nuestra),
+        (x) => !!x,
+        15,
+      )
+    )?.valor;
+    await c.app.reload();
+    const filaEvento = c.app.getByTestId(ev ? `anomaly-row-${ev.id}` : "table-anomalies");
+    if (await consolaAlDia(c, filaEvento, { ms: 8000 }))
+      await ampliar(c, ev ? filaEvento : filaEvento.locator("tbody tr").first(), 3000, 1.5);
     const r403 = await curl(c, URL_MOSTRADA, { token: tokenA, comentario: "consumidor A tras el bloqueo" });
     e.exige(
       "A bloqueado en el gateway (HTTP 403)",
@@ -382,15 +421,11 @@ export const d02: Demo = {
         ? `${politica.conditionType ?? "APPLICATION"} · ${politica.conditionValue}`
         : "sin política para A",
     );
-    const ev = (await consola<Anomaly[]>(apr, "GET", "/anomalies")).data.find((x) => x.ruleId === nuestra);
-    await c.app.reload();
-    await aparece(c.app.getByTestId("table-anomalies").locator("tbody tr").first(), 15_000);
-    await ampliar(c, c.app.getByTestId("table-anomalies").locator("tbody tr").first(), 3000, 1.5);
     e.comprueba(
       "evento con lo observado y su línea base",
       ev?.status === "bloqueada" && ev.baseline > 0,
       ev
-        ? `${n(Math.round(ev.observed))} llamadas en la ventana frente a una línea base de ${n(Math.round(ev.baseline))} · puntaje ${ev.score}`
+        ? `${n(Math.round(ev.observed))} llamadas en la ventana frente a una línea base de ${n(Math.round(ev.baseline))} · puntaje ${dec(ev.score)}`
         : "sin evento",
     );
     const alerta = (await alertasVigentes().catch(() => [])).find(
@@ -478,7 +513,7 @@ export const d02: Demo = {
     await e.esperar(1500);
 
     return {
-      medido: `ráfaga de A bloqueada en el gateway a los ${segBloqueo !== undefined ? seg(segBloqueo, 0) : "?"} frente a su línea base de 31 min, con alerta; B (25 llamadas/s) no fue afectado; acceso restablecido ${vuelta !== undefined ? seg(vuelta, 0) : "?"} después de la liberación`,
+      medido: `ráfaga de A bloqueada en el gateway a los ${segBloqueo !== undefined ? seg(segBloqueo, 0) : "?"} frente a su línea base (las 60 ventanas de 30 s anteriores), con alerta; B (25 llamadas/s) no fue afectado; acceso restablecido ${vuelta !== undefined ? seg(vuelta, 0) : "?"} después de la liberación`,
       datos: {
         segundosHastaBloqueo: segBloqueo,
         respuestas403: rr.porCodigo["403"] ?? 0,

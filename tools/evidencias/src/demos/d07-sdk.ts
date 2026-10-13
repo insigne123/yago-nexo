@@ -18,7 +18,9 @@ import { basename, join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
 import type { DefinicionPaso, Demo } from "../lib/grabador.js";
 import { escaparHtml } from "../lib/grabador.js";
+import type { Caja } from "../lib/trayectoria.js";
 import { credencialesDe, tokenAplicacion, wso2 } from "../lib/lab.js";
+import { aparece, desplazarSiHay, moverSiHay } from "./ayudas-d.js";
 import { prepararEnsayo } from "./bt0x-ensayo.js";
 import { verPagina } from "./comun.js";
 
@@ -108,7 +110,8 @@ export const d07: Demo = {
     await c.vista("dividido");
     await c.ir(`https://apim:9443/devportal/apis/${api.id}/api-console`);
     await c.app.waitForLoadState("networkidle").catch(() => undefined);
-    await verPagina(c);
+    // El cursor no se deja sobre el formulario de prueba: va al encabezado de la página.
+    if (!(await moverSiHay(c, c.app.getByText("API Console").first(), 3000))) await verPagina(c);
     const contrato = await w.request<{ paths?: Record<string, Record<string, { operationId?: string }>> }>({
       method: "GET",
       path: `/api/am/devportal/v3/apis/${api.id}/swagger`,
@@ -122,7 +125,34 @@ export const d07: Demo = {
         c.log(`  ${m.toUpperCase().padEnd(6)} ${ruta.padEnd(22)} operationId=${op.operationId}`);
       }
     }
-    await e.desplazar(260);
+    // Si el formulario de prueba del portal muestra sus avisos (en inglés), se dice qué son: no son errores del contrato.
+    const avisoPrueba = c.app.getByText(/not generated|suscr[ií]base/i).first();
+    if (await aparece(avisoPrueba, 1500))
+      c.log(
+        "# los avisos del formulario de prueba del portal (suscripción y claves de la aplicación elegida) son de la prueba en línea; no cambian el contrato ni el SDK",
+        "tenue",
+      );
+    // Las operaciones del contrato, tal como las muestra la consola del portal (Swagger UI), más abajo.
+    const bloques = c.app.locator(".swagger-ui .opblock");
+    if (await desplazarSiHay(c, bloques.first(), 8000)) {
+      await moverSiHay(c, bloques.first().locator(".opblock-summary-path").first());
+      const cajas = (
+        await Promise.all(
+          Array.from({ length: Math.min(6, await bloques.count()) }, (_, i) => bloques.nth(i).boundingBox()),
+        )
+      ).filter((b): b is Caja => !!b);
+      if (cajas.length) {
+        const x = Math.min(...cajas.map((b) => b.x));
+        const y = Math.min(...cajas.map((b) => b.y));
+        const union: Caja = {
+          x,
+          y,
+          width: Math.max(...cajas.map((b) => b.x + b.width)) - x,
+          height: Math.max(...cajas.map((b) => b.y + b.height)) - y,
+        };
+        await e.zoom(union, { factor: 1.5, ms: 2400 }).catch(() => undefined);
+      }
+    } else await e.desplazar(260);
     e.exige(
       "el contrato publicado tiene operaciones",
       operaciones.length >= 3,
@@ -216,7 +246,6 @@ export const d07: Demo = {
 
     // 4 ── El cliente JavaScript generado funciona ───────────────────────────────────────────────────
     await e.paso(NARRACION_D07[3]!);
-    await c.vista("terminal");
     const dir = join(c.archivos, "sdk-javascript");
     mkdirSync(dir, { recursive: true });
     let raiz = "";
@@ -227,18 +256,6 @@ export const d07: Demo = {
       raiz ||= f.split("/")[0]!;
     }
     const proyecto = join(dir, raiz);
-    const inst = await c.ejecutarComando("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], {
-      cwd: proyecto,
-      mostrar: `cd ${raiz || "javascript-client"} && npm install   # dependencias y compilación (babel) del SDK generado`,
-      filtro: (l) => (/compiled|added \d+ packages|ERR/i.test(l) ? l : undefined),
-      tablas: false,
-    });
-    e.comprueba(
-      "el SDK JavaScript se instala y compila",
-      !!raiz && inst.codigo === 0,
-      `código ${inst.codigo}`,
-    );
-    const token = await tokenAplicacion(await credencialesDe("OperadorDemo"));
     const script = [
       'const Sdk = require("./dist/index.js");',
       "const cliente = Sdk.ApiClient.instance;",
@@ -254,9 +271,29 @@ export const d07: Demo = {
       "  });",
       "});",
     ].join("\n");
+    // Mientras se instala, a la derecha: la clase generada (del paquete descargado) y el programa que la usa.
+    const js = resumen.find((x) => x.lenguaje === "javascript");
+    c.panel(
+      `<h3>SDK JavaScript generado${raiz ? ` · ${escaparHtml(raiz)}` : ""}</h3><p>Clase de la API: <code>${escaparHtml(js?.clase ?? "—")}</code> · métodos del contrato: ${escaparHtml((js?.presentes ?? []).join(", ") || "—")}</p><h3>usar_sdk.js · programa de prueba que usa ese cliente</h3><pre style="font-size:13px;line-height:1.4;white-space:pre-wrap;color:#cfe3ff">${escaparHtml(script)}</pre>`,
+    );
+    await c.vista("terminal-panel");
+    const inst = await c.ejecutarComando("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], {
+      cwd: proyecto,
+      mostrar: `cd ${raiz || "javascript-client"} && npm install   # dependencias y compilación (babel) del SDK generado`,
+      filtro: (l) => (/compiled|added \d+ packages|ERR/i.test(l) ? l : undefined),
+      tablas: false,
+    });
+    e.comprueba(
+      "el SDK JavaScript se instala y compila",
+      !!raiz && inst.codigo === 0,
+      `código ${inst.codigo}`,
+    );
+    const token = await tokenAplicacion(await credencialesDe("OperadorDemo"));
     if (raiz) writeFileSync(join(proyecto, "usar_sdk.js"), `${script}\n`);
-    c.log("usar_sdk.js (usa el SDK recién generado; el laboratorio tiene certificado autofirmado):", "tenue");
-    for (const l of script.split("\n")) c.log(`  ${l}`, "tenue", false);
+    c.log(
+      "usar_sdk.js (a la derecha) usa el SDK recién generado; el laboratorio tiene certificado autofirmado",
+      "tenue",
+    );
     const r = await c.ejecutarComando("node", ["--no-warnings", "usar_sdk.js"], {
       cwd: proyecto,
       env: { TOKEN: token, NODE_TLS_REJECT_UNAUTHORIZED: "0" },

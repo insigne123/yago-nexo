@@ -133,25 +133,36 @@
   }
 
   async function consumo(main) {
-    const hoy = new Date().toISOString().slice(0, 10);
-    const pintar = async (g) => {
-      const { data } = await api("GET", `/usage?from=${hoy}&to=${hoy}&groupBy=${g}`);
+    // Como la Consola real: «Desde» y «Hasta» (días en UTC; por omisión los últimos 30 días), agrupación y tabla.
+    const dia = (ms) => new Date(ms).toISOString().slice(0, 10);
+    const hoy = dia(Date.now());
+    const pintar = async () => {
+      const g = main.querySelector("[data-testid=usage-group-by]").value;
+      const from = main.querySelector("[data-testid=usage-from]").value;
+      const to = main.querySelector("[data-testid=usage-to]").value;
+      if (!from || !to || from > to) return;
+      const { data } = await api("GET", `/usage?from=${from}&to=${to}&groupBy=${g}`);
       main.querySelector("#tabla-uso").innerHTML =
-        `<table><thead><tr><th>${g === "endpoint" ? "Endpoint" : "Consumidor"}</th><th>Llamadas</th><th>Errores</th></tr></thead><tbody>${(
+        `<table data-testid="table-usage"><thead><tr><th>${g === "endpoint" ? "Endpoint" : "Consumidor"}</th><th>Llamadas</th><th>Errores</th></tr></thead><tbody>${(
           data || []
         )
           .map((f) => `<tr><td>${esc(f.label)}</td><td>${f.llamadas}</td><td>${f.errores}</td></tr>`)
           .join("")}</tbody></table>`;
     };
     main.innerHTML = `<h1>Consumo</h1><div data-testid="billing-disabled-notice" class="tarjeta" style="border-left:4px solid #1d4f91"><b>Medición sin facturación: los cobros están desactivados</b><br>Ensayo: valores simulados.</div>
-      <div class="tarjeta"><label for="agrupar">Agrupar por</label> <select id="agrupar" data-testid="usage-group-by"><option value="consumer">Consumidor</option><option value="endpoint">Endpoint</option><option value="day">Día</option></select>
+      <div class="tarjeta"><label for="desde">Desde</label> <input id="desde" type="date" data-testid="usage-from" value="${dia(Date.now() - 29 * 86_400_000)}" max="${hoy}">
+      <label for="hasta" style="margin-left:12px">Hasta</label> <input id="hasta" type="date" data-testid="usage-to" value="${hoy}">
+      <label for="agrupar" style="margin-left:12px">Agrupar por</label> <select id="agrupar" data-testid="usage-group-by"><option value="consumer">Consumidor</option><option value="endpoint">Endpoint</option><option value="day">Día</option></select>
       <button class="btn" data-testid="btn-export-usage" style="margin-left:16px">Exportar CSV</button></div>
       <div class="tarjeta" id="tabla-uso"></div>${relleno(18)}`;
     main.querySelector("[data-testid=btn-export-usage]").onclick = () =>
-      descargar(`/api/v1/usage/export?from=${hoy}&to=${hoy}`, "consumo.csv");
-    const sel = main.querySelector("[data-testid=usage-group-by]");
-    sel.onchange = () => pintar(sel.value);
-    await pintar("consumer");
+      descargar(
+        `/api/v1/usage/export?from=${main.querySelector("[data-testid=usage-from]").value}&to=${main.querySelector("[data-testid=usage-to]").value}`,
+        "consumo.csv",
+      );
+    for (const id of ["usage-group-by", "usage-from", "usage-to"])
+      main.querySelector(`[data-testid=${id}]`).onchange = () => pintar();
+    await pintar();
   }
 
   function exportacion(main) {

@@ -335,6 +335,14 @@ body[data-vista="resultado"] #resultado {
   color: var(--ok);
   font-weight: bold;
 }
+/* Más de 14 verificaciones: todas en una sola vista, con letra algo menor (estudio.js la achica si no cabe). */
+#r-verificaciones.compacto {
+  font-size: 18px;
+  line-height: 1.28;
+}
+#r-verificaciones.compacto li {
+  margin-bottom: 7px;
+}
 #r-verificaciones li.mal {
   color: var(--mal);
 }
@@ -631,6 +639,14 @@ body[data-vista="panel-completo"] #panel-cuerpo {
   right: 18px;
   bottom: 18px;
   padding: 6px;
+}
+.pantalla #motor-minimapa[data-esquina="abajo-izquierda"] {
+  right: auto;
+  left: 18px;
+}
+.pantalla #motor-minimapa[data-esquina="arriba-derecha"] {
+  bottom: auto;
+  top: 16px;
 }
 .pantalla #motor-minimapa p {
   font-size: 15px;

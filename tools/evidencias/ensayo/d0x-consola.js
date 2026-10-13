@@ -207,7 +207,7 @@
         (a.data || [])
           .map(
             (x) =>
-              `<tr><td>${esc(x.consumer)}</td><td>${esc(x.metric || "volumen")}</td><td>${Math.round(x.observed)}</td><td>${Math.round(x.baseline)}</td><td>${x.score}</td><td><span class="d0x-badge mal">${esc(x.status)}</span></td></tr>`,
+              `<tr data-testid="anomaly-row-${esc(x.id)}"><td>${esc(x.consumer)}</td><td>${esc(x.metric || "volumen")}</td><td>${Math.round(x.observed)}</td><td>${Math.round(x.baseline)}</td><td>${x.score}</td><td><span class="d0x-badge mal">${esc(x.status)}</span></td></tr>`,
           )
           .join("") || '<tr><td colspan="6">Sin eventos.</td></tr>';
       const tb = document.getElementById("d0x-bloq");
@@ -307,8 +307,8 @@
         .map(
           (
             x,
-          ) => `<li data-testid="failover-event-${esc(x.id)}" class="d0x-caja" style="margin-bottom:8px"><div class="d0x-fila"><b>${x.kind === "retorno" ? "Retorno" : "Conmutación"} ${esc(x.from)} → ${esc(x.to)}</b><span class="d0x-badge">${esc(x.trigger)}</span><span class="d0x-badge ${x.status === "completado" ? "bien" : "aviso"}" data-testid="failover-status-${esc(x.id)}">${esc(x.status)}</span>
-          ${x.rtoSeconds ? `<span class="d0x-badge bien" data-testid="failover-rto-${esc(x.id)}">RTO ${String(x.rtoSeconds).replace(".", ",")} s</span>` : ""}<span class="d0x-badge" data-testid="failover-rpo-${esc(x.id)}">RPO no medido</span>${x.approvedBy ? `<small>pidió ${esc(x.requestedBy)} · aprobó ${esc(x.approvedBy)}</small>` : ""}</div></li>`,
+          ) => `<li data-testid="failover-event-${esc(x.id)}" class="d0x-caja" style="margin-bottom:8px"><div class="d0x-fila"><h3 style="margin:0;font-size:15px">${x.kind === "retorno" ? "Retorno" : "Conmutación"}: ${esc(x.from)} → ${esc(x.to)}</h3><span class="d0x-badge">${esc(x.trigger)}</span><span class="d0x-badge ${x.status === "completado" ? "bien" : "aviso"}" data-testid="failover-status-${esc(x.id)}">${esc(x.status)}</span>
+          ${x.rtoSeconds ? `<span class="d0x-badge bien" data-testid="failover-rto-${esc(x.id)}">RTO medido ${String(x.rtoSeconds).replace(".", ",")} s</span>` : ""}<span class="d0x-badge" data-testid="failover-rpo-${esc(x.id)}">RPO no medido</span>${x.approvedBy ? `<small>pidió ${esc(x.requestedBy)} · aprobó ${esc(x.approvedBy)}</small>` : ""}</div></li>`,
         )
         .join("");
     });

@@ -229,3 +229,38 @@ export function resumenVerificaciones(vs: ReadonlyArray<{ ok: boolean }>): Resum
 export function ordenCierre<T extends { ok: boolean }>(vs: readonly T[]): T[] {
   return [...vs.filter((v) => !v.ok), ...vs.filter((v) => v.ok)];
 }
+
+/** Verificaciones que caben en una vista del cierre con la letra normal (2 columnas de 20 px en 1080p). */
+export const CIERRE_POR_VISTA = 14;
+/** Con la letra compacta (18 px, sigue legible en 1080p): hasta aquí, todas van en una sola vista. */
+export const CIERRE_POR_VISTA_COMPACTA = 24;
+/** Tiempo que se deja cada página cuando no caben en una vista. */
+export const CIERRE_S_POR_PAGINA = 3;
+
+export interface PlanCierre {
+  /** Verificaciones por página. */
+  porPagina: number;
+  paginas: number;
+  /** Letra compacta (más de CIERRE_POR_VISTA verificaciones). */
+  compacto: boolean;
+  /** Duración del cierre (s): alcanza para mostrar cada página una vez. */
+  segundos: number;
+}
+
+/**
+ * Cómo se muestra el cierre: hasta 24 verificaciones van todas en una sola vista (con letra compacta desde la
+ * 15.ª), así nunca se anuncia «N de N» mostrando solo una parte. Con más, se pagina y el cierre dura lo que
+ * hace falta para mostrar cada página una vez (3 s por página), sin pasar `disponibleS` (lo que queda antes
+ * del tope de 240 s); nunca dura menos que `cierreS`.
+ */
+export function planCierre(total: number, o: { cierreS: number; disponibleS?: number }): PlanCierre {
+  const n = Math.max(0, Math.floor(total));
+  if (n <= CIERRE_POR_VISTA)
+    return { porPagina: CIERRE_POR_VISTA, paginas: 1, compacto: false, segundos: o.cierreS };
+  if (n <= CIERRE_POR_VISTA_COMPACTA)
+    return { porPagina: n, paginas: 1, compacto: true, segundos: o.cierreS };
+  const paginas = Math.ceil(n / CIERRE_POR_VISTA_COMPACTA);
+  const deseado = Math.max(o.cierreS, paginas * CIERRE_S_POR_PAGINA);
+  const segundos = Math.max(o.cierreS, Math.min(deseado, o.disponibleS ?? deseado));
+  return { porPagina: CIERRE_POR_VISTA_COMPACTA, paginas, compacto: true, segundos };
+}

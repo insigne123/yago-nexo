@@ -50,6 +50,7 @@ import {
   arrastreAlCerrar,
   listaComprobaciones,
   ordenCierre,
+  planCierre,
   type Arrastre,
   resumenVerificaciones,
   textoFirma,
@@ -80,6 +81,7 @@ import {
 import { terminarVideo, type Publicacion } from "./video.js";
 import { Vigilante } from "./vigilancia.js";
 import {
+  esquinaMinimapa,
   fueraDeVentana,
   textoInsignia,
   ventanaZoom,
@@ -280,6 +282,41 @@ interface ZoomActivo {
   vista: { width: number; height: number };
 }
 
+/** Cuánto dura el pulso de repintado que sigue a un cambio de vista o de pantalla (ms). */
+export const PULSO_REPINTADO_MS = 1500;
+
+/**
+ * Hace que la página entregue cuadros seguidos durante `ms`: un punto de 2 px casi transparente en la esquina cambia
+ * de tono en cada cuadro (no se distingue en el video) y después se quita. CDP solo entrega cuadros cuando la página
+ * se repinta; con la página quieta, un solo repintado entrega un cuadro que la narradora puede no alcanzar a
+ * dibujar, y el pulso lo asegura.
+ */
+export function pulsoRepintado(p: Page, ms = PULSO_REPINTADO_MS): Promise<void> {
+  return p
+    .evaluate(
+      (dur) =>
+        new Promise<void>((listo) => {
+          const d = document.createElement("div");
+          d.setAttribute("aria-hidden", "true");
+          d.style.cssText =
+            "position:fixed;left:0;top:0;width:2px;height:2px;pointer-events:none;z-index:2147483646;background:rgba(128,128,128,0.02)";
+          (document.body ?? document.documentElement).appendChild(d);
+          let n = 0;
+          const t = setInterval(() => {
+            n++;
+            d.style.background = `rgba(128,128,128,${n % 2 ? 0.03 : 0.02})`;
+          }, 40);
+          setTimeout(() => {
+            clearInterval(t);
+            d.remove();
+            listo();
+          }, dur);
+        }),
+      ms,
+    )
+    .catch(() => undefined);
+}
+
 export class Contexto {
   app!: Page;
   appContext!: BrowserContext;
@@ -444,7 +481,7 @@ export class Contexto {
     });
     // Una página ya cargada y quieta no entrega cuadros hasta que algo se repinta: sin esto el monitor seguiría
     // mostrando la página anterior (o nada, al empezar el video) hasta el primer movimiento.
-    this.repintarLuego(p, [0, 400]);
+    void pulsoRepintado(p);
     const marcada = p as Page & { __nexoUrl?: boolean };
     if (!marcada.__nexoUrl) {
       marcada.__nexoUrl = true;
@@ -818,6 +855,9 @@ export class Contexto {
     this.vistaActual = v;
     this.servidor.publicar({ vista: v });
     await this.ajustarVentana(this.app);
+    // Al achicar la ventana (p. ej. de «app» a «dividido») una página quieta no entrega cuadros: la narradora
+    // seguiría con el cuadro anterior, más alto, escalado a unos 2/3 del ancho y con una franja vacía al lado.
+    if (this.grabando && this.enPantalla === this.app) void pulsoRepintado(this.app);
     await dormir(250);
   }
 
@@ -911,7 +951,13 @@ export class Contexto {
     if (!z || !z.seguir || !fueraDeVentana(caja, z.ventana)) return;
     z.ventana = ventanaZoom(caja, z.vista, z.factorPedido);
     this.servidor.publicar({
-      zoom: { activo: true, ventana: z.ventana, vista: z.vista, insignia: textoInsignia(z.ventana.factor) },
+      zoom: {
+        activo: true,
+        ventana: z.ventana,
+        vista: z.vista,
+        esquina: esquinaMinimapa(caja, z.ventana, z.vista),
+        insignia: textoInsignia(z.ventana.factor),
+      },
     });
   }
 
@@ -1170,7 +1216,14 @@ export class Contexto {
     this.zooms.abrir(ahora, ventana.factor);
     this.zoomActivo = { ventana, factorPedido, seguir: o.seguir !== false, vista };
     this.servidor.publicar({
-      zoom: { activo: true, ventana, vista, insignia: textoInsignia(ventana.factor) },
+      zoom: {
+        activo: true,
+        ventana,
+        vista,
+        // El minimapa va en la esquina que menos tapa lo ampliado (no sobre el objetivo).
+        esquina: esquinaMinimapa(caja, ventana, vista),
+        insignia: textoInsignia(ventana.factor),
+      },
     });
     if (!this.vigiaZoom) {
       this.vigiaZoom = setInterval(() => {
@@ -1639,6 +1692,12 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
     const nota = ensayo
       ? `ENSAYO sin laboratorio: páginas y respuestas simuladas por el servidor de ensayo · ${cumplidas} sobre esas páginas · no es evidencia y no se publica`
       : `${cumplidas} · grabación continua de ${Math.round(c.segundos())} s, sin cortes ni aceleración · capas agregadas: ${CAPAS.join(", ")} (la música se mezcla al final sin recodificar la imagen) · SHA-256 en yago-nexo.web.app/evidencias`;
+    // Todas las verificaciones se ven en el cierre: en una sola vista (hasta 24) o, si son más, con el tiempo
+    // necesario para mostrar cada página una vez, sin pasar el tope de 240 s.
+    const cierre = planCierre(c.verificaciones.length, {
+      cierreS: o.cierreS ?? CIERRE_S,
+      disponibleS: TOPE_VIDEO_S - c.segundos() - 1,
+    });
     servidor.publicar({
       vista: "resultado",
       rotulo: { paso: "", texto: `${demo.id} · resultado: ${resultado.medido}` },
@@ -1658,14 +1717,15 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
           ok: v.ok,
           texto: v.detalle ? `${v.texto}: ${v.detalle}` : v.texto,
         })),
-        porPagina: 14,
-        segundos: o.cierreS ?? CIERRE_S,
+        porPagina: cierre.porPagina,
+        compacto: cierre.compacto,
+        segundos: cierre.segundos,
         capas: [...CAPAS],
         nota,
         ...(ensayo ? { sobretitulo: "Resultado del ensayo · datos simulados" } : {}),
       },
     });
-    await dormir((o.cierreS ?? CIERRE_S) * 1000);
+    await dormir(cierre.segundos * 1000);
     await c.detenerPantalla();
     stats = await captura.detener();
     captura = undefined;

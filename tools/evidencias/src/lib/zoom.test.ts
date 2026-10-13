@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { fueraDeVentana, textoInsignia, ventanaZoom, ZOOM_FACTOR_POR_DEFECTO } from "./zoom.js";
+import {
+  esquinaMinimapa,
+  fueraDeVentana,
+  textoInsignia,
+  ventanaZoom,
+  ZOOM_FACTOR_POR_DEFECTO,
+} from "./zoom.js";
 
 const VISTA = { width: 1290, height: 860 };
 
@@ -63,5 +69,25 @@ describe("seguimiento y rótulo", () => {
     expect(textoInsignia(1.8)).toBe("Ampliación ×1,8 · imagen en vivo");
     expect(textoInsignia(2)).toBe("Ampliación ×2 · imagen en vivo");
     expect(textoInsignia(1.53)).toBe("Ampliación ×1,5 · imagen en vivo");
+  });
+});
+
+describe("esquinaMinimapa (el minimapa no tapa lo ampliado)", () => {
+  it("por defecto abajo a la derecha si el objetivo no queda debajo", () => {
+    const caja = { x: 300, y: 300, width: 120, height: 40 };
+    expect(esquinaMinimapa(caja, ventanaZoom(caja, VISTA), VISTA)).toBe("abajo-derecha");
+  });
+
+  it("si el objetivo ocupa la parte baja derecha de lo ampliado, se va a otra esquina", () => {
+    // Fila ancha y alta (como una fila de tabla con su lista de motivos): se encuadra desde la izquierda.
+    const fila = { x: 40, y: 200, width: 1240, height: 330 };
+    const v = ventanaZoom(fila, VISTA, 1.5);
+    const e = esquinaMinimapa(fila, v, VISTA);
+    expect(e).not.toBe("abajo-derecha");
+  });
+
+  it("objetivo abajo a la derecha: el minimapa se va arriba", () => {
+    const caja = { x: 1100, y: 760, width: 160, height: 80 };
+    expect(esquinaMinimapa(caja, ventanaZoom(caja, VISTA), VISTA)).not.toBe("abajo-derecha");
   });
 });

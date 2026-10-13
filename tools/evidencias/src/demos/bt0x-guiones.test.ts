@@ -74,7 +74,7 @@ describe.each(GUIONES)("narración de $demo.id", ({ demo, narracion, estimada })
 describe("BT-008: RUT de las solicitudes", () => {
   it("calcula el dígito verificador (módulo 11)", () => {
     expect(bt008m.digitoRut(76086428)).toBe("5");
-    expect(bt008m.digitoRut(96806980)).toBe("2");
+    expect(bt008m.digitoRut(44444444)).toBe("4");
     expect(bt008m.digitoRut(76354771)).toBe("K");
     expect(bt008m.digitoRut(61002000)).toBe("3");
   });
@@ -84,6 +84,87 @@ describe("BT-008: RUT de las solicitudes", () => {
     expect(bt008m.rutValido(bt008m.RUT_FALLA)).toBe(true);
     expect(bt008m.rutValido("96.512.340-1")).toBe(false);
     expect(bt008m.rutValido("1")).toBe(false);
+  });
+
+  it("el RUT de la falla es claramente ficticio: un solo dígito repetido, también en el verificador", () => {
+    expect(bt008m.RUT_FALLA).toBe("44.444.444-4");
+    expect(new Set(bt008m.RUT_FALLA.replace(/\D/g, "")).size).toBe(1);
+  });
+});
+
+describe("BT-008: cola de fallidos y traza", () => {
+  it("el paso 5 promete lo que se comprueba: el mensaje sale de la cola, no una cola vacía", () => {
+    const p5 = bt008m.NARRACION_BT008[4]!;
+    expect(p5.titulo).not.toMatch(/vac[ií]a/i);
+    expect(p5.comprueba).toContain("el mensaje reprocesado sale de la cola de fallidos");
+    expect((p5.comprueba ?? []).some((x) => /vac[ií]a/i.test(x))).toBe(false);
+  });
+
+  it("el paso 4 dice cuántos mensajes ya estaban en la cola y cabe en el panel", () => {
+    expect(bt008m.pasoFalla(0)).toBe(bt008m.NARRACION_BT008[3]);
+    for (const n of [1, 4, 12, 999]) {
+      const p = bt008m.pasoFalla(n);
+      expect(p.titulo).toBe(bt008m.NARRACION_BT008[3]!.titulo);
+      expect(p.quePasa).toContain(`(${n} `);
+      expect(p.quePasa).toMatch(/de antes\)\.$/);
+      expect([...p.quePasa].length).toBeLessThanOrEqual(MAX.quePasa);
+    }
+    expect(bt008m.pasoFalla(1).quePasa).toContain("(1 mensaje es de antes)");
+    expect(bt008m.textoCola(5, 4)).toBe("5 · 4 de antes");
+    expect(bt008m.textoCola(1, 0)).toBe("1");
+  });
+
+  it("cuenta los tramos cuyo padre no está en la traza (aviso «Incomplete» de Jaeger)", () => {
+    const tramos = [
+      { spanID: "a", references: [{ refType: "CHILD_OF", spanID: "cliente" }] },
+      { spanID: "b", references: [{ refType: "CHILD_OF", spanID: "a" }] },
+      { spanID: "c", references: [{ refType: "FOLLOWS_FROM", spanID: "otro" }] },
+      { spanID: "d" },
+    ];
+    expect(bt008m.tramosHuerfanos(tramos)).toEqual({ huerfanos: 1, padres: ["cliente"] });
+    expect(bt008m.tramosHuerfanos([{ spanID: "x", references: [] }])).toEqual({ huerfanos: 0, padres: [] });
+  });
+});
+
+describe("BT-021: lo que muestra la pantalla de consumo", () => {
+  const filas = [
+    { key: "app-1", label: "OperadorDemo", llamadas: 6434, errores: 0 },
+    {
+      key: "483efe94-de2d-4690-940e-35488cb9365e",
+      label: "483efe94-de2d-4690-940e-35488cb9365e",
+      llamadas: 12,
+      errores: 0,
+    },
+    { key: "/concesiones/{id}", label: "/concesiones/{id}", llamadas: 40, errores: 1 },
+  ];
+
+  it("lee las llamadas por nombre, id o endpoint y suma el total como el indicador de la Consola", () => {
+    expect(bt021m.llamadasDe(filas, "OperadorDemo")).toBe(6434);
+    expect(bt021m.llamadasDe(filas, "app-1")).toBe(6434);
+    expect(bt021m.llamadasDe(filas, "/concesiones/{id}")).toBe(40);
+    expect(bt021m.llamadasDe(filas, "FiscalizacionDemo")).toBe(0);
+    expect(bt021m.sumaLlamadas(filas)).toBe(6486);
+  });
+
+  it("reconoce los consumidores que la Consola muestra con su identificador (sin nombre en el catálogo)", () => {
+    expect(bt021m.sinNombre(filas).map((f) => f.key)).toEqual(["483efe94-de2d-4690-940e-35488cb9365e"]);
+  });
+
+  it("la narración dice que la pantalla es el consumo del día de todo el laboratorio y que se compara lo sumado", () => {
+    const p3 = bt021m.NARRACION_BT021[2]!;
+    expect(p3.quePasa).toMatch(/hoy/);
+    expect(p3.quePasa).toMatch(/todo el laboratorio/);
+    expect(p3.quePasa).toMatch(/sumó/);
+  });
+});
+
+describe("BT-049: bibliotecas con que se leen los artefactos", () => {
+  it("no las llama «estándar» a secas: PyYAML no es de la biblioteca estándar de Python", () => {
+    const p3 = bt049m.NARRACION_BT049[2]!;
+    expect(p3.quePasa).toContain("bibliotecas abiertas de uso común");
+    expect(p3.quePasa).toContain("PyYAML");
+    expect(p3.quePasa).not.toMatch(/con bibliotecas estándar/);
+    expect(bt049m.LECTOR).toMatch(/import .*yaml/);
   });
 });
 
@@ -247,8 +328,10 @@ describe("ensayo de estos guiones", () => {
   });
 
   it("el plan OperadoresEstandar limita a 20 llamadas por segundo (429)", async () => {
+    // 64 a la vez: aunque caigan en tres segundos de reloj distintos, alguno recibe más de 20 (con 30, repartidas
+    // en dos segundos, podían quedar 15 y 15 y la prueba fallaba a veces).
     const r = await Promise.all(
-      Array.from({ length: 30 }, () =>
+      Array.from({ length: 64 }, () =>
         fetch(`${base}/gateway/concesiones/1.0.0/concesiones/CON-000002`, {
           headers: token("ck-fiscalizacion"),
         }),

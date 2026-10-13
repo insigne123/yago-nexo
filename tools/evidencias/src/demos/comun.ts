@@ -1,8 +1,9 @@
 /** Utilidades compartidas por los guiones de las demostraciones. */
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { Locator, Page } from "playwright-core";
 import { desdeRaiz } from "../lib/entorno.js";
-import { ENV_HIJOS, type Contexto } from "../lib/grabador.js";
+import { ENV_HIJOS, pulsoRepintado, type Contexto, type Vista } from "../lib/grabador.js";
 
 export const ejecutar = promisify(execFile);
 
@@ -88,4 +89,63 @@ export async function verPagina(
     height: 24,
   };
   await c.estudio.mover(destino).catch(() => undefined);
+}
+
+/** El pulso de repintado vive en el motor (Contexto.vista y Contexto.mostrar lo usan); se reexporta aquí. */
+export { pulsoRepintado };
+
+/**
+ * Cambia la vista del estudio. Al pasar a una vista más baja (de «app» a «dividido») la ventana operada se achica,
+ * pero si nada cambia en lo que queda a la vista la página no se repinta y la narradora seguiría con el cuadro
+ * anterior, escalado a unos 2/3 del ancho: Contexto.vista ya hace entregar cuadros seguidos (pulsoRepintado).
+ * Se mantiene por compatibilidad con los guiones que la usan.
+ */
+export async function cambiarVista(c: Contexto, v: Vista): Promise<void> {
+  await c.vista(v);
+}
+
+/**
+ * Pone en pantalla otra página operada (ya cargada). Contexto.mostrar ya la hace entregar cuadros enseguida (una
+ * página quieta que recién se pone en pantalla podía tardar en verse). Se mantiene por compatibilidad.
+ */
+export async function mostrarLista(c: Contexto, p: Page): Promise<void> {
+  await c.mostrar(p);
+}
+
+/**
+ * Espera a que una página termine de cargar. Con objetivo: hasta que el objetivo se vea (a lo más `ms`) y después
+ * un momento de red quieta (a lo más `redMs`, por defecto 2 s), para que termine de dibujar lo que lo rodea; sin
+ * objetivo, solo la red quieta (por defecto hasta 8 s). Devuelve true si el objetivo apareció. Sirve para no
+ * mostrar ni ampliar una página en blanco o con «Loading…»: se carga primero (también fuera de pantalla) y se
+ * muestra después.
+ */
+export async function esperarCarga(
+  p: Page,
+  objetivo?: Locator,
+  o: { ms?: number; redMs?: number } = {},
+): Promise<boolean> {
+  const red = (ms: number) => p.waitForLoadState("networkidle", { timeout: ms }).catch(() => undefined);
+  if (!objetivo) {
+    await red(o.redMs ?? 8000);
+    return true;
+  }
+  const visto = await objetivo
+    .first()
+    .waitFor({ state: "visible", timeout: o.ms ?? 20_000 })
+    .then(
+      () => true,
+      () => false,
+    );
+  await red(o.redMs ?? 2000);
+  return visto;
+}
+
+/** Texto visible de un elemento en una sola línea (los bloques internos separados por « · »). */
+export async function textoEnLinea(loc: Locator): Promise<string> {
+  const t = await loc.innerText({ timeout: 2000 }).catch(() => "");
+  return t
+    .split(/\n+/)
+    .map((x) => x.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" · ");
 }

@@ -74,3 +74,51 @@ export function textoInsignia(factor: number): string {
   const f = (Math.round(factor * 10) / 10).toFixed(1).replace(".", ",").replace(/,0$/, "");
   return `Ampliación ×${f} · imagen en vivo`;
 }
+
+/** Esquina de la pantalla donde la narradora dibuja el minimapa «Vista completa» durante una ampliación. */
+export type EsquinaMinimapa = "abajo-derecha" | "abajo-izquierda" | "arriba-derecha";
+
+/**
+ * Tamaño del minimapa en la pantalla de 1080p (px; estudio.js y estudio.css): lienzo de 330 px de ancho, marco
+ * de 6 px por lado, rótulo de una línea y margen al borde. Arriba a la izquierda va la insignia.
+ */
+export const MINIMAPA = { ancho: 330, marco: 12, rotulo: 26, margen: 18 } as const;
+
+const solape = (a: Caja, b: Caja) =>
+  Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) *
+  Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
+
+/**
+ * Esquina del minimapa que menos tapa el objetivo ampliado (en la pantalla, ya ampliado ×factor). Por defecto,
+ * abajo a la derecha; si ahí tapa más del objetivo que en otra esquina, se cambia (abajo a la izquierda o arriba
+ * a la derecha). La pantalla operada se ve 1:1 (la ventana operada mide lo mismo que el área de pantalla).
+ */
+export function esquinaMinimapa(objetivo: Caja, v: Ventana, vista: Dimensiones): EsquinaMinimapa {
+  const f = v.factor;
+  const w = MINIMAPA.ancho + MINIMAPA.marco;
+  const h =
+    Math.round((MINIMAPA.ancho * vista.height) / Math.max(1, vista.width)) + MINIMAPA.marco + MINIMAPA.rotulo;
+  const m = MINIMAPA.margen;
+  const t: Caja = {
+    x: (objetivo.x - v.x) * f,
+    y: (objetivo.y - v.y) * f,
+    width: objetivo.width * f,
+    height: objetivo.height * f,
+  };
+  const opciones: Array<[EsquinaMinimapa, number, number]> = [
+    ["abajo-derecha", vista.width - m - w, vista.height - m - h],
+    ["abajo-izquierda", m, vista.height - m - h],
+    ["arriba-derecha", vista.width - m - w, m],
+  ];
+  let mejor: EsquinaMinimapa = "abajo-derecha";
+  let menor = Infinity;
+  for (const [esquina, x, y] of opciones) {
+    const a = solape(t, { x, y, width: w, height: h });
+    // Solo se deja la esquina por defecto si otra tapa claramente menos (evita saltos por unos píxeles).
+    if (a < menor - 400) {
+      menor = a;
+      mejor = esquina;
+    }
+  }
+  return mejor;
+}

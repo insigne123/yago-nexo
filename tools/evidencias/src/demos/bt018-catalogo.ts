@@ -4,13 +4,16 @@
  * muestra la ficha de la API Concesiones y su grafo de dependencias, y cada campo comprometido se compara con
  * lo que informa WSO2 (Publisher y suscripciones).
  *
+ * Pantalla: al volver de la vista «app» a la dividida se fuerza un cuadro nuevo (cambiarVista), así la ficha no
+ * queda a 2/3 del ancho con una franja vacía; el Publisher se carga fuera de pantalla y se muestra ya cargado.
+ *
  * Duración estimada: portada 4 s + 4 pasos (≈ 16 + 24 + 14 + 22 s) + cierre 3 s ≈ 85 s (tope 240 s).
  */
 import type { Page } from "playwright-core";
 import type { DefinicionPaso, Demo } from "../lib/grabador.js";
 import { consola, tokenPersona, wso2 } from "../lib/lab.js";
 import { prepararEnsayo } from "./bt0x-ensayo.js";
-import { verPagina } from "./comun.js";
+import { cambiarVista, esperarCarga, mostrarLista, verPagina } from "./comun.js";
 
 export const DURACION_ESTIMADA_S = 85;
 
@@ -78,7 +81,7 @@ export const NARRACION_BT018: DefinicionPaso[] = [
     comprueba: [
       "nombre, versión, contexto y estado coinciden con WSO2",
       "propietario, contacto, contrato y propósito coinciden con WSO2",
-      "autenticación coincide con WSO2",
+      "la autenticación de la ficha figura en WSO2",
       "consumidores coinciden con las suscripciones activas",
     ],
   },
@@ -155,14 +158,14 @@ export const bt018: Demo = {
     const ficha0 = lista.find((a) => a.name === "Concesiones")!;
     await e.clic(c.app.getByRole("link", { name: "Concesiones", exact: true }).first());
     await c.app.getByTestId("api-summary").waitFor();
-    await c.vista("app");
+    await cambiarVista(c, "app");
     await e.zoom(c.app.getByTestId("api-summary"), { factor: 1.4, ms: 2500 });
     await e.desplazar(380);
     await e.clic(c.app.getByTestId("tab-consumidores"));
     await e.esperar(1500);
     await e.clic(c.app.getByTestId("tab-dependencias"));
     await e.esperar(1500);
-    await c.vista("dividido");
+    await cambiarVista(c, "dividido");
     const ficha = (await consola<Ficha>(dev, "GET", `/apis/${encodeURIComponent(ficha0.id)}`)).data;
     const campos: Array<[string, unknown]> = [
       ["propósito", ficha.purpose],
@@ -186,7 +189,7 @@ export const bt018: Demo = {
 
     // 3 ── Grafo ─────────────────────────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_BT018[2]!);
-    await c.vista("app");
+    await cambiarVista(c, "app");
     await c.ir("/dependencias");
     await c.app.getByTestId("graph-canvas").waitFor();
     const nodo = c.app.getByTestId(`graph-node-${ficha.id}`);
@@ -206,10 +209,14 @@ export const bt018: Demo = {
     // 4 ── Consistencia con WSO2 ─────────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_BT018[3]!);
     if (publisher) {
-      await c.mostrar(publisher);
-      await c.vista("dividido");
+      // El Publisher se carga fuera de pantalla (sin «Loading API data…» en el video) y se muestra ya listo.
       await publisher.goto(`https://apim:9443/publisher/apis/${ficha.wso2ApiId}/overview`);
-      await publisher.waitForLoadState("networkidle").catch(() => undefined);
+      const cargado = await esperarCarga(publisher, publisher.getByText(/PUBLISHED|Published|Publicad/), {
+        ms: e.ensayo ? 3000 : 30_000,
+      });
+      if (!cargado) c.avisar("el Publisher no mostró el estado de la API a tiempo");
+      await cambiarVista(c, "dividido");
+      await mostrarLista(c, publisher);
       await verPagina(c);
     }
     const enWso2 = (await w.publisher.getApi(ficha.wso2ApiId)) as unknown as ApiWso2;
@@ -251,13 +258,36 @@ export const bt018: Demo = {
       iguales(3, 7),
       `${String(enWso2.businessInformation?.businessOwner ?? "—").slice(0, 40)}`,
     );
-    const autenticacion = (enWso2.securityScheme ?? []).includes(String(ficha.authType));
-    const consumidores = (ficha.consumers ?? []).length === activas.length;
-    e.comprueba("autenticación coincide con WSO2", autenticacion, (enWso2.securityScheme ?? []).join(", "));
+    const esquemas = enWso2.securityScheme ?? [];
+    const autenticacion = esquemas.includes(String(ficha.authType));
+    c.log(
+      `  ${autenticacion ? "∈" : "∉"} autenticación     catálogo «${String(ficha.authType)}» · WSO2 securityScheme «${esquemas.join(", ")}»`,
+      autenticacion ? "ok" : "mal",
+    );
+    if (esquemas.includes("oauth_basic_auth_api_key_mandatory"))
+      c.log(
+        "    oauth_basic_auth_api_key_mandatory no es otro método: es la marca de WSO2 que hace obligatoria la seguridad de aplicación (OAuth, básica o clave de API)",
+        "tenue",
+      );
+    // Mismas aplicaciones (por nombre) en la ficha y en las suscripciones activas de WSO2, no solo la misma cantidad.
+    const nombresFicha = (ficha.consumers ?? []).map((x) => x.name).sort();
+    const nombresWso2 = activas.map((s) => s.applicationInfo?.name ?? "").sort();
+    const consumidores = nombresFicha.join("\n") === nombresWso2.join("\n");
+    c.log(
+      `  ${consumidores ? "=" : "≠"} consumidores     catálogo «${nombresFicha.join(", ")}» · WSO2 «${nombresWso2.join(", ")}»`,
+      consumidores ? "ok" : "mal",
+    );
+    e.comprueba(
+      "la autenticación de la ficha figura en WSO2",
+      autenticacion,
+      `«${String(ficha.authType)}» en WSO2`,
+    );
     e.comprueba(
       "consumidores coinciden con las suscripciones activas",
       consumidores,
-      `${activas.length} suscripción(es): ${activas.map((s) => s.applicationInfo?.name).join(", ")}`,
+      consumidores
+        ? `${activas.length} aplicaciones, mismos nombres`
+        : `ficha ${nombresFicha.length} · WSO2 ${nombresWso2.length}`,
     );
     const igualesTotal =
       pares.filter(([, a, b]) => String(a) === String(b)).length +
@@ -266,9 +296,8 @@ export const bt018: Demo = {
     e.indicadores({ "campos comparados": pares.length + 2, "iguales a WSO2": igualesTotal });
     await e.esperar(2000);
 
-    const comparados = c.verificaciones.filter((v) => /WSO2|suscripciones/.test(v.texto));
     return {
-      medido: `ficha de Concesiones completa al ${ficha.completeness} % y ${igualesTotal} de ${pares.length + 2} campos idénticos a lo que informa WSO2 (${comparados.filter((v) => v.ok).length} de ${comparados.length} comprobaciones)`,
+      medido: `ficha de Concesiones completa al ${ficha.completeness} %; ${igualesTotal} de ${pares.length + 2} campos de la ficha coinciden con lo que informa WSO2 (nombre y versión, contexto, estado, propietario, contacto, contrato, propósito, autenticación y consumidores)`,
       datos: { apis: lista.length, completitud: ficha.completeness, campos: pares.length + 2 },
     };
   },

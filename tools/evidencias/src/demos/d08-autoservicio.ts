@@ -5,6 +5,11 @@
  * la institución lo aprueba en el Admin Portal. Al final consume la API por el gateway con su credencial.
  *
  * Sin ritmo propio (V03): el guion no fija --ritmo; las pausas de lectura son las del motor.
+ *
+ * Pantalla: cada página de otra sesión (la persona o la institución) se carga fuera de pantalla y se muestra
+ * cuando ya dibujó lo que se va a mirar, para no narrar sobre páginas en blanco ni ampliar un «Loading…». Los
+ * avisos flotantes de WSO2 (p. ej. la solicitud de claves pendiente) no se amplían: duran poco y quedan junto al
+ * borde; se leen a tamaño normal y su texto se copia en la terminal, junto a la solicitud pendiente en el Admin.
  * Duración estimada: portada 4 s + 6 pasos (≈ 40 + 18 + 14 + 55 + 30 + 16 s) + cierre 3 s ≈ 180 s (tope 240 s).
  */
 import type { Page } from "playwright-core";
@@ -12,7 +17,7 @@ import { Wso2Client } from "@nexo/wso2-client";
 import type { DefinicionPaso, Demo } from "../lib/grabador.js";
 import { gateway, reescribirUrlEnsayo, tokenAplicacion, WSO2, wso2 } from "../lib/lab.js";
 import { prepararEnsayo } from "./bt0x-ensayo.js";
-import { esperarHasta, verPagina } from "./comun.js";
+import { cambiarVista, esperarCarga, esperarHasta, mostrarLista, textoEnLinea, verPagina } from "./comun.js";
 
 export const DURACION_ESTIMADA_S = 180;
 
@@ -152,7 +157,10 @@ export const d08: Demo = {
     await e.escribir("#password", CLAVE);
     await e.escribir("#password2", CLAVE);
     await e.escribir("#email", `${usuario}@operador.invalid`, { ms: 45 });
-    await e.escribir("input[name='http://wso2.org/claims/organization']", "Operador Ejemplo SpA", { ms: 55 });
+    await e.escribir("input[name='http://wso2.org/claims/organization']", "Operador Ejemplo SpA", {
+      ms: 55,
+      campo: "Organización",
+    });
     await e.desplazar(u.locator("#termsCheckbox"));
     await e.clic("#termsCheckbox");
     await e.clic("#registrationSubmit");
@@ -171,7 +179,7 @@ export const d08: Demo = {
     const rechazo = u.getByText(/403|privilegios/i).first();
     await rechazo.waitFor({ timeout: 30_000 });
     await e.zoom(rechazo, { factor: 1.6, ms: 1800 });
-    await c.vista("dividido");
+    await cambiarVista(c, "dividido");
     const reg = await pendientes("AM_USER_SIGNUP", (p) => p.tenantAwareUserName === usuario);
     c.log("→ GET /api/am/admin/v4/workflows?workflowType=AM_USER_SIGNUP", "cmd");
     for (const r of reg)
@@ -187,11 +195,12 @@ export const d08: Demo = {
 
     // 3 ── La institución aprueba el registro ───────────────────────────────────────────────────────
     await e.paso(NARRACION_D08[2]!);
-    await c.mostrar(adm);
-    await c.vista("app");
+    // La bandeja de la institución se carga fuera de pantalla y se muestra con la solicitud ya a la vista.
     await adm.goto("https://apim:9443/admin/tasks/user-creation");
     const filaU = adm.getByRole("row", { name: exprUsuario() });
-    await filaU.waitFor();
+    await esperarCarga(adm, filaU, { ms: 30_000 });
+    await mostrarLista(c, adm);
+    await cambiarVista(c, "app");
     await verPagina(c, filaU);
     await e.zoom(filaU, { factor: 1.5 });
     await e.clic(filaU.getByText("Approve"));
@@ -204,7 +213,7 @@ export const d08: Demo = {
 
     // 4 ── Aplicación y credenciales ────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_D08[3]!);
-    await c.mostrar(u);
+    await mostrarLista(c, u);
     await e.clic(u.getByText(/cerrar sesión/i).first());
     await u.waitForTimeout(2500);
     await u.goto("https://apim:9443/devportal/apis");
@@ -220,17 +229,20 @@ export const d08: Demo = {
       await e.clic("button[type=submit]");
     }
     await u.waitForURL(/devportal\/apis/);
+    await esperarCarga(u, u.getByText("Concesiones"), { ms: 30_000 });
     await u.goto("https://apim:9443/devportal/applications/create");
+    await esperarCarga(u, u.locator("#application-name"), { ms: 30_000 });
     await e.escribir("#application-name", aplicacion);
     await e.escribir("#application-description", "Sistema de reportes del operador", { ms: 50 });
     await e.clic("#itest-application-create-save");
     const pendienteApp = u.getByText(/espera de la aprobación|pending/i).first();
     await pendienteApp.waitFor({ timeout: 20_000 });
     await e.zoom(pendienteApp, { factor: 1.5, ms: 1500 });
-    await c.mostrar(adm);
-    await adm.goto("https://apim:9443/admin/tasks/application-creation");
     const filaA = adm.getByRole("row", { name: new RegExp(aplicacion) });
-    await filaA.waitFor();
+    await adm.goto("https://apim:9443/admin/tasks/application-creation");
+    await esperarCarga(adm, filaA, { ms: 30_000 });
+    await mostrarLista(c, adm);
+    await verPagina(c, filaA);
     await e.clic(filaA.getByText("Approve"));
     const aprobadaA = await esperarHasta(
       async () => pendientes("AM_APPLICATION_CREATION", (p) => p.applicationName === aplicacion),
@@ -238,19 +250,34 @@ export const d08: Demo = {
       20,
     );
     e.comprueba("creación de la aplicación aprobada", !!aprobadaA, aplicacion);
-    await c.mostrar(u);
+    // La lista de aplicaciones de la persona se recarga fuera de pantalla y se muestra ya dibujada.
+    const enlaceApp = u.getByRole("link", { name: aplicacion, exact: true }).first();
     await u.goto("https://apim:9443/devportal/applications");
-    await e.clic(u.getByRole("link", { name: aplicacion, exact: true }).first());
+    await esperarCarga(u, enlaceApp, { ms: 30_000 });
+    await mostrarLista(c, u);
+    await e.clic(enlaceApp);
     await e.clic("#production-keys");
     await e.clic("button#Keycloak");
     await e.clic("#generate-keys");
+    // El aviso de WSO2 dura unos segundos junto al borde: se lee sin ampliar y su texto va a la terminal.
     const pendienteK = u.getByText(/pending approval|pendiente de aprobación/i).first();
     await pendienteK.waitFor({ timeout: 20_000 });
-    await e.zoom(pendienteK, { factor: 1.5, ms: 1500 });
-    await c.mostrar(adm);
-    await adm.goto("https://apim:9443/admin/tasks/application-registration");
+    const avisoK = await textoEnLinea(pendienteK);
+    if (avisoK) c.log(`Dev Portal: «${avisoK}»`, "aviso");
+    const pendK = await pendientes(
+      "AM_APPLICATION_REGISTRATION_PRODUCTION",
+      (p) => p.applicationName === aplicacion,
+    );
+    c.log(
+      `→ GET /api/am/admin/v4/workflows?workflowType=AM_APPLICATION_REGISTRATION_PRODUCTION → ${pendK.length} pendiente(s) de «${aplicacion}»`,
+      pendK.length ? "aviso" : "mal",
+    );
+    await e.esperar(2200);
     const filaK = adm.getByRole("row", { name: new RegExp(aplicacion) });
-    await filaK.waitFor();
+    await adm.goto("https://apim:9443/admin/tasks/application-registration");
+    await esperarCarga(adm, filaK, { ms: 30_000 });
+    await mostrarLista(c, adm);
+    await verPagina(c, filaK);
     await e.clic(filaK.getByText("Approve"));
     await esperarHasta(
       async () =>
@@ -258,12 +285,17 @@ export const d08: Demo = {
       (l) => l.length === 0,
       20,
     );
-    await c.mostrar(u);
+    // Fuera de pantalla: se recarga la página de claves y se vuelve a la pestaña de Keycloak (la recarga abre la
+    // del gestor de claves interno de WSO2, que no se usa aquí); se muestra cuando ya se ve la clave emitida.
     await u.reload();
-    await e.clic("button#Keycloak");
+    const pestanaK = u.locator("button#Keycloak");
+    await esperarCarga(u, pestanaK, { ms: 30_000 });
+    await e.clic(pestanaK, { pagina: u });
     const llaveVisible = u.getByText(/clave del consumidor|consumer key/i).first();
     await llaveVisible.waitFor({ timeout: 20_000 });
-    await e.zoom(llaveVisible, { factor: 1.5, ms: 1500 });
+    await mostrarLista(c, u);
+    await verPagina(c, llaveVisible);
+    await e.zoom(llaveVisible, { factor: 1.5, ms: 1800 });
     const cu = clienteDe(usuario);
     const app = (await cu.devportal.listApplications()).list.find((a) => a.name === aplicacion)!;
     const llave = (await cu.devportal.listKeys(app.applicationId)).list.find(
@@ -292,7 +324,8 @@ export const d08: Demo = {
     await c.esperar(1500);
     await e.tecla("Escape");
     await u.reload();
-    await c.vista("dividido");
+    await esperarCarga(u, u.locator("#left-menu-subscriptions"), { ms: 15_000 });
+    await cambiarVista(c, "dividido");
     const token = await tokenAplicacion({
       consumerKey: llave!.consumerKey!,
       consumerSecret: llave!.consumerSecret!,
@@ -304,12 +337,17 @@ export const d08: Demo = {
       `→ GET gateway/concesiones/1.0.0/concesiones   # suscripción pendiente → HTTP ${antes.status}`,
       rechazada ? "ok" : "mal",
     );
+    // La respuesta del gateway tal cual (su código y mensaje de error explican el rechazo).
+    c.log(
+      `  ${(typeof antes.data === "string" ? antes.data : JSON.stringify(antes.data)).slice(0, 160)}`,
+      "tenue",
+    );
     e.comprueba("con la suscripción pendiente el gateway la rechaza", rechazada, `HTTP ${antes.status}`);
-    await c.mostrar(adm);
-    await c.vista("app");
-    await adm.goto("https://apim:9443/admin/tasks/subscription-creation");
     const filaS = adm.getByRole("row", { name: new RegExp(aplicacion) });
-    await filaS.waitFor();
+    await adm.goto("https://apim:9443/admin/tasks/subscription-creation");
+    await esperarCarga(adm, filaS, { ms: 30_000 });
+    await mostrarLista(c, adm);
+    await cambiarVista(c, "app");
     await verPagina(c, filaS);
     await e.zoom(filaS, { factor: 1.5 });
     await e.clic(filaS.getByText("Approve"));
@@ -321,9 +359,11 @@ export const d08: Demo = {
 
     // 6 ── Consumo con todo aprobado ────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_D08[5]!);
-    await c.mostrar(u);
+    // La persona vuelve a su página ya recargada (fuera de pantalla), con la suscripción al día.
     await u.reload();
-    await c.vista("dividido");
+    await esperarCarga(u, u.locator("#left-menu-subscriptions"), { ms: 15_000 });
+    await mostrarLista(c, u);
+    await cambiarVista(c, "dividido");
     await verPagina(c);
     let despues = await gateway(URL, { token });
     for (let i = 0; i < 15 && despues.status !== 200; i++) {

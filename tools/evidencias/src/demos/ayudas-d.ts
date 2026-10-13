@@ -19,6 +19,7 @@ import type { Locator, Page } from "playwright-core";
 import { runLoad, type LoadResult, type LoadSecond } from "../../../lab-bootstrap/src/load.js";
 import {
   ENV_HIJOS,
+  pulsoRepintado,
   type Contexto,
   type DefinicionPaso,
   type Objetivo,
@@ -117,6 +118,9 @@ export function abrir(c: Contexto, p: PasoGuion): Promise<number> {
 const NUM = new Intl.NumberFormat("es-CL");
 /** 1234 → «1.234». */
 export const n = (x: number) => NUM.format(x);
+/** 18.4321 → «18,4» (coma decimal, como la Consola). */
+export const dec = (x: number, decimales = 1) =>
+  new Intl.NumberFormat("es-CL", { maximumFractionDigits: decimales }).format(x);
 /** 7.04 → «7,0 s». */
 export const seg = (s: number, decimales = 1) => `${s.toFixed(decimales).replace(".", ",")} s`;
 
@@ -396,6 +400,31 @@ export async function ampliar(c: Contexto, objetivo: Objetivo, ms = 2600, factor
   }
 }
 
+/**
+ * Espera a que la Consola muestre lo que su API ya informó, antes de marcar en verde o de ampliar: cada pantalla
+ * de la Consola vuelve a consultar sola cada 10–15 s, así que puede ir unos segundos atrás de la medición. Si
+ * en `ms` no lo muestra (el objetivo visible y, si se indica, con `texto`), se recarga la página, como haría
+ * una persona con F5 (la terminal lo dice), y se vuelve a esperar. Devuelve true si quedó a la vista.
+ */
+export async function consolaAlDia(
+  c: Contexto,
+  loc: Locator,
+  o: { texto?: RegExp; ms?: number; despuesMs?: number } = {},
+): Promise<boolean> {
+  const objetivo = o.texto ? loc.filter({ hasText: o.texto }) : loc;
+  // Ya en la página: la página entrega cuadros seguidos 0,6 s (pulso de repintado), así el video lo muestra.
+  const enVideo = async () => {
+    await pulsoRepintado(loc.page(), 600);
+    return true;
+  };
+  if (await aparece(objetivo, o.ms ?? 4000)) return enVideo();
+  c.log("# la Consola vuelve a consultar sola cada pocos segundos; se recarga para verla al día", "tenue");
+  await loc.page().reload();
+  if (await aparece(objetivo, o.despuesMs ?? 15_000)) return enVideo();
+  c.avisar(`la Consola no mostró a tiempo ${String(objetivo)}: se sigue sin esperar más`);
+  return false;
+}
+
 /** Clic visible en un control que puede no existir en el ensayo (en el laboratorio, si falta, es error). */
 export async function clicSiHay(
   c: Contexto,
@@ -415,6 +444,16 @@ export async function clicSiHay(
 
 // ── Carga continua del consumidor (con nombres de backend, no números de versión) ────────────────────────
 
+/** Lo que vio el consumidor en un tramo de la terminal (las mismas cifras que la línea «consumidor t=… s»). */
+export interface TramoCarga {
+  /** Segundo de la carga en que termina el tramo. */
+  t: number;
+  ok: number;
+  err: number;
+  /** Respuestas 2xx por backend (concesiones-v1, concesiones-v2). */
+  porBackend: Record<string, number>;
+}
+
 export interface CargaD {
   detener(): void;
   resultado: Promise<LoadResult>;
@@ -423,6 +462,8 @@ export interface CargaD {
   errores(): number;
   /** Llamadas atendidas por cada backend (concesiones-v1, concesiones-v2). */
   porBackend(): Record<string, number>;
+  /** Último tramo escrito en la terminal (undefined antes del primero). */
+  ultimoTramo(): TramoCarga | undefined;
 }
 
 /**
@@ -432,11 +473,21 @@ export interface CargaD {
  */
 export function cargaContinua(
   c: Contexto,
-  o: { url: string; rps: number; segundos: number; etiqueta: string; cadaSeg?: number; app?: string },
+  o: {
+    url: string;
+    rps: number;
+    segundos: number;
+    etiqueta: string;
+    cadaSeg?: number;
+    app?: string;
+    /** Se llama con cada tramo justo cuando se escribe en la terminal (misma fuente para los indicadores). */
+    alTramo?: (t: TramoCarga) => void;
+  },
 ): CargaD {
   const ctrl = new AbortController();
   const vistos: LoadSecond[] = [];
   const cada = o.cadaSeg ?? 4;
+  let ultimo: TramoCarga | undefined;
   let tramo = { ok: 0, err: 0, b: {} as Record<string, number> };
   const total: Record<string, number> = {};
   let errores = 0;
@@ -468,6 +519,8 @@ export function cargaContinua(
           `consumidor t=${String(s.t + 1).padStart(3)} s · ok ${tramo.ok} · errores ${tramo.err}${bs ? ` · ${bs}` : ""}`,
           tramo.err ? "mal" : "tenue",
         );
+        ultimo = { t: s.t + 1, ok: tramo.ok, err: tramo.err, porBackend: { ...tramo.b } };
+        o.alTramo?.(ultimo);
         tramo = { ok: 0, err: 0, b: {} };
       }
     },
@@ -482,7 +535,15 @@ export function cargaContinua(
     segundos: vistos,
     errores: () => errores,
     porBackend: () => ({ ...total }),
+    ultimoTramo: () => ultimo,
   };
+}
+
+/** Lleva el cursor visible a un elemento, solo si existe (no espera 30 s a que aparezca). */
+export async function moverSiHay(c: Contexto, loc: Locator, ms = 1500): Promise<boolean> {
+  if (!(await aparece(loc, ms))) return false;
+  await c.estudio.mover(loc.first()).catch(() => undefined);
+  return true;
 }
 
 /** Desplazamiento suave hasta un elemento, solo si existe (no espera 30 s a que aparezca). */

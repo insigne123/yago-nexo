@@ -29,7 +29,9 @@ import {
   ampliar,
   aparece,
   comando,
+  consolaAlDia,
   desplazarSiHay,
+  moverSiHay,
   seg,
   type PasoGuion,
 } from "./ayudas-d.js";
@@ -91,10 +93,10 @@ const PASOS_PARTICION_HOSTS: PasoGuion[] = [
       "Con 1 de 3 votos no se conmuta: una falla de red no puede dejar los dos sitios activos a la vez.",
     comprueba: [
       "1 de 3 votos «primario caído»",
-      "el CPD sigue activo 20 s después",
+      "el CPD sigue activo durante la partición",
       "la réplica de Google Cloud no se promueve",
     ],
-    estimadoS: 38,
+    estimadoS: 40,
   },
   {
     titulo: "Acto 2 · Cae el CPD y se conmuta solo",
@@ -106,17 +108,17 @@ const PASOS_PARTICION_HOSTS: PasoGuion[] = [
       "el DNS apunta al respaldo (10.80.0.2)",
       "el dato de control sigue en el respaldo",
     ],
-    estimadoS: 18,
+    estimadoS: 21,
   },
   {
     titulo: "Acto 3 · RTO medido desde la falla",
     quePasa:
-      "Se cuenta desde que se detuvo la base del CPD hasta ver el respaldo activo. La Consola registra además cuánto tardó la conmutación misma.",
+      "Se cuenta desde que se detuvo la base del CPD hasta que la API de la Consola informa el respaldo activo: incluye detectar la caída y votar.",
     porQueImporta:
-      "El RTO es lo que vive quien usa el servicio: se cuenta desde la falla, no desde que alguien la notó.",
+      "El historial rotula «RTO medido» solo la conmutación misma, de la decisión al DNS; el RTO real se cuenta desde la falla.",
     comprueba: [
       "RTO desde la falla dentro del objetivo",
-      "evento automático con el RTO del motor",
+      "historial: conmutación automática y su duración",
       "conmutación registrada en la auditoría",
     ],
     estimadoS: 12,
@@ -132,7 +134,7 @@ const PASOS_PARTICION_HOSTS: PasoGuion[] = [
       "retorno aprobado por otra persona",
       "CPD activo de nuevo y DNS en 10.80.0.1",
     ],
-    estimadoS: 45,
+    estimadoS: 50,
   },
 ];
 
@@ -161,7 +163,7 @@ export const PASOS_D05_AGENTES: PasoGuion[] = PASOS_PARTICION_HOSTS.map((p, i) =
     return {
       ...p,
       quePasa:
-        "Se cuenta desde que cayó la base del CPD, al empezar el acto 1, hasta ver el respaldo activo. La Consola registra además la conmutación misma.",
+        "Se cuenta desde que cayó la base del CPD, al empezar el acto 1, hasta que la API de la Consola informa el respaldo activo.",
     };
   return p;
 });
@@ -280,6 +282,9 @@ async function arrancarTodo() {
 }
 
 const votos = (s: Estado, voto: string) => s.sites.filter((x) => x.vote === voto).length;
+const modoTexto = (m: string) => (m === "automatico" ? "automático" : m);
+/** Texto de la tarjeta «Quórum» de la Consola con `n` votos «primario caído» («· 1 «primario caído»»). */
+const quorumConCaidos = (n: number) => new RegExp(`·\\s*${n}\\s+«primario\\s+caído»`);
 const describirVotos = (s: Estado) =>
   s.sites
     .map(
@@ -354,7 +359,7 @@ export const d05: Demo = {
       e.indicadores({
         "sitio activo": s.activeSite.toUpperCase(),
         "votos «primario caído»": `${s.votosPrimarioCaido} de ${s.sites.length}`,
-        modo: s.mode === "automatico" ? "automático" : s.mode,
+        modo: modoTexto(s.mode),
         ...extra,
       });
 
@@ -367,12 +372,13 @@ export const d05: Demo = {
       "tenue",
     );
     const e0 = await estado();
+    await consolaAlDia(c, c.app.getByTestId("quorum"), { texto: quorumConCaidos(0) });
     indicadores(e0);
-    c.log(`votos: ${describirVotos(e0)} · modo ${e0.mode}`);
+    c.log(`votos: ${describirVotos(e0)} · modo ${modoTexto(e0.mode)}`);
     e.exige(
       "3 de 3 votos «primario sano» · modo automático",
       e0.activeSite === "cpd" && votos(e0, "primario_sano") === 3 && e0.mode === "automatico",
-      `${votos(e0, "primario_sano")} de ${e0.sites.length} sanos · ${e0.mode}`,
+      `${votos(e0, "primario_sano")} de ${e0.sites.length} sanos · ${modoTexto(e0.mode)}`,
     );
     const d0 = await dns(c);
     e.comprueba("el DNS apunta al CPD (10.80.0.1)", d0 === IP_CPD, d0 ?? "sin registro");
@@ -420,21 +426,26 @@ export const d05: Demo = {
       30,
       1000,
     );
+    const tVoto = Date.now();
     c.log(
-      `t=${seg((Date.now() - tParticion) / 1000)} · el agente de Google Cloud vota «primario caído»`,
+      `t=${seg((tVoto - tParticion) / 1000)} · GET /api/v1/continuity: el agente de Google Cloud vota «primario caído»`,
       "aviso",
     );
+    // Los indicadores y la ampliación esperan a que la tarjeta «Quórum» de la Consola muestre ese voto.
+    const quorumAlDia = await consolaAlDia(c, c.app.getByTestId("quorum"), { texto: quorumConCaidos(1) });
     let peor = unVoto?.valor ?? (await estado());
+    indicadores(peor);
     for (let t = 4; t <= 20; t += 4) {
       await c.esperar(4000);
       const s = await estado();
       if (s.activeSite !== "cpd" || s.votosPrimarioCaido > peor.votosPrimarioCaido) peor = s;
       indicadores(s);
       c.log(
-        `+${t} s · votos: ${describirVotos(s)} · «primario caído» ${s.votosPrimarioCaido} de ${s.sites.length} (se necesitan 2) · activo ${s.activeSite.toUpperCase()}`,
+        `+${t} s del voto · votos: ${describirVotos(s)} · «primario caído» ${s.votosPrimarioCaido} de ${s.sites.length} (se necesitan 2) · activo ${s.activeSite.toUpperCase()}`,
         "aviso",
       );
-      if (t === 8) await ampliar(c, c.app.getByTestId("quorum"), 2400);
+      if (t === 8 && quorumAlDia)
+        await ampliar(c, c.app.getByTestId("quorum").filter({ hasText: quorumConCaidos(1) }), 2400);
     }
     const sinQuorum = await estado();
     const caidosVistos = Math.max(peor.votosPrimarioCaido, sinQuorum.votosPrimarioCaido);
@@ -444,9 +455,9 @@ export const d05: Demo = {
       `${caidosVistos} de ${sinQuorum.sites.length} votos «primario caído» (máximo visto)`,
     );
     e.comprueba(
-      "el CPD sigue activo 20 s después",
+      "el CPD sigue activo durante la partición",
       sinQuorum.activeSite === "cpd" && peor.activeSite === "cpd",
-      `activo ${sinQuorum.activeSite.toUpperCase()} tras ${seg((Date.now() - tParticion) / 1000, 0)} de partición`,
+      `activo ${sinQuorum.activeSite.toUpperCase()} a los ${seg((Date.now() - tParticion) / 1000, 0)} de partición (${seg((Date.now() - tVoto) / 1000, 0)} después del voto)`,
     );
     const enEspera = await sql(c, GCP, "SELECT pg_is_in_recovery()", "gcp-en-espera");
     e.comprueba(
@@ -458,7 +469,15 @@ export const d05: Demo = {
     if (VARIANTE === "hosts") {
       c.log("# se repara la red del agente de Google Cloud", "tenue");
       await lab(c, CURAR, "curar");
-      await esperarHasta(estado, (s) => s.sites.every((x) => x.vote === "primario_sano"), 30, 1000);
+      const curada = await esperarHasta(
+        estado,
+        (s) => s.sites.every((x) => x.vote === "primario_sano"),
+        30,
+        1000,
+      );
+      // Antes de la caída, la Consola y los indicadores vuelven a mostrar los tres votos «primario sano».
+      await consolaAlDia(c, c.app.getByTestId("quorum"), { texto: quorumConCaidos(0), ms: 3000 });
+      if (curada) indicadores(curada.valor);
       // ── 3. Acto 2: cae el CPD ────────────────────────────────────────────────────────────────────
       await abrir(c, PASOS_D05[2]!);
       c.log("# cae la base de datos del sitio principal: desde aquí se mide el RTO", "tenue");
@@ -483,9 +502,9 @@ export const d05: Demo = {
         const clave = `${s.votosPrimarioCaido}|${s.activeSite}`;
         if (clave !== ultimo) {
           ultimo = clave;
-          indicadores(s);
+          // Solo la terminal, con su fuente: la pantalla de la Consola puede ir unos segundos atrás.
           c.log(
-            `t=${seg((Date.now() - tFalla) / 1000)} desde la falla · «primario caído» ${s.votosPrimarioCaido} de ${s.sites.length} · activo ${s.activeSite.toUpperCase()}`,
+            `t=${seg((Date.now() - tFalla) / 1000)} desde la falla · GET /api/v1/continuity: «primario caído» ${s.votosPrimarioCaido} de ${s.sites.length} · activo ${s.activeSite.toUpperCase()}`,
             s.activeSite === "gcp" ? "ok" : "aviso",
           );
         }
@@ -497,8 +516,11 @@ export const d05: Demo = {
     );
     const tActivo = Date.now();
     const rtoFalla = (tActivo - tFalla) / 1000;
-    await aparece(c.app.getByTestId("site-active-gcp"), 10_000);
-    await ampliar(c, c.app.getByTestId("active-site"), 2400);
+    // Los indicadores y la ampliación, cuando la Consola ya muestra el respaldo activo (si no, se recarga).
+    const gcpEnPantalla = await consolaAlDia(c, c.app.getByTestId("site-active-gcp"), { ms: 2500 });
+    if (cambio) indicadores(cambio.valor);
+    if (gcpEnPantalla)
+      await ampliar(c, c.app.getByTestId("active-site").filter({ hasText: /respaldo/ }), 2400);
     const promovida = await sql(c, GCP, "SELECT NOT pg_is_in_recovery()", "gcp-promovida");
     e.exige(
       "conmutación automática a Google Cloud",
@@ -524,7 +546,7 @@ export const d05: Demo = {
     const s3 = await estado();
     const objetivoS = (s3.rtoObjetivoMin ?? 15) * 60;
     c.log(
-      `RTO desde la falla: ${seg(rtoFalla)} (desde «docker stop» de la base del CPD hasta ver el respaldo activo en la Consola; sondeo cada 0,5 s)`,
+      `RTO desde la falla: ${seg(rtoFalla)} (desde «docker stop» de la base del CPD hasta que GET /api/v1/continuity informó el respaldo activo; consulta cada 0,5 s)`,
       "ok",
     );
     indicadores(s3, { "RTO desde la falla": seg(rtoFalla) });
@@ -537,14 +559,22 @@ export const d05: Demo = {
       (x) => x.kind === "conmutacion" && x.to === "gcp" && Date.parse(x.startedAt) >= tFalla - 60_000,
     );
     if (ev) {
-      await desplazarSiHay(c, c.app.getByTestId(`failover-event-${ev.id}`));
-      await ampliar(c, c.app.getByTestId(`failover-rto-${ev.id}`), 2600, 1.8);
+      const tarjetaEv = c.app.getByTestId(`failover-event-${ev.id}`);
+      if (await consolaAlDia(c, tarjetaEv, { ms: 3000 })) {
+        await desplazarSiHay(c, tarjetaEv);
+        await moverSiHay(c, tarjetaEv.locator("h3"));
+        await ampliar(c, tarjetaEv, 2600, 1.8);
+      }
+      c.log(
+        `historial: «RTO medido» ${seg(ev.rtoSeconds ?? 0, 2)} es la conmutación misma (de la decisión de los agentes al sitio activo); el RTO desde la falla, ${seg(rtoFalla)}, incluye detectar la caída y votar`,
+        "tenue",
+      );
     }
     e.comprueba(
-      "evento automático con el RTO del motor",
+      "historial: conmutación automática y su duración",
       !!ev && ev.trigger === "automatico" && ev.status === "completado" && (ev.rtoSeconds ?? 0) > 0,
       ev
-        ? `conmutación misma ${seg(ev.rtoSeconds ?? 0, 2)} · RPO ${ev.rpoSecondsEstimated == null ? "no medido (se registra el rezago de WAL)" : seg(ev.rpoSecondsEstimated)}`
+        ? `«RTO medido» ${seg(ev.rtoSeconds ?? 0, 2)} = la conmutación misma, sin la detección · RPO ${ev.rpoSecondsEstimated == null ? "no medido (se registra el rezago de WAL)" : seg(ev.rpoSecondsEstimated)}`
         : "sin evento",
     );
     const aud = (
@@ -599,11 +629,21 @@ export const d05: Demo = {
     await e.clic(c.app.getByTestId("btn-approve-failback"));
     await e.escribir(c.app.getByTestId("failback-dialog-reason"), "Conforme", { ms: 70 });
     await e.clic(c.app.getByTestId("failback-dialog-confirm"));
+    // Mientras los agentes reapuntan, se ve el historial (el retorno aparece en curso); la tarjeta «Sitio activo»
+    // se amplía recién cuando la Consola ya muestra el CPD.
+    await desplazarSiHay(c, c.app.getByTestId("failover-events"), 5000);
     const vuelta = await esperarHasta(estado, (s) => s.activeSite === "cpd", 90, 1000);
     const segRetorno = (Date.now() - tSolicitud) / 1000;
     const evR = (await consola<Evento[]>(apr, "GET", "/continuity/events")).data.find(
       (x) => x.kind === "retorno" && Date.parse(x.startedAt) >= tSolicitud - 5000,
     );
+    if (evR) {
+      const tarjetaR = c.app.getByTestId(`failover-event-${evR.id}`);
+      if (await consolaAlDia(c, tarjetaR, { texto: /aprobó/i, ms: 3000 })) {
+        await desplazarSiHay(c, tarjetaR);
+        await moverSiHay(c, tarjetaR.locator("h3"));
+      }
+    }
     e.comprueba(
       "retorno aprobado por otra persona",
       !!evR && !!evR.approvedBy && evR.approvedBy !== evR.requestedBy && evR.approvedBy !== "carla.operacion",
@@ -612,9 +652,10 @@ export const d05: Demo = {
         : "sin evento de retorno",
     );
     const d2 = await dns(c);
-    await aparece(c.app.getByTestId("site-active-cpd"), 10_000);
-    await ampliar(c, c.app.getByTestId("active-site"), 2200);
+    await e.desplazar(-3000).catch(() => undefined);
+    const cpdEnPantalla = await consolaAlDia(c, c.app.getByTestId("site-active-cpd"), { ms: 3000 });
     indicadores(vuelta?.valor ?? (await estado()), { "retorno (pedido → CPD activo)": seg(segRetorno, 0) });
+    if (cpdEnPantalla) await ampliar(c, c.app.getByTestId("active-site"), 2200);
     e.comprueba(
       "CPD activo de nuevo y DNS en 10.80.0.1",
       !!vuelta && d2 === IP_CPD,

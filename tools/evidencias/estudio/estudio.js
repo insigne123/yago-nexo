@@ -94,6 +94,8 @@
     #motor-minimapa { position: absolute; right: 14px; bottom: 14px; z-index: 5; padding: 5px; border-radius: 8px;
       background: rgba(6, 16, 28, .86); border: 1px solid rgba(255,255,255,.35); box-shadow: 0 4px 16px rgba(0,0,0,.4);
       opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s; pointer-events: none; }
+    #motor-minimapa[data-esquina="abajo-izquierda"] { right: auto; left: 14px; }
+    #motor-minimapa[data-esquina="arriba-derecha"] { bottom: auto; top: 12px; }
     #motor-minimapa canvas { display: block; border-radius: 4px; }
     #motor-minimapa p { margin: 4px 2px 0; color: #cfdced; font: 11px/1.2 "Liberation Sans", Arial, sans-serif; }
     #motor-teclado { position: absolute; left: 50%; bottom: 18px; z-index: 6; transform: translate(-50%, 8px); opacity: 0;
@@ -263,6 +265,8 @@
     img.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${f})`;
     insignia.querySelector("span").textContent = zoom.insignia || "Ampliación · imagen en vivo";
     insignia.classList.add("visible");
+    // Esquina que menos tapa lo ampliado (la calcula el motor: zoom.ts, esquinaMinimapa).
+    minimapa.dataset.esquina = zoom.esquina || "abajo-derecha";
     const ancho = compat ? 236 : 330;
     mini.width = ancho;
     mini.height = Math.round((ancho * zoom.vista.height) / zoom.vista.width);
@@ -614,8 +618,21 @@
     }
   }
 
-  // ── Cierre: verificaciones en páginas de 6 ─────────────────────────────────────────────────────────
+  // ── Cierre: todas las verificaciones (en una vista o, si son muchas, una página tras otra) ────────────
   let paginador;
+  /** Si la tarjeta no cabe en la pantalla, achica la letra de la lista (hasta 15 px) para que nada quede fuera. */
+  function ajustarCierre() {
+    const ul = $("r-verificaciones");
+    const tarjeta = $("resultado");
+    const cuerpo = tarjeta?.querySelector(".tarjeta-cuerpo");
+    if (!ul || !tarjeta || !cuerpo) return;
+    ul.style.fontSize = "";
+    const base = parseFloat(getComputedStyle(ul).fontSize) || 20;
+    for (let px = base; px >= 15; px -= 1) {
+      ul.style.fontSize = `${px}px`;
+      if (cuerpo.scrollHeight <= tarjeta.clientHeight - 24) return;
+    }
+  }
   function aplicarResultado(r) {
     $("resultado")?.classList.toggle("fallo", !r.ok);
     texto("r-sobretitulo", r.sobretitulo ?? "Resultado medido");
@@ -624,8 +641,9 @@
     texto("r-resumen", r.resumen ?? "");
     texto("r-nota", r.nota ?? "");
     const todas = r.verificaciones || [];
-    const porPagina = r.porPagina || 6;
+    const porPagina = Math.max(1, r.porPagina || todas.length || 1);
     const paginas = Math.max(1, Math.ceil(todas.length / porPagina));
+    $("r-verificaciones")?.classList.toggle("compacto", !!r.compacto);
     let pagina = 0;
     clearInterval(paginador);
     const mostrar = () => {
@@ -633,12 +651,15 @@
         v.ok ? "" : "mal",
       );
       texto("r-pagina", paginas > 1 ? `Verificaciones ${pagina + 1} de ${paginas}` : "");
+      requestAnimationFrame(ajustarCierre);
     };
     mostrar();
     if (paginas > 1) {
-      const cada = Math.max(3000, ((r.segundos || 14) * 1000) / paginas);
+      // El motor da al cierre el tiempo de mostrar cada página una vez; no se vuelve a la primera.
+      const cada = ((r.segundos || 3) * 1000) / paginas;
       paginador = setInterval(() => {
-        pagina = (pagina + 1) % paginas;
+        if (pagina >= paginas - 1) return clearInterval(paginador);
+        pagina += 1;
         mostrar();
       }, cada);
     }

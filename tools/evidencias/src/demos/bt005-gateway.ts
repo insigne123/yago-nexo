@@ -8,24 +8,19 @@
  * Veracidad (V12): cada línea «$ …» de la terminal es el comando que se ejecuta, tal cual (curl, nexo-ctl con
  * su configuración, la consulta a la analítica); los secretos van por variables de entorno ($TOKEN). Las
  * llamadas que el guion hace por API (suscripción y aprobación) se rotulan como llamadas REST, sin «$».
+ * La revisión desplegada se lee por la API del Publisher (no se afirma con un texto fijo) y se muestra en la
+ * página «Deployments» solo cuando ya la dibujó; si no alcanza a dibujarla, se vuelve a la vista general de la
+ * API (nunca queda una página en blanco). Los pasos 3 y 4 son de terminal: se ven a pantalla completa.
  * Duración estimada: ≈ 100 s (ver ayudas-d.test.ts).
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Demo } from "../lib/grabador.js";
+import { desdeRaiz } from "../lib/entorno.js";
+import type { Contexto, Demo } from "../lib/grabador.js";
 import { escaparHtml } from "../lib/grabador.js";
 import { credencialesDe, tokenAplicacion, wso2 } from "../lib/lab.js";
-import {
-  abrir,
-  agendaDe,
-  ampliar,
-  aparece,
-  comando,
-  corto,
-  curl,
-  nexoCtl,
-  type PasoGuion,
-} from "./ayudas-d.js";
+import { abrir, agendaDe, ampliar, comando, corto, curl, nexoCtl, type PasoGuion } from "./ayudas-d.js";
+import { cambiarVista, esperarCarga, verPagina } from "./comun.js";
 import { prepararEnsayoD } from "./d0x-ensayo.js";
 
 const NOMBRE = "TarifasLegado";
@@ -159,6 +154,64 @@ async function borrarApi() {
 
 const SIN_RUTA = (l: string) => l.replace(/\/(tmp|home)\/[^ ]*\/tarifas\//, "…/tarifas/");
 
+type Revision = {
+  id: string;
+  displayName?: string;
+  deploymentInfo?: Array<{ name: string; status?: string }>;
+};
+
+/** Revisiones de la API desplegadas en algún gateway, según la API del Publisher (vacío si no responde). */
+async function revisionesDesplegadas(apiId: string): Promise<Revision[]> {
+  const r = await wso2()
+    .request<{ list?: Revision[] }>({ method: "GET", path: `/api/am/publisher/v4/apis/${apiId}/revisions` })
+    .catch(() => ({ list: [] as Revision[] }));
+  return (r.list ?? []).filter((x) => (x.deploymentInfo ?? []).length > 0);
+}
+
+/**
+ * Muestra la revisión desplegada en la página «Deployments» del Publisher: se llega por su menú (sin volver a
+ * cargar el portal) y se amplía solo cuando la página dibujó el nombre de la revisión. Si no lo dibuja a tiempo,
+ * vuelve a la vista general de la API, que ya estaba cargada. Devuelve true si se vio la revisión.
+ */
+async function verDespliegue(c: Contexto, apiId: string, revision: string | undefined): Promise<boolean> {
+  const p = c.app;
+  const espera = c.estudio.ensayo ? 3000 : 15_000;
+  const menu = p.locator(`a[href*="/apis/${apiId}/deployments"]`).filter({ visible: true });
+  const nombre = revision ? p.getByText(revision).filter({ visible: true }) : undefined;
+  if (
+    await menu
+      .first()
+      .isVisible()
+      .catch(() => false)
+  )
+    await c.estudio.clic(menu.first());
+  else await c.ir(`https://apim:9443/publisher/apis/${apiId}/deployments`);
+  if (nombre && (await esperarCarga(p, nombre, { ms: espera }))) {
+    await verPagina(c, nombre.first());
+    await ampliar(c, nombre.first(), 2400);
+    return true;
+  }
+  c.avisar("la página «Deployments» no dibujó la revisión a tiempo: se vuelve a la vista general de la API");
+  await p.goBack().catch(() => undefined);
+  await esperarCarga(p, p.getByText(/PUBLISHED|Published|Publicad/).filter({ visible: true }), {
+    ms: espera,
+  });
+  await verPagina(c);
+  return false;
+}
+
+/** Línea de la configuración del NGINX heredado que publica un prefijo (para nombrar el destino real). */
+function lineaNginx(prefijo: string): string | undefined {
+  try {
+    return readFileSync(desdeRaiz("deploy/compose/nginx-legacy/default.conf"), "utf8")
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.startsWith(`location ${prefijo}`));
+  } catch {
+    return undefined;
+  }
+}
+
 export const bt005: Demo = {
   id: "BT-005",
   archivo: "BT-005_publicar_proteger",
@@ -214,10 +267,14 @@ export const bt005: Demo = {
           /Resultado|\[error\]|Validación|Sin observaciones|ERROR/.test(l) ? SIN_RUTA(l) : undefined,
       },
     );
+    // Valor corto (el panel corta a unos 36 caracteres): «0 errores · 0 advertencias».
+    const resultadoLint = /(\d+) errores?, (\d+) advertencias?/.exec(lint.salida.join(" "));
     e.comprueba(
       "el contrato cumple la guía de estilo",
       lint.codigo === 0,
-      `código ${lint.codigo} · ${lint.salida.find((l) => /Resultado/.test(l))?.trim() ?? ""}`,
+      resultadoLint
+        ? `${resultadoLint[1]} errores · ${resultadoLint[2]} advertencias`
+        : `código ${lint.codigo}`,
     );
     for (const l of OPENAPI.split("\n").slice(0, 14)) c.log(l, "tenue", false);
     await e.esperar(2500);
@@ -231,22 +288,43 @@ export const bt005: Demo = {
     });
     e.exige("pipeline terminó sin errores", r.codigo === 0, `código ${r.codigo}`);
     const api = ((await w.publisher.listApis(`name:"${NOMBRE}"`)).list ?? []).find((a) => a.name === NOMBRE);
+    // La revisión desplegada, según el Publisher (no un texto fijo).
+    const desplegadas = api ? await revisionesDesplegadas(api.id) : [];
+    const rev = desplegadas[0];
+    const gateways = [...new Set(desplegadas.flatMap((x) => (x.deploymentInfo ?? []).map((d) => d.name)))];
+    const estados = [
+      ...new Set(desplegadas.flatMap((x) => (x.deploymentInfo ?? []).map((d) => d.status).filter(Boolean))),
+    ];
+    if (api)
+      c.log(
+        `Publisher (API REST) → GET /api/am/publisher/v4/apis/${api.id.slice(0, 8)}…/revisions → ${
+          rev
+            ? `${rev.displayName ?? rev.id.slice(0, 8)} (${rev.id.slice(0, 8)}…) desplegada en ${gateways.join(", ")}${estados.length ? ` (${estados.join(", ")})` : ""}`
+            : "ninguna revisión desplegada"
+        }`,
+        rev ? "cmd" : "mal",
+      );
     e.exige(
       "API publicada en el gateway",
-      !!api && api.lifeCycleStatus === "PUBLISHED",
-      api ? `${api.lifeCycleStatus ?? ""} · revisión desplegada en Default` : "no existe",
+      !!api && api.lifeCycleStatus === "PUBLISHED" && gateways.includes("Default"),
+      api
+        ? `${api.lifeCycleStatus ?? ""} · ${rev?.displayName ?? "sin revisión"} en ${gateways.join(", ") || "—"}`
+        : "no existe",
     );
-    await c.vista("dividido");
+    await cambiarVista(c, "dividido");
     if (api) {
       await c.ir(`https://apim:9443/publisher/apis/${api.id}/overview`);
-      await ampliar(c, c.app.getByText(/PUBLISHED|Published|Publicad/).first(), 2400);
-      await c.ir(`https://apim:9443/publisher/apis/${api.id}/deployments`);
-      await aparece(c.app.getByText(/Default/).first(), 8000);
-      await e.esperar(2000);
+      const estado = c.app.getByText(/PUBLISHED|Published|Publicad/).filter({ visible: true });
+      await esperarCarga(c.app, estado, { ms: e.ensayo ? 3000 : 30_000 });
+      await ampliar(c, estado.first(), 2400);
+      await verDespliegue(c, api.id, rev?.displayName);
+      await e.esperar(1500);
     }
 
     // ── 3. Protección ──────────────────────────────────────────────────────────────────────────────
     await abrir(c, PASOS_BT005[2]!);
+    // Pruebas con curl: la terminal a pantalla completa (el Publisher no tiene que ver con estas respuestas).
+    await cambiarVista(c, "terminal");
     let s0 = await curl(c, URL, { comentario: "sin token" });
     for (let i = 0; i < 8 && s0.status === 404; i++) {
       await c.esperar(1500); // el gateway tarda unos segundos en recibir la revisión
@@ -284,7 +362,6 @@ export const bt005: Demo = {
 
     // ── 4. Límite del plan ─────────────────────────────────────────────────────────────────────────
     await abrir(c, PASOS_BT005[3]!);
-    await c.vista("terminal");
     const rafaga = await comando(
       c,
       `seq 60 | xargs -P 60 -I{} curl -sk -o /dev/null -w '%{http_code}\\n' -H "Authorization: Bearer $TOKEN" ${URL} | sort | uniq -c`,
@@ -354,10 +431,32 @@ export const bt005: Demo = {
         `  destino ${d.key} · ${d.doc_count} llamadas · al consumidor ${d.codigo.buckets.map((b) => `${b.key}×${b.doc_count}`).join(" ")} · del destino ${d.backend.buckets.map((b) => `${b.key}×${b.doc_count}`).join(" ")}`,
       );
     const alDestino = destinos.find((d) => String(d.key).startsWith("http://ocultas:7001/legacy"));
+    // «ocultas» es el contenedor del laboratorio que el NGINX heredado publica: se muestra su línea de configuración.
+    const nginx = lineaNginx("/legacy/");
+    if (alDestino && nginx)
+      c.log(
+        `  ${alDestino.key}: el servicio de tarifas que el NGINX heredado publica (deploy/compose/nginx-legacy/default.conf: ${nginx})`,
+        "tenue",
+      );
+    const autorizadas = (codigos["200"] ?? 0) + (s2.status === 200 ? 1 : 0);
+    const rechazadas = Object.entries(codigos)
+      .filter(([k]) => k !== "200")
+      .reduce((t, [, v]) => t + v, 0);
+    if (alDestino)
+      c.log(
+        alDestino.doc_count === autorizadas
+          ? `  al destino llegaron ${alDestino.doc_count} llamadas = las ${autorizadas} autorizadas (1 suscrita + ${codigos["200"] ?? 0} dentro del límite); las rechazadas (sin token, sin suscripción y las ${rechazadas} de la ráfaga con ${
+              Object.keys(codigos)
+                .filter((k) => k !== "200")
+                .join("/") || "—"
+            }) no llegaron al destino`
+          : `  al destino llegaron ${alDestino.doc_count} llamadas; autorizadas en esta prueba: ${autorizadas}`,
+        alDestino.doc_count === autorizadas ? "ok" : "aviso",
+      );
     e.comprueba(
       "las llamadas autorizadas llegaron al sistema de destino",
       !!alDestino && alDestino.backend.buckets.some((b) => b.key === 200),
-      alDestino ? `${alDestino.key} · ${alDestino.doc_count} llamadas` : "sin registros",
+      alDestino ? `${alDestino.doc_count} llamadas, ${autorizadas} autorizadas` : "sin registros",
     );
     await e.esperar(1500);
 

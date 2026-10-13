@@ -35,6 +35,11 @@ const TIPOS: Record<string, string> = {
   ".txt": "text/plain; charset=utf-8",
 };
 
+/** Separador de las partes del MJPEG de la pantalla operada. */
+const SEPARADOR = "cuadro";
+/** Fin de un cuadro y comienzo de la parte siguiente (ver Estudio.escribirCuadro). */
+const SIGUIENTE_PARTE = `\r\n--${SEPARADOR}\r\nContent-Type: image/jpeg\r\n\r\n`;
+
 export interface EstadoEstudio {
   [k: string]: unknown;
 }
@@ -148,10 +153,16 @@ export class Estudio {
     });
   }
 
+  /**
+   * Cada cuadro va seguido del separador y de las cabeceras de la parte siguiente: Chromium dibuja una parte
+   * del MJPEG recién cuando ve empezar la siguiente (probado: con el separador al comienzo de cada cuadro, o
+   * solo con el separador al final, la narradora muestra el cuadro anterior hasta que llega otro). Sin esto,
+   * una página que cambia y queda quieta (la Consola que se pone al día, una carga que termina) se seguía
+   * viendo con su estado viejo uno o dos segundos, mientras el panel ya mostraba el nuevo.
+   */
   private escribirCuadro(r: ServerResponse, jpeg: Buffer) {
-    r.write(`--cuadro\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.length}\r\n\r\n`);
     r.write(jpeg);
-    r.write("\r\n");
+    r.write(SIGUIENTE_PARTE);
   }
 
   private async atender(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -188,11 +199,12 @@ export class Estudio {
     }
     if (p === "/__estudio/monitor.mjpg") {
       res.writeHead(200, {
-        "content-type": "multipart/x-mixed-replace; boundary=cuadro",
+        "content-type": `multipart/x-mixed-replace; boundary=${SEPARADOR}`,
         "cache-control": "no-store",
         connection: "keep-alive",
       });
       this.mjpeg.add(res);
+      res.write(`--${SEPARADOR}\r\nContent-Type: image/jpeg\r\n\r\n`);
       if (this.ultimoCuadro) this.escribirCuadro(res, this.ultimoCuadro);
       req.on("close", () => this.mjpeg.delete(res));
       return;

@@ -6,8 +6,9 @@
  *   1. producción estable en el backend concesiones-v1 (tarjeta «Endpoint estable» de la Consola);
  *   2. desarrollo solicita un canary del backend concesiones-v2 y otra persona lo aprueba (quien solicita
  *      recibe 403 si intenta aprobar);
- *   3. con el 25 % del tráfico real en concesiones-v2 se inyecta una falla real (respuestas 500): el
- *      controlador mide la tasa de error del paso y revierte solo; los errores quedan acotados a ese tramo;
+ *   3. con el 25 % del tráfico real en concesiones-v2 se le inyecta una falla (responde 500, por su endpoint
+ *      de caos, a la vista en la terminal): el controlador mide la tasa de error del paso y revierte solo; los
+ *      errores quedan acotados a ese tramo;
  *   4. corregida la falla, el canary avanza 5 → 25 → 50 → 100 % y concesiones-v2 pasa a ser el estable;
  *   5. un blue-green devuelve todo el tráfico a concesiones-v1 de una vez, sin errores.
  * Los backends se nombran por su contenedor: sus números (1.0.0 y 1.1.0) son de la API de ejemplo, no del
@@ -25,7 +26,9 @@ import {
   backendDeUrl,
   cargaContinua,
   comando,
+  corto,
   desplazarSiHay,
+  moverSiHay,
   n,
   seg,
   type CargaD,
@@ -73,9 +76,9 @@ export const PASOS_D04: PasoGuion[] = [
     estimadoS: 14,
   },
   {
-    titulo: "Falla real con el 25 % del tráfico: se revierte solo",
+    titulo: "Falla inyectada con el 25 % del tráfico real: se revierte solo",
     quePasa:
-      "concesiones-v2 recibe el 5 % y luego el 25 % del tráfico real. Ahí empieza a responder errores 500 y el controlador la retira solo, sin intervención.",
+      "concesiones-v2 recibe el 5 % y luego el 25 % del tráfico real. Ahí se le inyecta una falla (responde 500) y el controlador la retira solo.",
     porQueImporta:
       "Un defecto que solo aparece con carga real queda limitado a una parte del tráfico y a pocos segundos.",
     comprueba: [
@@ -121,11 +124,30 @@ async function chaos(failRate: number) {
   });
 }
 
-/** La misma inyección de falla, como comando real a la vista: curl contra el backend de demostración. */
+/**
+ * La misma inyección de falla, como comando real a la vista: curl contra el endpoint de caos del backend de
+ * demostración. De su respuesta se muestra lo que importa aquí (failRate); el resto de los campos son de
+ * otras opciones de la falla programable que este guion no usa.
+ */
 async function chaosVisible(c: Contexto, failRate: number, comentario: string) {
-  await comando(
+  const r = await comando(
     c,
     `curl -s -X POST -H 'x-chaos-token: nexo-lab-chaos' -H 'content-type: application/json' -d '{"failRate":${failRate}}' ${CHAOS_V2}   # ${comentario}`,
+    { silencioso: true },
+  );
+  const cuerpo = r.salida.join("\n").trim();
+  let tasa: number | undefined;
+  try {
+    const v = (JSON.parse(cuerpo) as { failRate?: unknown }).failRate;
+    tasa = typeof v === "number" ? v : undefined;
+  } catch {
+    tasa = undefined;
+  }
+  c.log(
+    tasa === undefined
+      ? `  ${corto(cuerpo || "(sin respuesta)", 150)}`
+      : `  concesiones-v2 confirma failRate ${String(tasa).replace(".", ",")}: ${tasa >= 1 ? "responde 500 a cada solicitud" : tasa > 0 ? `responde 500 al ${Math.round(tasa * 100)} % de las solicitudes` : "sin falla inyectada"}`,
+    tasa === undefined ? "aviso" : "tenue",
   );
 }
 
@@ -138,7 +160,7 @@ export const d04: Demo = {
   archivo: "D-04_canary_blue_green",
   nombre: "Despliegue canary y blue-green con reversión automática y sin corte",
   afirmacion:
-    "Con un consumidor llamando sin pausa por el gateway, una versión que falla con el 25 % del tráfico real se revierte sola, la versión corregida avanza en canary 5 → 25 → 50 → 100 % y un blue-green devuelve el tráfico de una vez; cada cambio lo aprueba una persona distinta de quien lo pide.",
+    "Con un consumidor llamando sin pausa por el gateway, una versión a la que se le inyecta una falla con el 25 % del tráfico real se revierte sola, la versión corregida avanza en canary 5 → 25 → 50 → 100 % y un blue-green devuelve el tráfico de una vez; cada cambio lo aprueba una persona distinta de quien lo pide.",
   pasos: PASOS_D04.length,
   agenda: agendaDe(PASOS_D04),
   usuarioInicial: "luis.aprobador",
@@ -185,15 +207,22 @@ export const d04: Demo = {
     )!;
     const estado = async (id: string) => (await consola<Rollout>(apr, "GET", `/rollouts/${id}`)).data;
     const errores = () => carga?.errores() ?? 0;
-    let pesoActual = 0;
-    const indicadores = (peso?: number) => {
-      if (peso !== undefined) pesoActual = peso;
+    /**
+     * Indicadores en vivo, de la misma fuente que la terminal: lo que recibe el consumidor. El de concesiones-v2
+     * es el último tramo de 4 s que escribió la terminal («consumidor t=… s»): sus respuestas correctas de
+     * concesiones-v2 sobre todas las llamadas del tramo.
+     */
+    const indicadores = () => {
       const b = carga?.porBackend() ?? {};
+      const t = carga?.ultimoTramo();
+      const llamadas = t ? t.ok + t.err : 0;
       e.indicadores({
         "llamadas a concesiones-v1": n(b["concesiones-v1"] ?? 0),
         "llamadas a concesiones-v2": n(b["concesiones-v2"] ?? 0),
-        "errores acumulados del consumidor": errores(),
-        "tráfico a concesiones-v2": `${pesoActual} %`,
+        "errores del consumidor": errores(),
+        "concesiones-v2 · últimos 4 s": t
+          ? `${llamadas ? Math.round((100 * (t.porBackend["concesiones-v2"] ?? 0)) / llamadas) : 0} %`
+          : "—",
       });
     };
     const reloj = setInterval(() => indicadores(), 2000);
@@ -244,7 +273,12 @@ export const d04: Demo = {
         segundos: 230,
         etiqueta: "todo el escenario",
         cadaSeg: 4,
+        alTramo: () => indicadores(),
       });
+      c.log(
+        "# indicador «concesiones-v2 · últimos 4 s»: respuestas correctas de concesiones-v2 sobre todas las llamadas de la última línea «consumidor»",
+        "tenue",
+      );
       await c.esperar(5000);
       e.comprueba("endpoint estable: concesiones-v1", ruta.stableUrl === V1, ruta.stableUrl);
       const b0 = carga.porBackend();
@@ -253,7 +287,7 @@ export const d04: Demo = {
         errores() === 0 && (b0["concesiones-v1"] ?? 0) > 0,
         `${n(b0["concesiones-v1"] ?? 0)} respuestas de concesiones-v1 · ${errores()} errores`,
       );
-      indicadores(0);
+      indicadores();
 
       // ── 2. Solicitud y aprobación con cuatro ojos ───────────────────────────────────────────────
       await abrir(c, PASOS_D04[1]!);
@@ -290,25 +324,30 @@ export const d04: Demo = {
         ap1?.approvedBy ?? ap1?.status ?? "sin respuesta",
       );
 
-      // ── 3. Falla real al 25 %: reversión automática ─────────────────────────────────────────────
+      // ── 3. Falla inyectada al 25 %: reversión automática ────────────────────────────────────────
       await abrir(c, PASOS_D04[2]!);
       await desplazarSiHay(c, c.app.getByTestId("chart-weight"));
+      await moverSiHay(c, c.app.getByTestId("rollout-weight"));
       const al25 = await esperarHasta(
         () => estado(id1),
         (x) => (x.currentWeight ?? 0) >= 25 || terminado(x),
         60,
         500,
       );
-      indicadores(al25?.valor.currentWeight ?? 0);
+      c.log(`peso de concesiones-v2 en el controlador: ${al25?.valor.currentWeight ?? 0} %`, "tenue");
       await c.esperar(2000); // tráfico real sano al 25 % antes de la falla
       const eAntes = errores();
       const tFalla = Date.now();
-      await chaosVisible(c, 1, "desde ahora concesiones-v2 responde 500 a todo (falla real)");
+      await chaosVisible(
+        c,
+        1,
+        "falla inyectada: desde ahora concesiones-v2 responde 500 a todo (el tráfico sigue siendo real)",
+      );
       const rev = await esperarHasta(() => estado(id1), terminado, 60, 500);
       const tRev = Date.now();
-      await chaosVisible(c, 0, "se corrige la falla");
+      await chaosVisible(c, 0, "se retira la falla inyectada");
       const r1 = rev?.valor;
-      indicadores(0);
+      indicadores();
       c.log(
         `decisión del controlador: ${r1?.rollbackReason ?? r1?.status}`,
         r1?.status === "revertido" ? "aviso" : "mal",
@@ -365,8 +404,7 @@ export const d04: Demo = {
           const peso = x.currentWeight ?? 0;
           if (peso !== pesoVisto) {
             pesoVisto = peso;
-            indicadores(peso);
-            c.log(`peso de concesiones-v2: ${peso} % · ${x.status}`, "tenue");
+            c.log(`peso de concesiones-v2 en el controlador: ${peso} % · ${x.status}`, "tenue");
             if (peso === 50) void ampliar(c, c.app.getByTestId("rollout-weight"), 2200, 1.6);
           }
           return x;
@@ -382,7 +420,11 @@ export const d04: Demo = {
       const r2 = fin2?.valor;
       const plan = r2?.stepsDone.map((s) => (s.kind === "sombra" ? "sombra" : `${s.weight} %`)).join(" → ");
       e.exige("canary completado al 100 %", r2?.status === "completado", `${plan ?? "?"} en ${seg(seg2, 0)}`);
-      e.comprueba("sin errores nuevos para el consumidor en este paso", errores() - e2 === 0, `${errores() - e2} errores`);
+      e.comprueba(
+        "sin errores nuevos para el consumidor en este paso",
+        errores() - e2 === 0,
+        `${errores() - e2} errores`,
+      );
       await e.desplazar(-2000).catch(() => undefined);
       const tarjeta = c.app.getByText("Endpoint estable", { exact: true }).first().locator("..");
       const rutaV2 = (await consola<Ruta[]>(apr, "GET", "/traffic-routes")).data.find(
@@ -408,11 +450,19 @@ export const d04: Demo = {
       const seg3 = (Date.now() - t3) / 1000;
       await aparece(c.app.getByTestId("rollout-completed"), 15_000);
       e.comprueba("blue-green completado", fin3?.valor.status === "completado", `en ${seg(seg3, 0)}`);
-      await c.esperar(3000);
+      // Dos tramos de 4 s enteros después del cambio: el último que muestran la terminal y el indicador de
+      // concesiones-v2 es tráfico ya servido solo por concesiones-v1.
+      const tramoFin = carga.ultimoTramo()?.t ?? 0;
+      await esperarHasta(
+        async () => carga?.ultimoTramo()?.t ?? 0,
+        (t) => t >= tramoFin + 8,
+        12,
+        500,
+      );
       carga.detener();
       const total = await carga.resultado;
       clearInterval(reloj);
-      indicadores(0);
+      indicadores();
       e.comprueba("sin errores durante el cambio", errores() - e4 === 0, `${errores() - e4} errores`);
       const v1 = total.porVersion["1.0.0"] ?? 0;
       const v2 = total.porVersion["1.1.0"] ?? 0;
