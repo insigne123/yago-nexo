@@ -12,9 +12,11 @@ paths = [
 #  - URL JDBC sin contraseña (la contraseña viene de una variable de entorno).
 #  - Clave publicable inventada en las pruebas de la mesa de soporte (formato sb_publishable_, no existe).
 #  - Token inventado de la prueba de lectura de secretos de la Consola (apps/console-api/src/common/common.test.ts).
+#  - Token de laboratorio del backend de demostración para inyectar fallas (valor por omisión en services/demo-backends/src/server.ts), mostrado en el video D-04.
 regexTarget = "line"
 regexes = [
   '''jdbc:postgresql://[a-z0-9.-]+:\d+/[a-z_]+''',
   '''sb_publishable_0123456789abcdef''',
   '''NEXO_PRUEBA_TOKEN = "desde-variable-0123456789"''',
+  '''x-chaos-token: nexo-lab-chaos''',
 ]
