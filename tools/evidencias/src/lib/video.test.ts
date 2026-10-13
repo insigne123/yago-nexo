@@ -71,10 +71,10 @@ describe("lectura de mediciones de ffmpeg", () => {
 });
 
 describe("parámetros de codificación", () => {
-  it("H.264 yuv420p, CRF 20, GOP de 2 s, BT.709, +faststart y sin audio", () => {
+  it("H.264 yuv420p, CRF 21, GOP de 2 s, BT.709, +faststart y sin audio", () => {
     const a = argumentosH264().join(" ");
     expect(a).toContain("-c:v libx264");
-    expect(a).toContain("-crf 20");
+    expect(a).toContain("-crf 21");
     expect(a).toContain("-pix_fmt yuv420p");
     expect(a).toContain("-g 60");
     expect(a).toContain("-colorspace bt709");

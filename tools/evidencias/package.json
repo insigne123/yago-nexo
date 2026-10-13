@@ -8,6 +8,7 @@
     "grabar": "tsx src/grabar.ts",
     "verificar": "tsx src/verificar.ts",
     "musica": "tsx src/lib/musica-muestras.ts",
+    "remezclar": "tsx src/lib/musica-mezclar.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run"

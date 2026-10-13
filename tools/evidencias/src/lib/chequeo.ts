@@ -22,6 +22,8 @@ export interface Recursos {
 export interface Umbrales {
   discoMinGB: number;
   memoriaMinGB: number;
+  /** Memoria disponible bajo la cual se avisa (sin abortar). */
+  memoriaAvisoGB?: number;
   nucleosMin: number;
   /** Carga por núcleo sobre la cual se aborta (Infinity: solo avisa). */
   cargaMaxPorNucleo: number;
@@ -29,7 +31,14 @@ export interface Umbrales {
   cargaAvisoPorNucleo: number;
 }
 
-export const UMBRALES_OFICIAL: Umbrales = { discoMinGB: 8, memoriaMinGB: 3, nucleosMin: 4, cargaMaxPorNucleo: 0.6, cargaAvisoPorNucleo: 0.35 };
+/**
+ * Modo oficial. La VM del laboratorio tiene 4 vCPU compartidos por unos 30 contenedores: con el laboratorio
+ * arriba la carga media nunca es 0 y queda alta un minuto después de cada demostración con carga de prueba.
+ * Por eso la CPU solo aborta ante una sobrecarga clara (> 1,5 por núcleo: alguien compila o levanta
+ * contenedores) y avisa desde 0,6; la memoria aborta bajo 1,5 GB (Chromium con dos contextos a 1080p) y avisa
+ * bajo 3 GB. El disco exige 8 GB (§5.4).
+ */
+export const UMBRALES_OFICIAL: Umbrales = { discoMinGB: 8, memoriaMinGB: 1.5, memoriaAvisoGB: 3, nucleosMin: 4, cargaMaxPorNucleo: 1.5, cargaAvisoPorNucleo: 0.6 };
 export const UMBRALES_ENSAYO: Umbrales = { discoMinGB: 2, memoriaMinGB: 1.5, nucleosMin: 2, cargaMaxPorNucleo: Infinity, cargaAvisoPorNucleo: 0.5 };
 
 export interface ResultadoChequeo {
@@ -49,6 +58,8 @@ export function evaluarRecursos(r: Recursos, u: Umbrales): ResultadoChequeo {
     problemas.push(`disco: ${fmtGB(r.discoLibreBytes)} libres en ${r.rutaDisco}; se exigen ${u.discoMinGB} GB. Libere espacio o amplíe el disco antes de grabar.`);
   if (r.memoriaDisponibleBytes < u.memoriaMinGB * GB)
     problemas.push(`memoria: ${fmtGB(r.memoriaDisponibleBytes)} disponibles; se exigen ${u.memoriaMinGB} GB. Cierre otros procesos.`);
+  else if (u.memoriaAvisoGB !== undefined && r.memoriaDisponibleBytes < u.memoriaAvisoGB * GB)
+    avisos.push(`memoria: ${fmtGB(r.memoriaDisponibleBytes)} disponibles (menos de ${u.memoriaAvisoGB} GB): Chromium puede ir lento.`);
   if (r.nucleos < u.nucleosMin) problemas.push(`CPU: ${r.nucleos} núcleos; se exigen ${u.nucleosMin} para capturar 1920×1080 a 30 cps.`);
   const porNucleo = r.carga1 / Math.max(1, r.nucleos);
   const carga = `carga ${r.carga1.toFixed(2)} en ${r.nucleos} núcleos (${Math.round(porNucleo * 100)} %)`;

@@ -11,10 +11,12 @@
  *   - tener todas sus verificaciones del escenario cumplidas.
  *
  *   pnpm --filter @nexo/evidencias verificar
- *   pnpm --filter @nexo/evidencias verificar -- --dir <carpeta> [--sin-sitio] [--rapido]
+ *   pnpm --filter @nexo/evidencias verificar -- --dir <carpeta> [--sin-sitio] [--rapido] [--permitir-anteriores]
  *
  * --dir revisa otra carpeta (p. ej. una de ensayo); --sin-sitio no compara con apps/site/src/data; --rapido no
- * decodifica los cuadros (usa el conteo del contenedor).
+ * decodifica los cuadros (usa el conteo del contenedor). --permitir-anteriores acepta las entradas del formato
+ * anterior (WebM de 1.0/1.1, que se conservan como respaldo si una toma nueva no queda bien) revisando solo su
+ * integridad (archivo, cuadros, SHA-256 y escenario); se informan aparte y nunca pasan por formato vigente.
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -52,6 +54,8 @@ export interface ResultadoVerificacion {
   criterios: Criterio[];
   info?: InfoVideo;
   sonoridad?: Sonoridad;
+  /** Se verificó como respaldo del formato anterior (solo integridad). */
+  anterior?: boolean;
 }
 
 export interface OpcionesVerificacion {
@@ -62,7 +66,12 @@ export interface OpcionesVerificacion {
   sitio: Array<{ id: string; sha256: string }> | null;
   /** Decodificar todos los cuadros (por defecto sí). */
   decodificar?: boolean;
+  /** Aceptar entradas del formato anterior (WebM) revisando solo su integridad. */
+  permitirAnteriores?: boolean;
 }
+
+/** Entrada del formato anterior (WebM de 1.0/1.1, sin pasos.json, sin audio). */
+export const esFormatoAnterior = (e: Pick<EntradaEvidencia, "file">) => e.file.endsWith(".webm");
 
 const fmt = (x: number | undefined, d = 1) => (x === undefined || !Number.isFinite(x) ? String(x) : x.toFixed(d));
 
@@ -87,6 +96,7 @@ export async function verificarEvidencia(e: EntradaEvidencia, o: OpcionesVerific
     poner("archivo", false, `falta ${e.file}`);
     return { id: e.id, ok: false, criterios };
   }
+  if (o.permitirAnteriores && esFormatoAnterior(e)) return verificarAnterior(e, o, archivo);
   poner("archivo", e.file.endsWith(".mp4"), e.file.endsWith(".mp4") ? e.file : `${e.file}: formato anterior; el formato publicado es MP4`);
 
   // Pasos (reglas de publicación).
@@ -201,6 +211,33 @@ export async function verificarEvidencia(e: EntradaEvidencia, o: OpcionesVerific
   return { id: e.id, ok: criterios.every((c) => c.ok), criterios, info, sonoridad };
 }
 
+/**
+ * Respaldo del formato anterior (WebM): solo integridad, como lo verificaba la versión 1.1 (archivo legible con
+ * cuadros, duración ≤ 240 s, SHA-256 igual al índice, a SHA256SUMS.txt y a la copia del sitio, escenario cumplido).
+ * No se le exigen 1080p, audio, pasos ni subtítulos: se cita con su versión y su commit tal como se grabó.
+ */
+async function verificarAnterior(e: EntradaEvidencia, o: OpcionesVerificacion, archivo: string): Promise<ResultadoVerificacion> {
+  const criterios: Criterio[] = [];
+  const poner = (clave: string, ok: boolean, detalle: string) => criterios.push({ clave, ok, detalle });
+  poner("archivo", true, `${e.file}: formato anterior (respaldo de la versión ${e.version}, commit ${e.commit})`);
+  poner("no es ensayo", e.rehearsal !== true, e.rehearsal === true ? "grabación de ENSAYO: no se publica" : "grabación registrada");
+  const info = await analizarVideo(archivo, { decodificar: o.decodificar ?? true }).catch(() => undefined);
+  if (!info) {
+    poner("formato", false, "no se pudo leer el archivo");
+    return { id: e.id, ok: false, criterios };
+  }
+  poner("formato", info.codec === "vp9" || info.codec === "vp8", `${info.contenedor ?? "webm"} · ${info.codec} · ${info.ancho}×${info.alto}`);
+  const d = info.duracion;
+  poner("duración", d > 0 && d <= REGLAS.duracionMaxima + 0.05 && Math.abs(d - e.duration_seconds) <= 0.5, `${fmt(d)} s (máx. ${REGLAS.duracionMaxima}; índice ${e.duration_seconds})`);
+  poner("cuadros", info.cuadros > 0, `${info.cuadros} cuadros`);
+  const hash = await sha256Archivo(archivo);
+  poner("sha256", hash === e.sha256 && o.sumas.get(e.file) === hash, hash === e.sha256 ? (o.sumas.get(e.file) === hash ? hash : "SHA256SUMS.txt no coincide") : `${hash} ≠ índice ${e.sha256}`);
+  if (o.sitio) poner("sitio", o.sitio.some((s) => s.id === e.id && s.sha256 === hash), "copia de evidencias.json del sitio");
+  const fallidas = (e.checks ?? []).filter((c) => !c.ok);
+  poner("escenario", (e.checks ?? []).length > 0 && fallidas.length === 0, `${(e.checks ?? []).length - fallidas.length}/${(e.checks ?? []).length} verificaciones`);
+  return { id: e.id, ok: criterios.every((c) => c.ok), criterios, info, anterior: true };
+}
+
 async function principal(args: string[]): Promise<number> {
   const valor = (k: string) => {
     const i = args.indexOf(k);
@@ -219,9 +256,11 @@ async function principal(args: string[]): Promise<number> {
   const sitio = args.includes("--sin-sitio") ? null : existsSync(copia) ? (JSON.parse(readFileSync(copia, "utf8")) as { evidencias: EntradaEvidencia[] }).evidencias : [];
 
   const problemas: string[] = [];
+  const anteriores: string[] = [];
   const filas: Array<Record<string, unknown>> = [];
   for (const e of evidencias) {
-    const r = await verificarEvidencia(e, { carpeta, sumas, sitio, decodificar: !args.includes("--rapido") });
+    const r = await verificarEvidencia(e, { carpeta, sumas, sitio, decodificar: !args.includes("--rapido"), permitirAnteriores: args.includes("--permitir-anteriores") });
+    if (r.anterior) anteriores.push(e.id);
     for (const c of r.criterios) if (!c.ok) problemas.push(`${e.id}: no cumple «${c.clave}»: ${c.detalle}`);
     const i = r.info;
     const bytes = existsSync(join(carpeta, e.file)) ? statSync(join(carpeta, e.file)).size : 0;
@@ -244,9 +283,15 @@ async function principal(args: string[]): Promise<number> {
     const faltan = DEMOS.filter((d) => !evidencias.some((e) => e.id === d.id)).map((d) => d.id);
     if (faltan.length) console.log(`Sin grabar todavía: ${faltan.join(", ")}`);
   }
+  if (anteriores.length) console.log(`Formato anterior (respaldo; solo integridad: archivo, SHA-256 y escenario): ${anteriores.join(", ")}`);
   if (problemas.length) {
     console.error(`\n${problemas.length} problemas:\n  ${problemas.join("\n  ")}`);
     return 1;
+  }
+  if (anteriores.length) {
+    const vigentes = evidencias.length - anteriores.length;
+    console.log(`\n${vigentes} videos verificados en el formato vigente y ${anteriores.length} respaldos del formato anterior con su integridad comprobada.`);
+    return 0;
   }
   console.log(
     `\n${evidencias.length} videos verificados: MP4 H.264 + AAC, resolución y cps declarados, ${AUDIO.lufs} LUFS, ≤ ${REGLAS.duracionMaxima} s, pasos ≥ ${REGLAS.pasoMinimo} s, SHA-256 coincidente, imagen intacta tras la música, subtítulos y capítulos al día, sin ensayos y escenario cumplido.`,

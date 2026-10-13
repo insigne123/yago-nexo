@@ -371,8 +371,11 @@ function notaPiano(L: Float64Array, R: Float64Array, nota: NotaPiano, azar: () =
   }
 }
 
-/** Reverb estéreo: red de retardos realimentada (8 líneas, matriz de Hadamard) con amortiguación de agudos. */
-function reverb(inL: Float64Array, inR: Float64Array, rt60: number, sala: number): [Float64Array, Float64Array] {
+/**
+ * Reverb estéreo: red de retardos realimentada (8 líneas, matriz de Hadamard) con amortiguación de agudos. Suma
+ * su salida, multiplicada por `mezcla`, a `outL`/`outR` (así no reserva otros dos canales del largo de la pieza).
+ */
+function reverb(inL: Float64Array, inR: Float64Array, rt60: number, sala: number, outL: Float64Array, outR: Float64Array, mezcla: number): void {
   const N = inL.length;
   const largos = [1433, 1601, 1867, 2053, 2251, 2399, 2617, 2803].map((l) => Math.round(l * sala));
   const lineas = largos.map((l) => new Float64Array(l));
@@ -382,8 +385,6 @@ function reverb(inL: Float64Array, inR: Float64Array, rt60: number, sala: number
   const lp = new Float64Array(8);
   const y = new Float64Array(8);
   const preRetardo = Math.round(0.025 * FM);
-  const outL = new Float64Array(N);
-  const outR = new Float64Array(N);
   const esc = 1 / Math.sqrt(8);
   for (let n = 0; n < N; n++) {
     const xl = n >= preRetardo ? inL[n - preRetardo]! : 0;
@@ -393,8 +394,8 @@ function reverb(inL: Float64Array, inR: Float64Array, rt60: number, sala: number
       lp[i]! += amort * (v - lp[i]!);
       y[i] = lp[i]! * ganancia[i]!;
     }
-    outL[n] = y[0]! - y[2]! + y[4]! - y[6]!;
-    outR[n] = y[1]! - y[3]! + y[5]! - y[7]!;
+    outL[n]! += (y[0]! - y[2]! + y[4]! - y[6]!) * mezcla;
+    outR[n]! += (y[1]! - y[3]! + y[5]! - y[7]!) * mezcla;
     // Hadamard 8×8 rápida.
     for (let h = 1; h < 8; h <<= 1) {
       for (let i = 0; i < 8; i += h << 1) {
@@ -412,7 +413,6 @@ function reverb(inL: Float64Array, inR: Float64Array, rt60: number, sala: number
       pos[i] = pos[i]! + 1 === largos[i]! ? 0 : pos[i]! + 1;
     }
   }
-  return [outL, outR];
 }
 
 export interface Pista {
@@ -430,8 +430,55 @@ export interface Pista {
 export function sintetizar(duracion: number, variante: Variante): Pista {
   const plan = planificar(duracion, variante);
   const p = PARAMETROS[variante];
-  const azar = generador(plan.semilla ^ 0x5bd1e995);
   const N = Math.round(duracion * FM);
+  const [L, R] = conReverb(plan, p, N);
+  for (const canal of [L, R]) {
+    Biquad.de("hp", 30).procesar(canal);
+    Biquad.de("lp", 7000).procesar(canal);
+  }
+
+  // Fundidos (curvas suaves).
+  const nIn = Math.min(N, Math.round(FUNDIDO_ENTRADA_S * FM));
+  const nOut = Math.min(N, Math.round(FUNDIDO_SALIDA_S * FM));
+  for (let n = 0; n < N; n++) {
+    let g = 1;
+    if (n < nIn) g *= subida(n / nIn);
+    const restante = N - 1 - n;
+    if (restante < nOut) g *= subida(restante / nOut);
+    L[n]! *= g;
+    R[n]! *= g;
+  }
+
+  // Relación pico/sonoridad acotada (los ataques del piano no pasan de 13 dB sobre la sonoridad integrada) y
+  // sonoridad en −20 LUFS: así loudnorm siempre aplica una ganancia lineal y el pico real final queda holgado.
+  const sonoridad = sonoridadIntegrada(L, R);
+  if (Number.isFinite(sonoridad)) {
+    controlarPicos(L, R, sonoridad + PICO_SOBRE_SONORIDAD_DB);
+    const final = sonoridadIntegrada(L, R);
+    const esc = 10 ** ((SONORIDAD_SINTESIS - final) / 20);
+    for (let n = 0; n < N; n++) {
+      L[n]! *= esc;
+      R[n]! *= esc;
+    }
+  }
+  return { plan, fm: FM, izquierda: Float32Array.from(L), derecha: Float32Array.from(R) };
+}
+
+/**
+ * Mezcla seca más la reverb, en dos canales de N muestras. Separada en funciones para que los canales
+ * intermedios (sub-bajo, piano, envíos) queden libres apenas se usan: con 240 s de música, cada canal ocupa
+ * 92 MB y el máximo en memoria baja de 11 canales a 7.
+ */
+function conReverb(plan: Plan, p: Parametros, N: number): [Float64Array, Float64Array] {
+  const { L, R, envioL, envioR } = mezclaSeca(plan, p, N);
+  reverb(envioL, envioR, p.rt60, p.sala, L, R, 0.5);
+  return [L, R];
+}
+
+/** Colchón filtrado + sub-bajo + piano (mezcla seca, en L y R) y los envíos a la reverb. */
+function mezclaSeca(plan: Plan, p: Parametros, N: number): { L: Float64Array; R: Float64Array; envioL: Float64Array; envioR: Float64Array } {
+  const variante = plan.variante;
+  const azar = generador(plan.semilla ^ 0x5bd1e995);
 
   // Colchón.
   const padL = new Float64Array(N);
@@ -478,50 +525,12 @@ export function sintetizar(duracion: number, variante: Variante): Pista {
     envioL[n] = padL[n]! * 0.45 + piL[n]! * 0.8;
     envioR[n] = padR[n]! * 0.45 + piR[n]! * 0.8;
   }
-  const [wL, wR] = reverb(envioL, envioR, p.rt60, p.sala);
-
-  const L = new Float64Array(N);
-  const R = new Float64Array(N);
+  // Mezcla seca en el lugar, sobre el colchón (mismo orden de sumas: colchón + sub-bajo + piano).
   for (let n = 0; n < N; n++) {
-    L[n] = padL[n]! + subL[n]! + piL[n]! + wL[n]! * 0.5;
-    R[n] = padR[n]! + subL[n]! + piR[n]! + wR[n]! * 0.5;
+    padL[n] = padL[n]! + subL[n]! + piL[n]!;
+    padR[n] = padR[n]! + subL[n]! + piR[n]!;
   }
-  for (const canal of [L, R]) {
-    Biquad.de("hp", 30).procesar(canal);
-    Biquad.de("lp", 7000).procesar(canal);
-  }
-
-  // Fundidos (curvas suaves).
-  const nIn = Math.min(N, Math.round(FUNDIDO_ENTRADA_S * FM));
-  const nOut = Math.min(N, Math.round(FUNDIDO_SALIDA_S * FM));
-  for (let n = 0; n < N; n++) {
-    let g = 1;
-    if (n < nIn) g *= subida(n / nIn);
-    const restante = N - 1 - n;
-    if (restante < nOut) g *= subida(restante / nOut);
-    L[n]! *= g;
-    R[n]! *= g;
-  }
-
-  // Relación pico/sonoridad acotada (los ataques del piano no pasan de 13 dB sobre la sonoridad integrada) y
-  // sonoridad en −20 LUFS: así loudnorm siempre aplica una ganancia lineal y el pico real final queda holgado.
-  const sonoridad = sonoridadIntegrada(L, R);
-  if (Number.isFinite(sonoridad)) {
-    controlarPicos(L, R, sonoridad + PICO_SOBRE_SONORIDAD_DB);
-    const final = sonoridadIntegrada(L, R);
-    const esc = 10 ** ((SONORIDAD_SINTESIS - final) / 20);
-    for (let n = 0; n < N; n++) {
-      L[n]! *= esc;
-      R[n]! *= esc;
-    }
-  }
-  const izquierda = new Float32Array(N);
-  const derecha = new Float32Array(N);
-  for (let n = 0; n < N; n++) {
-    izquierda[n] = L[n]!;
-    derecha[n] = R[n]!;
-  }
-  return { plan, fm: FM, izquierda, derecha };
+  return { L: padL, R: padR, envioL, envioR };
 }
 
 /** Sonoridad de la síntesis antes de loudnorm (LUFS) y pico máximo sobre la sonoridad (dB). */
@@ -532,39 +541,49 @@ export const PICO_SOBRE_SONORIDAD_DB = 13;
  * Sonoridad integrada según ITU-R BS.1770-4 (ponderación K, bloques de 400 ms con 75 % de traslape, compuerta
  * absoluta de −70 LUFS y relativa de −10 LU), para estéreo a 48 kHz.
  */
+/** Coeficientes de BS.1770 para 48 kHz (b0, b1, b2, a1, a2): estante agudo (+4 dB) y pasaaltos (RLB). */
+const PONDERACION_K = [
+  [1.53512485958697, -2.69169618940638, 1.19839281085285, -1.69065929318241, 0.73248077421585],
+  [1, -2, 1, -1.99004745483398, 0.99007225036621],
+] as const;
+
+/** Las dos etapas de la ponderación K de un canal, muestra a muestra (sin reservar el canal filtrado). */
+function filtroK(): (x: number) => number {
+  const [[b0, b1, b2, a1, a2], [c0, c1, c2, d1, d2]] = PONDERACION_K;
+  let x1 = 0;
+  let x2 = 0;
+  let y1 = 0;
+  let y2 = 0;
+  let u1 = 0;
+  let u2 = 0;
+  let z1 = 0;
+  let z2 = 0;
+  return (xn: number) => {
+    const yn = b0 * xn + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1;
+    x1 = xn;
+    y2 = y1;
+    y1 = yn;
+    const zn = c0 * yn + c1 * u1 + c2 * u2 - d1 * z1 - d2 * z2;
+    u2 = u1;
+    u1 = yn;
+    z2 = z1;
+    z1 = zn;
+    return zn;
+  };
+}
+
 export function sonoridadIntegrada(L: ArrayLike<number>, R: ArrayLike<number>): number {
   const N = L.length;
-  const k = (x: ArrayLike<number>) => {
-    // Coeficientes de BS.1770 para 48 kHz: estante agudo (+4 dB) y pasaaltos (RLB).
-    const etapas = [
-      [1.53512485958697, -2.69169618940638, 1.19839281085285, -1.69065929318241, 0.73248077421585],
-      [1, -2, 1, -1.99004745483398, 0.99007225036621],
-    ];
-    let y: Float64Array = Float64Array.from(x);
-    for (const [b0, b1, b2, a1, a2] of etapas) {
-      const s = new Float64Array(N);
-      let x1 = 0;
-      let x2 = 0;
-      let y1 = 0;
-      let y2 = 0;
-      for (let n = 0; n < N; n++) {
-        const xn = y[n]!;
-        const yn = b0! * xn + b1! * x1 + b2! * x2 - a1! * y1 - a2! * y2;
-        x2 = x1;
-        x1 = xn;
-        y2 = y1;
-        y1 = yn;
-        s[n] = yn;
-      }
-      y = s;
-    }
-    return y;
-  };
-  const kl = k(L);
-  const kr = k(R);
+  const kl = filtroK();
+  const kr = filtroK();
   // Energía acumulada para sumar bloques en O(1).
   const acum = new Float64Array(N + 1);
-  for (let n = 0; n < N; n++) acum[n + 1] = acum[n]! + kl[n]! * kl[n]! + kr[n]! * kr[n]!;
+  for (let n = 0; n < N; n++) {
+    const l = kl(L[n]!);
+    const r = kr(R[n]!);
+    acum[n + 1] = acum[n]! + l * l + r * r;
+  }
   const bloque = Math.round(0.4 * FM);
   const paso = Math.round(0.1 * FM);
   const energias: number[] = [];

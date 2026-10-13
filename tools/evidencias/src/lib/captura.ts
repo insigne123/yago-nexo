@@ -56,6 +56,11 @@ export interface EstadisticasCaptura {
   /** Cuadros distintos por segundo en los segundos con movimiento (p50 y p10). */
   cps_movimiento_p50: number;
   cps_movimiento_p10: number;
+  /**
+   * p90 de lo mismo: lo que rinde la captura cuando la pantalla cambia sin parar (cursor viajando,
+   * desplazamiento). p50 y p10 dependen de la escena: al escribir a 80 ms por letra hay ~12 cambios por segundo.
+   */
+  cps_movimiento_p90?: number;
   /** Mayor intervalo sin cuadro nuevo (s). */
   hueco_max_s: number;
   /** Percentil 95 del intervalo entre cuadros nuevos (s). */
@@ -128,11 +133,11 @@ export class MuestreadorCFR {
   }
 
   /** Cuadros distintos por segundo en los segundos con movimiento (más de 2 cuadros nuevos). */
-  ritmoEnMovimiento(): { p50: number; p10: number } {
+  ritmoEnMovimiento(): { p50: number; p10: number; p90: number } {
     const porSegundo = new Map<number, number>();
     for (const t of this.instantes) porSegundo.set(Math.floor(t), (porSegundo.get(Math.floor(t)) ?? 0) + 1);
     const activos = [...porSegundo.values()].filter((n) => n > 2);
-    return { p50: percentil(activos, 0.5), p10: percentil(activos, 0.1) };
+    return { p50: percentil(activos, 0.5), p10: percentil(activos, 0.1), p90: percentil(activos, 0.9) };
   }
 }
 
@@ -261,6 +266,7 @@ export class Captura {
       cps_efectivos: Math.round((this.m.unicos / Math.max(0.001, dur)) * 10) / 10,
       cps_movimiento_p50: mov.p50,
       cps_movimiento_p10: mov.p10,
+      cps_movimiento_p90: mov.p90,
       hueco_max_s: Math.round(Math.max(0, ...this.m.huecos) * 1000) / 1000,
       hueco_p95_s: Math.round(this.m.percentilHueco(0.95) * 1000) / 1000,
       disco_mb: Math.round((this.bytes / 1048576) * 10) / 10,

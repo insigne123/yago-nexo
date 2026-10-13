@@ -67,7 +67,7 @@ export const guionMotor: Demo = {
 
     await e.paso({
       titulo: AGENDA[2]!,
-      quePasa: "La página baja suavemente hasta el final del inventario; luego se amplía la tabla en vivo (×1,8) y la ampliación sigue al cursor.",
+      quePasa: "La página baja suavemente hasta el final del inventario; luego se amplía la tabla en vivo y la ampliación sigue al cursor.",
       porQueImporta: "La ampliación hace legible el detalle sin editar la imagen: es la misma pantalla en vivo, con minimapa e insignia.",
       comprueba: ["el final del inventario queda a la vista"],
     });

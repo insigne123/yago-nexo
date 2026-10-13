@@ -7,13 +7,14 @@
  * barra de capítulos, la salida del escenario y, en vivo, la pantalla del contexto operado con el cursor
  * resaltado y las ampliaciones. Todas las capas ocurren durante la captura: el video no se edita.
  *
- * Captura propia (src/lib/captura.ts): screencast de Chromium a 30 cps según la hora real de cada cuadro,
- * codificado UNA sola vez a H.264 mientras se graba. Después video.ts mezcla la música con -c:v copy (la
- * imagen no se vuelve a codificar; se comprueba con el MD5 del flujo de video) y escribe subtítulos y
- * capítulos desde el pasos.json que deja este motor.
+ * Captura propia (src/lib/captura.ts): screencast de Chromium (cada cuadro con la hora real en que se dibujó)
+ * llevado a 30 cps constantes según esas horas y codificado UNA sola vez a H.264 al terminar la toma.
+ * Después video.ts mezcla la música con -c:v copy (la imagen no se vuelve a codificar; se comprueba con el
+ * MD5 del flujo de video) y escribe subtítulos y capítulos desde el pasos.json que deja este motor.
  *
  * Si alguna verificación del escenario falla, si aparece un texto prohibido, si un paso dura menos de 7 s o
- * si el video pasa de 240 s, el video se descarta y el proceso termina con error (en ensayo solo se avisa).
+ * si el video pasa de 240 s, el video se descarta y el proceso termina con error (en ensayo solo se avisa;
+ * en un guion que todavía usa c.paso(texto), el mínimo de 7 s y el panel vacío son avisos).
  *
  * API para los guiones: ver `ApiEstudio` (c.estudio.paso, comprueba, clic, escribir, elegir, desplazar,
  * zoom, esperar…) y el contrato de pasos.json en src/lib/pasos.ts.
@@ -29,7 +30,8 @@ import { desdeRaiz, fechaSantiago, isoSantiago, PAQUETE, PRODUCTO, SALIDA, SALID
 import { Estudio, type Medidas } from "./estudio.js";
 import { CLAVE_LAB, dormir, enEnsayo, ENSAYO, reescribirUrlEnsayo, URL_LAB } from "./lab.js";
 import { RegistroPasos, validarPasos, type DefinicionPaso, type PasosJson } from "./pasos.js";
-import { CIERRE_S, esperaParaMinimo, pausaLectura, PASO_MINIMO_S, PORTADA_S, presupuesto, RegistroZoom, TOPE_VIDEO_S } from "./ritmo.js";
+import { arrastreAlCerrar, listaComprobaciones, ordenCierre, type Arrastre, resumenVerificaciones, textoFirma, textoOcultas } from "./panel.js";
+import { CIERRE_S, duracionMinimaMs, esperaAlCerrar, pausaLectura, PASO_MINIMO_S, PORTADA_S, presupuesto, RegistroZoom, TOPE_VIDEO_S } from "./ritmo.js";
 import {
   dentroDeVista,
   distancia,
@@ -125,9 +127,24 @@ export interface OpcionesZoom {
 
 /**
  * API de los guiones (c.estudio). Reglas: cada paso dura al menos 7 s (paso() espera lo que falte, con la
- * imagen en vivo), el mouse siempre se ve viajar (nunca clics instantáneos de Playwright sobre la pantalla
- * grabada), la ampliación vuelve a la vista completa antes de cada pausa y de cada paso, y como máximo el
- * 35 % del video se ve ampliado.
+ * imagen en vivo, y deja 2,5 s a la vista la última verificación), el mouse siempre se ve viajar (nunca
+ * clics instantáneos de Playwright sobre la pantalla grabada), la ampliación vuelve a la vista completa
+ * antes de cada pausa y de cada paso, y como máximo el 35 % del video se ve ampliado. El video completo no
+ * pasa de 240 s (portada 4 s + pasos + cierre 3 s; ver ritmo.ts).
+ *
+ *   const e = c.estudio;
+ *   await e.paso({ titulo: "Aprobación con cuatro ojos", quePasa: "…", porQueImporta: "…", comprueba: ["quien solicita no aprueba"] });
+ *   await e.clic(c.app.getByTestId("btn-approve-rollout"));          // viaja, enmarca 0,6 s, onda
+ *   await e.escribir("#motivo", "Reversa por error 5xx");            // 80 ms por letra, teclado visible
+ *   await e.elegir("#estrategia", "Canary");                         // lista desplegable visible
+ *   await e.zoom(c.app.getByTestId("rollout-weight"), { ms: 2500 }); // ×1,8 en vivo, minimapa e insignia
+ *   e.comprueba("quien solicita no aprueba", r.status === 403, `HTTP ${r.status}`);
+ *   await e.esperar(1500);                                           // pausa de lectura (se escala con --ritmo)
+ *   await c.esperar(30_000);                                         // espera de medición (nunca se escala)
+ *
+ * Otra página operada (p. ej. la persona aprobadora): `const p = await c.nuevaSesion(); await c.mostrar(p);`
+ * y luego `e.clic(objetivo, { pagina: p })`. Las acciones sobre una página que no está en pantalla no se
+ * animan (no se ven en el video).
  */
 export interface ApiEstudio {
   /** URL del estudio (la Consola en http://localhost:5173). */
@@ -219,7 +236,13 @@ export class Contexto {
   private zoomActivo?: ZoomActivo;
   private vigiaZoom?: NodeJS.Timeout;
   private pasoAbriendo = false;
+  /** Hora de la última verificación registrada (para que se lea antes de cambiar de paso). */
+  private ultimaComprobacionMs?: number;
   private avisadoLegado = false;
+  /** Hora de llegada de cada verificación del paso en curso (paralelo a pasos.actual.comprueba). */
+  private llegadas: number[] = [];
+  /** Verificaciones del paso anterior que siguen a la vista en el panel («Comprobado en el paso N»). */
+  private arrastre?: Arrastre;
   readonly avisos: string[] = [];
   readonly vigilante = new Vigilante();
   /** Factor de las pausas de lectura (estudio.esperar). Nunca toca las esperas de medición. */
@@ -282,9 +305,23 @@ export class Contexto {
     await ctx.addInitScript({ path: resolve(PAQUETE, "estudio/cursor.js") });
     if (enEnsayo()) {
       await ctx.route(URL_LAB, async (ruta) => {
-        const r = await ruta.fetch({ url: reescribirUrlEnsayo(ruta.request().url()), maxRedirects: 0 }).catch(() => undefined);
-        if (r) await ruta.fulfill({ response: r });
-        else await ruta.abort();
+        const original = ruta.request().url();
+        const r = await ruta.fetch({ url: reescribirUrlEnsayo(original), maxRedirects: 0 }).catch(() => undefined);
+        if (!r) return ruta.abort();
+        // Chromium no vuelve a interceptar el destino de un 3xx entregado con route.fulfill() (buscaría el host
+        // del laboratorio en el DNS): en una navegación, el 3xx se convierte en una redirección en el navegador,
+        // que sí vuelve a pasar por esta ruta. Las cookies de la respuesta se conservan.
+        const destino = r.headers().location;
+        if (ruta.request().isNavigationRequest() && r.status() >= 300 && r.status() < 400 && destino) {
+          const cookies = r.headersArray().filter((h) => h.name.toLowerCase() === "set-cookie").map((h) => h.value);
+          return ruta.fulfill({
+            status: 200,
+            contentType: "text/html; charset=utf-8",
+            headers: cookies.length ? { "set-cookie": cookies.join("\n") } : {},
+            body: paginaRedireccionEnsayo(new URL(destino, original).toString()),
+          });
+        }
+        return ruta.fulfill({ response: r });
       });
     }
   }
@@ -325,18 +362,57 @@ export class Contexto {
     });
     // Sin reducción: el cuadro llega al tamaño de la ventana operada, que ya es el del área de pantalla.
     await cdp.send("Page.startScreencast", { format: "jpeg", quality: Number(process.env.EVIDENCIAS_Q_OPERADO ?? 85), maxWidth: ANCHO, maxHeight: ALTO, everyNthFrame: Number(process.env.EVIDENCIAS_NTH ?? 2) });
+    // Una página ya cargada y quieta no entrega cuadros hasta que algo se repinta: sin esto el monitor seguiría
+    // mostrando la página anterior (o nada, al empezar el video) hasta el primer movimiento.
+    this.repintarLuego(p, [0, 400]);
     const marcada = p as Page & { __nexoUrl?: boolean };
     if (!marcada.__nexoUrl) {
       marcada.__nexoUrl = true;
       p.on("framenavigated", (f) => {
-        if (f === p.mainFrame() && this.enPantalla === p) this.servidor.publicar({ monitor: { url: f.url(), activo: true } });
+        if (f !== p.mainFrame() || this.enPantalla !== p) return;
+        this.servidor.publicar({ monitor: { url: f.url(), activo: true } });
+        this.repintarLuego(p, [700]);
       });
       p.on("load", () => {
         const pos = this.posiciones.get(p);
         if (pos) p.evaluate((q) => (window as unknown as { __nexoCursor?: { colocar(x: number, y: number): void } }).__nexoCursor?.colocar(q.x, q.y), pos).catch(() => undefined);
+        // Tras una navegación completa el screencast no siempre entrega el documento nuevo si nada cambia.
+        if (this.enPantalla === p) this.repintarLuego(p, [250, 1200]);
       });
     }
     this.servidor.publicar({ monitor: { url: p.url(), activo: true } });
+  }
+
+  /** Programa repintados de la página en pantalla (ms desde ahora). */
+  private repintarLuego(p: Page, demoras: number[]) {
+    for (const ms of demoras)
+      setTimeout(() => {
+        if (this.grabando && this.enPantalla === p && !p.isClosed()) void this.repintar(p);
+      }, ms);
+  }
+
+  /**
+   * Fuerza un cuadro nuevo del screencast: CDP solo entrega cuadros cuando la página se repinta. Agrega por dos
+   * cuadros de animación un punto de 2 px casi transparente en la esquina (no se distingue en el video).
+   */
+  async repintar(p: Page): Promise<void> {
+    await p
+      .evaluate(
+        () =>
+          new Promise<void>((listo) => {
+            const d = document.createElement("div");
+            d.setAttribute("aria-hidden", "true");
+            d.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;background:rgba(128,128,128,0.03);pointer-events:none;z-index:2147483646";
+            (document.body ?? document.documentElement).appendChild(d);
+            const fin = () => {
+              d.remove();
+              listo();
+            };
+            requestAnimationFrame(() => requestAnimationFrame(fin));
+            setTimeout(fin, 500);
+          }),
+      )
+      .catch(() => undefined);
   }
 
   /** Tamaño de la ventana operada en una vista: el área de pantalla medida por la narradora (1:1). */
@@ -462,20 +538,36 @@ export class Contexto {
     }
   }
 
-  /** Cierra el paso en curso cuando cumplió su mínimo (vuelve antes a la vista completa). */
+  /**
+   * Cierra el paso en curso cuando cumplió su mínimo (vuelve antes a la vista completa) y cuando su última
+   * verificación lleva a la vista al menos 2,5 s (si el video no está cerca del tope).
+   */
   async cerrarPaso(): Promise<void> {
     const actual = this.pasos.actual;
     if (!actual || actual.finMs !== undefined) return;
     await this.reducir();
     const minimo = Math.max(PASO_MINIMO_S, actual.def.minimoS ?? PASO_MINIMO_S);
-    const falta = this.grabando ? esperaParaMinimo(actual.inicioMs, Date.now(), minimo) : 0;
+    const ahora = Date.now();
+    const falta = this.grabando
+      ? esperaAlCerrar({
+          inicioMs: actual.inicioMs,
+          ahoraMs: ahora,
+          minimoS: minimo,
+          ...(this.ultimaComprobacionMs !== undefined ? { ultimaComprobacionMs: this.ultimaComprobacionMs } : {}),
+          restantesS: presupuesto(this.inicio, ahora).restantes,
+        })
+      : 0;
     if (falta > 0) await dormir(falta);
     this.pasos.cerrar(Date.now());
   }
 
   private publicarPaso(def: DefinicionPaso): number {
     for (const t of [def.titulo, def.quePasa, def.porQueImporta, ...(def.comprueba ?? [])]) this.vigilar("panel", t);
-    const n = this.pasos.abrir(def, Date.now());
+    const previo = this.pasos.actual;
+    const abre = Date.now();
+    this.arrastre = previo ? arrastreAlCerrar(previo.n, previo.def.comprueba ?? [], previo.comprueba, this.llegadas, abre) : undefined;
+    const n = this.pasos.abrir(def, abre);
+    this.llegadas = (this.pasos.actual?.comprueba ?? []).map(() => abre);
     const total = Math.max(this.totalPasos, n);
     const agenda = this.demo.agenda;
     if (agenda && agenda[n - 1] !== undefined && agenda[n - 1] !== def.titulo) this.avisar(`el paso ${n} se titula «${def.titulo}» y la agenda dice «${agenda[n - 1]}»`);
@@ -483,6 +575,7 @@ export class Contexto {
     const ahora = Date.now();
     this.servidor.publicar({
       paso: { n, total, titulo: def.titulo, quePasa: def.quePasa, porQueImporta: def.porQueImporta, comprueba: def.comprueba ?? [], inicioMs: ahora, comprobado: [] },
+      comprobaciones: this.comprobacionesPanel(),
       capitulos: { total, actual: n, agenda: agenda ?? this.pasos.titulos(), inicioPaso: ahora, minimoS: Math.max(PASO_MINIMO_S, def.minimoS ?? PASO_MINIMO_S) },
       rotulo: { paso: `Paso ${n} de ${total}`, texto: def.titulo },
     });
@@ -494,6 +587,27 @@ export class Contexto {
     return n;
   }
 
+  /** «Se comprueba» del paso en curso para el panel lateral: lo declarado más lo verificado en vivo (V04). */
+  private comprobacionesPanel() {
+    const a = this.pasos.actual;
+    const l = listaComprobaciones(a?.def.comprueba ?? [], a?.comprueba ?? []);
+    const ahora = Date.now();
+    const ar = this.arrastre;
+    const vigente = ar && (ar.hastaMs === undefined || ar.hastaMs > ahora);
+    return {
+      items: l.items,
+      resumen: textoOcultas(l),
+      ocultasOk: l.ocultasOk,
+      ocultasPendientes: l.ocultasPendientes,
+      ...(vigente ? { anterior: { n: ar.n, items: ar.items, ...(ar.hastaMs !== undefined ? { quedaMs: ar.hastaMs - ahora } : {}) } } : {}),
+    };
+  }
+
+  /** true si el guion usó c.paso(texto) (API anterior, sin panel ni mínimo de 7 s garantizado). */
+  get usaApiAnterior(): boolean {
+    return this.avisadoLegado;
+  }
+
   /** Compatibilidad: avanza al paso siguiente sin esperar el mínimo (use await c.estudio.paso({...})). */
   paso(texto: string) {
     if (!this.avisadoLegado) {
@@ -501,7 +615,9 @@ export class Contexto {
       this.avisar(`${this.demo.id}: guion con c.paso(texto); use await c.estudio.paso({ titulo, quePasa, porQueImporta }) para el panel y el mínimo de 7 s`);
     }
     this.pasos.cerrar(Date.now());
-    this.publicarPaso({ titulo: texto, quePasa: "", porQueImporta: "" });
+    // Sin narración propia: «qué pasa» es el mismo texto del paso y «por qué importa», la afirmación que
+    // demuestra el video (ambos ya aprobados y visibles antes). Así el pasos.json cumple el contrato.
+    this.publicarPaso({ titulo: texto, quePasa: texto, porQueImporta: this.demo.afirmacion });
   }
 
   /** Cambia el texto del rótulo sin avanzar de paso. */
@@ -512,11 +628,14 @@ export class Contexto {
   }
 
   comprobar(texto: string, ok: boolean, valor?: string | number): boolean {
+    this.ultimaComprobacionMs = Date.now();
     const detalle = valor === undefined || valor === "" ? undefined : String(valor);
     this.vigilar("comprobación", `${texto} ${detalle ?? ""}`);
     this.verificaciones.push({ texto, ok, ...(detalle !== undefined ? { detalle } : {}) });
     const n = this.pasos.comprobar({ texto, ok, ...(valor !== undefined ? { valor } : {}) });
+    if (this.pasos.actual) this.llegadas[this.pasos.actual.comprueba.length - 1] = Date.now();
     this.servidor.evento("comprobado", { paso: n, texto, ok, valor, t: this.grabando ? Math.round(this.segundos() * 1000) / 1000 : 0 });
+    this.servidor.publicar({ comprobaciones: this.comprobacionesPanel() });
     this.log(`${ok ? "✓" : "✗"} ${texto}${detalle ? ` — ${detalle}` : ""}`, ok ? "ok" : "mal");
     return ok;
   }
@@ -980,6 +1099,11 @@ export class Contexto {
   }
 }
 
+/** Página que redirige en el navegador (ensayo): la navegación siguiente vuelve a pasar por context.route(). */
+export function paginaRedireccionEnsayo(destino: string): string {
+  return `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${escaparHtml(destino)}"><script>location.replace(${JSON.stringify(destino).replace(/</g, "\\u003c")})</script>`;
+}
+
 export function escaparHtml(t: string): string {
   return t.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
 }
@@ -1075,7 +1199,7 @@ export interface OpcionesGrabacion {
   soloCaptura?: boolean;
   /** Carpeta de trabajo temporal (por defecto la del sistema). */
   temporal?: string;
-  /** Solo para la prueba de rendimiento: duración de la portada y del cierre (por defecto 11 y 14 s). */
+  /** Solo para la prueba de rendimiento: duración de la portada y del cierre (por defecto PORTADA_S y CIERRE_S de ritmo.ts). */
   portadaS?: number;
   cierreS?: number;
 }
@@ -1121,6 +1245,7 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
   const navegador = o.navegador ?? (await lanzarNavegador());
   const c = new Contexto(demo, servidor, o.meta, archivos);
   c.navegador = navegador;
+  c.zooms.minimoTotalMs = duracionMinimaMs(demo.agenda?.length ?? demo.pasos, o.portadaS ?? PORTADA_S, o.cierreS ?? CIERRE_S);
   c.ritmo = o.ritmo ?? 1;
   let narrador: BrowserContext | undefined;
   let captura: Captura | undefined;
@@ -1138,16 +1263,21 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
     c.narrador = pn;
     const total = demo.agenda?.length ?? demo.pasos;
     const commits = `commit ${o.meta.commitProducto} · grabación ${o.meta.commitHerramientas}`;
+    const firma = textoFirma({ producto: PRODUCTO, version: o.meta.version, commitProducto: o.meta.commitProducto, commitHerramientas: o.meta.commitHerramientas });
     servidor.publicar({
       vista: "portada",
       ensayo,
       chip: demo.id,
-      banner: { producto: `${PRODUCTO} ${o.meta.version} · ${commits}`, ambiente: o.meta.ambiente, commits, version: o.meta.version, ensayo },
+      banner: { producto: `${PRODUCTO} ${o.meta.version}`, ambiente: o.meta.ambiente, commits, version: o.meta.version, ensayo },
+      firma: { texto: firma, producto: PRODUCTO, version: o.meta.version, commitProducto: o.meta.commitProducto, commitHerramientas: o.meta.commitHerramientas },
       portada: {
         id: demo.id,
         nombre: demo.nombre,
         version: `${PRODUCTO} ${o.meta.version} (commit ${o.meta.commitProducto}; herramientas de grabación ${o.meta.commitHerramientas})`,
         producto: PRODUCTO,
+        versionCorta: o.meta.version,
+        commitProducto: o.meta.etiquetaExiste ? `${o.meta.commitProducto} (etiqueta ${o.meta.etiqueta})` : o.meta.commitProducto,
+        commitHerramientas: `${o.meta.commitHerramientas} (herramientas de grabación)`,
         commits,
         fecha: fechaSantiago(fechaGrabacion),
         ambiente: o.meta.ambiente,
@@ -1202,20 +1332,28 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
       if (ensayo) c.avisar(`(ensayo) ${msg}`);
       else throw new Error(msg);
     }
+    if (c.pasos.cantidad && c.pasos.cantidad < total) c.avisar(`${demo.id}: el guion anunció ${total} pasos y abrió ${c.pasos.cantidad} (la barra de capítulos mostró «de ${total}» durante el video)`);
     const ok = fallidas.length === 0;
+    const cumplidas = `${c.verificaciones.filter((v) => v.ok).length} de ${c.verificaciones.length} verificaciones automáticas cumplidas`;
+    const nota = ensayo
+      ? `ENSAYO sin laboratorio: páginas y respuestas simuladas por el servidor de ensayo · ${cumplidas} sobre esas páginas · no es evidencia y no se publica`
+      : `${cumplidas} · grabación continua de ${Math.round(c.segundos())} s, sin cortes ni aceleración · capas agregadas: ${CAPAS.join(", ")} (la música se mezcla al final sin recodificar la imagen) · SHA-256 en yago-nexo.web.app/evidencias`;
     servidor.publicar({
       vista: "resultado",
       rotulo: { paso: "", texto: `${demo.id} · resultado: ${resultado.medido}` },
-      capitulos: { total: Math.max(total, c.pasos.cantidad), actual: Math.max(total, c.pasos.cantidad) + 1, agenda: demo.agenda ?? c.pasos.titulos(), minimoS: PASO_MINIMO_S },
+      // Al cierre, la barra muestra los pasos que de verdad ocurrieron (nunca un capítulo ✓ que no se grabó).
+      capitulos: { total: c.pasos.cantidad || total, actual: (c.pasos.cantidad || total) + 1, agenda: c.pasos.cantidad ? c.pasos.titulos() : (demo.agenda ?? []), minimoS: PASO_MINIMO_S },
       resultado: {
         ok,
         titulo: `${demo.id} · ${demo.nombre}`,
+        resumen: resumenVerificaciones(c.verificaciones).texto,
         medido: resultado.medido,
-        verificaciones: c.verificaciones.map((v) => ({ ok: v.ok, texto: v.detalle ? `${v.texto}: ${v.detalle}` : v.texto })),
-        porPagina: 6,
+        verificaciones: ordenCierre(c.verificaciones).map((v) => ({ ok: v.ok, texto: v.detalle ? `${v.texto}: ${v.detalle}` : v.texto })),
+        porPagina: 14,
         segundos: o.cierreS ?? CIERRE_S,
         capas: [...CAPAS],
-        nota: `${c.verificaciones.filter((v) => v.ok).length} de ${c.verificaciones.length} verificaciones automáticas cumplidas · grabación continua de ${Math.round(c.segundos())} s, sin cortes ni aceleración · capas en vivo: ${CAPAS.join(", ")} · SHA-256 en yago-nexo.web.app/evidencias`,
+        nota,
+        ...(ensayo ? { sobretitulo: "Resultado del ensayo · datos simulados" } : {}),
       },
     });
     await dormir((o.cierreS ?? CIERRE_S) * 1000);
@@ -1264,11 +1402,17 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
     pasos: c.pasos.pasos(finPasosMs || finVideoMs),
   };
   console.log(
-    `  captura: ${stats.ancho}×${stats.alto} a ${stats.cps} cps · ${stats.duracion_s.toFixed(1)} s · ${stats.cuadros_unicos} cuadros distintos de ${stats.cuadros_video} (con movimiento: p50 ${stats.cps_movimiento_p50}/s, p10 ${stats.cps_movimiento_p10}/s) · hueco máx. ${stats.hueco_max_s} s · ${stats.disco_mb} MB de cuadros · H.264 en ${stats.codificacion_s} s`,
+    `  captura: ${stats.ancho}×${stats.alto} a ${stats.cps} cps · ${stats.duracion_s.toFixed(1)} s · ${stats.cuadros_unicos} cuadros distintos de ${stats.cuadros_video} (con movimiento: p90 ${stats.cps_movimiento_p90 ?? "?"}/s, p50 ${stats.cps_movimiento_p50}/s, p10 ${stats.cps_movimiento_p10}/s) · hueco máx. ${stats.hueco_max_s} s · ${stats.disco_mb} MB de cuadros · H.264 en ${stats.codificacion_s} s`,
   );
   if (o.soloCaptura) return { captura: stats, pasos, sinMusica, avisos: c.avisos };
 
-  const problemas = validarPasos(pasos);
+  const todos = validarPasos(pasos);
+  // Un guion con la API anterior (c.paso(texto), síncrona) no puede esperar el mínimo de 7 s: aquí queda como
+  // aviso (verificar.ts lo exige al publicar) hasta que el guion pase a await c.estudio.paso({...}).
+  // Todo lo demás (tope de 240 s, verificaciones fallidas, commits) sigue siendo error.
+  const blando = (p: string) => c.usaApiAnterior && /^paso \d+ dura .*\(mínimo/.test(p);
+  for (const p of todos.filter(blando)) c.avisar(`pasos.json (guion con c.paso(); migrar a await c.estudio.paso({...})): ${p}`);
+  const problemas = todos.filter((p) => !blando(p));
   if (problemas.length) {
     if (ensayo) for (const p of problemas) c.avisar(`(ensayo) pasos.json: ${p}`);
     else {
@@ -1277,7 +1421,8 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
     }
   }
   mkdirSync(carpeta, { recursive: true });
-  writeFileSync(join(carpeta, `${demo.archivo}.pasos.json`), `${JSON.stringify(pasos, null, 2)}\n`);
+  const archivoPasos = join(carpeta, `${demo.archivo}.pasos.json`);
+  writeFileSync(archivoPasos, `${JSON.stringify(pasos, null, 2)}\n`);
   let publicacion: Publicacion;
   try {
     publicacion = await terminarVideo({
@@ -1289,6 +1434,10 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
       pasos,
       temporal: trabajo,
     });
+  } catch (e) {
+    // Sin video no queda un pasos.json suelto (lo leerían el sitio y verificar.ts).
+    rmSync(archivoPasos, { force: true });
+    throw e;
   } finally {
     rmSync(trabajo, { recursive: true, force: true });
   }

@@ -1,7 +1,7 @@
 /**
  * Codificación, música y medición de los videos con ffmpeg/ffprobe.
  *
- * Formato publicado (único): MP4 con H.264 (yuv420p, CRF 20, BT.709, +faststart) y AAC estéreo de 160 kb/s.
+ * Formato publicado (único): MP4 con H.264 (yuv420p, CRF 21, BT.709, +faststart) y AAC estéreo de 160 kb/s.
  *
  *   captura ──► transcodificar() o codificadorCuadros() ──► <nombre>.sin-musica.mp4   (la imagen se codifica UNA vez)
  *           ──► terminarVideo() ──► <nombre>.mp4             música mezclada con -c:v copy: la imagen no se toca
@@ -55,11 +55,22 @@ export interface OpcionesH264 {
   hilos?: number;
 }
 
+/** CRF por defecto del formato publicado. */
+export const CRF_POR_DEFECTO = 21;
+
+/** CRF de x264 desde el entorno, acotado a 18–26 (fuera de rango o vacío: CRF_POR_DEFECTO). */
+export function crfDesdeEntorno(v: string | undefined): number {
+  const n = Number(v);
+  return v !== undefined && v.trim() !== "" && Number.isInteger(n) && n >= 18 && n <= 26 ? n : CRF_POR_DEFECTO;
+}
+
 export const H264: Required<OpcionesH264> = {
   ancho: 1920,
   alto: 1080,
   cps: 30,
-  crf: 20,
+  // CRF 21: el diseño de 1080p a 30 cps reales dio ~1,55 Mb/s con CRF 20 (el plan pide ≤ 1,5 Mb/s con audio).
+  // EVIDENCIAS_CRF (18–26) lo cambia.
+  crf: crfDesdeEntorno(process.env.EVIDENCIAS_CRF),
   preset: process.env.EVIDENCIAS_PRESET ?? "medium",
   hilos: 4,
 };

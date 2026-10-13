@@ -8,8 +8,16 @@
 //   - #m-img dentro de un contenedor que es el área visible de la pantalla operada: el motor ajusta la
 //     ventana del navegador operado al tamaño de ese contenedor en cada vista (1 píxel = 1 píxel) y le
 //     agrega la ampliación (insignia, minimapa) y el teclado visible.
-//   - Ids que se llenan si existen (ver aplicar()): banner b-*, chip b-chip, portada p-*, panel lateral l-*,
-//     capítulos c-*, resultado r-*, terminal t-*, panel libre panel-cuerpo.
+//   - Ids que se llenan si existen (ver aplicar()): banner b-* (b-producto, b-nombre, b-ambiente, b-reloj),
+//     chip b-chip, portada p-* (p-id, p-nombre, p-afirmacion, p-agenda, p-producto, p-version-corta,
+//     p-commit, p-herramientas, p-fecha, p-ambiente, p-capas), panel lateral l-* (l-paso, l-titulo, l-que,
+//     l-porque, l-lista = «Se comprueba» unido por el motor, l-indicadores, l-terminal), capítulos c-barra y
+//     c-reloj, firma f-texto, resultado r-* (r-resumen, r-medido, r-verificaciones, r-pagina, r-nota),
+//     terminal t-*, panel libre panel-cuerpo. #lateral recibe .cambio (animación al abrir un paso) y .repite
+//     (cuando «qué pasa» repite el título).
+//   - Estado del panel (V04) que publica el motor: paso {n, total, titulo, quePasa, porQueImporta, comprueba},
+//     comprobaciones {items: [{clave, texto, estado: pendiente|ok|mal, valor?}], ocultasOk, ocultasPendientes,
+//     resumen, anterior?: {n, items, quedaMs?}} (src/lib/panel.ts), indicadores {nombre: valor}, firma {texto}.
 //   - Cada cambio se emite también como evento de window: «estudio:estado» (detalle = cambios) y
 //     «estudio:<tipo>» para los eventos puntuales (linea, limpiar, comprobado), y window.estudio.estado
 //     guarda el estado completo, para que el diseño agregue lo que necesite sin tocar este archivo.
@@ -97,17 +105,36 @@
     #motor-teclado .campo { color: #9fb3c8; font: 13px/1.2 "Liberation Sans", Arial, sans-serif; }
     #motor-teclado .texto { overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
     #motor-teclado .texto bdi { direction: ltr; }
-    #motor-teclado .caret { display: inline-block; width: 2px; height: 1.05em; margin-left: 1px; background: #ffcd00; vertical-align: -2px; animation: caret 1s steps(1) infinite; }
+    #motor-teclado .caret { display: inline-block; flex: none; width: 2px; height: 1.05em; margin-left: -8px; background: #ffcd00; vertical-align: -2px; animation: caret 1s steps(1) infinite; }
     #motor-teclado kbd { display: inline-block; min-width: 26px; padding: 3px 7px; border-radius: 5px; background: #f5f7fa; color: #1b2430;
       border-bottom: 3px solid #b6c0cc; font: bold 14px/1 "Liberation Sans", Arial, sans-serif; text-align: center; }
     #motor-teclado kbd.pulsada { background: #ffcd00; border-bottom-color: #b08d00; }
     @keyframes caret { 50% { opacity: 0; } }
-    #motor-lateral { position: absolute; z-index: 4; background: #0f1d30; border: 1px solid #23405f; border-radius: 8px; padding: 12px 14px;
-      color: #e8eef6; font: 13.5px/1.35 "Liberation Sans", "DejaVu Sans", Arial, sans-serif; overflow: hidden; display: none; }
-    body[data-vista="dividido"] #motor-lateral, body[data-vista="panel"] #motor-lateral { display: block; }
+    #motor-lateral { position: absolute; z-index: 4; background: #0f1d30; border: 1px solid #23405f; border-radius: 8px; padding: 10px 14px;
+      color: #e8eef6; font: 12.5px/1.3 "Liberation Sans", "DejaVu Sans", Arial, sans-serif; overflow: hidden; display: none;
+      flex-direction: column; }
+    body[data-vista="dividido"] #motor-lateral, body[data-vista="panel"] #motor-lateral { display: flex; }
+    #motor-lateral > * { flex: none; }
+    #motor-lateral #l-que, #motor-lateral #l-porque { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+    #motor-lateral #l-titulo { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+    #motor-lateral #l-porque { -webkit-line-clamp: 2; }
+    #motor-lateral #l-se-comprueba { flex: 0 1 auto; min-height: 0; overflow: hidden; }
+    #motor-lateral #l-se-comprueba li { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+    #motor-lateral #l-se-comprueba li:nth-child(n+3) { display: none; }
+    #motor-lateral #l-comprobado li:nth-last-child(n+4) { display: none; }
+    #motor-lateral #l-comprobado li { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+    #motor-lateral .relleno { flex: 1 1 0; min-height: 0; }
+    body.motor-compat[data-vista="dividido"] #terminal { top: 342px !important; height: 268px !important; }
+    body.motor-compat[data-vista="panel"] #panel { top: 342px !important; height: 268px !important; }
+    body.motor-compat #panel-cuerpo img { max-height: 100% !important; }
+    #motor-portada-extra { margin: 16px 0 0; font-size: 14px; color: #cfdced; }
+    #motor-portada-extra .etiqueta { margin: 0 0 4px; font-size: 12px; color: #9fb3c8; text-transform: uppercase; letter-spacing: .08em; }
+    #motor-portada-extra ol { margin: 0 0 10px; padding-left: 22px; columns: 2; column-gap: 28px; }
+    #motor-portada-extra li { margin: 0 0 3px; break-inside: avoid; }
+    #motor-portada-extra #p-capas { margin: 0; color: #9fb3c8; }
     #motor-lateral #l-paso { color: #5aa9ff; font-weight: bold; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; }
-    #motor-lateral #l-titulo { margin: 4px 0 8px; font-size: 16px; font-weight: bold; }
-    #motor-lateral h4 { margin: 8px 0 2px; color: #9fb3c8; font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; }
+    #motor-lateral #l-titulo { margin: 3px 0 4px; font-size: 15.5px; line-height: 1.25; font-weight: bold; }
+    #motor-lateral h4 { margin: 6px 0 1px; color: #9fb3c8; font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; }
     #motor-lateral p { margin: 0; }
     #motor-lateral ul { margin: 0; padding: 0; list-style: none; }
     #motor-lateral li { margin: 2px 0; }
@@ -161,6 +188,10 @@
     b.id = "motor-ensayo-marca";
     b.innerHTML = "<span>ENSAYO</span>";
     document.body.appendChild(b);
+    // Nada falso en pantalla: la portada del diseño dice «Demostración registrada» y «contra el laboratorio».
+    for (const el of document.querySelectorAll("#portada .sobretitulo, #p-sobretitulo")) el.textContent = "Ensayo del motor · no es evidencia";
+    for (const el of document.querySelectorAll("#portada .nota, #p-nota"))
+      el.textContent = "ENSAYO sin laboratorio: páginas y respuestas simuladas por un servidor local. Sirve solo para probar el motor de grabación; no es evidencia y no se publica.";
   }
 
   function asegurarChip(id) {
@@ -188,11 +219,26 @@
     if (!principal) return;
     const l = document.createElement("section");
     l.id = "motor-lateral";
-    l.style.cssText = "left:882px;top:10px;width:388px;max-height:330px;";
+    l.style.cssText = "left:882px;top:10px;width:388px;height:324px;";
     l.innerHTML =
       '<div id="l-paso"></div><div id="l-titulo"></div><h4>Qué está pasando</h4><p id="l-que"></p>' +
-      '<h4>Por qué importa</h4><p id="l-porque"></p><h4>Se comprueba</h4><ul id="l-se-comprueba"></ul><h4>Comprobado</h4><ul id="l-comprobado"></ul>';
+      '<h4>Por qué importa</h4><p id="l-porque"></p><h4>Se comprueba</h4><ul id="l-se-comprueba"></ul><div class="relleno"></div>' +
+      '<h4>Comprobado</h4><ul id="l-comprobado"></ul>';
     principal.appendChild(l);
+    document.body.classList.add("motor-compat");
+  }
+
+  // Portada de compatibilidad: agenda de pasos y capas declaradas (V07/V10) si el diseño no las trae.
+  function asegurarPortadaCompat() {
+    if (!compat || $("p-agenda") || $("p-capas")) return;
+    const cuerpo = document.querySelector("#portada .tarjeta-cuerpo") || $("portada");
+    if (!cuerpo) return;
+    const extra = document.createElement("div");
+    extra.id = "motor-portada-extra";
+    extra.innerHTML = '<p class="etiqueta">Pasos</p><ol id="p-agenda"></ol><p id="p-capas"></p>';
+    const nota = cuerpo.querySelector(".nota");
+    if (nota) nota.before(extra);
+    else cuerpo.appendChild(extra);
   }
 
   // ── Ampliación en vivo (V05) ────────────────────────────────────────────────────────────────────────
@@ -215,7 +261,7 @@
     img.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${f})`;
     insignia.querySelector("span").textContent = zoom.insignia || "Ampliación · imagen en vivo";
     insignia.classList.add("visible");
-    const ancho = 236;
+    const ancho = compat ? 236 : 330;
     mini.width = ancho;
     mini.height = Math.round((ancho * zoom.vista.height) / zoom.vista.width);
     minimapa.classList.add("visible");
@@ -225,7 +271,10 @@
     if (!zoom.activo || !mini || !zoom.vista) return;
     const ctx = mini.getContext("2d");
     try {
-      ctx.drawImage(img, 0, 0, zoom.vista.width, zoom.vista.height, 0, 0, mini.width, mini.height);
+      // El cuadro puede venir a más píxeles que la vista (escala de la ventana operada): se usa entero.
+      const nw = img.naturalWidth || zoom.vista.width;
+      const nh = img.naturalHeight || zoom.vista.height;
+      ctx.drawImage(img, 0, 0, nw, nh, 0, 0, mini.width, mini.height);
     } catch {
       ctx.fillStyle = "#dfe6ee";
       ctx.fillRect(0, 0, mini.width, mini.height);
@@ -276,10 +325,11 @@
       const bdi = document.createElement("bdi");
       bdi.textContent = t.texto || "";
       s.appendChild(bdi);
+      teclado.appendChild(s);
+      // El cursor de texto va fuera del recorte (que es de derecha a izquierda): siempre tras la última letra.
       const caret = document.createElement("i");
       caret.className = "caret";
-      s.appendChild(caret);
-      teclado.appendChild(s);
+      teclado.appendChild(caret);
     }
     teclado.classList.add("visible");
   }
@@ -345,6 +395,143 @@
       for (const c of p.comprobado || []) agregarComprobado(c, false);
     }
     document.body.dataset.paso = String(p.n || 0);
+    const lateral = $("lateral");
+    if (lateral) {
+      const norm = (t) => String(t || "").trim().toLowerCase();
+      lateral.classList.toggle("repite", !!p.quePasa && norm(p.quePasa) === norm(p.titulo));
+      if (lateral.dataset.n !== String(p.n)) {
+        lateral.dataset.n = String(p.n);
+        clavesLista = new Map();
+        lateral.classList.remove("cambio");
+        void lateral.offsetWidth; // reinicia la animación de entrada del paso nuevo
+        lateral.classList.add("cambio");
+      }
+    }
+  }
+
+  // «Se comprueba» (diseño de 1920×1080): lo declarado y lo verificado en vivo, ya unido por el motor
+  // (src/lib/panel.ts). Solo se anima lo que cambia; una ✗ nunca se oculta (el motor no la recorta).
+  let clavesLista = new Map();
+  let ultimaLista;
+  // soloLista: vuelve a acomodar la lista (cambió el espacio del panel) sin tocar «Comprobado en el paso N».
+  function aplicarComprobaciones(c, soloLista = false) {
+    const ul = $("l-lista");
+    if (!ul || !c) return;
+    ultimaLista = c;
+    const antes = clavesLista;
+    clavesLista = new Map();
+    ul.innerHTML = "";
+    for (const it of c.items || []) {
+      const li = document.createElement("li");
+      const cambio = antes.has(it.clave) ? antes.get(it.clave) !== it.estado : it.estado !== "pendiente";
+      li.className = `${it.estado}${cambio && it.estado !== "pendiente" ? " nuevo" : ""}`;
+      const t = document.createElement("span");
+      t.className = "t";
+      t.textContent = it.texto;
+      li.appendChild(t);
+      if (it.valor !== undefined && it.valor !== "") {
+        const v = document.createElement("span");
+        v.className = "v";
+        v.textContent = it.valor;
+        li.appendChild(v);
+      }
+      ul.appendChild(li);
+      clavesLista.set(it.clave, it.estado);
+    }
+    if (!soloLista) aplicarAnterior(c.anterior);
+    ajustarLista(ul, c);
+  }
+  const reacomodar = () => ultimaLista && aplicarComprobaciones(ultimaLista, true);
+
+  // Si la lista no cabe en el panel, se resumen primero las cumplidas más antiguas y después las pendientes
+  // del final (como recortar() en src/lib/panel.ts); una ✗ nunca se oculta.
+  // Antes de resumir lo del paso en curso se achica «Comprobado en el paso N» (queda su verificación más reciente
+  // y las ✗): lo que se comprueba ahora tiene prioridad sobre lo que ya se leyó en vivo en el paso anterior.
+  // El resumen de las cumplidas va arriba (son las más antiguas) y el de las pendientes, abajo (son las últimas).
+  function ajustarLista(ul, c) {
+    let ok = c.ocultasOk || 0;
+    let pendientes = c.ocultasPendientes || 0;
+    const arriba = document.createElement("li");
+    arriba.className = "resumen-oculto";
+    const abajo = document.createElement("li");
+    abajo.className = "resumen-oculto";
+    const escribir = () => {
+      arriba.textContent = ok ? `+ ${ok} ${ok === 1 ? "cumplida" : "cumplidas"} antes ✓` : "";
+      abajo.textContent = pendientes ? `+ ${pendientes} más por comprobar` : "";
+      if (ok && !arriba.isConnected) ul.prepend(arriba);
+      if (pendientes && !abajo.isConnected) ul.append(abajo);
+    };
+    escribir();
+    if (!c.ocultasOk && !c.ocultasPendientes && c.resumen) {
+      arriba.textContent = c.resumen;
+      ul.prepend(arriba);
+    }
+    const sobra = () => ul.scrollHeight > ul.clientHeight + 1;
+    const anterior = $("l-anterior");
+    const bloqueAnterior = $("l-bloque-anterior");
+    for (let vuelta = 0; vuelta < 40 && sobra(); vuelta++) {
+      if (bloqueAnterior && bloqueAnterior.classList.contains("visible") && anterior) {
+        const previos = [...anterior.children].filter((li) => !li.classList.contains("no-cabe"));
+        const viejo = previos.length > 1 ? previos.find((li) => !li.classList.contains("mal")) : undefined;
+        if (viejo) {
+          viejo.classList.add("no-cabe");
+          continue;
+        }
+        if (!bloqueAnterior.classList.contains("compacto")) {
+          bloqueAnterior.classList.add("compacto");
+          continue;
+        }
+        // Sin ✗ que mostrar, el recuadro del paso anterior cede su lugar (sus ✓ ya se leyeron en vivo).
+        if (!previos.some((li) => li.classList.contains("mal")) && !bloqueAnterior.classList.contains("sin-espacio")) {
+          bloqueAnterior.classList.add("sin-espacio");
+          continue;
+        }
+      }
+      if (ul.clientHeight <= 0) break;
+      const vivos = [...ul.children].filter((li) => li !== arriba && li !== abajo && !li.classList.contains("no-cabe"));
+      const cumplida = vivos.find((li) => li.classList.contains("ok"));
+      const pendiente = [...vivos].reverse().find((li) => li.classList.contains("pendiente"));
+      const quitar = cumplida || pendiente;
+      if (!quitar) break; // solo quedan ✗: se ven todas
+      quitar.classList.add("no-cabe");
+      if (quitar === cumplida) ok++;
+      else pendientes++;
+      escribir();
+    }
+  }
+
+  // «Comprobado en el paso N»: lo verificado justo antes de cambiar de paso sigue unos segundos a la vista
+  // (las ✗ durante todo el paso siguiente). El motor decide qué y cuánto (src/lib/panel.ts, arrastreAlCerrar).
+  let finAnterior;
+  function aplicarAnterior(a) {
+    const bloque = $("l-bloque-anterior");
+    const ul = $("l-anterior");
+    if (!bloque || !ul) return;
+    clearTimeout(finAnterior);
+    if (!a || !(a.items || []).length) {
+      bloque.classList.remove("visible");
+      return;
+    }
+    texto("l-anterior-titulo", `Comprobado en el paso ${a.n}`);
+    const firma = JSON.stringify(a.items);
+    bloque.classList.remove("compacto", "sin-espacio");
+    for (const li of ul.children) li.classList.remove("no-cabe");
+    if (ul.dataset.firma !== firma) {
+      ul.dataset.firma = firma;
+      ul.innerHTML = "";
+      for (const it of a.items) {
+        const li = document.createElement("li");
+        li.className = it.estado;
+        li.textContent = `${it.estado === "mal" ? "✗" : "✓"} ${it.texto}${it.valor ? ` · ${it.valor}` : ""}`;
+        ul.appendChild(li);
+      }
+    }
+    bloque.classList.add("visible");
+    if (a.quedaMs !== undefined)
+      finAnterior = setTimeout(() => {
+        bloque.classList.remove("visible");
+        reacomodar();
+      }, Math.max(0, a.quedaMs));
   }
   function agregarComprobado(c, nuevo = true) {
     const ul = $("l-comprobado");
@@ -363,7 +550,14 @@
       dt.textContent = k;
       const dd = document.createElement("dd");
       dd.textContent = String(v);
-      dl.append(dt, dd);
+      if (compat) dl.append(dt, dd);
+      else {
+        // Diseño de 1920×1080: cada indicador en su recuadro (dt/dd dentro de un div, válido en <dl>).
+        const caja = document.createElement("div");
+        caja.className = "ind";
+        caja.append(dt, dd);
+        dl.appendChild(caja);
+      }
     }
   }
   function pintarCapitulos() {
@@ -380,6 +574,12 @@
         seg.title = (caps.agenda || [])[i - 1] || "";
         const relleno = document.createElement("i");
         seg.appendChild(relleno);
+        if (!compat) {
+          const num = document.createElement("b");
+          num.textContent = String(i);
+          const nombre = document.createElement("span");
+          seg.append(num, nombre);
+        }
         barra.appendChild(seg);
       }
     }
@@ -387,6 +587,10 @@
     const minimo = caps.minimoS || 7;
     for (const seg of barra.children) {
       const n = Number(seg.dataset.n);
+      const nombre = seg.querySelector("span");
+      const titulo = (caps.agenda || [])[n - 1] || "";
+      if (nombre && nombre.textContent !== titulo) nombre.textContent = titulo;
+      if (seg.title !== titulo) seg.title = titulo;
       seg.classList.toggle("hecho", n < actual);
       seg.classList.toggle("actual", n === actual);
       const relleno = seg.firstElementChild;
@@ -403,6 +607,7 @@
     texto("r-sobretitulo", r.sobretitulo ?? "Resultado medido");
     texto("r-titulo", r.titulo ?? "");
     texto("r-medido", r.medido ?? "");
+    texto("r-resumen", r.resumen ?? "");
     texto("r-nota", r.nota ?? "");
     const todas = r.verificaciones || [];
     const porPagina = r.porPagina || 6;
@@ -451,15 +656,25 @@
       texto("p-ambiente", p.ambiente ?? "");
       texto("p-afirmacion", p.afirmacion ?? "");
       texto("p-commits", p.commits ?? "");
-      texto("p-capas", p.capas ? `Capas: ${p.capas.join(", ")}` : "");
+      texto("p-capas", p.capas ? (compat ? `Capas: ${p.capas.join(", ")}` : p.capas.join(" · ")) : "");
+      if (p.producto) texto("p-producto", p.producto);
+      texto("p-version-corta", p.versionCorta ?? "");
+      texto("p-commit", p.commitProducto ?? "");
+      texto("p-herramientas", p.commitHerramientas ?? "");
+      texto("b-nombre", p.nombre ?? "");
       lista("p-agenda", p.agenda || []);
     }
     if (e.rotulo) {
       texto("r-paso", e.rotulo.paso ?? "");
       texto("r-texto", e.rotulo.texto ?? "");
     }
+    if (e.firma) texto("f-texto", e.firma.texto ?? "");
     if (e.paso) aplicarPaso(e.paso);
+    // Indicadores antes que la lista: la lista se acomoda al espacio que queda en el panel.
     if (e.indicadores) aplicarIndicadores(e.indicadores);
+    if (e.comprobaciones) aplicarComprobaciones(e.comprobaciones);
+    else if (e.indicadores || e.vista) reacomodar();
+
     if (e.capitulos) pintarCapitulos();
     if (e.zoom) aplicarZoom(e.zoom);
     if (e.teclado) aplicarTeclado(e.teclado);
@@ -497,6 +712,7 @@
   }
 
   asegurarLateralCompat();
+  asegurarPortadaCompat();
   setInterval(tic, 250);
   tic();
   const fuente = new EventSource("/__estudio/eventos");

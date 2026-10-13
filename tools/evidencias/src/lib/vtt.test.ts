@@ -44,7 +44,7 @@ describe("validación del archivo de pasos", () => {
     p.pasos[1]!.n = 3;
     p.pasos[1]!.inicio_s = 20;
     p.pasos[1]!.fin_s = 41;
-    p.pasos[0]!.que_pasa = " ";
+    p.pasos[0]!.que_pasa = 5 as unknown as string;
     p.pasos[0]!.comprueba = [{ texto: "x", ok: "sí" as unknown as boolean }];
     const r = validarPasos(p);
     expect(r.ok).toBe(false);
@@ -76,6 +76,13 @@ describe("validación del archivo de pasos", () => {
     const corto = ejemplo();
     corto.pasos[1]!.fin_s = 28.9;
     expect(validarPasos(corto, { publicar: true }).problemas.join()).toMatch(/dura 6\.9 s \(mínimo 7 s\)/);
+    // Narración vacía: se tolera en la estructura (ensayos del motor) pero no se publica.
+    const sinNarracion = ejemplo();
+    sinNarracion.pasos[0]!.que_pasa = " ";
+    sinNarracion.pasos[1]!.por_que_importa = "";
+    expect(validarPasos(sinNarracion).ok).toBe(true);
+    expect(validarPasos(sinNarracion, { publicar: true }).problemas).toEqual(["paso 1: «que_pasa» vacío", "paso 2: «por_que_importa» vacío"]);
+    expect(leerVtt(subtitulosVtt(sinNarracion)).filter((s) => s.id?.startsWith("paso-1-")).map((s) => s.texto)).toEqual(["<b>Paso 1 de 2 · Inventario vacío</b>"]);
     const fallida = ejemplo();
     fallida.pasos[0]!.comprueba.push({ texto: "algo", ok: false });
     expect(validarPasos(fallida, { publicar: true }).problemas.join()).toMatch(/no cumplida: algo/);
@@ -134,6 +141,15 @@ describe("WebVTT", () => {
       expect(cuerpo).toBe(textoVtt(paso.que_pasa));
     }
     expect(subtitulosVtt(a)).not.toMatch(/<rápido>/);
+  });
+
+  it("subtítulos: si «qué pasa» repite el título (guion con la API anterior), el texto no se muestra dos veces", () => {
+    const a = ejemplo();
+    a.pasos[1] = { ...a.pasos[1]!, titulo: "La operadora inicia un escaneo desde la Consola", que_pasa: "La operadora inicia un escaneo desde la Consola." };
+    const propias = leerVtt(subtitulosVtt(a)).filter((s) => s.id?.startsWith("paso-2-"));
+    expect(propias).toHaveLength(1);
+    expect(propias[0]!.texto).toBe("<b>Paso 2 de 2 · La operadora inicia un escaneo desde la Consola</b>");
+    expect(propias[0]).toMatchObject({ inicio: 22 });
   });
 
   it("capítulos: uno por paso con sus tiempos exactos", () => {

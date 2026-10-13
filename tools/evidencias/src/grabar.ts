@@ -10,6 +10,7 @@
  *
  * Opciones: --salida <carpeta>, --sin-compilar, --ritmo <0,5–2> (solo pausas de lectura),
  * --perfil 1600x900 | 1920x1080@25 (captura alternativa si 1920×1080 a 30 cps no rinde).
+ * Las demostraciones se graban en el orden en que se piden (la sesión oficial: ver README.md, «Grabación oficial»).
  *
  * Modo oficial: exige la etiqueta (HEAD = etiqueta + cambios solo en tools/evidencias y tools/aceptacion, sin
  * cambios sin confirmar), el chequeo previo de la máquina (disco ≥ 8 GB, memoria, CPU), el laboratorio arriba
@@ -19,17 +20,18 @@
  *
  * Modo ensayo: sin laboratorio ni Docker; los guiones corren contra un servidor local que imita la Consola,
  * Keycloak, el gateway y los portales. Todo el video va rotulado ENSAYO, su pasos.json dice ensayo:true, se
- * escribe en release/evidencias/ensayo y nunca entra en evidencias.json (verificar.ts lo rechaza).
+ * escribe en release/evidencias/ensayo y nunca entra en evidencias.json del sitio (verificar.ts lo rechaza). En su
+ * carpeta deja un índice de ensayo (rehearsal: true) para correr `verificar -- --dir <carpeta> --sin-sitio`.
  */
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
 import { evaluarRecursos, medirRecursos, rutaMasLlena, UMBRALES_ENSAYO, UMBRALES_OFICIAL } from "./lib/chequeo.js";
-import { leerArgumentos } from "./lib/cli.js";
+import { elegirEnOrden, leerArgumentos } from "./lib/cli.js";
 import { ServidorEnsayo } from "./lib/ensayo.js";
-import { cargarEnv, desdeRaiz, metaGrabacion, problemasModoOficial, revisarEtiqueta, SALIDA, SALIDA_ENSAYO } from "./lib/entorno.js";
+import { cargarEnv, desdeRaiz, leerVersion, metaGrabacion, problemasModoOficial, revisarEtiqueta, SALIDA, SALIDA_ENSAYO } from "./lib/entorno.js";
 import type { Evidencia } from "./lib/grabador.js";
 
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= "/opt/pw-browsers";
@@ -55,7 +57,20 @@ if (ensayo) {
   process.env.NEXO_CONSOLE_URL = `${u}/api/v1`;
   process.env.NEXO_LAB_CHAOS_V2 = `${u}/chaos-v2/_chaos`;
   console.log(`ENSAYO sin laboratorio: servidor de ensayo en ${u}. Nada de lo que se grabe es evidencia ni se publica.`);
-} else cargarEnv();
+} else {
+  // Modo oficial: la versión grabada es la etiqueta (V10). Se revisa antes de tocar el laboratorio.
+  const problemas = problemasModoOficial(revisarEtiqueta(args.etiqueta), leerVersion());
+  if (problemas.length) {
+    console.error(`Modo oficial: no se puede grabar.\n  ${problemas.join("\n  ")}`);
+    process.exit(2);
+  }
+  try {
+    cargarEnv();
+  } catch (e) {
+    console.error(`Modo oficial: no se puede grabar: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(2);
+  }
+}
 
 const lab = await import("./lib/lab.js");
 await lab.instalarDespachadorEnsayo();
@@ -69,6 +84,10 @@ const terminar = async (codigo: number): Promise<never> => {
 };
 
 const salida = args.salida ?? (ensayo ? SALIDA_ENSAYO : SALIDA);
+if (ensayo && resolve(salida) === resolve(SALIDA)) {
+  console.error(`Un ensayo no se escribe en ${SALIDA} (la carpeta que se publica): use --salida con otra carpeta o la de ensayo por defecto.`);
+  await terminar(2);
+}
 
 // ── Chequeo previo de la máquina (V10) ──────────────────────────────────────────────────────────────────
 function chequeo(): boolean {
@@ -96,20 +115,13 @@ if (args.rendimiento !== undefined) {
   await terminar(0);
 }
 
-// ── Modo oficial: la versión grabada es la etiqueta (V10) ───────────────────────────────────────────────
 const meta = metaGrabacion({ ensayo, etiqueta: args.etiqueta });
-if (!ensayo) {
-  const problemas = problemasModoOficial(revisarEtiqueta(args.etiqueta), meta.version);
-  if (problemas.length) {
-    console.error(`Modo oficial: no se puede grabar.\n  ${problemas.join("\n  ")}`);
-    await terminar(2);
-  }
-}
 console.log(`Yago Nexo ${meta.version} · producto ${meta.commitProducto}${meta.etiquetaExiste ? ` (${meta.etiqueta})` : " (HEAD: la etiqueta aún no existe)"} · herramientas ${meta.commitHerramientas}`);
 
 const disponibles = ensayo ? [...DEMOS, guionMotor] : DEMOS;
-const elegidas = args.ids.length ? disponibles.filter((d) => args.ids.includes(d.id)) : ensayo ? [guionMotor] : DEMOS;
-if (args.ids.length && elegidas.length !== args.ids.length) {
+// Se graban en el orden pedido (el de la sesión oficial: D-02 primero, D-05 al final); sin ids, en el de DEMOS.
+const elegidas = args.ids.length ? elegirEnOrden(disponibles, args.ids) : ensayo ? [guionMotor] : DEMOS;
+if (args.ids.length && elegidas.length !== new Set(args.ids).size) {
   console.error(`Demostración desconocida: ${args.ids.filter((i) => !disponibles.some((d) => d.id === i)).join(", ")}. Disponibles: ${disponibles.map((d) => d.id).join(", ")}`);
   await terminar(2);
 }
@@ -132,6 +144,7 @@ function escribirIndice(lista: Evidencia[]) {
     .filter((e) => orden.includes(e.id) && !e.rehearsal && existsSync(join(SALIDA, e.file)))
     .sort((a, b) => orden.indexOf(a.id) - orden.indexOf(b.id));
   const indice = {
+    $schema: "./evidencias.schema.json",
     $comment: "Índice de las demostraciones registradas de Yago Nexo. Lo genera tools/evidencias (pnpm --filter @nexo/evidencias grabar). Los videos se publican junto al sitio en /evidencias/<archivo>.",
     generado: new Date().toISOString(),
     evidencias: ordenadas,
@@ -142,6 +155,26 @@ function escribirIndice(lista: Evidencia[]) {
   const datos = desdeRaiz("apps/site/src/data");
   copyFileSync(INDICE, join(datos, "evidencias.json"));
   copyFileSync(join(SALIDA, "SHA256SUMS.txt"), join(datos, "SHA256SUMS.txt"));
+}
+
+/**
+ * Índice de ENSAYO en la carpeta de salida del ensayo (nunca en release/evidencias ni en el sitio): permite correr
+ * `verificar -- --dir <carpeta> --sin-sitio` sobre los ensayos, que deben cumplir todo salvo «no es ensayo».
+ */
+function escribirIndiceEnsayo(nuevas: Evidencia[]) {
+  const archivo = join(salida, "evidencias.json");
+  const previasEnsayo: Evidencia[] = existsSync(archivo) ? ((JSON.parse(readFileSync(archivo, "utf8")) as { evidencias?: Evidencia[] }).evidencias ?? []) : [];
+  const porId = new Map(previasEnsayo.map((e) => [e.id, e]));
+  for (const e of nuevas) porId.set(e.id, e);
+  const vigentes = [...porId.values()].filter((e) => existsSync(join(salida, e.file)));
+  const indice = {
+    $comment: "ENSAYO sin laboratorio: índice de prueba del motor de grabación. No es evidencia, no se publica y verificar.ts lo rechaza («no es ensayo»).",
+    generado: new Date().toISOString(),
+    ensayo: true,
+    evidencias: vigentes.map((e) => ({ ...e, rehearsal: true })),
+  };
+  writeFileSync(archivo, `${JSON.stringify(indice, null, 2)}\n`);
+  writeFileSync(join(salida, "SHA256SUMS.txt"), `${vigentes.map((e) => `${e.sha256}  ${e.file}`).join("\n")}\n`);
 }
 
 /*
@@ -177,7 +210,7 @@ for (const demo of elegidas) {
     if (!ensayo) {
       lista.set(ev.id, ev);
       escribirIndice([...lista.values()]);
-    }
+    } else escribirIndiceEnsayo([ev]);
     for (const a of g.avisos) console.log(`  ⚠ ${a}`);
     console.log(`✔ ${demo.id}: ${join(salida, ev.file)} · ${ev.duration_seconds} s · ${ev.result}`);
   } catch (e) {

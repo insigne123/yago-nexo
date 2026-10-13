@@ -145,8 +145,10 @@ export class ServidorEnsayo {
   private llamadas = 0;
   private sesionesWso2 = new Set<string>();
 
+  /** Puerto por defecto 5174; EVIDENCIAS_PUERTO_ENSAYO lo cambia (p. ej. para dos ensayos a la vez). */
   constructor(o: { puerto?: number } = {}) {
-    this.puerto = o.puerto ?? 5174;
+    const delEntorno = Number(process.env.EVIDENCIAS_PUERTO_ENSAYO);
+    this.puerto = o.puerto ?? (Number.isInteger(delEntorno) && delEntorno > 1024 && delEntorno < 65536 ? delEntorno : 5174);
   }
 
   get url(): string {

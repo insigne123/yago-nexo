@@ -68,3 +68,13 @@ export function leerArgumentos(argv: string[]): Argumentos {
     ...(perfil ? { perfil } : {}),
   };
 }
+
+/** Las demostraciones pedidas, en el orden en que se pidieron y sin repetir (los ids ya vienen normalizados). */
+export function elegirEnOrden<T extends { id: string }>(disponibles: readonly T[], ids: readonly string[]): T[] {
+  const elegidas: T[] = [];
+  for (const id of ids) {
+    const d = disponibles.find((x) => x.id === id);
+    if (d && !elegidas.includes(d)) elegidas.push(d);
+  }
+  return elegidas;
+}

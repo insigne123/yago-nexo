@@ -59,8 +59,17 @@ function escena(segundos: number): Demo {
       await e.paso({ titulo: "Actividad continua", quePasa: "Cursor, escritura, desplazamiento y ampliación sin pausa.", porQueImporta: "Medir la captura en el peor caso." });
       const fin = Date.now() + segundos * 1000;
       let i = 0;
+      const vista = u.viewportSize() ?? { width: 1280, height: 720 };
+      const esquinas = [
+        { x: 40, y: 40, width: 10, height: 10 },
+        { x: vista.width - 60, y: vista.height - 60, width: 10, height: 10 },
+        { x: vista.width - 60, y: 40, width: 10, height: 10 },
+        { x: 40, y: vista.height - 60, width: 10, height: 10 },
+      ];
       while (Date.now() < fin) {
         c.log(`actividad ${++i}: ${new Date().toISOString()}`, i % 2 ? "ok" : "tenue");
+        // Movimiento continuo (cursor cruzando la pantalla): mide el máximo que rinde la captura (p90).
+        for (const q of esquinas) await e.mover(q);
         await e.escribir(u.getByTestId("ensayo-nombre"), `API ${i}`);
         await e.mover(u.getByTestId("ensayo-tabla").locator("tbody tr").nth((i * 7) % 12));
         await e.desplazar(600);
@@ -96,7 +105,8 @@ export async function medirRendimiento(o: { segundos: number; perfiles?: Perfil[
         "duración (s)": s.duracion_s,
         "cuadros del archivo": cuadros,
         "distintos/s (prom.)": s.cps_efectivos,
-        "distintos/s en movimiento p50": s.cps_movimiento_p50,
+        "distintos/s en movimiento p90": s.cps_movimiento_p90 ?? "?",
+        "p50": s.cps_movimiento_p50,
         "p10": s.cps_movimiento_p10,
         "% distintos": Math.round((s.cuadros_unicos / Math.max(1, s.cuadros_video)) * 100),
         "descartados": s.cuadros_descartados,

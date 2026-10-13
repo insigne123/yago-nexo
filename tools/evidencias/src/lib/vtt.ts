@@ -93,7 +93,13 @@ export function validarPasos(datos: unknown, o: { publicar?: boolean } = {}): { 
       return;
     }
     if (paso.n !== i + 1) problemas.push(`${id}: «n» es ${String(paso.n)} (se espera ${i + 1})`);
-    for (const k of ["titulo", "que_pasa", "por_que_importa"] as const) if (!esTexto(paso[k])) problemas.push(`${id}: falta «${k}»`);
+    if (!esTexto(paso.titulo)) problemas.push(`${id}: falta «titulo»`);
+    // «qué pasa» y «por qué importa» deben ser texto; vacíos solo se toleran fuera de la publicación (ensayos del
+    // motor con guiones todavía sin narración: el subtítulo muestra solo el título).
+    for (const k of ["que_pasa", "por_que_importa"] as const) {
+      if (typeof paso[k] !== "string") problemas.push(`${id}: falta «${k}»`);
+      else if (o.publicar && !esTexto(paso[k])) problemas.push(`${id}: «${k}» vacío`);
+    }
     if (!esNumero(paso.inicio_s) || !esNumero(paso.fin_s)) {
       problemas.push(`${id}: «inicio_s» y «fin_s» deben ser números`);
       return;
@@ -250,13 +256,17 @@ function serializar(senales: Senal[], encabezado: string): string {
   return partes.join("\n");
 }
 
+const normalizar = (t: string) => t.replace(/\s+/g, " ").trim().replace(/[.…]+$/, "").toLowerCase();
+
 /** Señales de subtítulos: en cada paso, «Paso n de N · título» y luego «qué pasa» en bloques, repartidos en su tiempo. */
 export function senalesSubtitulos(a: ArchivoPasos): Senal[] {
   const total = a.pasos.length;
   const senales: Senal[] = [];
   for (const paso of a.pasos) {
     const titulo = `<b>${textoVtt(`Paso ${paso.n} de ${total} · ${paso.titulo}`)}</b>`;
-    const bloques = bloquesSubtitulo(paso.que_pasa);
+    // Guiones con la API anterior (c.paso(texto)): «qué pasa» repite el título; no se muestra dos veces.
+    const repite = normalizar(paso.que_pasa) === normalizar(paso.titulo);
+    const bloques = repite ? [] : bloquesSubtitulo(paso.que_pasa);
     // Se deja un respiro de 0,2 s al final de cada paso (si el paso lo permite).
     const fin = paso.fin_s - Math.min(0.2, (paso.fin_s - paso.inicio_s) / 10);
     const largo = fin - paso.inicio_s;
