@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "evidencias.schema.json",
+  "title": "Índice de demostraciones registradas de Yago Nexo",
+  "description": "Formato de apps/site/src/data/evidencias.json (copia de release/evidencias/evidencias.json). Lo escribe tools/evidencias al grabar; los campos del formato vigente (MP4) los entrega terminarVideo() de tools/evidencias/src/lib/video.ts. Las entradas del formato anterior (WebM, versiones 1.0 y 1.1) no tienen esos campos.",
+  "type": "object",
+  "required": ["evidencias"],
+  "properties": {
+    "$comment": { "type": "string" },
+    "$schema": { "type": "string" },
+    "generado": { "type": "string", "format": "date-time" },
+    "evidencias": { "type": "array", "items": { "$ref": "#/$defs/evidencia" } }
+  },
+  "$defs": {
+    "evidencia": {
+      "type": "object",
+      "required": ["id", "title", "claim", "file", "duration_seconds", "sha256", "version", "commit", "recorded_at", "environment", "result"],
+      "properties": {
+        "id": { "type": "string", "description": "Identificador interno de la demostración (no se muestra en el sitio)." },
+        "title": { "type": "string" },
+        "claim": { "type": "string", "description": "Afirmación que el video demuestra." },
+        "file": { "type": "string", "pattern": "^[\\w.-]+\\.(mp4|webm)$", "description": "Video publicado: MP4 (formato vigente) o WebM (formato anterior)." },
+        "poster": { "type": "string", "pattern": "^[\\w.-]+\\.jpg$" },
+        "duration_seconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 240 },
+        "frames": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "size_bytes": { "type": "integer", "minimum": 1 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+" },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$", "description": "Commit del producto grabado." },
+        "tools_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$", "description": "Commit de las herramientas de grabación (tools/evidencias)." },
+        "recorded_at": { "type": "string" },
+        "environment": { "type": "string" },
+        "result": { "type": "string", "description": "Resultado medido, en una frase." },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["texto", "ok"],
+            "properties": { "texto": { "type": "string" }, "ok": { "type": "boolean" }, "detalle": { "type": "string" } }
+          }
+        },
+        "data": { "type": "object" },
+        "width": { "enum": [1920, 1600], "description": "Ancho en píxeles (1920; 1600 solo si la captura no rinde)." },
+        "height": { "enum": [1080, 900] },
+        "fps": { "enum": [30, 25] },
+        "steps_file": { "type": "string", "pattern": "^[\\w.-]+\\.pasos\\.json$", "description": "Pasos del video (paso, qué pasa, por qué importa, comprobaciones, tiempos)." },
+        "subtitles": { "type": "string", "pattern": "^[\\w.-]+\\.vtt$", "description": "Subtítulos WebVTT generados desde los pasos." },
+        "chapters_file": { "type": "string", "pattern": "^[\\w.-]+\\.capitulos\\.vtt$", "description": "Capítulos WebVTT (uno por paso)." },
+        "chapters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["n", "title", "start_s", "end_s"],
+            "properties": {
+              "n": { "type": "integer", "minimum": 1 },
+              "title": { "type": "string" },
+              "start_s": { "type": "number", "minimum": 0 },
+              "end_s": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          }
+        },
+        "video_stream_md5": { "type": "string", "pattern": "^[0-9a-f]{32}$", "description": "MD5 del flujo de video (ffmpeg -i <archivo> -map 0:v -c copy -f md5 -): el mismo con y sin música." },
+        "without_music": {
+          "type": "object",
+          "description": "Archivo antes de agregar la música (no se publica; queda en release/evidencias para la verificación).",
+          "required": ["file", "sha256"],
+          "properties": {
+            "file": { "type": "string", "pattern": "^[\\w.-]+\\.sin-musica\\.mp4$" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "size_bytes": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "music": {
+          "type": "object",
+          "required": ["style", "variant", "author"],
+          "properties": {
+            "style": { "type": "string" },
+            "variant": { "enum": [1, 2, 3] },
+            "seed": { "type": "integer" },
+            "author": { "type": "string" },
+            "description": { "type": "string" },
+            "pcm_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "integrated_lufs": { "type": "number" },
+            "true_peak_dbtp": { "type": "number", "maximum": -1.5 },
+            "lra_lu": { "type": "number" },
+            "fade_in_s": { "type": "number" },
+            "fade_out_s": { "type": "number" }
+          }
+        },
+        "layers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Capas agregadas sobre la grabación, declaradas por el motor (p. ej. «cursor resaltado», «ampliaciones en vivo», «narración», «música original»). Todas menos la música se dibujan en vivo durante la captura."
+        },
+        "tag": { "type": "string", "description": "Etiqueta de la versión grabada (p. ej. v1.2.0)." },
+        "zooms": {
+          "type": "array",
+          "description": "Ampliaciones en vivo, en segundos del video.",
+          "items": {
+            "type": "object",
+            "required": ["inicio_s", "fin_s", "factor"],
+            "properties": { "inicio_s": { "type": "number" }, "fin_s": { "type": "number" }, "factor": { "type": "number" } }
+          }
+        },
+        "zoom_fraction": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fracción del video que se ve ampliada." },
+        "capture": { "type": "object", "description": "Cifras de la captura (cuadros recibidos, únicos, huecos, atraso del codificador)." },
+        "machine": {
+          "type": "object",
+          "description": "Máquina de grabación.",
+          "properties": { "cpu": { "type": "string" }, "cores": { "type": "integer" }, "load_start": { "type": "number" }, "load_end": { "type": "number" } }
+        },
+        "rehearsal": { "const": false, "description": "Las grabaciones de ensayo nunca se publican." }
+      }
+    }
+  }
+}

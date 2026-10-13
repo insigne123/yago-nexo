@@ -1,0 +1,41 @@
+/* Consola de ensayo: imita la estructura de la Consola Nexo (menú lateral, encabezado y tarjetas) para
+   ejercitar el motor de grabación sin laboratorio. No es la Consola real ni muestra datos reales. */
+:root { --canvas: #f3f5f8; --surface: #fff; --line: #dfe4ea; --fg: #1d2733; --muted: #5d6b7a; --accent: #1d4f91; --ok: #1a7f52; --bad: #c0392b; --warn: #b7791f; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 "Liberation Sans", "DejaVu Sans", Arial, sans-serif; color: var(--fg); background: var(--canvas); }
+.ensayo-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #c62828; color: #fff; font: bold 11.5px/1 Arial; letter-spacing: .12em; }
+.shell { display: flex; min-height: 100vh; }
+aside { width: 236px; flex: none; background: var(--surface); border-right: 1px solid var(--line); }
+aside .logo { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+aside .logo i { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: inline-block; }
+aside .logo b { display: block; font-size: 14px; } aside .logo small { color: var(--muted); font-size: 11px; }
+aside nav { padding: 10px 8px; } aside h6 { margin: 12px 10px 4px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+aside a { display: flex; justify-content: space-between; padding: 7px 10px; border-radius: 6px; color: var(--fg); text-decoration: none; font-size: 14px; }
+aside a.activo { background: #e7eef8; color: var(--accent); font-weight: bold; }
+aside a span { color: var(--muted); font-size: 11px; }
+.principal { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 14px; height: 56px; padding: 0 22px; background: var(--surface); border-bottom: 1px solid var(--line); }
+header .esp { flex: 1; } header .usuario { color: var(--muted); font-size: 14px; }
+main { padding: 22px 26px 60px; }
+h1 { margin: 0 0 4px; font-size: 24px; } .sub { margin: 0 0 18px; color: var(--muted); }
+.tarjeta { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.kpi b { display: block; font-size: 26px; } .kpi small { color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 7px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; }
+.btn.sec { background: #fff; color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: default; }
+.campo { margin-bottom: 14px; } .campo label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+.campo input, .campo select, .campo textarea { width: 100%; max-width: 520px; padding: 9px 11px; font: inherit; border: 1px solid #b9c4d0; border-radius: 6px; background: #fff; }
+.estado { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: bold; background: #eef2f7; }
+.estado.en_curso { background: #e3edfb; color: var(--accent); } .estado.completado { background: #e3f5ec; color: var(--ok); }
+.estado.revertido, .estado.abortado { background: #fbe7e5; color: var(--bad); } .estado.pendiente_aprobacion { background: #fdf3e1; color: var(--warn); }
+.aviso { padding: 12px 16px; border-radius: 8px; margin-bottom: 14px; font-weight: bold; }
+.aviso.mal { background: #fbe7e5; color: var(--bad); } .aviso.bien { background: #e3f5ec; color: var(--ok); } .aviso.pend { background: #fdf3e1; color: var(--warn); }
+.peso { height: 14px; border-radius: 7px; background: #e6ebf1; overflow: hidden; } .peso i { display: block; height: 100%; background: var(--accent); transition: width .6s; }
+.toast { position: fixed; right: 24px; bottom: 24px; background: #12324f; color: #fff; padding: 12px 18px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+.login { max-width: 460px; margin: 14vh auto; text-align: center; }
+.login .tarjeta { padding: 34px; }

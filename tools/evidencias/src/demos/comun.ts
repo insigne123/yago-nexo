@@ -10,12 +10,10 @@ export const ejecutar = promisify(execFile);
  * Corre una verificación automática de tools/lab-bootstrap (la misma que usa el equipo) y muestra su salida.
  * Devuelve true si terminó con código 0.
  */
-export async function verificacionLab(c: Contexto, script: string, nombre: string, env: Record<string, string> = {}): Promise<{ ok: boolean; salida: string[] }> {
-  const r = await c.ejecutarComando(desdeRaiz("tools/lab-bootstrap/node_modules/.bin/tsx"), [`src/${script}.ts`], {
-    cwd: desdeRaiz("tools/lab-bootstrap"),
-    mostrar: `pnpm --filter @nexo/lab-bootstrap ${nombre}`,
-    env,
-  });
+export async function verificacionLab(c: Contexto, _script: string, nombre: string, env: Record<string, string> = {}): Promise<{ ok: boolean; salida: string[] }> {
+  // Se ejecuta exactamente lo que se muestra: el script `nombre` de tools/lab-bootstrap (corre src/<_script>.ts).
+  const args = ["--silent", "--filter", "@nexo/lab-bootstrap", nombre];
+  const r = await c.ejecutarComando("pnpm", args, { cwd: desdeRaiz(), mostrar: `pnpm ${args.join(" ")}`, env });
   return { ok: r.codigo === 0, salida: r.salida };
 }
 
@@ -50,3 +48,14 @@ export async function esperarHasta<T>(fn: () => Promise<T>, pred: (v: T) => bool
 }
 
 export const fmt = (n: number) => new Intl.NumberFormat("es-CL").format(n);
+
+/**
+ * Después de una navegación de documento completo (c.ir, goto, reload), lleva el cursor visible a la página
+ * (al objetivo o al centro). Así la página repinta y la captura recibe el cuadro nuevo enseguida: sin un
+ * repintado, el screencast puede seguir mostrando la página anterior unos segundos.
+ */
+export async function verPagina(c: Contexto, objetivo?: Parameters<Contexto["estudio"]["mover"]>[0]): Promise<void> {
+  const vp = c.app.viewportSize() ?? { width: 1280, height: 720 };
+  const destino = objetivo ?? { x: Math.round(vp.width * 0.5), y: Math.round(vp.height * 0.42), width: 24, height: 24 };
+  await c.estudio.mover(destino).catch(() => undefined);
+}

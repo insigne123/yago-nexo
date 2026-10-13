@@ -1,12 +1,18 @@
 /**
- * Catálogo de APIs con propósito, propietario, contrato, versión, autenticación, consumidores, dependencias y
- * estado, consistente con el entorno de ejecución. La Consola sincroniza el catálogo con WSO2, muestra la
- * ficha de la API Concesiones y su grafo de dependencias, y cada campo comprometido se compara con lo que
- * informa WSO2 (Publisher y suscripciones).
+ * BT-018 · Catálogo de APIs con propósito, propietario, contrato, versión, autenticación, consumidores,
+ * dependencias y estado, consistente con el entorno de ejecución. La Consola sincroniza el catálogo con WSO2,
+ * muestra la ficha de la API Concesiones y su grafo de dependencias, y cada campo comprometido se compara con
+ * lo que informa WSO2 (Publisher y suscripciones).
+ *
+ * Duración estimada: portada 4 s + 4 pasos (≈ 16 + 24 + 14 + 22 s) + cierre 3 s ≈ 85 s (tope 240 s).
  */
 import type { Page } from "playwright-core";
-import type { Demo } from "../lib/grabador.js";
+import type { DefinicionPaso, Demo } from "../lib/grabador.js";
 import { consola, tokenPersona, wso2 } from "../lib/lab.js";
+import { prepararEnsayo } from "./bt0x-ensayo.js";
+import { verPagina } from "./comun.js";
+
+export const DURACION_ESTIMADA_S = 85;
 
 type Ficha = {
   id: string;
@@ -40,6 +46,33 @@ type ApiWso2 = {
   additionalProperties?: Array<{ name: string; value: string }>;
 };
 
+export const NARRACION_BT018: DefinicionPaso[] = [
+  {
+    titulo: "El catálogo se sincroniza con WSO2",
+    quePasa: "Se sincroniza el catálogo: la Consola lee de WSO2, donde corren las APIs, cada API con sus consumidores y suscripciones.",
+    porQueImporta: "El catálogo no es una planilla aparte: se alimenta del entorno de ejecución, así que refleja lo que de verdad está publicado.",
+    comprueba: ["catálogo sincronizado con WSO2"],
+  },
+  {
+    titulo: "La ficha de una API: dueño, contrato, versión y estado",
+    quePasa: "Se abre la ficha de Concesiones: propósito, equipo dueño y contacto, contrato, versión, autenticación, consumidores, dependencias y estado.",
+    porQueImporta: "Cada API tiene un responsable y un contrato conocidos: quien la usa o la cambia sabe a quién acudir y qué se comprometió.",
+    comprueba: ["ficha completa: los campos comprometidos tienen valor"],
+  },
+  {
+    titulo: "Grafo de dependencias de la API",
+    quePasa: "El grafo muestra quién consume la API y de qué flujos y sistemas de destino depende.",
+    porQueImporta: "Antes de cambiar o retirar una API se ve a quién afecta.",
+    comprueba: ["la API aparece en el grafo de dependencias"],
+  },
+  {
+    titulo: "Consistencia con el entorno de ejecución",
+    quePasa: "Se abre la API en el Publisher de WSO2 y cada campo de la ficha se compara con lo que informa WSO2, incluidas las suscripciones.",
+    porQueImporta: "Lo que dice el catálogo coincide con lo que corre en el gateway: no hay fichas desactualizadas.",
+    comprueba: ["nombre, versión, contexto y estado coinciden con WSO2", "propietario, contacto, contrato y propósito coinciden con WSO2", "autenticación coincide con WSO2", "consumidores coinciden con las suscripciones activas"],
+  },
+];
+
 let publisher: Page | undefined;
 
 export const bt018: Demo = {
@@ -48,51 +81,62 @@ export const bt018: Demo = {
   nombre: "Catálogo de APIs con dueño, contrato, versión y dependencias",
   afirmacion:
     "El catálogo de la Consola reúne, para cada API, su propósito, propietario, contrato, versión, autenticación, consumidores, dependencias y estado, sincronizado con WSO2 y consistente con lo que corre en el gateway.",
-  pasos: 4,
+  pasos: NARRACION_BT018.length,
+  agenda: NARRACION_BT018.map((p) => p.titulo),
   usuarioInicial: "ana.desarrollo",
 
   async preparar(c) {
+    await prepararEnsayo(c);
     publisher = await c.nuevaSesion();
     await c.ingresarWso2("publisher", "admin", undefined, publisher);
     return ["sesión abierta en el Publisher de WSO2 para comparar con el entorno de ejecución"];
   },
 
   async ejecutar(c) {
+    const e = c.estudio;
     const dev = await tokenPersona("ana.desarrollo");
     const w = wso2();
 
-    c.paso("El catálogo se sincroniza con WSO2, el entorno de ejecución");
-    await c.vista("app");
+    // 1 ── Sincronización ────────────────────────────────────────────────────────────────────────────
+    await e.paso(NARRACION_BT018[0]!);
+    await c.vista("dividido");
     await c.ir("/catalogo");
     await c.app.getByTestId("table-apis").waitFor();
-    await c.esperar(1500);
-    await c.clic(c.app.getByTestId("btn-sync-wso2"));
-    await c.esperar(3500);
-    await c.vista("dividido");
-    const sync = await consola<{ apis: number; consumers: number; subscriptions: number; durationMs: number }>(dev, "POST", "/catalog/sync");
-    c.log(`$ POST /api/v1/catalog/sync → ${sync.status}: ${sync.data.apis} APIs · ${sync.data.consumers} consumidores · ${sync.data.subscriptions} suscripciones en ${sync.data.durationMs} ms`, "cmd");
+    const respuestaSync = c.app.waitForResponse((r) => r.url().includes("/catalog/sync") && r.request().method() === "POST", { timeout: 60_000 }).catch(() => undefined);
+    await e.clic(c.app.getByTestId("btn-sync-wso2"));
+    const rs = await respuestaSync;
+    type Sync = { apis: number; consumers: number; subscriptions: number; durationMs: number };
+    let sync = (rs?.status() === 200 ? await rs.json().catch(() => undefined) : undefined) as Sync | undefined;
+    let estadoSync = rs?.status();
+    if (!sync) {
+      // Si no se alcanzó a leer la respuesta del botón, la misma sincronización por la API de la Consola.
+      const r = await consola<Sync>(dev, "POST", "/catalog/sync");
+      sync = r.status === 200 ? r.data : undefined;
+      estadoSync = r.status;
+    }
+    if (sync) c.log(`→ POST /api/v1/catalog/sync → ${estadoSync}: ${sync.apis} APIs · ${sync.consumers} consumidores · ${sync.subscriptions} suscripciones en ${sync.durationMs} ms`, "cmd");
     const lista = (await consola<Ficha[]>(dev, "GET", "/apis")).data;
     for (const a of lista) c.log(`${a.name.padEnd(22)} ${a.version}  ${a.type.padEnd(8)} ${a.state.padEnd(10)} completitud ${a.completeness} %`);
-    c.exigir("catálogo sincronizado", sync.status === 200 && lista.length >= 5, `${lista.length} APIs`);
+    e.indicadores({ "APIs en el catálogo": lista.length, ...(sync ? { suscripciones: sync.subscriptions } : {}) });
+    e.exige("catálogo sincronizado con WSO2", estadoSync === 200 && !!sync && lista.length >= 5, `${lista.length} APIs · ${sync?.durationMs ?? "?"} ms`);
 
-    c.paso("Ficha de Concesiones: propósito, dueño, contrato, versión, autenticación, consumidores y estado");
+    // 2 ── Ficha ─────────────────────────────────────────────────────────────────────────────────────
+    await e.paso(NARRACION_BT018[1]!);
     const ficha0 = lista.find((a) => a.name === "Concesiones")!;
-    await c.clic(c.app.getByRole("link", { name: "Concesiones", exact: true }).first());
+    await e.clic(c.app.getByRole("link", { name: "Concesiones", exact: true }).first());
     await c.app.getByTestId("api-summary").waitFor();
     await c.vista("app");
-    await c.esperar(3500);
-    await c.app.mouse.move(700, 420);
-    await c.app.mouse.wheel(0, 380);
-    await c.esperar(3000);
-    await c.clic(c.app.getByTestId("tab-consumidores"));
-    await c.esperar(2500);
-    await c.clic(c.app.getByTestId("tab-dependencias"));
-    await c.esperar(2500);
+    await e.zoom(c.app.getByTestId("api-summary"), { factor: 1.4, ms: 2500 });
+    await e.desplazar(380);
+    await e.clic(c.app.getByTestId("tab-consumidores"));
+    await e.esperar(1500);
+    await e.clic(c.app.getByTestId("tab-dependencias"));
+    await e.esperar(1500);
     await c.vista("dividido");
     const ficha = (await consola<Ficha>(dev, "GET", `/apis/${encodeURIComponent(ficha0.id)}`)).data;
     const campos: Array<[string, unknown]> = [
       ["propósito", ficha.purpose],
-      ["propietario", `${ficha.ownerTeam} <${ficha.ownerContact}>`],
+      ["propietario", ficha.ownerTeam && ficha.ownerContact ? `${ficha.ownerTeam} <${ficha.ownerContact}>` : undefined],
       ["contrato", ficha.contractRef],
       ["versión", ficha.version],
       ["autenticación", ficha.authType],
@@ -101,44 +145,65 @@ export const bt018: Demo = {
       ["estado", ficha.state],
     ];
     for (const [k, v] of campos) c.log(`${k.padEnd(14)} ${String(v ?? "—").slice(0, 120)}`);
-    c.verificar("ficha completa: los campos comprometidos tienen valor", campos.every(([, v]) => v !== undefined && v !== "" && v !== "undefined <undefined>") && ficha.completeness === 100, `completitud ${ficha.completeness} %`);
+    e.comprueba("ficha completa: los campos comprometidos tienen valor", campos.every(([, v]) => v !== undefined && v !== "") && ficha.completeness === 100, `completitud ${ficha.completeness} %`);
 
-    c.paso("Grafo de dependencias: consumidores, flujos y sistemas de destino");
+    // 3 ── Grafo ─────────────────────────────────────────────────────────────────────────────────────
+    await e.paso(NARRACION_BT018[2]!);
     await c.vista("app");
     await c.ir("/dependencias");
     await c.app.getByTestId("graph-canvas").waitFor();
     const nodo = c.app.getByTestId(`graph-node-${ficha.id}`);
     await nodo.waitFor({ timeout: 20_000 }).catch(() => undefined);
-    await c.esperar(2000);
-    if (await nodo.isVisible().catch(() => false)) await c.clic(nodo);
-    await c.esperar(5000);
-    await c.vista("dividido");
+    const hayNodo = await nodo.isVisible().catch(() => false);
+    if (hayNodo) {
+      await e.clic(nodo);
+      await e.zoom(nodo, { factor: 1.6, ms: 2500 });
+    }
+    e.comprueba("la API aparece en el grafo de dependencias", hayNodo, `${(ficha.dependencies ?? []).length} dependencias · ${(ficha.consumers ?? []).length} consumidores`);
+    await e.esperar(1500);
 
-    c.paso("Consistencia con el entorno de ejecución: cada campo se compara con WSO2");
+    // 4 ── Consistencia con WSO2 ─────────────────────────────────────────────────────────────────────
+    await e.paso(NARRACION_BT018[3]!);
     if (publisher) {
       await c.mostrar(publisher);
+      await c.vista("dividido");
       await publisher.goto(`https://apim:9443/publisher/apis/${ficha.wso2ApiId}/overview`);
-      await c.esperar(4000);
+      await publisher.waitForLoadState("networkidle").catch(() => undefined);
+      await verPagina(c);
     }
-    const enWso2 = await w.publisher.getApi(ficha.wso2ApiId) as unknown as ApiWso2;
+    const enWso2 = (await w.publisher.getApi(ficha.wso2ApiId)) as unknown as ApiWso2;
     const prop = (n: string) => enWso2.additionalProperties?.find((p) => p.name === n)?.value;
-    const subs = await w.request<{ list: Array<{ applicationInfo?: { name?: string }; subscriptionStatus?: string }> }>({ method: "GET", path: `/api/am/publisher/v4/subscriptions?apiId=${ficha.wso2ApiId}&limit=100` });
+    const subs = await w.request<{ list: Array<{ applicationInfo?: { name?: string }; subscriptionStatus?: string }> }>({
+      method: "GET",
+      path: `/api/am/publisher/v4/subscriptions?apiId=${ficha.wso2ApiId}&limit=100`,
+    });
     const activas = subs.list.filter((s) => (s.subscriptionStatus ?? "UNBLOCKED") === "UNBLOCKED");
-    const comparar = (campo: string, catalogo: unknown, wso: unknown) => c.verificar(`${campo} coincide con WSO2`, String(catalogo) === String(wso), `${String(catalogo).slice(0, 50)}`);
-    comparar("nombre y versión", `${ficha.name} ${ficha.version}`, `${enWso2.name} ${enWso2.version}`);
-    comparar("contexto", ficha.context, enWso2.context);
-    comparar("estado", ficha.state, enWso2.lifeCycleStatus);
-    comparar("propietario", ficha.ownerTeam, enWso2.businessInformation?.businessOwner);
-    comparar("contacto", ficha.ownerContact, enWso2.businessInformation?.businessOwnerEmail);
-    comparar("contrato", ficha.contractRef, prop("contrato"));
-    comparar("propósito", ficha.purpose, prop("proposito"));
-    c.verificar("autenticación coincide con WSO2", (enWso2.securityScheme ?? []).includes(String(ficha.authType)), (enWso2.securityScheme ?? []).join(", "));
-    c.verificar("consumidores coinciden con las suscripciones activas", (ficha.consumers ?? []).length === activas.length, `${activas.length} suscripción(es): ${activas.map((s) => s.applicationInfo?.name).join(", ")}`);
-    await c.esperar(2000);
+    c.log(`→ GET /api/am/publisher/v4/apis/${ficha.wso2ApiId.slice(0, 8)}… y /subscriptions   # lo que informa WSO2`, "cmd");
+    const pares: Array<[string, unknown, unknown]> = [
+      ["nombre y versión", `${ficha.name} ${ficha.version}`, `${enWso2.name} ${enWso2.version}`],
+      ["contexto", ficha.context, enWso2.context],
+      ["estado", ficha.state, enWso2.lifeCycleStatus],
+      ["propietario", ficha.ownerTeam, enWso2.businessInformation?.businessOwner],
+      ["contacto", ficha.ownerContact, enWso2.businessInformation?.businessOwnerEmail],
+      ["contrato", ficha.contractRef, prop("contrato")],
+      ["propósito", ficha.purpose, prop("proposito")],
+    ];
+    for (const [k, a, b] of pares) c.log(`  ${String(a) === String(b) ? "=" : "≠"} ${k.padEnd(16)} catálogo «${String(a).slice(0, 44)}» · WSO2 «${String(b).slice(0, 44)}»`, String(a) === String(b) ? "ok" : "mal");
+    const iguales = (desde: number, hasta: number) => pares.slice(desde, hasta).every(([, a, b]) => String(a) === String(b));
+    e.comprueba("nombre, versión, contexto y estado coinciden con WSO2", iguales(0, 3), `${enWso2.name} ${enWso2.version} · ${enWso2.context} · ${enWso2.lifeCycleStatus}`);
+    e.comprueba("propietario, contacto, contrato y propósito coinciden con WSO2", iguales(3, 7), `${String(enWso2.businessInformation?.businessOwner ?? "—").slice(0, 40)}`);
+    const autenticacion = (enWso2.securityScheme ?? []).includes(String(ficha.authType));
+    const consumidores = (ficha.consumers ?? []).length === activas.length;
+    e.comprueba("autenticación coincide con WSO2", autenticacion, (enWso2.securityScheme ?? []).join(", "));
+    e.comprueba("consumidores coinciden con las suscripciones activas", consumidores, `${activas.length} suscripción(es): ${activas.map((s) => s.applicationInfo?.name).join(", ")}`);
+    const igualesTotal = pares.filter(([, a, b]) => String(a) === String(b)).length + (autenticacion ? 1 : 0) + (consumidores ? 1 : 0);
+    e.indicadores({ "campos comparados": pares.length + 2, "iguales a WSO2": igualesTotal });
+    await e.esperar(2000);
 
+    const comparados = c.verificaciones.filter((v) => /WSO2|suscripciones/.test(v.texto));
     return {
-      medido: `ficha de Concesiones completa al ${ficha.completeness} % y ${c.verificaciones.filter((v) => v.texto.includes("WSO2") || v.texto.includes("suscripciones")).length} campos idénticos a lo que informa WSO2`,
-      datos: { apis: lista.length, completitud: ficha.completeness },
+      medido: `ficha de Concesiones completa al ${ficha.completeness} % y ${igualesTotal} de ${pares.length + 2} campos idénticos a lo que informa WSO2 (${comparados.filter((v) => v.ok).length} de ${comparados.length} comprobaciones)`,
+      datos: { apis: lista.length, completitud: ficha.completeness, campos: pares.length + 2 },
     };
   },
 

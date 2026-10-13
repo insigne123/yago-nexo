@@ -5,10 +5,18 @@
     <title>Estudio de grabación · Yago Nexo</title>
     <link rel="stylesheet" href="/__estudio/estudio.css" />
   </head>
-  <body data-vista="portada">
+  <!--
+    Diseño de 1920×1080 (V04, V07 y V10). Composición fija:
+      banner (52 px) · escena a la izquierda (1364 px: navegador, terminal o panel de datos) · panel lateral
+      a la derecha (500 px: paso, qué pasa, por qué importa, se comprueba, indicadores) · barra de capítulos
+      · firma inferior (producto, versión y commits).
+    estudio.js llena los ids (ver su encabezado); este archivo y estudio.css solo deciden cómo se ven.
+  -->
+  <body data-lienzo="1920x1080" data-vista="portada">
     <header id="banner">
       <span class="marca"><img src="/__estudio/logo.svg" alt="" /> <b id="b-producto">Yago Nexo</b></span>
-      <span id="b-ambiente"></span>
+      <span id="b-chip"></span>
+      <span id="b-nombre"></span>
       <span id="b-reloj" class="tabular"></span>
     </header>
 
@@ -17,14 +25,29 @@
         <div class="tarjeta-cuerpo">
           <p class="sobretitulo">Demostración registrada</p>
           <h1><span id="p-id"></span><span id="p-nombre"></span></h1>
-          <dl class="ficha">
-            <dt>Producto</dt><dd id="p-version"></dd>
-            <dt>Grabación</dt><dd id="p-fecha"></dd>
-            <dt>Ambiente</dt><dd id="p-ambiente"></dd>
-          </dl>
           <div class="afirmacion">
             <p class="etiqueta">Lo que se demuestra</p>
             <p id="p-afirmacion"></p>
+          </div>
+          <div class="portada-columnas">
+            <div class="portada-agenda">
+              <p class="etiqueta">Pasos</p>
+              <ol id="p-agenda"></ol>
+            </div>
+            <dl class="ficha">
+              <dt>Producto</dt>
+              <dd><b id="p-producto">Yago Nexo</b> <span id="p-version-corta"></span></dd>
+              <dt>Commit del producto</dt>
+              <dd class="mono" id="p-commit"></dd>
+              <dt>Herramientas</dt>
+              <dd class="mono" id="p-herramientas"></dd>
+              <dt>Grabación</dt>
+              <dd id="p-fecha"></dd>
+              <dt>Ambiente</dt>
+              <dd id="p-ambiente"></dd>
+              <dt>Capas agregadas</dt>
+              <dd id="p-capas"></dd>
+            </dl>
           </div>
           <p class="nota">Escenario real contra el laboratorio: sin datos simulados, sin cortes y sin acelerar.</p>
         </div>
@@ -34,7 +57,7 @@
         <div class="barra-navegador">
           <span class="puntos"><i></i><i></i><i></i></span>
           <span id="m-url" class="url"></span>
-          <span class="en-vivo">● navegador en vivo</span>
+          <span class="en-vivo"><i></i>navegador en vivo</span>
         </div>
         <div class="pantalla"><img id="m-img" alt="Pantalla del navegador" /></div>
       </section>
@@ -46,21 +69,58 @@
 
       <section id="panel"><div id="panel-cuerpo"></div></section>
 
+      <aside id="lateral">
+        <div id="lateral-cuerpo">
+          <p id="l-paso"></p>
+          <h2 id="l-titulo"></h2>
+          <section class="bloque" id="l-bloque-que">
+            <h3>Qué está pasando</h3>
+            <p id="l-que"></p>
+          </section>
+          <section class="bloque porque" id="l-bloque-porque">
+            <h3>Por qué importa</h3>
+            <p id="l-porque"></p>
+          </section>
+          <section class="bloque comprueba" id="l-bloque-comprueba">
+            <h3>Se comprueba</h3>
+            <ul id="l-lista"></ul>
+          </section>
+          <section class="bloque anterior" id="l-bloque-anterior">
+            <h3 id="l-anterior-titulo">Comprobado en el paso anterior</h3>
+            <ul id="l-anterior"></ul>
+          </section>
+          <section class="bloque indicadores" id="l-bloque-indicadores">
+            <h3>Indicadores en vivo</h3>
+            <dl id="l-indicadores"></dl>
+          </section>
+          <section class="bloque mini-terminal" id="l-bloque-terminal">
+            <h3>Salida del escenario</h3>
+            <div id="l-terminal"></div>
+          </section>
+        </div>
+      </aside>
+
       <section id="resultado" class="tarjeta">
         <div class="tarjeta-cuerpo">
           <p class="sobretitulo" id="r-sobretitulo">Resultado medido</p>
           <h1 id="r-titulo"></h1>
+          <p id="r-resumen" class="resumen"></p>
           <p id="r-medido" class="medido"></p>
           <ul id="r-verificaciones"></ul>
+          <p id="r-pagina" class="pagina"></p>
           <p class="nota" id="r-nota"></p>
         </div>
       </section>
     </main>
 
-    <footer id="rotulo">
-      <span id="r-paso" class="paso"></span>
-      <span id="r-texto"></span>
-      <span id="r-tiempo" class="tabular"></span>
+    <nav id="capitulos" aria-label="Capítulos">
+      <div id="c-barra"></div>
+      <span id="c-reloj" class="tabular"></span>
+    </nav>
+
+    <footer id="firma">
+      <span id="f-texto" class="mono"></span>
+      <span id="b-ambiente"></span>
     </footer>
     <script src="/__estudio/estudio.js"></script>
   </body>
