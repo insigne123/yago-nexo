@@ -538,6 +538,9 @@ consola:
       repository: nexo/console-api
       tag: ""
     poolBd: 10
+    # Proxies delante de la API (NEXO_TRUST_PROXY): cuántos saltos de X-Forwarded-For se creen para la IP de
+    # origen que queda en la auditoría. 1 = el ingress; 0 = ninguno; también acepta rangos CIDR separados por coma.
+    proxiesConfiables: "1"
     # Orígenes CORS adicionales (el host de la Consola se agrega solo).
     corsOrigenes: []
     resources:

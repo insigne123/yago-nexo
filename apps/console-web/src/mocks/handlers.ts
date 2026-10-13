@@ -296,9 +296,7 @@ export function createHandlers(store: MockStore, options: HandlerOptions) {
     ),
     http.put(
       url("/continuity/mode"),
-      route(["admin:settings:write"], "continuity.mode.update", async ({ request, actor }) =>
-        json(store.setMode((await readJson<{ mode: string }>(request)).mode, actor)),
-      ),
+      route(["admin:settings:write"], "continuity.mode.update", () => store.refuseModeChange()),
     ),
     http.post(
       url("/continuity/drill"),

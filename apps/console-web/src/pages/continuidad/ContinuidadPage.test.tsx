@@ -71,6 +71,25 @@ function renderAs(username: string) {
   );
 }
 
+describe("Continuidad: modo de conmutación", () => {
+  it("se muestra el modo de la instalación y no se puede cambiar desde la Consola", async () => {
+    renderAs("admin.nexo");
+    const mode = await screen.findByTestId("continuity-mode");
+    expect(mode).toHaveTextContent("Automático");
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.getByText(/Lo fija NEXO_CONTINUITY_AUTOMATICO en la instalación/)).toBeInTheDocument();
+    expect(screen.queryByText(/mismo procedimiento/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/procedimiento manual/)).not.toBeInTheDocument();
+  });
+
+  it("en una instalación manual lo dice sin prometer un procedimiento", async () => {
+    store.setInstalledMode("manual");
+    renderAs("admin.nexo");
+    expect(await screen.findByTestId("continuity-mode")).toHaveTextContent("Manual");
+    expect(screen.getByText(/no conmutan solos/)).toBeInTheDocument();
+  });
+});
+
 describe("Continuidad: retorno al sitio principal con dos personas", () => {
   it("la operadora solicita el retorno con un motivo y no puede aprobarlo", async () => {
     await operateOnBackup();

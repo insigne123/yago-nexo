@@ -97,6 +97,7 @@ spec:
             - { name: NEXO_DATABASE_POOL, value: {{ $cfg.poolBd | quote }} }
             {{- include "nexo.pg.envNode" . | nindent 12 }}
             - { name: NEXO_CORS_ORIGINS, value: {{ join "," $cors | quote }} }
+            - { name: NEXO_TRUST_PROXY, value: {{ $cfg.proxiesConfiables | default "1" | toString | quote }} }
             - { name: NEXO_AUTH_JWKS_URL, value: {{ printf "%s/protocol/openid-connect/certs" $issuer | quote }} }
             - { name: NEXO_AUTH_ISSUER, value: {{ $issuer | quote }} }
             - { name: NEXO_AUTH_ROLES_CLAIM, value: {{ $kc.claimRoles | quote }} }

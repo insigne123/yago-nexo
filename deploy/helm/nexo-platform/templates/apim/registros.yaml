@@ -1,8 +1,11 @@
 {{- /*
-Fluent Bit junto a los nodos de API Manager. Misma configuración que deploy/compose/fluent-bit/fluent-bit.yaml:
-lee apim_metrics.log (analítica), audit.log y wso2carbon.log desde el volumen de registros del pod y los envía
-a OpenSearch con los mismos prefijos de índice (nexo-apim-metrics, nexo-audit, nexo-logs). En los gateways
-también calcula las métricas nexo_gateway_* y las expone en el puerto 2021.
+Fluent Bit junto a los nodos de API Manager, con las mismas entradas, enmascaramiento y salidas que
+deploy/compose/fluent-bit/fluent-bit.yaml: lee apim_metrics.log (analítica), audit.log y wso2carbon.log desde el
+volumen de registros del pod, enmascara los datos personales y secretos de la analítica y de los logs de aplicación
+con files/enmascarar.lua (copia exacta de deploy/compose/fluent-bit/enmascarar.lua; validar-instaladores.sh lo
+comprueba) y los envía a OpenSearch con los mismos prefijos de índice (nexo-apim-metrics, nexo-audit, nexo-logs).
+La auditoría no se enmascara: la identidad de quien actúa es evidencia. En los gateways también calcula las
+métricas nexo_gateway_* y las expone en el puerto 2021.
 */ -}}
 {{- if .Values.apim.registros.enabled }}
 {{- $os := .Values.global.dependencias.opensearch }}
@@ -17,6 +20,8 @@ metadata:
   labels:
     {{- include "nexo.etiquetas" (dict "ctx" $ "comp" (printf "registros-%s" $rol)) | nindent 4 }}
 data:
+  enmascarar.lua: |
+    {{- $.Files.Get "files/enmascarar.lua" | nindent 4 }}
   fluent-bit.yaml: |
     service:
       flush: 2
@@ -72,6 +77,11 @@ data:
           parser: json_props
           reserve_data: on
         {{- end }}
+        # Enmascaramiento de datos personales y secretos antes de cualquier salida (BT-029), como en el laboratorio.
+        - name: lua
+          match_regex: ^apim\.(carbon|metrics)$
+          script: /fluent-bit/etc/nexo/enmascarar.lua
+          call: enmascarar
         - name: modify
           match: "*"
           add:

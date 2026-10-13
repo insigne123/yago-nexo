@@ -49,15 +49,22 @@ describe("motor de impacto y disposición del grafo", () => {
   const seed = createSeed(Date.parse("2026-10-04T12:00:00Z"));
   const { nodes, edges } = seed.graph;
 
-  it("un cambio de campo en un dato llega a los consumidores y reportes", () => {
-    const result = simulateImpact(nodes, edges, "dato-reclamo", "campo");
+  it("un cambio en un sistema de destino llega a los flujos, las APIs y sus consumidores", () => {
+    const result = simulateImpact(nodes, edges, "sis-cloudsql", "fuente");
     const ids = (list?: Array<{ id: string }>) => (list ?? []).map((n) => n.id);
-    expect(ids(result.affected?.sistemas)).toContain("sis-cloudsql");
+    expect(ids(result.affected?.flujos)).toEqual(
+      expect.arrayContaining(["flujo-reclamos", "flujo-tramites"]),
+    );
     expect(ids(result.affected?.apis)).toEqual(expect.arrayContaining(["api-reclamos", "api-tramites"]));
-    expect(ids(result.affected?.reportes)).toContain("rep-reclamos");
     expect(ids(result.affected?.consumidores)).toContain("cons-mesa-ayuda");
     expect(result.severity).toBe("alto");
-    expect(result.paths?.every((p) => p[0] === "dato-reclamo")).toBe(true);
+    expect(result.paths?.every((p) => p[0] === "sis-cloudsql")).toBe(true);
+  });
+
+  it("la demostración solo usa los orígenes de arista que genera la API (configuración y analizador del integrador)", () => {
+    expect(new Set(edges.map((e) => e.source))).toEqual(new Set(["configuracion", "analizador_mi"]));
+    expect(nodes.filter((n) => n.type === "dato" || n.type === "reporte")).toEqual([]);
+    expect(JSON.stringify(nodes)).not.toMatch(/OpenMetadata|Looker/);
   });
 
   it("un cambio de contrato de una API solo afecta a sus consumidores", () => {
@@ -81,21 +88,12 @@ describe("motor de impacto y disposición del grafo", () => {
     }
   });
 
-  it("un reporte depende de los datos que lee (aristas en la dirección del producto)", () => {
-    const result = simulateImpact(nodes, edges, "dato-concesion", "campo");
-    expect((result.affected?.reportes ?? []).map((n) => n.id)).toContain("rep-mercado");
-    const report = simulateImpact(nodes, edges, "rep-mercado", "retiro");
-    expect(report.affected?.consumidores).toEqual([]);
-  });
-
-  it("ubica los nodos en capas por tipo, de consumidores a reportes", () => {
+  it("ubica los nodos en capas por tipo, de consumidores a sistemas", () => {
     const positions = layeredLayout(nodes, edges);
     const x = (id: string) => positions.get(id)?.x ?? -1;
     expect(positions.size).toBe(nodes.length);
     expect(x("cons-telecom-andina")).toBeLessThan(x("api-concesiones"));
     expect(x("api-concesiones")).toBeLessThan(x("flujo-concesiones"));
     expect(x("flujo-concesiones")).toBeLessThan(x("sis-oracle"));
-    expect(x("sis-oracle")).toBeLessThan(x("dato-concesion"));
-    expect(x("dato-concesion")).toBeLessThan(x("rep-mercado"));
   });
 });

@@ -249,3 +249,39 @@ describe("token del webhook de alertas", () => {
     }
   });
 });
+
+describe("auditoría del éxito de una acción ya confirmada", () => {
+  it("si la escritura en la cadena falla, no lanza: la acción ya se ejecutó y queda en el log", async () => {
+    const { AuditService } = await import("./audit.service.js");
+    const svc = new AuditService({} as never);
+    const intentos: unknown[] = [];
+    Object.defineProperty(svc, "store", {
+      value: {
+        append: async (e: unknown) => {
+          intentos.push(e);
+          throw new Error("base no disponible");
+        },
+      },
+    });
+    const user = {
+      username: "luis.aprobador",
+      sub: "s",
+      roles: ["aprobador"],
+      permissions: [],
+      ip: "192.0.2.7",
+    };
+    await expect(
+      svc.recordCommitted(user as never, "continuidad.retorno.aprobar", "retorno/1", { conmutacion: "e1" }),
+    ).resolves.toBe(false);
+    expect(intentos).toEqual([
+      expect.objectContaining({
+        source: "consola",
+        actor: "luis.aprobador",
+        actorType: "usuario",
+        action: "continuidad.retorno.aprobar",
+        result: "exito",
+        sourceIp: "192.0.2.7",
+      }),
+    ]);
+  });
+});

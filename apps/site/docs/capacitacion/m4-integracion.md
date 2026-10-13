@@ -69,7 +69,7 @@ Un error no controlado pasa por la `faultSequence`, que responde 502 con el cód
 
 - El inbound endpoint `SolicitudesConsumidor` consume `solicitudes.nuevas` con **confirmación manual**: el mensaje se confirma solo al terminar la mediación.
 - La secuencia `procesar-solicitud` llama al sistema de destino con la `Idempotency-Key` original. Solo se reintentan las fallas del destino: respuestas 5xx, fallas de red y tiempos de espera. En ese caso `reintentar-solicitud` publica en `solicitudes.reintento.1`, `.2` o `.3` (TTL de 2, 4 y 8 s, que devuelven el mensaje a la cola principal).
-- Un rechazo 4xx del destino no se reintenta: el mensaje va directo a `solicitudes.dlq` con 1 intento y el motivo `HTTP 4xx` (por ejemplo, `HTTP 422`).
+- Un rechazo 4xx del destino no se reintenta: el mensaje va directo a `solicitudes.dlq` con 1 intento y el motivo `HTTP 4xx` (por ejemplo, `HTTP 422`). Las excepciones son 408, 425 y 429 (tiempo de espera, «demasiado pronto» y límite de tasa del destino), que son temporales y se reintentan como un 5xx.
 - Agotados los tres reintentos, el mensaje va a `solicitudes.dlq`. Desde la Consola, un **aprobador** lo reprocesa indicando un motivo; queda auditado.
 - La cola `solicitudes.dlq` es una cola quorum con la política `nexo-fallidos-sin-limite-de-entregas` (`delivery-limit` -1): consultarla no descarta mensajes, aunque se lea muchas veces.
 - La alerta `ColaConMensajesFallidos` (severidad S3) se activa si la cola de fallidos tiene mensajes por más de 5 minutos.

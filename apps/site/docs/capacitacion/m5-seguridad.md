@@ -120,15 +120,15 @@ Cargue las ayudas en cada terminal: `source tools/lab-bootstrap/ayudas-curso.sh`
 
    (Si la primera da 403 o 401, OperadorDemo no está suscrita a ConsultaPublica: ejecute `pnpm --filter @nexo/lab-bootstrap check:audiencias`, que la suscribe.)
 
-3. Pruebe TLS 1.1 y TLS 1.2 contra el gateway, y vea la matriz de canales de la Consola:
+3. Pruebe TLS 1.0 y TLS 1.2 contra el gateway, y vea la matriz de canales de la Consola. OpenSSL 3 no ofrece TLS 1.0 ni 1.1 con su nivel de seguridad por omisión (respondería «no protocols available» sin llegar a preguntarle al servidor), por eso el primer intento baja el nivel con `-cipher 'DEFAULT@SECLEVEL=0'`:
 
    ```bash
-   openssl s_client -connect apim:8243 -tls1_1 < /dev/null 2>&1 | grep -E "Protocol|alert|error" | head -3
+   openssl s_client -connect apim:8243 -tls1 -cipher 'DEFAULT@SECLEVEL=0' < /dev/null 2>&1 | grep -E "Protocol|alert|error" | head -3
    openssl s_client -connect apim:8243 -tls1_2 < /dev/null 2>&1 | grep -E "Protocol" | head -1
    consola pedro.auditoria GET /compliance/tls-channels | jq -c '.[] | {canal, versiones, rechazaTls10}'
    ```
 
-**Resultado esperado.** Token válido, `200`; token alterado, `401` en el gateway y `401` en la Consola. La API pública responde `200` por `gw-publico` y `404` por el gateway interno. El intento con TLS 1.1 falla en el saludo (alerta o error de protocolo) y el de TLS 1.2 informa `Protocol: TLSv1.2`. La matriz de canales muestra solo TLS 1.2 o 1.3 y `rechazaTls10: true` en cada canal.
+**Resultado esperado.** Token válido, `200`; token alterado, `401` en el gateway y `401` en la Consola. La API pública responde `200` por `gw-publico` y `404` por el gateway interno. El intento con TLS 1.0 falla por una alerta del servidor (por ejemplo, `alert protocol version`), no por «no protocols available», y el de TLS 1.2 informa `Protocol: TLSv1.2`. La matriz de canales muestra solo TLS 1.2 o 1.3 y `rechazaTls10: true` en cada canal; si un canal no respondió, el campo no aparece y la Consola muestra «—».
 
 **Autoevaluación.**
 

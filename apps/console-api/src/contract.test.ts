@@ -55,7 +55,8 @@ beforeAll(async () => {
       const success = Object.keys(op.responses)
         .map(Number)
         .filter((c) => c >= 200 && c < 300);
-      contract.push({ method: verb, path, code: success[0]! });
+      // Una operación sin respuesta 2xx en el contrato siempre rechaza (código 0 aquí).
+      contract.push({ method: verb, path, code: success[0] ?? 0 });
     }
   }
   routes = routes.sort((a, b) => `${a.path} ${a.method}`.localeCompare(`${b.path} ${b.method}`));
@@ -76,8 +77,26 @@ describe("contrato OpenAPI de la Consola", () => {
   it("los códigos de éxito coinciden", () => {
     const byKey = new Map(contract.map((c) => [`${c.method} ${c.path}`, c.code]));
     const diff = routes.filter(
-      (r) => byKey.has(`${r.method} ${r.path}`) && byKey.get(`${r.method} ${r.path}`) !== r.code,
+      (r) =>
+        byKey.has(`${r.method} ${r.path}`) &&
+        byKey.get(`${r.method} ${r.path}`) !== 0 &&
+        byKey.get(`${r.method} ${r.path}`) !== r.code,
     );
     expect(diff).toEqual([]);
+  });
+
+  it("solo el cambio de modo de continuidad no tiene respuesta de éxito (lo fija la instalación)", () => {
+    expect(contract.filter((c) => c.code === 0).map((c) => `${c.method} ${c.path}`)).toEqual([
+      "put /continuity/mode",
+    ]);
+  });
+
+  it("la versión del contrato es la de la Consola", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const doc = parse(readFileSync(join(here, "..", "openapi.yaml"), "utf8")) as {
+      info: { version: string };
+    };
+    const pkg = JSON.parse(readFileSync(join(here, "..", "package.json"), "utf8")) as { version: string };
+    expect(doc.info.version).toBe(pkg.version);
   });
 });

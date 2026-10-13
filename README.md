@@ -116,4 +116,4 @@ cosign verify ghcr.io/insigne123/nexo-console-api:1.2.0 \
   --certificate-identity-regexp "$IDENTIDAD" --certificate-oidc-issuer "$EMISOR"
 ```
 
-Las notas de cada versión están en `release/<versión>/NOTAS.md` y en <https://yago-nexo.web.app/novedades>.
+Las notas de cada versión están en Novedades del sitio (<https://yago-nexo.web.app/novedades>); desde la 1.2.0, también en `release/<versión>/NOTAS.md`.

@@ -2,7 +2,7 @@
 <!--
   Consumidor de la cola solicitudes.nuevas: registra la solicitud en el sistema de destino.
   Si el destino falla (5xx, error de red o tiempo de espera), la deriva a reintento con espera progresiva o,
-  agotados los intentos, a la cola de fallidos. Si el destino la rechaza (4xx), va directo a fallidos sin reintentos.
+  agotados los intentos, a la cola de fallidos. Si el destino la rechaza (4xx salvo 408, 425 y 429, que son temporales), va directo a fallidos sin reintentos.
   El sistema de destino recibe la Idempotency-Key, así un reintento no duplica efectos (BT-051).
 -->
 <sequence xmlns="http://ws.apache.org/ns/synapse" name="procesar-solicitud" onError="error-solicitud">
@@ -43,10 +43,12 @@
     </then>
     <else>
       <property name="motivo" expression="fn:concat('HTTP ', $axis2:HTTP_SC)"/>
-      <!-- Solo un 5xx (falla del destino) se reintenta. Un 4xx, o cualquier otra respuesta que no sea 2xx ni 5xx,
-           es un rechazo del destino: repetir el mismo mensaje no cambia el resultado, así que va directo a fallidos
-           sin reintentos. Las fallas de red y los tiempos de espera llegan por error-solicitud y sí se reintentan. -->
-      <filter source="$axis2:HTTP_SC" regex="5[0-9][0-9]">
+      <!-- Se reintentan las fallas temporales del destino: todo 5xx y los 4xx que son temporales por definición
+           (408 Request Timeout, 425 Too Early y 429 Too Many Requests, p. ej., cuando el destino aplica un límite de
+           tasa). Cualquier otro 4xx, o una respuesta que no sea 2xx, 4xx ni 5xx, es un rechazo del destino: repetir el
+           mismo mensaje no cambia el resultado, así que va directo a fallidos sin reintentos. Las fallas de red y los
+           tiempos de espera llegan por error-solicitud y también se reintentan. -->
+      <filter source="$axis2:HTTP_SC" regex="5[0-9][0-9]|408|425|429">
         <then/>
         <else>
           <property name="reintentable" value="false"/>

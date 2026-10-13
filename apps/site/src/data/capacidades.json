@@ -139,7 +139,7 @@
       "id": "flujos-integracion",
       "grupo": "nucleo",
       "nombre": "Flujos de integración con Micro Integrator",
-      "descripcion": "Validación (JSON Schema y XSD), transformación y orquestación REST, SOAP y colas RabbitMQ, con manejo de errores, mensajes fallidos e idempotencia.",
+      "descripcion": "Validación con JSON Schema, transformación y orquestación REST, SOAP y colas RabbitMQ, con manejo de errores, mensajes fallidos e idempotencia.",
       "estado": "Incluida",
       "evidencia": [
         "wso2/mi/artifacts/api/SolicitudesConcesionAPI.xml",
@@ -161,7 +161,7 @@
       "id": "graphql-asyncapi",
       "grupo": "nucleo",
       "nombre": "APIs GraphQL y de eventos",
-      "descripcion": "Publicación de APIs GraphQL y de APIs de eventos (WebSocket y WebSub) descritas con AsyncAPI.",
+      "descripcion": "Publicación de APIs GraphQL y de APIs de eventos por WebSocket descritas con AsyncAPI.",
       "estado": "Incluida",
       "evidencia": ["wso2/apim/apis/concesiones-graphql/api.yaml", "tools/lab-bootstrap/src/check-d06.ts"]
     },
@@ -297,7 +297,8 @@
       "estado": "Incluida",
       "evidencia": [
         "deploy/compose/fluent-bit/enmascarar.lua",
-        "deploy/compose/fluent-bit/pruebas/probar-enmascaramiento.sh"
+        "deploy/compose/fluent-bit/pruebas/probar-enmascaramiento.sh",
+        "deploy/helm/nexo-platform/templates/apim/registros.yaml"
       ]
     },
     {

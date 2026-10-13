@@ -46,6 +46,7 @@ export const RELATION_LABELS: Record<GraphEdge["relation"], string> = {
 };
 
 export const EDGE_SOURCE_LABELS: Record<NonNullable<GraphEdge["source"]>, string> = {
+  configuracion: "Configuración del gateway",
   manual: "Registro manual",
   analizador_mi: "Analizador de flujos MI",
   trafico_observado: "Tráfico observado",

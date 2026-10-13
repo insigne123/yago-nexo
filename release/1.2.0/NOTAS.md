@@ -29,8 +29,16 @@ Fecha de publicación: 13-10-2026. Base: WSO2 API Manager 4.7.0 y WSO2 Micro Int
 - **Retorno al sitio principal con dos personas.** Permiso nuevo `continuity:failback:request` (operador y
   aprobador): una persona solicita el retorno con un motivo y otra lo aprueba con `continuity:failback:approve`.
   Quien solicitó no puede aprobar (se compara el usuario y el `sub` del token). La solicitud vence a los
-  `NEXO_FAILBACK_REQUEST_TTL_MIN` minutos (30 por omisión) y solo puede haber una pendiente. La solicitud, la
-  aprobación, el rechazo y el vencimiento quedan en la auditoría; `GET /continuity` informa la solicitud pendiente.
+  `NEXO_FAILBACK_REQUEST_TTL_MIN` minutos (entero de 1 a 1.440; 30 por omisión) y solo puede haber una pendiente.
+  La solicitud, la aprobación, el rechazo y el vencimiento quedan en la auditoría: la API marca y audita las
+  solicitudes vencidas cada minuto y al consultar el estado, aunque nadie vuelva a tocarlas. `GET /continuity`
+  informa la solicitud pendiente. Si la escritura de la auditoría falla después de confirmar la aprobación, el
+  evento queda en el log de la API y la respuesta informa la aprobación (no un error).
+- **Modo de conmutación.** Lo fija `NEXO_CONTINUITY_AUTOMATICO` en la instalación de los agentes de continuidad;
+  la Consola lo muestra y `PUT /continuity/mode` responde 409 (el intento queda auditado como rechazo).
+- **IP de origen en la auditoría.** `NEXO_TRUST_PROXY` indica cuántos proxies (o qué rangos) se creen para tomar
+  la IP de `X-Forwarded-For`; por omisión ninguno, y el chart usa 1 (el ingress). `true` no se acepta.
+- El contrato OpenAPI pasa a la versión 1.2.0.
 - **Reproceso de mensajes fallidos con motivo.** Lo hace el rol aprobador, con motivo obligatorio (5 a 1.000
   caracteres) y sin segunda persona; el reproceso y cada rechazo quedan auditados. Las acciones de cuatro ojos
   pasan a ser tres: `rollout:approve`, `anomaly:block:approve` y `continuity:failback:approve`. La matriz tiene 6
@@ -53,12 +61,18 @@ Fecha de publicación: 13-10-2026. Base: WSO2 API Manager 4.7.0 y WSO2 Micro Int
 
 - Continuidad: «Solicitar retorno» y la tarjeta de la solicitud pendiente (quién la pidió y cuándo vence);
   «Aprobar» queda deshabilitado para quien la pidió. El RPO de cada conmutación se informa como «no medido».
-- Cumplimiento muestra las acciones con motivo obligatorio y si cada canal TLS rechaza TLS 1.0.
+- Cumplimiento muestra las acciones con motivo obligatorio y si el servidor de cada canal TLS rechaza un saludo
+  TLS 1.0. La sonda ofrece TLS 1.0 con el nivel de seguridad de OpenSSL en 0 (con el nivel por omisión el propio
+  cliente no puede ofrecerlo) y solo cuenta como rechazo una alerta o un corte del servidor; si el canal no
+  responde, muestra «—». Una prueba con servidores locales comprueba que uno que acepta TLS 1.0 da «Aceptado».
+- Continuidad muestra el modo de conmutación de la instalación sin permitir cambiarlo.
 - Consumo e Inicio rotulan los errores como «errores 5xx», que es lo que cuenta la API. Auditoría explica qué
-  detecta la verificación de la cadena y Exportación describe el contenido real del paquete.
+  detecta la verificación de la cadena (consistencia sin clave; el recálculo y el borrado de los últimos eventos
+  se detectan contra la copia del SIEM) y Exportación describe el contenido real del paquete.
 - La versión visible sale del `package.json` de la Consola.
 - La demostración no nombra clientes, publica una política de seguridad de contenido (CSP), usa el mismo motor
-  de análisis de impacto que la API, presenta los cuatro canales TLS que sondea la API y sigue los pasos reales
+  de análisis de impacto que la API, muestra solo las dependencias que la API genera (configuración del gateway y
+  analizador del integrador, sin datos ni reportes de un catálogo de datos), presenta los cuatro canales TLS que sondea la API y sigue los pasos reales
   del agente en el simulacro, la conmutación y el retorno con dos personas.
 
 ## Motores
@@ -70,7 +84,8 @@ Fecha de publicación: 13-10-2026. Base: WSO2 API Manager 4.7.0 y WSO2 Micro Int
 ## Integración (Micro Integrator)
 
 - Un rechazo 4xx del sistema de destino ya no se reintenta: va directo a `solicitudes.dlq` con 1 intento y el
-  motivo `HTTP 4xx`. Se reintentan (2, 4 y 8 s) las respuestas 5xx, las fallas de red y los tiempos de espera.
+  motivo `HTTP 4xx`, salvo 408, 425 y 429, que son temporales. Se reintentan (2, 4 y 8 s) esos tres, las
+  respuestas 5xx, las fallas de red y los tiempos de espera.
 - La cola de fallidos queda sin límite de entregas: consultarla no descarta mensajes (comprobado en RabbitMQ
   4.3.6, donde una cola quorum sin la política descartaba el mensaje después de 21 lecturas con rechazo).
 - El backend de ejemplo registra cada solicitud recibida (`GET /_recepciones`) y acepta fallas programadas
@@ -117,8 +132,13 @@ Fecha de publicación: 13-10-2026. Base: WSO2 API Manager 4.7.0 y WSO2 Micro Int
   `/home/wso2carbon`.
 - El esquema de API Manager recibe la contraseña de la base en `PGPASSWORD` directamente desde su Secret.
 - La API de la Consola recibe `NEXO_ALERTS_TOKEN` del Secret `nexo-alertas`; el playbook del CPD lo exige.
+- El Fluent Bit junto a los nodos de API Manager enmascara datos personales y secretos de la analítica y de los
+  logs de aplicación con el mismo filtro del laboratorio (`files/enmascarar.lua`, copia exacta de
+  `deploy/compose/fluent-bit/enmascarar.lua`); antes, el chart los enviaba a OpenSearch sin enmascarar.
+- `consola.api.proxiesConfiables` (1 por omisión) fija `NEXO_TRUST_PROXY` en la API de la Consola.
 - `deploy/validar-instaladores.sh` revisa además que ningún contenedor quede sin raíz de solo lectura ni corra
-  como root y que ningún `deployment.toml` vuelva a un ConfigMap; con `--solo-helm` valida solo el chart.
+  como root, que ningún `deployment.toml` vuelva a un ConfigMap y que cada Fluent Bit del chart lleve el filtro
+  de enmascaramiento idéntico al del laboratorio; con `--solo-helm` valida solo el chart.
 - Versiones únicas en instaladores y documentación del despliegue: RKE2 v1.36.5+rke2r1 y PostgreSQL 16.
 - La guía de instalación indica que la topología de colas de RabbitMQ (y la política de la cola de fallidos) se
   declara con el servicio de implementación: el chart y el playbook no la crean.
@@ -152,8 +172,9 @@ Fecha de publicación: 13-10-2026. Base: WSO2 API Manager 4.7.0 y WSO2 Micro Int
 
 ## Versión firmada, SBOM y vulnerabilidades
 
-- El flujo de versión corre solo desde `main` o desde una etiqueta `v*`, exige el CI en verde en el mismo commit
-  y fija todas las acciones por SHA (también en el CI).
+- El flujo de versión corre solo desde `main` o desde una etiqueta `v*` que apunte a un commit de `main`, exige
+  en verde la corrida del CI del push de ese mismo commit a `main` (no cuentan las de pull request ni las de otras
+  ramas) y fija todas las acciones por SHA (también en el CI).
 - SBOM CycloneDX 1.6 del producto con los componentes propios `@nexo/*`, purls corregidos (`%40` en los scopes de
   npm, imágenes y repositorios correctos) y los componentes de terceros separados en ejecución y desarrollo.
 - SBOM de cada imagen con syft (propias y bases de terceros del chart), validados con cyclonedx-cli, firmados y,
@@ -168,6 +189,9 @@ Fecha de publicación: 13-10-2026. Base: WSO2 API Manager 4.7.0 y WSO2 Micro Int
 - Corrige los dos jobs en rojo de la versión anterior: Trivy (configuración del chart: raíz de solo lectura y
   contraseñas fuera de ConfigMaps) y contratos D-03 (construye las dependencias del workspace antes de validar).
 - Nuevos jobs: neutralidad y herramientas de versión; chart de Helm (lint, kubeconform y reglas de seguridad).
+- El job de calidad levanta PostgreSQL 16, así que las pruebas en base de datos del retorno con dos personas y del
+  paquete de exportación corren en cada CI y en el flujo de versión (antes se omitían). Las pruebas de las reglas
+  de alerta (`promtool test rules`) también corren en el CI.
 - Excepciones de Trivy documentadas una por una en `.trivyignore.yaml` (con plazo cuando corresponde).
 
 ## Verificación

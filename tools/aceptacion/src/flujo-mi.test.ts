@@ -122,8 +122,26 @@ describe("flujo de solicitudes: reintentos solo para fallas del destino (0-32)",
     }
   });
 
-  it("ningún 4xx se reintenta: va directo a fallidos con 1 intento y el motivo", () => {
+  it("los 4xx temporales (408, 425 y 429) se reintentan con espera progresiva", () => {
+    for (const status of [408, 425, 429]) {
+      const r = ejecutarSecuencia(secuencias, "procesar-solicitud", entrega("0"), () => ({ status }));
+      expect(
+        colas(r).map((l) => l.endpoint),
+        `HTTP ${status}`,
+      ).toEqual(["ColaReintento1EP"]);
+      expect(r.registros.map((x) => x.propiedades.etapa)).toContain("8-reintento-programado");
+    }
+    // Si sigue llegando 429 después de los tres reintentos, va a fallidos con el motivo.
+    const ultimo = colas(
+      ejecutarSecuencia(secuencias, "procesar-solicitud", entrega("3"), () => ({ status: 429 })),
+    )[0]!;
+    expect(ultimo.endpoint).toBe("ColaFallidosEP");
+    expect(ultimo.encabezados["x-motivo"]).toBe("HTTP 429");
+  });
+
+  it("ningún otro 4xx se reintenta: va directo a fallidos con 1 intento y el motivo", () => {
     for (let status = 400; status <= 499; status++) {
+      if (status === 408 || status === 425 || status === 429) continue;
       const r = ejecutarSecuencia(secuencias, "procesar-solicitud", entrega("0"), () => ({ status }));
       expect(
         colas(r).map((l) => l.endpoint),

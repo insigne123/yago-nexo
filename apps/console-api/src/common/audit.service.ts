@@ -37,6 +37,28 @@ export class AuditService {
   }
 
   /**
+   * Registra el éxito de una acción que ya quedó confirmada en la base (p. ej., la aprobación de un retorno). No
+   * lanza: si la escritura en la cadena falla, el evento queda en el log de la API y la respuesta informa el
+   * resultado real de la acción, en vez de un error que haría parecer que no se ejecutó.
+   */
+  recordCommitted(
+    user: AuthUser | { username: string; ip?: string },
+    action: string,
+    resource: string,
+    details?: Record<string, unknown>,
+  ): Promise<boolean> {
+    return this.append({
+      actor: user.username,
+      actorType: "roles" in user ? "usuario" : "tecnico",
+      action,
+      resource,
+      result: "exito",
+      sourceIp: user.ip,
+      details,
+    });
+  }
+
+  /**
    * Registra un evento sin interrumpir la respuesta en curso (rechazos y fallos). Si la escritura en la
    * cadena falla, queda en el log de la API con el evento completo, para no perderlo en silencio.
    */

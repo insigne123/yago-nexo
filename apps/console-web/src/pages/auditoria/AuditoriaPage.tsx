@@ -162,7 +162,7 @@ export default function AuditoriaPage() {
       <PageHeader
         title="Auditoría"
         reference="BT-031 · BT-032"
-        description="Eventos de auditoría con identidad, fecha y hora, acción, resultado e IP de origen. Cada evento lleva un número de secuencia y un hash encadenado con el anterior: la verificación detecta un evento alterado, reordenado o borrado entre otros dos. Borrar los últimos eventos no rompe la cadena: para detectarlo, compare el último número y su hash con la copia reenviada al SIEM."
+        description="Eventos de auditoría con identidad, fecha y hora, acción, resultado e IP de origen. Cada evento lleva un número de secuencia y un hash encadenado con el anterior (SHA-256 sin clave): la verificación detecta un evento alterado, reordenado o borrado entre otros dos cuando no se recalcularon los hashes siguientes. Una alteración con recálculo de la cadena, o el borrado de los últimos eventos, se detecta comparando el último número y su hash con la copia reenviada al SIEM."
         actions={
           <>
             <Button

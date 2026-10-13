@@ -9,7 +9,6 @@ import type {
   AnomalyStatus,
   ApiAssetPatch,
   Audience,
-  ContinuityMode,
   DiscoveryScanRequest,
   FindingStatus,
   ImpactRequest,
@@ -446,17 +445,6 @@ export function useAbortRollout() {
     onSuccess: async () => {
       await invalidate(keys.rolloutsAll, keys.overview);
       toast.warning("Despliegue detenido", "El tráfico volvió al backend estable.");
-    },
-  });
-}
-
-export function useSetContinuityMode() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: (mode: ContinuityMode) => unwrap(api().PUT("/continuity/mode", { body: { mode } })),
-    onSuccess: async (state) => {
-      await invalidate(keys.continuityAll);
-      toast.success(`Modo ${state.mode === "automatico" ? "automático" : "manual"} activado`);
     },
   });
 }

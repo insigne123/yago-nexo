@@ -441,33 +441,16 @@ function buildGraph(
   ];
   for (const [id, label, tecnologia] of systems)
     nodes.push({ id, type: "sistema", label, meta: { tecnologia } });
-  const data: Array<[string, string, string]> = [
-    ["dato-concesion", "Tabla CONCESION", "interna"],
-    ["dato-operador", "Tabla OPERADOR", "reservada"],
-    ["dato-reclamo", "Tabla RECLAMO", "datos_personales"],
-    ["dato-portabilidad", "Tabla SOLICITUD_PORTABILIDAD", "datos_personales"],
-    ["dato-banda", "Tabla BANDA_FRECUENCIA", "interna"],
-    ["dato-indicadores", "Vista INDICADORES_CALIDAD", "publica"],
-    ["dato-antena", "Tabla ANTENA", "publica"],
-  ];
-  for (const [id, label, clasificacion] of data)
-    nodes.push({ id, type: "dato", label, meta: { clasificacion } });
-  const reports: Array<[string, string]> = [
-    ["rep-reclamos", "Reporte mensual de reclamos"],
-    ["rep-calidad", "Tablero de calidad de servicio"],
-    ["rep-espectro", "Informe de espectro asignado"],
-    ["rep-mercado", "Estadísticas trimestrales de mercado"],
-  ];
-  for (const [id, label] of reports)
-    nodes.push({ id, type: "reporte", label, meta: { herramienta: "OpenMetadata / Looker Studio" } });
-
+  // Solo lo que la API de la Consola genera en la 1.2.0: consumidores y APIs desde la configuración del gateway y
+  // flujos y sistemas desde el analizador de artefactos del integrador. Los datos y reportes (linaje de punta a punta
+  // con un catálogo de datos) se entregan con el servicio de implementación, así que la demostración no los muestra.
   for (const seed of API_SEEDS) {
     for (const c of seed.consumers)
       edges.push({
         from: consumerId(c),
         to: apiId(seed.slug),
         relation: "consume",
-        source: "trafico_observado",
+        source: "configuracion",
       });
     if (seed.flow)
       edges.push({ from: apiId(seed.slug), to: seed.flow, relation: "llama", source: "analizador_mi" });
@@ -488,20 +471,6 @@ function buildGraph(
   link("flujo-tramites", "sis-cloudsql", "lee", "analizador_mi");
   link("flujo-tramites", "sis-oracle", "lee", "analizador_mi");
   link("flujo-infraestructura", "sis-oracle", "lee", "analizador_mi");
-  link("sis-oracle", "dato-concesion", "escribe", "openmetadata");
-  link("sis-oracle", "dato-operador", "escribe", "openmetadata");
-  link("sis-oracle", "dato-antena", "escribe", "openmetadata");
-  link("sis-pisee", "dato-operador", "lee", "openmetadata");
-  link("sis-cloudsql", "dato-reclamo", "escribe", "openmetadata");
-  link("sis-oap", "dato-portabilidad", "escribe", "openmetadata");
-  link("sis-sae", "dato-banda", "escribe", "openmetadata");
-  link("sis-bigquery", "dato-indicadores", "escribe", "openmetadata");
-  // Como en nexo.graph_edge, la arista va de quien depende hacia lo que usa: el reporte lee el dato.
-  link("rep-reclamos", "dato-reclamo", "lee", "openmetadata");
-  link("rep-calidad", "dato-indicadores", "lee", "openmetadata");
-  link("rep-mercado", "dato-indicadores", "lee", "openmetadata");
-  link("rep-mercado", "dato-concesion", "lee", "openmetadata");
-  link("rep-espectro", "dato-banda", "lee", "openmetadata");
   return { nodes, edges };
 }
 

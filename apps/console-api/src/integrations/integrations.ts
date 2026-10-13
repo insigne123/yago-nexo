@@ -1,7 +1,7 @@
-import { connect as tlsConnect } from "node:tls";
 import { Injectable } from "@nestjs/common";
 import { fetch } from "undici";
 import { config } from "../config.js";
+import { rejectsTls10, tlsAttempt } from "./tls-probe.js";
 
 /** Autenticación básica de OpenSearch, solo si hay credenciales configuradas (en el laboratorio no las hay). */
 export function autorizacionOpenSearch(
@@ -124,34 +124,11 @@ export interface TlsProbeResult {
 /** Sondeo TLS real de cada canal para la matriz criptográfica (BT-028). */
 @Injectable()
 export class TlsProbeService {
-  private probe(
-    host: string,
-    port: number,
-    minVersion: "TLSv1" | "TLSv1.2",
-    maxVersion: "TLSv1" | "TLSv1.3",
-  ) {
-    return new Promise<{ ok: boolean; protocol?: string; cipher?: string }>((resolve) => {
-      const socket = tlsConnect(
-        { host, port, servername: host, rejectUnauthorized: false, minVersion, maxVersion, timeout: 4000 },
-        () => {
-          const cipher = socket.getCipher();
-          resolve({ ok: true, protocol: socket.getProtocol() ?? undefined, cipher: cipher?.name });
-          socket.end();
-        },
-      );
-      socket.on("error", () => resolve({ ok: false }));
-      socket.on("timeout", () => {
-        socket.destroy();
-        resolve({ ok: false });
-      });
-    });
-  }
-
   async matrix(): Promise<TlsProbeResult[]> {
     const out: TlsProbeResult[] = [];
     for (const p of config.tlsProbes) {
-      const modern = await this.probe(p.host, p.port, "TLSv1.2", "TLSv1.3");
-      const legacy = await this.probe(p.host, p.port, "TLSv1", "TLSv1");
+      const modern = await tlsAttempt(p.host, p.port, "moderno");
+      const legacy = await tlsAttempt(p.host, p.port, "tls10");
       out.push({
         canal: p.canal,
         origen: p.descripcion,
@@ -160,7 +137,7 @@ export class TlsProbeService {
         versiones: modern.ok ? [modern.protocol ?? "?"] : [],
         cifrado: modern.cipher ?? "sin conexión",
         verificado: new Date().toISOString(),
-        rechazaTls10: !legacy.ok,
+        rechazaTls10: rejectsTls10(modern, legacy),
       });
     }
     return out;

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { integerInRange, trustProxySetting } from "./common/env-parse.js";
 import { versionNexo } from "./version.js";
 
 /** Configuración de la API de la Consola, solo por variables de entorno (12-factor). Las credenciales no tienen valor por defecto. */
@@ -43,6 +44,8 @@ export const config = {
   version: env("NEXO_VERSION", versionNexo()),
   environmentLabel: env("NEXO_ENVIRONMENT_LABEL", "Laboratorio Yago"),
   databaseUrl: env("NEXO_DATABASE_URL"),
+  /** Proxies en los que se confía para tomar la IP de origen de X-Forwarded-For (ver env-parse.ts). */
+  trustProxy: trustProxySetting(process.env.NEXO_TRUST_PROXY),
   corsOrigins: env("NEXO_CORS_ORIGINS", "http://localhost:5173")
     .split(",")
     .map((s) => s.trim()),
@@ -105,7 +108,12 @@ export const config = {
   continuity: {
     primarySite: env("NEXO_PRIMARY_SITE_ID", "cpd"),
     /** Minutos que una solicitud de retorno espera la aprobación de otra persona antes de vencer. */
-    failbackRequestTtlMin: positive("NEXO_FAILBACK_REQUEST_TTL_MIN", "30"),
+    failbackRequestTtlMin: integerInRange(
+      "NEXO_FAILBACK_REQUEST_TTL_MIN",
+      env("NEXO_FAILBACK_REQUEST_TTL_MIN", "30"),
+      1,
+      1440,
+    ),
   },
   /** Endpoints que la matriz TLS sondea (canal|host:puerto|descripción). */
   tlsProbes: env(

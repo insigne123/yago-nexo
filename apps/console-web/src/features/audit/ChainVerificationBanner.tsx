@@ -28,11 +28,13 @@ export function ChainVerificationBanner({ result, verifiedAt }: ChainVerificatio
       >
         <ShieldCheck className="mt-0.5 size-7 shrink-0 text-ok" aria-hidden="true" />
         <div>
-          <p className="text-base font-semibold text-ok">Cadena de auditoría íntegra</p>
+          <p className="text-base font-semibold text-ok">Cadena de auditoría consistente</p>
           <p className="mt-1 text-sm text-fg">
             Se verificaron {formatNumber(result.count ?? 0)} eventos
             {result.lastSeq !== undefined ? `; el último es el número ${formatNumber(result.lastSeq)}` : ""}.
-            Hasta ese número, ningún evento fue alterado, reordenado ni eliminado.
+            La cadena es consistente hasta ese número: ningún cambio sin recalcular los hashes siguientes. Un
+            cambio que recalcule la cadena, o el borrado de los últimos eventos, se detecta comparando el
+            último número y su hash con la copia reenviada al SIEM.
           </p>
           {when}
         </div>

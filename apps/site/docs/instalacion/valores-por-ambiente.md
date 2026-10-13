@@ -117,6 +117,18 @@ Una instancia de cada servicio en un clúster no productivo, cada ambiente en su
 
 Cada ambiente pide unas 3 vCPU y 11 GiB. Usa los almacenes de llaves de ejemplo de WSO2, por lo que el TLS interno no se verifica: solo para datos sintéticos.
 
+## IP de origen en la auditoría {#ip-origen}
+
+La API de la Consola guarda la IP de origen de cada acción y de cada rechazo (401 agrupados por IP, 403 por permiso, cuatro ojos). Solo toma esa IP del encabezado `X-Forwarded-For` cuando viene de un proxy en el que confía, según `consola.api.proxiesConfiables` (variable `NEXO_TRUST_PROXY`):
+
+| Valor | Efecto |
+| --- | --- |
+| `"1"` (por omisión en el chart) | Se cree al ingress que está delante de la API. Si hay otro balanceador antes del ingress, use `"2"`. |
+| `"0"` | No se cree a ningún proxy: la IP es la de la conexión. Es el valor del laboratorio de Compose, donde la API se expone directamente. |
+| Rangos CIDR separados por coma (p. ej., `"10.42.0.0/16"`) | Se cree solo a los proxies de esos rangos. |
+
+`true` no se acepta: dejaría que cualquier cliente fije su IP con el encabezado.
+
 ## Secrets {#secrets}
 
 El chart solo referencia Secrets que ya existen en el espacio de nombres (`secretos.*.existingSecret`); ningún archivo de valores lleva contraseñas.

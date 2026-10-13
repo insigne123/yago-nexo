@@ -5,7 +5,10 @@ import {
   Get,
   HttpCode,
   Inject,
+  Logger,
   NotFoundException,
+  type OnApplicationShutdown,
+  type OnModuleInit,
   Param,
   Post,
   Put,
@@ -13,6 +16,7 @@ import {
 import { z } from "zod";
 import {
   approveFailback,
+  expireFailbackRequests,
   FailbackError,
   getFailbackRequest,
   listFailbackRequests,
@@ -35,10 +39,13 @@ import { parse } from "../common/validation.js";
 import { config } from "../config.js";
 
 /**
- * Continuidad CPD ↔ Google Cloud (BT-036 manual, D-05 automática). Los agentes nexo-failover de cada sitio
- * escriben su salud y voto; el agente líder ejecuta conmutaciones, simulacros y retornos aprobados.
+ * Continuidad CPD ↔ Google Cloud (D-05). Los agentes de continuidad de cada sitio escriben su salud y voto; el
+ * agente del respaldo conmuta solo si la instalación lo deja en modo automático, y ejecuta simulacros y retornos
+ * aprobados.
  */
 const ModeSchema = z.object({ mode: z.enum(["manual", "automatico"]) });
+export const MODE_FROM_INSTALLATION =
+  "El modo de conmutación lo fija NEXO_CONTINUITY_AUTOMATICO en la instalación de los agentes de continuidad; la Consola solo lo muestra.";
 /** Motivo obligatorio para pedir o rechazar un retorno; opcional al aprobarlo. */
 const RequiredReasonSchema = z.object({ reason: z.string().trim().min(5).max(1000) });
 const OptionalReasonSchema = z.object({ reason: z.string().trim().max(1000).optional() }).default({});
@@ -101,16 +108,49 @@ export const failoverRow = (r: Record<string, unknown>) => ({
   approvedBy: r.approved_by ?? undefined,
 });
 
+/** Cada cuánto la API barre las solicitudes de retorno vencidas para auditarlas aunque nadie las consulte. */
+export const FAILBACK_SWEEP_MS = 60_000;
+
 @Controller("continuity")
-export class ContinuityController {
+export class ContinuityController implements OnModuleInit, OnApplicationShutdown {
+  private readonly log = new Logger("continuidad");
+  private sweepTimer?: NodeJS.Timeout;
+
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly audit: AuditService,
   ) {}
 
+  onModuleInit() {
+    this.sweepTimer = setInterval(() => void this.sweepExpiredFailbacks(), FAILBACK_SWEEP_MS);
+    this.sweepTimer.unref();
+  }
+
+  onApplicationShutdown() {
+    clearInterval(this.sweepTimer);
+  }
+
+  /**
+   * Marca las solicitudes de retorno vencidas y registra cada vencimiento en la auditoría (una vez, aunque haya
+   * varias réplicas de la API). Corre cada minuto y antes de mostrar el estado o las solicitudes. No lanza.
+   */
+  async sweepExpiredFailbacks(): Promise<number> {
+    try {
+      const expired = await expireFailbackRequests(this.db);
+      await this.auditExpired(expired);
+      return expired.length;
+    } catch (e) {
+      this.log.warn(
+        `no se pudieron revisar las solicitudes de retorno vencidas: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return 0;
+    }
+  }
+
   @Get()
   @RequirePermission("continuity:read")
   async state() {
+    await this.sweepExpiredFailbacks();
     const settings = (await this.db.query("SELECT * FROM nexo.continuity_settings WHERE id = 1")).rows[0];
     const sites = (
       await this.db.query(
@@ -139,17 +179,20 @@ export class ContinuityController {
     };
   }
 
+  /**
+   * El modo lo decide cada agente de continuidad con NEXO_CONTINUITY_AUTOMATICO (y lo refleja en la base en cada
+   * ciclo), así que un cambio hecho aquí no tendría efecto: se rechaza con 409 (y queda auditado como rechazo).
+   */
   @Put("mode")
   @RequirePermission("admin:settings:write")
   @AuditAction("continuidad.modo")
-  async mode(@Body() body: unknown, @CurrentUser() user: AuthUser) {
-    const { mode } = parse(ModeSchema, body);
-    await this.db.query(
-      "UPDATE nexo.continuity_settings SET mode = $1, updated_at = now(), updated_by = $2 WHERE id = 1",
-      [mode, user.username],
-    );
-    await this.audit.record(user, "continuidad.modo", "continuidad", "exito", { mode });
-    return this.state();
+  mode(@Body() body: unknown): never {
+    parse(ModeSchema, body);
+    throw new ConflictException({
+      statusCode: 409,
+      code: "modo_de_instalacion",
+      message: MODE_FROM_INSTALLATION,
+    });
   }
 
   @Post("drill")
@@ -181,6 +224,7 @@ export class ContinuityController {
   @Get("failback/requests")
   @RequirePermission("continuity:read")
   async failbackRequests(): Promise<FailbackRequest[]> {
+    await this.sweepExpiredFailbacks();
     return listFailbackRequests(this.db, 50);
   }
 
@@ -200,7 +244,7 @@ export class ContinuityController {
     });
     await this.auditExpired(out.expired);
     const r = out.request;
-    await this.audit.record(user, "continuidad.retorno.solicitar", `retorno/${r.id}`, "exito", {
+    await this.audit.recordCommitted(user, "continuidad.retorno.solicitar", `retorno/${r.id}`, {
       desde: r.fromSite,
       hacia: r.toSite,
       motivo: reason,
@@ -226,7 +270,8 @@ export class ContinuityController {
         reason,
         primarySite: config.continuity.primarySite,
       });
-      await this.audit.record(user, "continuidad.retorno.aprobar", `retorno/${id}`, "exito", {
+      // La aprobación ya quedó confirmada: si la auditoría falla, queda en el log y la respuesta sigue siendo 202.
+      await this.audit.recordCommitted(user, "continuidad.retorno.aprobar", `retorno/${id}`, {
         solicitadoPor: request.requestedBy,
         conmutacion: failoverEvent.id,
         desde: request.fromSite,
@@ -235,10 +280,8 @@ export class ContinuityController {
       });
       return { request, event: failoverRow(failoverEvent) };
     } catch (e) {
-      if (e instanceof FailbackError && e.code === "vencida") {
-        const expired = await getFailbackRequest(this.db, id);
-        if (expired) await this.auditExpired([expired]);
-      }
+      // Solo se audita si esta operación fue la que marcó el vencimiento (si no, ya lo auditó el barrido).
+      if (e instanceof FailbackError && e.expired) await this.auditExpired([e.expired]);
       throw failbackHttpError(e);
     }
   }
@@ -259,16 +302,14 @@ export class ContinuityController {
         actor: { username: user.username, sub: user.sub },
         reason,
       });
-      await this.audit.record(user, "continuidad.retorno.rechazar", `retorno/${id}`, "exito", {
+      await this.audit.recordCommitted(user, "continuidad.retorno.rechazar", `retorno/${id}`, {
         solicitadoPor: r.requestedBy,
         motivo: reason,
       });
       return r;
     } catch (e) {
-      if (e instanceof FailbackError && e.code === "vencida") {
-        const expired = await getFailbackRequest(this.db, id);
-        if (expired) await this.auditExpired([expired]);
-      }
+      // Solo se audita si esta operación fue la que marcó el vencimiento (si no, ya lo auditó el barrido).
+      if (e instanceof FailbackError && e.expired) await this.auditExpired([e.expired]);
       throw failbackHttpError(e);
     }
   }

@@ -8,12 +8,15 @@ describe("banner de verificación de la cadena de auditoría", () => {
     const banner = screen.getByRole("status");
     expect(banner).toHaveAttribute("data-testid", "audit-verification");
     expect(banner).toHaveAttribute("data-ok", "true");
-    expect(banner).toHaveTextContent("Cadena de auditoría íntegra");
+    expect(banner).toHaveTextContent("Cadena de auditoría consistente");
     expect(banner).toHaveTextContent("Se verificaron 42 eventos; el último es el número 42.");
-    // La cadena no prueba que no falten eventos después del último verificado.
+    // El hash no tiene clave: la cadena no prueba nada ante quien recalcule los hashes, ni que no falten eventos
+    // después del último verificado. El banner no promete más que eso.
+    expect(banner).toHaveTextContent("La cadena es consistente hasta ese número");
     expect(banner).toHaveTextContent(
-      "Hasta ese número, ningún evento fue alterado, reordenado ni eliminado.",
+      "se detecta comparando el último número y su hash con la copia reenviada al SIEM",
     );
+    expect(banner).not.toHaveTextContent("ningún evento fue alterado");
   });
 
   it("alerta una cadena rota e indica el evento y el motivo", () => {

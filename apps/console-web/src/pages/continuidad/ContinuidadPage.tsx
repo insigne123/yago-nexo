@@ -8,7 +8,6 @@ import {
   Play,
   Send,
   Server,
-  ShieldCheck,
   Undo2,
   Vote,
   X,
@@ -22,13 +21,11 @@ import {
   useRefreshWhenFinished,
   useRejectFailback,
   useRequestFailback,
-  useSetContinuityMode,
   useStartDrill,
 } from "../../api/queries";
 import { authorizedFetch } from "../../api/client";
 import { describeError } from "../../api/errors";
-import type { ContinuityMode, FailbackRequest, FailoverEvent, SiteHealth } from "../../api/types";
-import { requiredPermissionText } from "../../auth/permissions";
+import type { FailbackRequest, FailoverEvent, SiteHealth } from "../../api/types";
 import { useSession } from "../../auth/session";
 import { GuardedButton } from "../../components/GuardedButton";
 import { PageHeader } from "../../components/PageHeader";
@@ -38,9 +35,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { Dialog } from "../../components/ui/Dialog";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { SegmentedControl } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { toast } from "../../components/ui/toast-store";
 import { useRuntime } from "../../config/RuntimeContext";
@@ -218,13 +213,11 @@ export default function ContinuidadPage() {
   const state = useContinuity(anyLive);
   useRefreshWhenFinished(anyLive, keys.continuityAll, keys.overview);
   const session = useSession();
-  const setMode = useSetContinuityMode();
   const drill = useStartDrill();
   const requestFailback = useRequestFailback();
   const approveFailback = useApproveFailback();
   const rejectFailback = useRejectFailback();
   const now = useNow();
-  const [pendingMode, setPendingMode] = useState<ContinuityMode | null>(null);
   const [failbackDialog, setFailbackDialog] = useState<"solicitar" | "aprobar" | "rechazar" | null>(null);
   const { mock } = useRuntime();
   const queryClient = useQueryClient();
@@ -254,7 +247,6 @@ export default function ContinuidadPage() {
   const onPrimary = !primary || s?.activeSite === primary.id;
   const healthyVotes = (s?.sites ?? []).filter((site) => site.vote === "primario_sano").length;
   const downVotes = (s?.sites ?? []).filter((site) => site.vote === "primario_caido").length;
-  const canWriteMode = session.can("admin:settings:write");
   const pendingFailback = s?.pendingFailback;
   const requestedBySelf = pendingFailback ? session.isSelf(pendingFailback.requestedBy) : false;
   const closeFailback = () => setFailbackDialog(null);
@@ -376,26 +368,16 @@ export default function ContinuidadPage() {
               </p>
             </div>
             <div className="rounded-lg border border-line bg-surface p-4">
-              <p className="mb-2 text-xs font-medium text-fg-muted" id="modo-label">
-                Modo de conmutación
+              <p className="text-xs font-medium text-fg-muted">Modo de conmutación</p>
+              <p className="mt-1 text-xl font-semibold text-fg" data-testid="continuity-mode">
+                {s.mode === "automatico" ? "Automático" : "Manual"}
               </p>
-              <SegmentedControl<ContinuityMode>
-                name="continuity-mode"
-                label="Modo de conmutación"
-                value={s.mode ?? "manual"}
-                options={[
-                  { value: "manual", label: "Manual" },
-                  { value: "automatico", label: "Automático" },
-                ]}
-                onChange={(mode) => setPendingMode(mode)}
-                disabled={!canWriteMode || setMode.isPending}
-                describedBy="modo-ayuda"
-                testId="continuity-mode"
-              />
-              <p id="modo-ayuda" className="mt-1.5 text-xs text-fg-muted">
-                {canWriteMode
-                  ? "Manual (BT-036) y automático (D-05) usan el mismo procedimiento."
-                  : requiredPermissionText(["admin:settings:write"])}
+              <p className="mt-1 text-xs text-fg-muted">
+                {s.mode === "automatico"
+                  ? "El agente del sitio de respaldo conmuta solo cuando 2 de 3 votos indican que el primario cayó."
+                  : "Los agentes votan y la Consola muestra el quórum, pero no conmutan solos."}{" "}
+                Lo fija NEXO_CONTINUITY_AUTOMATICO en la instalación de los agentes; la Consola solo lo
+                muestra.
               </p>
             </div>
           </section>
@@ -406,7 +388,7 @@ export default function ContinuidadPage() {
             <Card
               className="mb-6 border-dashed"
               title="Herramientas del modo simulado"
-              description="Disponibles solo con datos simulados. En una instalación, la conmutación la deciden los agentes de continuidad con quórum (modo automático) o el operador con el procedimiento manual."
+              description="Disponibles solo con datos simulados. En una instalación, la conmutación automática la deciden los agentes de continuidad con quórum de 2 de 3."
             >
               <Button
                 size="sm"
@@ -448,33 +430,6 @@ export default function ContinuidadPage() {
           ))}
         </ol>
       )}
-
-      <Dialog
-        open={pendingMode !== null}
-        onClose={() => setPendingMode(null)}
-        title={pendingMode === "automatico" ? "Activar el modo automático" : "Activar el modo manual"}
-        description={
-          pendingMode === "automatico"
-            ? "Con el modo automático, Nexo conmuta al sitio de respaldo sin intervención cuando 2 de 3 votos indican que el primario cayó."
-            : "Con el modo manual, la conmutación requiere que un operador la ejecute siguiendo el procedimiento."
-        }
-        testId="mode-dialog"
-      >
-        <div className="flex justify-end gap-2">
-          <Button onClick={() => setPendingMode(null)}>Cancelar</Button>
-          <Button
-            variant="primary"
-            icon={<ShieldCheck className="size-4" aria-hidden="true" />}
-            loading={setMode.isPending}
-            onClick={() =>
-              pendingMode && setMode.mutate(pendingMode, { onSuccess: () => setPendingMode(null) })
-            }
-            data-testid="btn-confirm-mode"
-          >
-            Confirmar
-          </Button>
-        </div>
-      </Dialog>
 
       <ReasonDialog
         open={failbackDialog === "solicitar"}

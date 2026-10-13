@@ -11,6 +11,7 @@ import { createPool, migrate, type Db } from "./db.js";
 import {
   approveFailback,
   effectiveStatus,
+  expireFailbackRequests,
   FailbackError,
   failbackRow,
   getFailbackRequest,
@@ -181,6 +182,23 @@ describe.skipIf(!DB_URL)("retorno con dos personas en PostgreSQL", () => {
       .rows[0];
     expect(row.status).toBe("vencida");
     expect((await db.query("SELECT count(*)::int AS n FROM nexo.failover_event")).rows[0].n).toBe(0);
+  });
+
+  it("el barrido marca cada solicitud vencida una sola vez y deja las vigentes", async () => {
+    const { request } = await requestFailback(db, { actor: carla, reason: "barrido", ttlMinutes: 30 });
+    expect(await expireFailbackRequests(db)).toEqual([]);
+    await db.query(
+      "UPDATE nexo.failback_request SET requested_at = now() - interval '40 minutes', expires_at = now() - interval '1 second' WHERE id = $1",
+      [request.id],
+    );
+    const [a, b] = await Promise.all([expireFailbackRequests(db), expireFailbackRequests(db)]);
+    expect([...a!, ...b!].map((r) => [r.id, r.status])).toEqual([[request.id, "vencida"]]);
+    expect(await expireFailbackRequests(db)).toEqual([]);
+    // Ya marcada, aprobarla informa «vencida» sin volver a devolverla para auditar.
+    const late = await approveFailback(db, { id: request.id, actor: luis }).catch((e: unknown) => e);
+    expect(late).toBeInstanceOf(FailbackError);
+    expect((late as FailbackError).code).toBe("vencida");
+    expect((late as FailbackError).expired).toBeUndefined();
   });
 
   it("una solicitud vencida no impide pedir otra y se informa para auditarla", async () => {

@@ -49,12 +49,6 @@ const COMPONENTS: readonly Component[] = [
     role: "Trazas, métricas y registros",
   },
   { name: "Jaeger", version: "2.21.0", license: "Apache 2.0", role: "Trazas distribuidas" },
-  {
-    name: "OpenMetadata",
-    version: "Según instalación",
-    license: "Apache 2.0",
-    role: "Catálogo de datos y linaje",
-  },
 ];
 
 const columns: Column<Component>[] = [

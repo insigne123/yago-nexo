@@ -110,12 +110,25 @@ describe.skipIf(!ADMIN_URL)("retorno con dos personas por la API", () => {
     tok.luis = await sign("luis.aprobador", ["aprobador"]);
     tok.pedro = await sign("pedro.auditoria", ["auditor"]);
     tok.ana = await sign("ana.desarrollo", ["desarrollador"]);
+    tok.admin = await sign("admin.nexo", ["administrador"]);
   }, 60_000);
 
   afterAll(async () => {
     await app?.close();
     await db?.end();
     await new Promise((r) => jwks?.close(r));
+  });
+
+  it("el modo de conmutación no se cambia desde la Consola: 409 y el rechazo queda auditado", async () => {
+    const before = (await call("pedro", "GET", "/continuity")).data.mode;
+    const r = await call("admin", "PUT", "/continuity/mode", { mode: "automatico" });
+    expect(r.status).toBe(409);
+    expect(r.data.code).toBe("modo_de_instalacion");
+    expect(String(r.data.message)).toMatch(/NEXO_CONTINUITY_AUTOMATICO/);
+    expect((await call("pedro", "GET", "/continuity")).data.mode).toBe(before);
+    expect((await audit("continuidad.modo")).map((e) => [e.actor, e.result])).toEqual([
+      ["admin.nexo", "rechazado"],
+    ]);
   });
 
   it("con el CPD activo no hay retorno que pedir (409)", async () => {
@@ -240,6 +253,14 @@ describe.skipIf(!ADMIN_URL)("retorno con dos personas por la API", () => {
       "UPDATE nexo.failback_request SET requested_at = now() - interval '40 minutes', expires_at = now() - interval '1 second' WHERE id = $1",
       [req.data.id],
     );
+    // Basta con consultar el estado (sin aprobar, rechazar ni pedir otro) para que el vencimiento se audite.
+    expect((await call("pedro", "GET", "/continuity")).data.pendingFailback).toBeUndefined();
+    expect((await audit("continuidad.retorno.vencida")).map((e) => [e.resource, e.result])).toEqual([
+      [`retorno/${req.data.id}`, "rechazado"],
+    ]);
+    expect(
+      (await db.query("SELECT status FROM nexo.failback_request WHERE id = $1", [req.data.id])).rows[0],
+    ).toMatchObject({ status: "vencida" });
     const list = (await call("pedro", "GET", "/continuity/failback/requests")).data as unknown as Array<{
       id: string;
       status: string;
@@ -248,8 +269,26 @@ describe.skipIf(!ADMIN_URL)("retorno con dos personas por la API", () => {
     const late = await call("luis", "POST", `/continuity/failback/requests/${req.data.id}/approve`, {});
     expect(late.status).toBe(409);
     expect(late.data.code).toBe("vencida");
+    // El vencimiento se audita una sola vez, aunque después se intente aprobar.
     expect((await audit("continuidad.retorno.vencida")).map((e) => e.resource)).toEqual([
       `retorno/${req.data.id}`,
+    ]);
+
+    // Sin ninguna consulta: el barrido periódico de la API la marca y la audita.
+    const other = await call("carla", "POST", "/continuity/failback/requests", {
+      reason: "CPD restablecido, tercera vez",
+    });
+    expect(other.status).toBe(201);
+    await db.query(
+      "UPDATE nexo.failback_request SET requested_at = now() - interval '40 minutes', expires_at = now() - interval '1 second' WHERE id = $1",
+      [other.data.id],
+    );
+    const { ContinuityController } = await import("./continuity.js");
+    expect(await app.get(ContinuityController).sweepExpiredFailbacks()).toBe(1);
+    expect(await app.get(ContinuityController).sweepExpiredFailbacks()).toBe(0);
+    expect((await audit("continuidad.retorno.vencida")).map((e) => e.resource)).toEqual([
+      `retorno/${req.data.id}`,
+      `retorno/${other.data.id}`,
     ]);
     const chain = await db.query("SELECT count(*)::int AS n FROM nexo.audit_event");
     expect(chain.rows[0].n).toBeGreaterThan(10);

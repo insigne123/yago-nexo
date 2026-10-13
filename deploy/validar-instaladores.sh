@@ -21,6 +21,7 @@ set -uo pipefail
 
 RAIZ=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CHART="$RAIZ/deploy/helm/nexo-platform"
+LUA_COMPOSE="$RAIZ/deploy/compose/fluent-bit/enmascarar.lua"
 ANSIBLE_DIR="$RAIZ/deploy/ansible/rke2"
 TOFU_DIR="$RAIZ/deploy/opentofu/gcp-dr"
 BIN="$HOME/.local/bin"
@@ -223,6 +224,38 @@ sys.exit(1 if errores else 0)
 PY
 }
 
+# Enmascaramiento en el Fluent Bit del chart (BT-029), igual que en el laboratorio: cada ConfigMap de registros
+# lleva enmascarar.lua idéntico a deploy/compose/fluent-bit/enmascarar.lua y un filtro lua que lo llama sobre la
+# analítica y los logs de aplicación, antes de los filtros de métricas.
+validar_enmascaramiento() {
+  python3 - "$1" "$LUA_COMPOSE" <<'PY'
+import sys, yaml
+render, lua_compose = sys.argv[1:3]
+esperado = open(lua_compose, encoding="utf-8").read()
+errores, n = [], 0
+for d in yaml.safe_load_all(open(render, encoding="utf-8")):
+    if not d or d.get("kind") != "ConfigMap" or "fluent-bit.yaml" not in (d.get("data") or {}):
+        continue
+    n += 1
+    nombre, data = d["metadata"]["name"], d["data"]
+    if data.get("enmascarar.lua") != esperado:
+        errores.append(f"ConfigMap {nombre}: enmascarar.lua falta o difiere de deploy/compose/fluent-bit/enmascarar.lua")
+    filtros = (yaml.safe_load(data["fluent-bit.yaml"]).get("pipeline") or {}).get("filters") or []
+    nombres = [f.get("name") for f in filtros]
+    lua = [f for f in filtros if f.get("name") == "lua"]
+    if not lua or lua[0].get("script") != "/fluent-bit/etc/nexo/enmascarar.lua" or lua[0].get("call") != "enmascarar":
+        errores.append(f"ConfigMap {nombre}: falta el filtro lua que llama a enmascarar")
+    elif lua[0].get("match_regex") != r"^apim\.(carbon|metrics)$":
+        errores.append(f"ConfigMap {nombre}: el filtro lua no cubre apim.carbon y apim.metrics")
+    elif "log_to_metrics" in nombres and nombres.index("lua") > nombres.index("log_to_metrics"):
+        errores.append(f"ConfigMap {nombre}: el enmascaramiento debe ir antes de las métricas")
+for e in errores:
+    print(e)
+print(f"{n} configuraciones de Fluent Bit revisadas, {len(errores)} sin enmascaramiento correcto")
+sys.exit(1 if errores else 0)
+PY
+}
+
 validar_render() {
   # validar_render <nombre> [argumentos de helm template...]
   local nombre="$1"
@@ -232,6 +265,7 @@ validar_render() {
   separar "$r.yaml" "$r.k8s.yaml" "$r.crd.yaml" || return 1
   validar_toml "$r.yaml" || return 1
   validar_seguridad "$r.yaml" || return 1
+  validar_enmascaramiento "$r.yaml" || return 1
   kubeconform -strict -summary -kubernetes-version "$K8S_VERSION" -cache "$CACHE/kubeconform" \
     -schema-location default "$r.k8s.yaml" || return 1
   if [ -s "$r.crd.yaml" ] && [ "$(head -c 3 "$r.crd.yaml")" != "[]" ]; then

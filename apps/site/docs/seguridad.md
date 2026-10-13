@@ -36,7 +36,7 @@ Nexo no administra usuarios propios: usa el **Keycloak de la institución**.
 
 ## Mínimo privilegio y segregación de funciones {#minimo-privilegio}
 
-Nexo define seis roles y una **matriz rol-permiso única**, escrita en código en la biblioteca `@nexo/shared` (`packages/shared/src/roles.ts`) y cubierta por pruebas unitarias. La API de la Consola la usará para autorizar cada acción y la Consola la exportará como documento de cumplimiento. Las tablas de esta sección se generan desde esa misma matriz al construir el sitio, así que siempre coinciden con el código.
+Nexo define seis roles y una **matriz rol-permiso única**, escrita en código en la biblioteca `@nexo/shared` (`packages/shared/src/roles.ts`) y cubierta por pruebas unitarias. La API de la Consola la usa para autorizar cada acción que exige un permiso; el resumen de Inicio (`/overview`) y los datos de la propia sesión (`/me`) solo exigen una sesión válida. La API entrega la matriz vigente (`GET /compliance/role-matrix`) y la Consola la muestra en Cumplimiento. Las tablas de esta sección se generan desde esa misma matriz al construir el sitio, así que siempre coinciden con el código.
 
 ### Roles
 
@@ -92,7 +92,7 @@ flowchart LR
 | `encadenamiento` | El `prevHash` de un evento no coincide con el hash del anterior. |
 | `hash` | El contenido de un evento fue alterado: su hash no corresponde. |
 
-El esquema, el encadenamiento y la verificación están implementados en `packages/shared/src/audit.ts` y probados en `packages/shared/src/shared.test.ts` (cadena íntegra, evento alterado y hueco en la secuencia): <EstadoCapacidad id="nexo-shared" />. En el laboratorio, Fluent Bit ya envía la auditoría de API Manager a OpenSearch con buffer en disco. La cadena aplicada a todas las fuentes, el envío al SIEM de la institución y la verificación desde la Consola están en estado <EstadoCapacidad id="auditoria-centralizada" />.
+El esquema, el encadenamiento y la verificación están implementados en `packages/shared/src/audit.ts` y probados en `packages/shared/src/shared.test.ts` (cadena íntegra, evento alterado y hueco en la secuencia): <EstadoCapacidad id="nexo-shared" />. La cadena se aplica a la auditoría de Nexo (Consola y motores), que se reenvía al SIEM y se verifica desde la Consola: <EstadoCapacidad id="auditoria-centralizada" />. La auditoría de WSO2 (`audit.log` de API Manager) llega a OpenSearch (índices `nexo-audit-*`) por Fluent Bit, con buffer en disco y sin cadena de hash.
 
 ## Cifrado en tránsito (TLS) {#tls}
 

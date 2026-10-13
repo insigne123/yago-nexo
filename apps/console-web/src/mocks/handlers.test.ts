@@ -359,8 +359,18 @@ describe("API simulada: el estado cambia con las acciones y el tiempo", () => {
     expect((await call("POST", "/continuity/drill", "carla.operacion")).status).toBe(409);
   });
 
+  it("el modo no se cambia desde la Consola: lo fija la instalación", async () => {
+    const before = (await call("GET", "/continuity", "admin.nexo")).body.mode;
+    const res = await call("PUT", "/continuity/mode", "admin.nexo", {
+      mode: before === "manual" ? "automatico" : "manual",
+    });
+    expect(res.status).toBe(409);
+    expect(String(res.body.message)).toMatch(/NEXO_CONTINUITY_AUTOMATICO/);
+    expect((await call("GET", "/continuity", "admin.nexo")).body.mode).toBe(before);
+  });
+
   it("en modo manual los agentes no conmutan solos", async () => {
-    expect((await call("PUT", "/continuity/mode", "admin.nexo", { mode: "manual" })).status).toBe(200);
+    store.setInstalledMode("manual");
     const res = await call("POST", "/__mock/continuity/outage", "carla.operacion");
     expect(res.status).toBe(409);
     expect(String(res.body.message)).toMatch(/modo manual/);

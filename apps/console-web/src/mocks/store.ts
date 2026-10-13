@@ -38,6 +38,9 @@ import { formatMs, formatPercent, isoDate } from "../lib/format";
 import { sha256Hex } from "../lib/sha256";
 import { appendAudit, verifyAudit } from "./audit";
 import { badRequest, conflict, HttpError, notFound } from "./errors";
+
+const MODE_FROM_INSTALLATION =
+  "El modo de conmutación lo fija NEXO_CONTINUITY_AUTOMATICO en la instalación de los agentes de continuidad; la Consola solo lo muestra.";
 import { isSameActor, type Actor } from "./identity";
 import { simulateImpact } from "./impact";
 import {
@@ -1081,12 +1084,15 @@ export class MockStore {
     };
   }
 
-  setMode(mode: string | undefined, actor: Actor): ContinuityState {
-    if (mode !== "manual" && mode !== "automatico") throw badRequest("El modo debe ser manual o automatico.");
-    this.state.continuity.mode = mode satisfies ContinuityMode;
-    this.audit(actor, "continuity.mode.update", `continuity/modo/${mode}`);
+  /** Igual que la API: el modo lo fija la instalación de los agentes de continuidad, no la Consola. */
+  refuseModeChange(): never {
+    throw conflict(MODE_FROM_INSTALLATION);
+  }
+
+  /** Solo para pruebas de la demostración: simula una instalación con el modo indicado. */
+  setInstalledMode(mode: ContinuityMode): void {
+    this.state.continuity.mode = mode;
     this.persist();
-    return this.continuity();
   }
 
   private startFailover(
@@ -1139,7 +1145,7 @@ export class MockStore {
       throw conflict("El sitio principal ya no está activo.", "sitio_activo");
     if (this.state.continuity.mode !== "automatico")
       throw conflict(
-        "En modo manual los agentes no conmutan solos: la conmutación la ejecuta el operador con el procedimiento manual.",
+        "En modo manual los agentes no conmutan solos (el modo lo fija NEXO_CONTINUITY_AUTOMATICO en la instalación).",
       );
     const target = this.state.continuity.sites.find((s) => s.role === "respaldo")?.id ?? "gcp";
     const event = this.startFailover("conmutacion", target, FAILOVER_STEPS, 4_500, actor);

@@ -22,7 +22,8 @@ async function bootstrap() {
   });
   const express = app.getHttpAdapter().getInstance();
   express.disable("x-powered-by");
-  express.set("trust proxy", true);
+  // Solo se cree X-Forwarded-For de los proxies configurados (NEXO_TRUST_PROXY); si no, la IP es la de la conexión.
+  express.set("trust proxy", config.trustProxy);
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader("x-content-type-options", "nosniff");
     res.setHeader("referrer-policy", "no-referrer");

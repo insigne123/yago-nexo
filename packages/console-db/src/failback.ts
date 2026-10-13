@@ -43,6 +43,8 @@ export class FailbackError extends Error {
     readonly code: FailbackErrorCode,
     message: string,
     readonly requestId?: string,
+    /** Con «vencida»: la solicitud que esta misma operación marcó como vencida (para auditarla una sola vez). */
+    readonly expired?: FailbackRequest,
   ) {
     super(message);
     this.name = "FailbackError";
@@ -91,6 +93,18 @@ async function expireStale(tx: Tx): Promise<FailbackRequest[]> {
     "UPDATE nexo.failback_request SET status = 'vencida' WHERE status = 'pendiente' AND expires_at <= now() RETURNING *",
   );
   return res.rows.map((r) => failbackRow(r));
+}
+
+/**
+ * Marca como vencidas las solicitudes pendientes cuyo plazo pasó y devuelve solo las que marcó esta llamada,
+ * para que cada vencimiento se audite una vez aunque varias réplicas de la API barran a la vez. La API la llama
+ * cada minuto y al consultar el estado de continuidad o las solicitudes.
+ */
+export async function expireFailbackRequests(db: Db): Promise<FailbackRequest[]> {
+  return withTx(db, async (tx) => {
+    await tx.query("SELECT pg_advisory_xact_lock($1)", [LOCK]);
+    return expireStale(tx);
+  });
 }
 
 async function guardSite(tx: Tx, primarySite: string): Promise<string> {
@@ -178,6 +192,12 @@ async function lockPending(
     )
   ).rows[0];
   if (!row) throw new FailbackError("no_existe", "La solicitud de retorno no existe");
+  if (row.status === "vencida")
+    throw new FailbackError(
+      "vencida",
+      `La solicitud de retorno venció el ${failbackRow(row).expiresAt}; debe solicitarse de nuevo`,
+      id,
+    );
   if (row.status !== "pendiente")
     throw new FailbackError("no_pendiente", `La solicitud de retorno está ${String(row.status)}`, id);
   if (row.vencio === true) {
@@ -237,6 +257,7 @@ export async function approveFailback(
       "vencida",
       `La solicitud de retorno venció el ${out.request.expiresAt}; debe solicitarse de nuevo`,
       input.id,
+      out.request,
     );
   if (out.kind !== "aprobada") throw new Error("estado inesperado");
   return { request: out.request, failoverEvent: out.failoverEvent };
@@ -262,6 +283,7 @@ export async function rejectFailback(
       "vencida",
       `La solicitud de retorno venció el ${out.request.expiresAt}`,
       input.id,
+      out.request,
     );
   return out.request;
 }

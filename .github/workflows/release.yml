@@ -1,8 +1,9 @@
 name: Versión
 
 # Publica una versión firmada de Yago Nexo:
-#   1. Puerta: corre solo desde main o desde una etiqueta v*, con la versión igual en package.json, en el sitio
-#      (apps/site/src/data/release.json) y en la etiqueta, y solo si el CI de ese mismo commit está en verde.
+#   1. Puerta: corre solo desde main o desde una etiqueta v* que apunte a un commit de main, con la versión igual
+#      en package.json, en el sitio (apps/site/src/data/release.json) y en la etiqueta, y solo si la corrida del CI
+#      del push de ese mismo commit a main está en verde.
 #   2. Compila y prueba; genera el SBOM CycloneDX del producto (componentes @nexo/*, ejecución y desarrollo
 #      separados) y el inventario de licencias.
 #   3. Construye, publica en GHCR y firma las imágenes propias; con syft genera el SBOM de cada imagen (propias y
@@ -79,6 +80,12 @@ jobs:
           [ "$sitio" = "$VERSION" ] || { echo "::error::apps/site/src/data/release.json dice $sitio, no $VERSION"; exit 1; }
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             [ "$GITHUB_REF_NAME" = "v$VERSION" ] || { echo "::error::la etiqueta $GITHUB_REF_NAME no corresponde a v$VERSION"; exit 1; }
+            # La etiqueta debe apuntar a un commit que ya está en main (revisado y fusionado), no a una rama de trabajo.
+            git fetch -q origin "+refs/heads/main:refs/remotes/origin/main"
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+              echo "::error::la etiqueta $GITHUB_REF_NAME apunta a un commit que no está en main"
+              exit 1
+            }
             crear=false
           else
             if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
@@ -99,7 +106,8 @@ jobs:
       - name: El CI de este commit está en verde
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node tools/release/esperar-ci.mjs --sha "$GITHUB_SHA" --minutos 60
+        # Cuenta solo la corrida del push de este commit a main (no las de pull_request ni las de otras ramas).
+        run: node tools/release/esperar-ci.mjs --sha "$GITHUB_SHA" --rama main --minutos 60
 
   version:
     name: Publicar versión firmada
@@ -109,6 +117,15 @@ jobs:
       contents: write # etiqueta y versión en GitHub
       packages: write # imágenes en GHCR
       id-token: write # identidad OIDC para firmar con Sigstore
+    # PostgreSQL desechable: las pruebas en base de datos (retorno con dos personas, exportación) corren también aquí.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: prueba
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       VERSION: ${{ needs.puerta.outputs.version }}
       REGISTRO: ghcr.io/insigne123
@@ -127,7 +144,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --if-present build
-      - run: pnpm -r --if-present test
+      - name: Pruebas (incluidas las de PostgreSQL)
+        env:
+          NEXO_TEST_DATABASE_URL: postgres://postgres:prueba@localhost:5432/postgres
+        run: pnpm -r --if-present test
 
       - name: SBOM del producto e inventario de licencias
         run: node tools/release/generar-sbom.mjs "release/$VERSION"

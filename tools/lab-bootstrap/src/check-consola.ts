@@ -328,17 +328,24 @@ async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: st
   const tls = (await call(tok.auditor, "GET", "/compliance/tls-channels")).data as Array<{
     canal: string;
     versiones: string[];
-    rechazaTls10: boolean;
+    /** true: el servidor rechazó el saludo TLS 1.0; false: lo aceptó; ausente: no se pudo determinar. */
+    rechazaTls10?: boolean;
   }>;
   for (const c of tls) {
+    const tls10 =
+      c.rechazaTls10 === true
+        ? "rechaza 1.0"
+        : c.rechazaTls10 === false
+          ? "ACEPTA 1.0"
+          : "1.0 sin determinar";
     check(
       "BT-028",
       `TLS en ${c.canal}`,
-      "TLS ≥ 1.2 y rechaza 1.0",
-      `${c.versiones.join("/") || "sin TLS"}${c.rechazaTls10 ? ", rechaza 1.0" : ""}`,
+      "TLS ≥ 1.2 y el servidor rechaza 1.0",
+      `${c.versiones.join("/") || "sin TLS"}, ${tls10}`,
       c.versiones.length > 0 &&
         c.versiones.every((v) => v === "TLSv1.2" || v === "TLSv1.3") &&
-        c.rechazaTls10,
+        c.rechazaTls10 === true,
     );
   }
 

@@ -33,6 +33,17 @@ jobs:
   calidad:
     name: Lint, tipos, pruebas y build
     runs-on: ubuntu-latest
+    # PostgreSQL desechable para las pruebas en base de datos (retorno con dos personas, paquete de exportación):
+    # sin él se omiten. console-db recrea el esquema «nexo» de la base postgres; las pruebas HTTP de la API crean
+    # sus propias bases.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: prueba
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
@@ -44,7 +55,24 @@ jobs:
       - run: pnpm -r --if-present build
       - run: pnpm -r --if-present lint
       - run: pnpm -r --if-present typecheck
-      - run: pnpm -r --if-present test
+      - name: Pruebas (incluidas las de PostgreSQL)
+        env:
+          NEXO_TEST_DATABASE_URL: postgres://postgres:prueba@localhost:5432/postgres
+        run: pnpm -r --if-present test
+      # Las pruebas en base de datos no deben quedar omitidas en silencio.
+      - name: Las pruebas en PostgreSQL corrieron
+        env:
+          NEXO_TEST_DATABASE_URL: postgres://postgres:prueba@localhost:5432/postgres
+        run: |
+          set -euo pipefail
+          pnpm --filter @nexo/console-db exec vitest run src/failback.test.ts --reporter=verbose 2>&1 | tee /tmp/bd.txt
+          ! grep -E "↓|skipped" /tmp/bd.txt
+      # Pruebas unitarias de las reglas de alerta (BT-034) con promtool, en la misma versión de Prometheus del laboratorio.
+      - name: Reglas de alerta (promtool check y test)
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD/deploy/compose/prometheus:/p:ro" -w /p --entrypoint promtool prom/prometheus:v3.13.4 check rules rules/nexo.yml
+          docker run --rm -v "$PWD/deploy/compose/prometheus:/p:ro" -w /p/pruebas --entrypoint promtool prom/prometheus:v3.13.4 test rules nexo.test.yml
 
   contratos:
     name: Contratos contra la guía de estilo (D-03)

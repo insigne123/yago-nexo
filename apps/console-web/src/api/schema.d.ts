@@ -1058,7 +1058,12 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Cambia el modo (manual o automático) (permiso admin:settings:write) */
+        /**
+         * No cambia el modo; responde 409 porque lo fija la instalación (permiso admin:settings:write)
+         * @description El modo de conmutación lo fija NEXO_CONTINUITY_AUTOMATICO en la instalación de los agentes de continuidad, que
+         *     lo reflejan en la base en cada ciclo; un cambio desde la Consola no tendría efecto. La ruta responde 409
+         *     (código «modo_de_instalacion») y el intento queda auditado como rechazo. GET /continuity informa el modo vigente.
+         */
         put: {
             parameters: {
                 query?: never;
@@ -1075,14 +1080,19 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description OK */
-                200: {
+                /** @description Cuerpo inválido */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": components["schemas"]["ContinuityState"];
+                    content?: never;
+                };
+                /** @description El modo lo fija la instalación de los agentes de continuidad */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
                     };
+                    content?: never;
                 };
             };
         };
@@ -2135,8 +2145,11 @@ export interface components {
             to: string;
             /** @enum {string} */
             relation: "llama" | "lee" | "escribe" | "publica" | "transforma" | "consume";
-            /** @enum {string} */
-            source?: "manual" | "analizador_mi" | "trafico_observado" | "openmetadata";
+            /**
+             * @description Origen de la arista. La API genera configuracion (configuración del gateway) y analizador_mi; las aristas con otro origen (manual, trafico_observado, openmetadata) solo existen si se cargan aparte en la base, y la sincronización las conserva
+             * @enum {string}
+             */
+            source?: "configuracion" | "analizador_mi" | "manual" | "trafico_observado" | "openmetadata";
         };
         Graph: {
             nodes?: components["schemas"]["GraphNode"][];
@@ -2474,7 +2487,7 @@ export interface components {
             protocolo?: string;
             versiones?: string[];
             cifrado?: string;
-            /** @description El canal rechaza un saludo TLS 1.0 */
+            /** @description true si el servidor rechazó un saludo TLS 1.0 (la sonda ofrece TLS 1.0 con el nivel de seguridad de OpenSSL en 0); false si lo aceptó; ausente si el canal no respondió o no se pudo determinar */
             rechazaTls10?: boolean;
             /** Format: date-time */
             verificado?: string;

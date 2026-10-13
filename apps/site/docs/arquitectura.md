@@ -96,7 +96,8 @@ Estado: <EstadoCapacidad id="motor-continuidad" />
 - **Quórum de 2 de 3.** Un agente en el CPD, otro en Google Cloud y un testigo en un tercer lugar revisan la salud del gateway, del Control Plane, de la base de datos y de un recorrido sintético completo. Solo se conmuta si dos de los tres votos coinciden, para que los dos sitios nunca queden activos a la vez.
 - **Conmutación, en orden:** cerrar la escritura en el CPD si todavía responde; promover la réplica de PostgreSQL en Google Cloud; escalar los gateways y el Integrator del sitio de respaldo; cambiar el DNS o el balanceador global; avisar a la mesa de soporte y al SIEM.
 - **Retorno con dos personas.** La vuelta al CPD la solicita una persona con un motivo y la aprueba otra con el rol aprobador, para no rebotar entre sitios; la solicitud vence si nadie la aprueba. El retorno reapunta el tráfico al CPD; antes, el operador deja la base del CPD al día con la del respaldo, y después reconstruye la réplica del respaldo desde el primario.
-- **Medición.** Cada conmutación registra el RTO medido y el rezago de replicación (bytes de WAL sin aplicar); el RPO en tiempo no se mide en esta versión. El modo manual y el automático usan el mismo procedimiento.
+- **Medición.** Cada conmutación registra el RTO medido y el rezago de replicación (bytes de WAL sin aplicar); el RPO en tiempo no se mide en esta versión.
+- **Modo.** Lo fija `NEXO_CONTINUITY_AUTOMATICO` en la instalación de los agentes. En modo automático, el agente del respaldo conmuta solo con quórum; en modo manual, los agentes votan y la Consola muestra el quórum, pero no conmutan solos. La Consola muestra el modo y no lo cambia.
 
 ## Componentes por ambiente
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: API de la Consola Nexo
-  version: 1.0.0
+  version: 1.2.0
   description: |
     API de la Consola Nexo (Yago). Todas las rutas requieren un JWT válido (Keycloak de la institución,
     Supabase Auth en la demo). La autorización se basa en la matriz rol-permiso de `@nexo/shared`.
@@ -288,14 +288,19 @@ paths:
   /continuity/mode:
     put:
       tags: [continuidad]
-      summary: Cambia el modo (manual o automático) (permiso admin:settings:write)
+      summary: No cambia el modo; responde 409 porque lo fija la instalación (permiso admin:settings:write)
+      description: |
+        El modo de conmutación lo fija NEXO_CONTINUITY_AUTOMATICO en la instalación de los agentes de continuidad, que
+        lo reflejan en la base en cada ciclo; un cambio desde la Consola no tendría efecto. La ruta responde 409
+        (código «modo_de_instalacion») y el intento queda auditado como rechazo. GET /continuity informa el modo vigente.
       requestBody:
         required: true
         content:
           application/json:
             schema: { type: object, required: [mode], properties: { mode: { type: string, enum: [manual, automatico] } } }
       responses:
-        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ContinuityState" } } } }
+        "400": { description: Cuerpo inválido }
+        "409": { description: El modo lo fija la instalación de los agentes de continuidad }
   /continuity/drill:
     post:
       tags: [continuidad]
@@ -718,7 +723,10 @@ components:
         from: { type: string }
         to: { type: string }
         relation: { type: string, enum: [llama, lee, escribe, publica, transforma, consume] }
-        source: { type: string, enum: [manual, analizador_mi, trafico_observado, openmetadata] }
+        source:
+          type: string
+          description: "Origen de la arista. La API genera configuracion (configuración del gateway) y analizador_mi; las aristas con otro origen (manual, trafico_observado, openmetadata) solo existen si se cargan aparte en la base, y la sincronización las conserva"
+          enum: [configuracion, analizador_mi, manual, trafico_observado, openmetadata]
     Graph:
       type: object
       properties:
@@ -1011,7 +1019,7 @@ components:
         protocolo: { type: string }
         versiones: { type: array, items: { type: string } }
         cifrado: { type: string }
-        rechazaTls10: { type: boolean, description: "El canal rechaza un saludo TLS 1.0" }
+        rechazaTls10: { type: boolean, description: "true si el servidor rechazó un saludo TLS 1.0 (la sonda ofrece TLS 1.0 con el nivel de seguridad de OpenSSL en 0); false si lo aceptó; ausente si el canal no respondió o no se pudo determinar" }
         verificado: { type: string, format: date-time }
     ExportJob:
       type: object

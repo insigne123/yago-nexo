@@ -12,8 +12,9 @@ import { EtcdVotes, type StoredVote } from "./votes.js";
  * el sitio de respaldo ejecuta la conmutación, y únicamente con quórum (2 de 3) y estando sano. Pasos de la
  * conmutación: cerrar la escritura en el primario, promover la réplica de PostgreSQL, reapuntar el DNS al
  * sitio activo y avisar; se registra el RTO medido y el rezago de replicación en bytes de WAL (el RPO en segundos
- * no se mide). El modo manual (BT-036) y el automático (D-05) comparten el mismo procedimiento. El retorno al
- * primario lo solicita una persona y lo aprueba otra distinta en la Consola; este agente solo lo ejecuta.
+ * no se mide). El modo lo fija NEXO_CONTINUITY_AUTOMATICO en cada agente y se refleja en la base para la Consola,
+ * que solo lo muestra: en modo manual los agentes votan pero no conmutan solos. El retorno al primario lo
+ * solicita una persona y lo aprueba otra distinta en la Consola; este agente solo lo ejecuta.
  */
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
