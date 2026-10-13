@@ -2,7 +2,8 @@
  * Infraestructura de mensajería del flujo de solicitudes (BT-009, BT-051):
  * - nexo.solicitudes (direct) → solicitudes.nuevas
  * - nexo.reintentos (direct) → solicitudes.reintento.{1,2,3} con TTL 2/4/8 s que vuelven a la cola principal
- * - nexo.dlq (direct) → solicitudes.dlq (mensajes no procesados, reproceso autorizado)
+ * - nexo.dlq (direct) → solicitudes.dlq (mensajes no procesados, reproceso autorizado), con la política
+ *   POLITICA_FALLIDOS para que consultarla no descarte mensajes
  * y la tabla de idempotencia de Micro Integrator.
  */
 import pg from "pg";
@@ -16,7 +17,8 @@ async function put(path: string, body: unknown): Promise<void> {
     headers: { authorization: auth, "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok && res.status !== 204) throw new Error(`RabbitMQ PUT ${path}: ${res.status} ${await res.text()}`);
+  if (!res.ok && res.status !== 204)
+    throw new Error(`RabbitMQ PUT ${path}: ${res.status} ${await res.text()}`);
 }
 
 async function post(path: string, body: unknown): Promise<void> {
@@ -29,6 +31,27 @@ async function post(path: string, body: unknown): Promise<void> {
 }
 
 const v = "%2F";
+
+/**
+ * Política de la cola de fallidos (1-06). En RabbitMQ 4.x una cola quorum tiene un límite de entregas (20 por
+ * omisión) y descarta el mensaje que lo supera. Medido en RabbitMQ 4.3.6, la versión del laboratorio, leyendo la
+ * cola con la API de administración (POST /api/queues/{vhost}/{cola}/get):
+ *   - con ackmode reject_requeue_true (o cualquier lector que rechace y devuelva), después de la lectura 21 el
+ *     mensaje desaparece (la 22 ya no lo encuentra) sin que nadie lo reprocese;
+ *   - con ackmode ack_requeue_true, el modo que usa la Consola, no se descarta (66 lecturas, mensaje intacto).
+ * Con delivery-limit -1 la cola de fallidos queda sin límite de entregas (RabbitMQ lo informa como «unlimited»)
+ * y ninguna forma de consultarla la vacía: 25 lecturas reject_requeue_true y el mensaje sigue. Solo se aplica a
+ * solicitudes.dlq: la cola principal y las de reintento conservan el límite por omisión.
+ */
+export const POLITICA_FALLIDOS = {
+  nombre: "nexo-fallidos-sin-limite-de-entregas",
+  cuerpo: {
+    pattern: "^solicitudes\\.dlq$",
+    "apply-to": "quorum_queues",
+    priority: 10,
+    definition: { "delivery-limit": -1 },
+  },
+} as const;
 
 export async function ensureMessaging(log: (m: string) => void): Promise<void> {
   for (const ex of ["nexo.solicitudes", "nexo.reintentos", "nexo.dlq"]) {
@@ -53,7 +76,12 @@ export async function ensureMessaging(log: (m: string) => void): Promise<void> {
   }
   await put(`/queues/${v}/solicitudes.dlq`, { durable: true, arguments: { "x-queue-type": "quorum" } });
   await post(`/bindings/${v}/e/nexo.dlq/q/solicitudes.dlq`, { routing_key: "fallido" });
-  log("RabbitMQ: exchanges, cola principal, colas de reintento (2/4/8 s) y cola de fallidos listas");
+  // Una política (y no un argumento de la cola) porque los argumentos de una cola quorum ya declarada no se pueden
+  // cambiar, y la política se aplica también a la cola existente del laboratorio sin perder sus mensajes.
+  await put(`/policies/${v}/${POLITICA_FALLIDOS.nombre}`, POLITICA_FALLIDOS.cuerpo);
+  log(
+    "RabbitMQ: exchanges, cola principal, colas de reintento (2/4/8 s) y cola de fallidos (sin límite de entregas) listas",
+  );
 }
 
 export async function ensureMiDatabase(log: (m: string) => void): Promise<void> {

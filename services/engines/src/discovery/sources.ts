@@ -3,7 +3,14 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { connect as tlsConnect } from "node:tls";
 import { Agent, fetch } from "undici";
-import { parseAccessLog, parseNginxConfig, parseSpec, personalDataInBody, SCANNER_AGENT, type ParsedSpec } from "./analysis.js";
+import {
+  parseAccessLog,
+  parseNginxConfig,
+  parseSpec,
+  personalDataInBody,
+  SCANNER_AGENT,
+  type ParsedSpec,
+} from "./analysis.js";
 
 /** Hallazgo antes de compararlo con el catálogo y de calcular su exposición. */
 export interface RawFinding {
@@ -24,7 +31,11 @@ export interface RawFinding {
   evidence: Record<string, unknown>;
 }
 
-const insecure = new Agent({ connect: { rejectUnauthorized: false }, headersTimeout: 5000, bodyTimeout: 5000 });
+const insecure = new Agent({
+  connect: { rejectUnauthorized: false },
+  headersTimeout: 5000,
+  bodyTimeout: 5000,
+});
 const PROBE_TIMEOUT = 4000;
 
 function splitHostPort(addr: string, defPort: number): { host: string; port: number } {
@@ -34,7 +45,19 @@ function splitHostPort(addr: string, defPort: number): { host: string; port: num
 
 // ------------------------------------------------------------------ APISIX (Admin API)
 
-const APISIX_AUTH_PLUGINS = ["key-auth", "jwt-auth", "basic-auth", "hmac-auth", "openid-connect", "authz-keycloak", "ldap-auth", "forward-auth", "wolf-rbac", "authz-casdoor", "cas-auth"];
+const APISIX_AUTH_PLUGINS = [
+  "key-auth",
+  "jwt-auth",
+  "basic-auth",
+  "hmac-auth",
+  "openid-connect",
+  "authz-keycloak",
+  "ldap-auth",
+  "forward-auth",
+  "wolf-rbac",
+  "authz-casdoor",
+  "cas-auth",
+];
 
 type ApisixRoute = {
   id?: string;
@@ -50,9 +73,16 @@ type ApisixRoute = {
   upstream_id?: string;
 };
 
-export async function apisixFindings(adminUrl: string, apiKey: string, address: string): Promise<RawFinding[]> {
+export async function apisixFindings(
+  adminUrl: string,
+  apiKey: string,
+  address: string,
+): Promise<RawFinding[]> {
   const headers = { "x-api-key": apiKey };
-  const res = await fetch(`${adminUrl.replace(/\/+$/, "")}/apisix/admin/routes`, { headers, signal: AbortSignal.timeout(8000) });
+  const res = await fetch(`${adminUrl.replace(/\/+$/, "")}/apisix/admin/routes`, {
+    headers,
+    signal: AbortSignal.timeout(8000),
+  });
   if (!res.ok) throw new Error(`APISIX Admin API respondió ${res.status}`);
   const body = (await res.json()) as { list?: Array<{ value: ApisixRoute }> };
   const gw = splitHostPort(address, 9080);
@@ -61,10 +91,15 @@ export async function apisixFindings(adminUrl: string, apiKey: string, address: 
     if (r.status === 0) continue; // ruta deshabilitada
     let upstream = r.upstream;
     if (!upstream && r.upstream_id) {
-      const u = await fetch(`${adminUrl.replace(/\/+$/, "")}/apisix/admin/upstreams/${r.upstream_id}`, { headers, signal: AbortSignal.timeout(5000) }).catch(() => undefined);
+      const u = await fetch(`${adminUrl.replace(/\/+$/, "")}/apisix/admin/upstreams/${r.upstream_id}`, {
+        headers,
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => undefined);
       upstream = u?.ok ? ((await u.json()) as { value?: ApisixRoute["upstream"] }).value : undefined;
     }
-    const nodes = Array.isArray(upstream?.nodes) ? upstream!.nodes.map((n) => `${n.host}:${n.port}`) : Object.keys(upstream?.nodes ?? {});
+    const nodes = Array.isArray(upstream?.nodes)
+      ? upstream!.nodes.map((n) => `${n.host}:${n.port}`)
+      : Object.keys(upstream?.nodes ?? {});
     const auth = APISIX_AUTH_PLUGINS.filter((p) => r.plugins && p in r.plugins);
     for (const uri of r.uris ?? (r.uri ? [r.uri] : [])) {
       const path = uri.replace(/\/\*$/, "").replace(/\*$/, "") || "/";
@@ -78,7 +113,12 @@ export async function apisixFindings(adminUrl: string, apiKey: string, address: 
         authHint: auth.length ? "requerida" : undefined,
         authDetail: auth.length ? `APISIX (${auth.join(", ")})` : undefined,
         external: true,
-        evidence: { ruta: r.id ?? r.name, metodos: r.methods ?? ["todos"], destino: nodes, plugins: Object.keys(r.plugins ?? {}) },
+        evidence: {
+          ruta: r.id ?? r.name,
+          metodos: r.methods ?? ["todos"],
+          destino: nodes,
+          plugins: Object.keys(r.plugins ?? {}),
+        },
       });
     }
   }
@@ -93,7 +133,9 @@ export function nginxFindings(confPath: string, logPath: string | undefined, add
         .filter((f) => f.endsWith(".conf"))
         .map((f) => join(confPath, f))
     : [confPath];
-  const locations = files.flatMap((f) => parseNginxConfig(readFileSync(f, "utf8")).map((l) => ({ ...l, file: f })));
+  const locations = files.flatMap((f) =>
+    parseNginxConfig(readFileSync(f, "utf8")).map((l) => ({ ...l, file: f })),
+  );
   let observed = new Map<string, { calls: number; statuses: Record<string, number> }>();
   if (logPath) {
     try {
@@ -108,8 +150,12 @@ export function nginxFindings(confPath: string, logPath: string | undefined, add
     if (loc.static) continue; // respuestas fijas (p. ej. /health) no son APIs
     const serverName = loc.serverNames.find((n) => n !== "_" && !n.startsWith("~")) ?? gw.host;
     // Las rutas concretas vistas en el registro dicen qué se usa de verdad bajo cada location.
-    const seen = [...observed.entries()].filter(([p]) => (loc.exact ? p === loc.path : p.startsWith(loc.path)));
-    const paths = seen.length ? seen : [[loc.path.replace(/\/+$/, "") || "/", { calls: 0, statuses: {} }] as const];
+    const seen = [...observed.entries()].filter(([p]) =>
+      loc.exact ? p === loc.path : p.startsWith(loc.path),
+    );
+    const paths = seen.length
+      ? seen
+      : [[loc.path.replace(/\/+$/, "") || "/", { calls: 0, statuses: {} }] as const];
     for (const [path, stats] of paths) {
       out.push({
         source: "nginx",
@@ -123,7 +169,12 @@ export function nginxFindings(confPath: string, logPath: string | undefined, add
         tls: loc.tls ? undefined : "sin TLS",
         external: true,
         observedCalls: stats.calls,
-        evidence: { archivo: loc.file, location: loc.path, destino: loc.upstream, respuestas: stats.statuses },
+        evidence: {
+          archivo: loc.file,
+          location: loc.path,
+          destino: loc.upstream,
+          respuestas: stats.statuses,
+        },
       });
     }
   }
@@ -132,7 +183,16 @@ export function nginxFindings(confPath: string, logPath: string | undefined, add
 
 // ------------------------------------------------------------------ red (objetivos autorizados)
 
-const SPEC_PATHS = ["/openapi.json", "/openapi.yaml", "/swagger.json", "/v3/api-docs", "/v2/api-docs", "/swagger/v1/swagger.json", "/api-docs", "/?wsdl"];
+const SPEC_PATHS = [
+  "/openapi.json",
+  "/openapi.yaml",
+  "/swagger.json",
+  "/v3/api-docs",
+  "/v2/api-docs",
+  "/swagger/v1/swagger.json",
+  "/api-docs",
+  "/?wsdl",
+];
 
 /** Expande objetivos "host:puerto" y rangos "a.b.c.d/nn:p1|p2" (como máximo /24). */
 export function expandTargets(targets: readonly string[]): Array<{ host: string; port: number }> {
@@ -142,7 +202,11 @@ export function expandTargets(targets: readonly string[]): Array<{ host: string;
     if (cidr) {
       const bits = Number(cidr[2]);
       if (bits < 24 || bits > 32) throw new Error(`Rango ${t} demasiado amplio: el máximo permitido es /24`);
-      const base = cidr[1]!.split(".").map(Number).reduce((a, b) => a * 256 + b, 0) & ~((1 << (32 - bits)) - 1);
+      const base =
+        cidr[1]!
+          .split(".")
+          .map(Number)
+          .reduce((a, b) => a * 256 + b, 0) & ~((1 << (32 - bits)) - 1);
       const count = 2 ** (32 - bits);
       for (let i = 0; i < count; i++) {
         const ip = base + i;
@@ -157,13 +221,23 @@ export function expandTargets(targets: readonly string[]): Array<{ host: string;
 /** Versión de TLS y vigencia del certificado; undefined si el puerto no habla TLS. */
 export function tlsInfo(host: string, port: number): Promise<string | undefined> {
   return new Promise((resolve) => {
-    const sock = tlsConnect({ host, port, servername: /^\d+\.\d+\.\d+\.\d+$/.test(host) ? undefined : host, rejectUnauthorized: false, timeout: 2500 }, () => {
-      const proto = sock.getProtocol() ?? "TLS";
-      const cert = sock.getPeerCertificate();
-      sock.end();
-      if (cert?.valid_to && new Date(cert.valid_to).getTime() < Date.now()) return resolve("certificado vencido");
-      resolve(proto === "TLSv1.3" || proto === "TLSv1.2" ? proto : "TLS débil");
-    });
+    const sock = tlsConnect(
+      {
+        host,
+        port,
+        servername: /^\d+\.\d+\.\d+\.\d+$/.test(host) ? undefined : host,
+        rejectUnauthorized: false,
+        timeout: 2500,
+      },
+      () => {
+        const proto = sock.getProtocol() ?? "TLS";
+        const cert = sock.getPeerCertificate();
+        sock.end();
+        if (cert?.valid_to && new Date(cert.valid_to).getTime() < Date.now())
+          return resolve("certificado vencido");
+        resolve(proto === "TLSv1.3" || proto === "TLSv1.2" ? proto : "TLS débil");
+      },
+    );
     sock.on("error", () => resolve(undefined));
     sock.on("timeout", () => {
       sock.destroy();
@@ -172,9 +246,16 @@ export function tlsInfo(host: string, port: number): Promise<string | undefined>
   });
 }
 
-async function get(url: string, hostHeader?: string): Promise<{ status: number; type: string; body: string } | undefined> {
+async function get(
+  url: string,
+  hostHeader?: string,
+): Promise<{ status: number; type: string; body: string } | undefined> {
   try {
-    const res = await fetch(url, { dispatcher: insecure, headers: { "user-agent": SCANNER_AGENT, ...(hostHeader ? { host: hostHeader } : {}) }, signal: AbortSignal.timeout(PROBE_TIMEOUT) });
+    const res = await fetch(url, {
+      dispatcher: insecure,
+      headers: { "user-agent": SCANNER_AGENT, ...(hostHeader ? { host: hostHeader } : {}) },
+      signal: AbortSignal.timeout(PROBE_TIMEOUT),
+    });
     const buf = Buffer.from(await res.arrayBuffer()).subarray(0, 256 * 1024);
     return { status: res.status, type: res.headers.get("content-type") ?? "", body: buf.toString("utf8") };
   } catch {
@@ -199,7 +280,10 @@ async function graphqlIntrospection(base: string): Promise<ParsedSpec | undefine
 }
 
 /** Sondea un objetivo: TLS, rutas típicas de contratos y GraphQL. Solo lecturas (GET y consulta de introspección). */
-export async function networkFindings(target: { host: string; port: number }, extraSpecPaths: readonly string[] = []): Promise<RawFinding[]> {
+export async function networkFindings(
+  target: { host: string; port: number },
+  extraSpecPaths: readonly string[] = [],
+): Promise<RawFinding[]> {
   const tls = await tlsInfo(target.host, target.port);
   const scheme = tls ? "https" : "http";
   const base = `${scheme}://${target.host}:${target.port}`;
@@ -223,7 +307,10 @@ export async function networkFindings(target: { host: string; port: number }, ex
         spec,
         tls: tls ?? "sin TLS",
         external: false,
-        evidence: { contrato: p, especificacion: `${spec.kind}${spec.title ? ` · ${spec.title} ${spec.version ?? ""}` : ""}` },
+        evidence: {
+          contrato: p,
+          especificacion: `${spec.kind}${spec.title ? ` · ${spec.title} ${spec.version ?? ""}` : ""}`,
+        },
       });
     }
     break; // un contrato por objetivo basta
@@ -256,18 +343,30 @@ export async function networkFindings(target: { host: string; port: number }, ex
       probe: { url: `${base}/` },
       tls: tls ?? "sin TLS",
       external: false,
-      evidence: { nota: "servicio HTTP sin contrato publicado en las rutas típicas", respuestaRaiz: root.status },
+      evidence: {
+        nota: "servicio HTTP sin contrato publicado en las rutas típicas",
+        respuestaRaiz: root.status,
+      },
     });
   }
   return out;
 }
 
 /** Sondeo sin credenciales: ¿exige autenticación? ¿la respuesta trae datos personales? */
-export async function probe(f: RawFinding): Promise<{ auth: "ninguna" | "requerida" | "desconocida"; status?: number; personal: string[] }> {
+export async function probe(
+  f: RawFinding,
+): Promise<{ auth: "ninguna" | "requerida" | "desconocida"; status?: number; personal: string[] }> {
   if (!f.probe) return { auth: f.authHint ?? "desconocida", personal: [] };
   const r = await get(f.probe.url, f.probe.host);
   if (!r) return { auth: f.authHint ?? "desconocida", personal: [] };
-  const auth = r.status === 401 || r.status === 403 ? "requerida" : r.status < 500 ? (f.authHint === "requerida" ? "requerida" : "ninguna") : (f.authHint ?? "desconocida");
+  const auth =
+    r.status === 401 || r.status === 403
+      ? "requerida"
+      : r.status < 500
+        ? f.authHint === "requerida"
+          ? "requerida"
+          : "ninguna"
+        : (f.authHint ?? "desconocida");
   return { auth, status: r.status, personal: r.status < 300 ? personalDataInBody(r.body) : [] };
 }
 
@@ -287,7 +386,10 @@ async function gcpToken(key: ServiceAccountKey): Promise<string> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${unsigned}.${signature}` }).toString(),
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: `${unsigned}.${signature}`,
+    }).toString(),
   });
   if (!res.ok) throw new Error(`Google OAuth respondió ${res.status}`);
   return ((await res.json()) as { access_token: string }).access_token;
@@ -300,7 +402,10 @@ export interface CloudRunService {
 }
 
 /** Hallazgos a partir de servicios de Cloud Run: ingreso abierto y si permiten invocación sin autenticación. */
-export function cloudRunToFindings(services: readonly CloudRunService[], publicInvokers: ReadonlySet<string>): RawFinding[] {
+export function cloudRunToFindings(
+  services: readonly CloudRunService[],
+  publicInvokers: ReadonlySet<string>,
+): RawFinding[] {
   return services
     .filter((s) => s.uri)
     .map((s) => {
@@ -314,7 +419,9 @@ export function cloudRunToFindings(services: readonly CloudRunService[], publicI
         protocol: "https",
         probe: { url: `${s.uri}` },
         authHint: open ? ("ninguna" as const) : ("requerida" as const),
-        authDetail: open ? "Cloud Run permite invocación sin autenticación (allUsers)" : "Cloud Run exige identidad (IAM)",
+        authDetail: open
+          ? "Cloud Run permite invocación sin autenticación (allUsers)"
+          : "Cloud Run exige identidad (IAM)",
         external: s.ingress === "INGRESS_TRAFFIC_ALL",
         evidence: { servicio: s.name, ingreso: s.ingress },
       };
@@ -322,23 +429,42 @@ export function cloudRunToFindings(services: readonly CloudRunService[], publicI
 }
 
 export async function gcpFindings(keyJson: string, project: string): Promise<RawFinding[]> {
-  const key = JSON.parse(keyJson.trim().startsWith("{") ? keyJson : Buffer.from(keyJson, "base64").toString("utf8")) as ServiceAccountKey;
+  const key = JSON.parse(
+    keyJson.trim().startsWith("{") ? keyJson : Buffer.from(keyJson, "base64").toString("utf8"),
+  ) as ServiceAccountKey;
   const token = await gcpToken(key);
   const auth = { authorization: `Bearer ${token}` };
-  const res = await fetch(`https://run.googleapis.com/v2/projects/${project}/locations/-/services`, { headers: auth });
+  const res = await fetch(`https://run.googleapis.com/v2/projects/${project}/locations/-/services`, {
+    headers: auth,
+  });
   if (!res.ok) throw new Error(`Cloud Run respondió ${res.status}`);
-  const services = (((await res.json()) as { services?: CloudRunService[] }).services ?? []).map((s) => ({ name: s.name, uri: s.uri, ingress: s.ingress }));
+  const services = (((await res.json()) as { services?: CloudRunService[] }).services ?? []).map((s) => ({
+    name: s.name,
+    uri: s.uri,
+    ingress: s.ingress,
+  }));
   const open = new Set<string>();
   for (const s of services) {
-    const p = await fetch(`https://run.googleapis.com/v2/${s.name}:getIamPolicy`, { headers: auth }).catch(() => undefined);
-    const policy = p?.ok ? ((await p.json()) as { bindings?: Array<{ role: string; members?: string[] }> }) : undefined;
-    if (policy?.bindings?.some((b) => b.role === "roles/run.invoker" && b.members?.includes("allUsers"))) open.add(s.name);
+    const p = await fetch(`https://run.googleapis.com/v2/${s.name}:getIamPolicy`, { headers: auth }).catch(
+      () => undefined,
+    );
+    const policy = p?.ok
+      ? ((await p.json()) as { bindings?: Array<{ role: string; members?: string[] }> })
+      : undefined;
+    if (policy?.bindings?.some((b) => b.role === "roles/run.invoker" && b.members?.includes("allUsers")))
+      open.add(s.name);
   }
   const out = cloudRunToFindings(services, open);
   // API Gateway administrado de Google: cada gateway publica un host propio.
-  const gws = await fetch(`https://apigateway.googleapis.com/v1/projects/${project}/locations/-/gateways`, { headers: auth }).catch(() => undefined);
+  const gws = await fetch(`https://apigateway.googleapis.com/v1/projects/${project}/locations/-/gateways`, {
+    headers: auth,
+  }).catch(() => undefined);
   if (gws?.ok) {
-    for (const g of ((await gws.json()) as { gateways?: Array<{ name: string; defaultHostname?: string; apiConfig?: string }> }).gateways ?? []) {
+    for (const g of (
+      (await gws.json()) as {
+        gateways?: Array<{ name: string; defaultHostname?: string; apiConfig?: string }>;
+      }
+    ).gateways ?? []) {
       if (!g.defaultHostname) continue;
       out.push({
         source: "gcp",

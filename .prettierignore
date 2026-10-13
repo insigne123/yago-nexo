@@ -7,3 +7,15 @@ wso2/**/*.xml
 *.md
 deploy/helm/**/templates/**
 deploy/ansible/**/colecciones/**
+# Evidencia publicada con su SHA-256 (y su copia en el sitio): no se reformatea.
+release/**
+apps/site/static/evidencias/**
+# Generados (los compara su prueba o los reescribe el build) y archivos de terceros.
+apps/site/static/openapi.yaml
+apps/site/docs/_generated/**
+apps/site/docs/referencia-api/**
+apps/console-web/public/mockServiceWorker.js
+apps/console-web/src/api/schema.d.ts
+deploy/compose/prometheus/diccionario-metricas.json
+# Contrato escrito a mano en YAML compacto (prettier lo expande sin cambiar su contenido).
+apps/console-api/openapi.yaml

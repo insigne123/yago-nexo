@@ -15,7 +15,11 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, { logger: ["log", "warn", "error"] });
   app.setGlobalPrefix("api/v1");
-  app.enableCors({ origin: config.corsOrigins, credentials: false, allowedHeaders: ["authorization", "content-type", "x-correlation-id"] });
+  app.enableCors({
+    origin: config.corsOrigins,
+    credentials: false,
+    allowedHeaders: ["authorization", "content-type", "x-correlation-id"],
+  });
   const express = app.getHttpAdapter().getInstance();
   express.disable("x-powered-by");
   express.set("trust proxy", true);
@@ -29,7 +33,9 @@ async function bootstrap() {
   });
   app.enableShutdownHooks();
   await app.listen(config.port, "0.0.0.0");
-  log.log(`API de la Consola Nexo ${config.version} escuchando en :${config.port} (${config.environmentLabel})`);
+  log.log(
+    `API de la Consola Nexo ${config.version} escuchando en :${config.port} (${config.environmentLabel})`,
+  );
 }
 
 bootstrap().catch((e) => {

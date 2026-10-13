@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { layeredLayout } from "../features/graph/layout";
 import { sha256Hex } from "../lib/sha256";
 import { appendAudit, canonicalize, verifyAudit } from "./audit";
+import { impactOf } from "@nexo/console-api/impacto";
 import { simulateImpact } from "./impact";
 import { createSeed } from "./seed";
 
@@ -64,6 +65,27 @@ describe("motor de impacto y disposición del grafo", () => {
     expect(result.affected?.consumidores?.map((n) => n.id)).toEqual(["cons-portal-tramites"]);
     expect(result.affected?.flujos).toEqual([]);
     expect(result.severity).toBe("medio");
+  });
+
+  it("la demo da el mismo resultado que el motor de impacto de la API en cada nodo y tipo de cambio", () => {
+    for (const node of nodes) {
+      for (const kind of ["contrato", "campo", "fuente", "retiro"] as const) {
+        const product = impactOf(
+          nodes.map((n) => ({ ...n, label: n.label ?? n.id })) as Parameters<typeof impactOf>[0],
+          edges.map((e) => ({ ...e, source: e.source ?? "manual" })),
+          node.id,
+          kind,
+        );
+        expect(simulateImpact(nodes, edges, node.id, kind)).toEqual({ nodeId: node.id, ...product });
+      }
+    }
+  });
+
+  it("un reporte depende de los datos que lee (aristas en la dirección del producto)", () => {
+    const result = simulateImpact(nodes, edges, "dato-concesion", "campo");
+    expect((result.affected?.reportes ?? []).map((n) => n.id)).toContain("rep-mercado");
+    const report = simulateImpact(nodes, edges, "rep-mercado", "retiro");
+    expect(report.affected?.consumidores).toEqual([]);
   });
 
   it("ubica los nodos en capas por tipo, de consumidores a reportes", () => {

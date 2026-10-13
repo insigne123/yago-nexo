@@ -1,5 +1,6 @@
 import {
   FOUR_EYES_ACTIONS,
+  REASON_REQUIRED_ACTIONS,
   permissionMatrix,
   ROLE_DESCRIPTIONS,
   ROLES,
@@ -80,6 +81,16 @@ const tlsColumns: Column<TlsChannel>[] = [
     id: "cifrado",
     header: "Cifrado",
     cell: (c) => <span className="font-mono text-xs break-all">{c.cifrado ?? "—"}</span>,
+  },
+  {
+    // La API informa si el canal rechaza un saludo TLS 1.0 (rechazaTls10).
+    id: "tls10",
+    header: "TLS 1.0",
+    cell: (c) => {
+      const rejects = c.rechazaTls10;
+      if (rejects === undefined) return "—";
+      return <Badge tone={rejects ? "ok" : "bad"}>{rejects ? "Rechazado" : "Aceptado"}</Badge>;
+    },
   },
   {
     id: "verificado",
@@ -200,6 +211,19 @@ export default function CumplimientoPage() {
           </p>
           <ul className="space-y-1.5">
             {FOUR_EYES_ACTIONS.map((p) => (
+              <li key={p} className="text-sm">
+                <span className="text-fg">{permissionLabel(p)}</span>{" "}
+                <code className="font-mono text-xs text-fg-muted">{p}</code>
+              </li>
+            ))}
+          </ul>
+          <h3 className="mt-4 mb-1 text-sm font-semibold text-fg">Acciones con motivo obligatorio</h3>
+          <p className="mb-2 text-sm text-fg-muted">
+            Las decide una sola persona con el rol aprobador: debe escribir el motivo y la acción queda en la
+            auditoría, también cuando se rechaza.
+          </p>
+          <ul className="space-y-1.5" data-testid="reason-required-actions">
+            {REASON_REQUIRED_ACTIONS.map((p) => (
               <li key={p} className="text-sm">
                 <span className="text-fg">{permissionLabel(p)}</span>{" "}
                 <code className="font-mono text-xs text-fg-muted">{p}</code>

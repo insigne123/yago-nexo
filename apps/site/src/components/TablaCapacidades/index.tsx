@@ -40,7 +40,7 @@ function Tabla({ g, detalle }: { g: Grupo; detalle: boolean }): ReactNode {
               </td>
               {detalle && (
                 <td className={styles.evidencia}>
-                  {c.estado === "Disponible" && c.evidencia?.length ? (
+                  {c.evidencia?.length ? (
                     <ul>
                       {c.evidencia.map((ruta) => (
                         <li key={ruta}>
@@ -49,7 +49,7 @@ function Tabla({ g, detalle }: { g: Grupo; detalle: boolean }): ReactNode {
                       ))}
                     </ul>
                   ) : (
-                    <span aria-label="sin evidencia todavía">—</span>
+                    <span aria-label="sin archivos en el repositorio">—</span>
                   )}
                 </td>
               )}

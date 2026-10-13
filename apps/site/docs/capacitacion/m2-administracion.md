@@ -78,14 +78,14 @@ Además, la política de API `ApiProtegida` (30.000 por minuto) se aplica a Conc
 
 - **Aplicaciones**: Keycloak es el Key Manager; cada aplicación tiene sus llaves y obtiene tokens `client_credentials`.
 - **Personas**: el realm `nexo` trae un usuario por rol. El rol en la Consola sale del **grupo** de Keycloak (por ejemplo, `nexo-aprobadores`), que asigna un rol del cliente `nexo-console`; el rol viaja en el token (`resource_access.nexo-console.roles`).
-- **Matriz rol-permiso**: seis roles y 27 permisos en `packages/shared/src/roles.ts`, la misma matriz con que la API autoriza cada acción (ver [Seguridad](../seguridad.md#minimo-privilegio)). Sin el permiso, la API responde **403** e indica el permiso que falta.
-- **Cuatro ojos**: aprobar un despliegue a producción, un bloqueo, un reproceso o el retorno al sitio principal exige una persona distinta de quien inició.
+- **Matriz rol-permiso**: seis roles y 28 permisos en `packages/shared/src/roles.ts`, la misma matriz con que la API autoriza cada acción (ver [Seguridad](../seguridad.md#minimo-privilegio)). Sin el permiso, la API responde **403** e indica el permiso que falta.
+- **Cuatro ojos**: aprobar un despliegue a producción, un bloqueo o el retorno al sitio principal exige una persona distinta de quien inició (el retorno lo solicita una persona y lo aprueba otra). El reproceso de un mensaje fallido lo decide una sola persona con el rol aprobador, con motivo obligatorio, y queda auditado.
 
 <SiNoDisponible id="sso-keycloak">
 
-:::note En desarrollo
+:::note Servicio de implementación
 
-El inicio de sesión único de las personas en Publisher, Dev Portal y Admin con el Keycloak de la institución está en estado <EstadoCapacidad id="sso-keycloak" />. En el laboratorio, los portales de WSO2 se usan con el usuario `admin` de API Manager; la Consola sí valida tokens del realm `nexo`.
+El inicio de sesión único de las personas en Publisher, Dev Portal y Admin con el Keycloak de la institución: <EstadoCapacidad id="sso-keycloak" />. En el laboratorio, los portales de WSO2 se usan con el usuario `admin` de API Manager; la Consola sí valida tokens del realm `nexo`.
 
 :::
 
@@ -207,7 +207,7 @@ OperadoresAmpliado (3.000 por minuto, ráfaga de 100 por segundo). OperadoresEst
    consola carla.operacion POST "/rollouts/$RID/abort" '{"reason":"Ejercicio 2.3: no se ejecuta"}' | jq .status
    ```
 
-**Resultado esperado.** Cada persona tiene un solo rol, el de su grupo. El desarrollador recibe `403` en `/audit-events` y el cuerpo dice `"permission": "audit:read"`; el auditor recibe `200`. La verificación de la cadena da `403` al administrador y `200` al auditor. La matriz tiene 27 permisos. El desarrollador crea el despliegue, pero recibe `403` al aprobarlo; el operador lo detiene y queda `abortado`.
+**Resultado esperado.** Cada persona tiene un solo rol, el de su grupo. El desarrollador recibe `403` en `/audit-events` y el cuerpo dice `"permission": "audit:read"`; el auditor recibe `200`. La verificación de la cadena da `403` al administrador y `200` al auditor. La matriz tiene 28 permisos. El desarrollador crea el despliegue, pero recibe `403` al aprobarlo; el operador lo detiene y queda `abortado`.
 
 **Autoevaluación.**
 

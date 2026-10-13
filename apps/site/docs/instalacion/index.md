@@ -12,14 +12,14 @@ Nexo se instala en Kubernetes con los mismos instaladores en todos los ambientes
 | Instalador | Estado | En el repositorio |
 | --- | --- | --- |
 | Chart Helm `nexo-platform` | <EstadoCapacidad id="helm" /> | `deploy/helm/nexo-platform` |
-| CPD: RKE2 sobre vSphere | <EstadoCapacidad id="instalador-rke2" /> | `deploy/ansible/rke2` |
+| CPD: RKE2 `v1.36.5+rke2r1` sobre vSphere | <EstadoCapacidad id="instalador-rke2" /> | `deploy/ansible/rke2` |
 | Google Cloud: GKE | <EstadoCapacidad id="instalador-gke" /> | `deploy/opentofu/gcp-dr` |
-| Despliegue declarativo | <EstadoCapacidad id="gitops" /> | Todavía no |
+| Despliegue declarativo | <EstadoCapacidad id="gitops" /> | No |
 | Gestión de secretos | <EstadoCapacidad id="secretos" /> | El chart solo referencia Secrets existentes |
 
-:::caution Todavía sin instalación real
+:::caution Instalación en la infraestructura de la institución
 
-Los tres instaladores pasan las validaciones automáticas (ver [Validar sin clúster](#validar)), pero todavía no se han ejecutado contra un clúster ni contra un proyecto de Google Cloud. Úselos para revisar el diseño y en ambientes de prueba.
+Los tres instaladores pasan las validaciones automáticas (ver [Validar sin clúster](#validar)), pero no se han ejecutado contra un clúster ni contra un proyecto de Google Cloud. Su ejecución y su prueba en la infraestructura de la institución son parte del servicio de implementación, con prueba de aceptación. Fuera de ese servicio, úselos para revisar el diseño y en ambientes de prueba.
 
 :::
 
@@ -70,15 +70,16 @@ El script revisa, sin conectarse a ningún clúster ni a Google Cloud:
 
 | Parte | Revisión |
 | --- | --- |
-| Chart | `helm lint --strict` con cada archivo de valores; `helm template` validado con `kubeconform -strict` contra Kubernetes 1.36 (las CRD, con el catálogo de esquemas de CRD), incluidas las variantes con CloudNativePG e Ingress de GKE; cada `deployment.toml` generado debe ser TOML válido. |
+| Chart | `helm lint --strict` con cada archivo de valores; `helm template` validado con `kubeconform -strict` contra Kubernetes 1.36.5 (RKE2 v1.36.5+rke2r1; las CRD, con el catálogo de esquemas de CRD), incluidas las variantes con CloudNativePG e Ingress de GKE; cada `deployment.toml` generado debe ser TOML válido. El render debe cumplir además las reglas de seguridad del chart: raíz de solo lectura en todos los contenedores, ninguno como root y ningún `deployment.toml` en un ConfigMap (van en Secrets porque nombran contraseñas). El CI corre esta parte en el job «Chart de Helm». |
 | Ansible | `ansible-playbook --syntax-check` y `ansible-lint` con el perfil `production`. |
 | OpenTofu | `tofu fmt -check`, `tofu init -backend=false`, `tofu validate` y `tofu test` con el proveedor de Google simulado. |
 
-## Pendiente {#pendiente}
+## Con el servicio de implementación {#pendiente}
 
-Lo que falta para la primera instalación real, además de ejecutarla:
+Lo que se completa en el servicio de implementación para la primera instalación en la institución, además de ejecutarla:
 
-- **Imágenes de producción derivadas de WSO2.** El workflow de versión ya construye, firma (Sigstore) y publica `nexo-console-api`, `nexo-console-web` y `nexo-motores`; las imágenes de API Manager, gateway y Micro Integrator siguen la receta de los Dockerfile del laboratorio y todavía no se publican en cada versión.
-- **Coordinación del integrador.** Con dos o más réplicas de Micro Integrator, los consumidores de colas marcados como coordinados corren en todas las réplicas, porque la coordinación de clúster del integrador aún no se configura.
+- **Imágenes de producción derivadas de WSO2.** El workflow de versión ya construye, firma (Sigstore) y publica `nexo-console-api`, `nexo-console-web` y `nexo-motores`; las imágenes de API Manager, gateway y Micro Integrator siguen la receta de los Dockerfile del laboratorio y no se publican con la versión.
+- **Coordinación del integrador.** Con dos o más réplicas de Micro Integrator, los consumidores de colas marcados como coordinados corren en todas las réplicas, porque la coordinación de clúster del integrador no está configurada en la versión.
 - **Artefactos de integración por ambiente.** Los de ejemplo apuntan a nombres del laboratorio; en cada ambiente se parametrizan con variables.
+- **Topología de colas en RabbitMQ.** El chart y el playbook no la declaran: en el laboratorio la crea `tools/lab-bootstrap/src/messaging.ts` (exchanges `nexo.solicitudes`, `nexo.reintentos` y `nexo.dlq`, colas quorum de reintento con TTL de 2, 4 y 8 s, cola de fallidos `solicitudes.dlq`). En la institución se declara la misma topología, con la política que impide que consultar la cola de fallidos descarte mensajes: `rabbitmqctl set_policy --apply-to quorum_queues --priority 10 nexo-fallidos-sin-limite-de-entregas '^solicitudes\.dlq$' '{"delivery-limit":-1}'`.
 - **Promoción con CloudNativePG** en el sitio de respaldo (ver [Google Cloud con GKE](./gcp-gke.md#pendiente)).

@@ -16,7 +16,7 @@ Al terminar el módulo, el participante:
 
 1. Explica qué es Yago Nexo: una distribución que combina WSO2 API Manager 4.7.0 y Micro Integrator 4.6.0 con la capa propia de Yago.
 2. Reconoce cada componente del laboratorio, su función y su puerto.
-3. Lee el estado de una capacidad (*Disponible*, *En desarrollo* o *Planificado*) y sabe dónde está su evidencia.
+3. Lee el estado de una capacidad (incluida en la versión o entregada con el servicio de implementación) y sabe dónde está su evidencia.
 4. Tiene su laboratorio arriba, comprobado de punta a punta.
 5. Llama a una API protegida con un token de Keycloak y explica por qué sin token recibe 401.
 
@@ -58,7 +58,7 @@ Nexo es una **distribución**: toma componentes de código abierto, los configur
 
 ### Estados de las capacidades
 
-Cada capacidad del producto tiene un estado en un único archivo de datos del sitio. Una capacidad solo figura como *Disponible* si declara una ruta de evidencia que existe en el repositorio; si no, el sitio no se genera. En este curso, lo *Disponible* se practica en el laboratorio y lo *En desarrollo* se explica sin ejercicios. Todas las capacidades están en la [hoja de ruta](../hoja-de-ruta.md).
+Cada capacidad del producto tiene un estado en un único archivo de datos del sitio. Una capacidad solo figura como incluida en la versión si declara una ruta de evidencia que existe en el repositorio; si no, el sitio no se genera. Lo que no está incluido se entrega con el servicio de implementación (desarrollo contratado, con prueba de aceptación). En este curso, lo incluido en la versión se practica en el laboratorio y lo que se entrega con el servicio de implementación se explica sin ejercicios. Todas las capacidades están en [Capacidades](../capacidades.md).
 
 ### Arquitectura objetivo (diseño)
 
@@ -66,7 +66,7 @@ El laboratorio reúne todo en un equipo; la arquitectura objetivo separa sitios 
 
 - **CPD** de la institución como sitio principal, **Google Cloud** como respaldo en espera tibia y un **testigo** de quórum en un tercer lugar.
 - La conmutación exige **2 de 3 votos** (<EstadoCapacidad id="motor-continuidad" />). El laboratorio de continuidad (perfil `cont`) reproduce esa lógica en un equipo.
-- Los instaladores para producción están en estado <EstadoCapacidad id="helm" />.
+- Instaladores para producción: <EstadoCapacidad id="helm" />.
 
 ### Flujo de una llamada
 

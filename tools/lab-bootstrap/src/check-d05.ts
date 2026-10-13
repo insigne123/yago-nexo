@@ -6,11 +6,12 @@
  *   2. guarda contra split brain: con un solo agente viendo el primario caído NO se conmuta (sin quórum);
  *   3. conmutación automática: con quórum (2 de 3) el respaldo promueve la réplica, cambia el DNS y mide el
  *      RTO; un dato confirmado antes de la caída sigue presente tras la promoción (RPO acotado);
- *   4. retorno guiado con aprobación desde la Consola.
+ *   4. retorno guiado desde la Consola con dos personas: la operadora lo solicita y el aprobador lo aprueba.
  * Requiere `make continuidad` (perfil cont) arriba.
  */
 import { execFileSync } from "node:child_process";
 import { fetch } from "undici";
+import { evaluarRetorno, type SolicitudRetorno } from "./retorno-dos-pasos.js";
 
 const BASE = process.env.NEXO_CONSOLE_URL ?? "http://localhost:8090/api/v1";
 const KEYCLOAK = process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo";
@@ -23,20 +24,36 @@ async function token(username: string) {
   const res = await fetch(`${KEYCLOAK}/protocol/openid-connect/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "password", client_id: "nexo-console", username, password: PASSWORD }).toString(),
+    body: new URLSearchParams({
+      grant_type: "password",
+      client_id: "nexo-console",
+      username,
+      password: PASSWORD,
+    }).toString(),
   });
   return ((await res.json()) as { access_token: string }).access_token;
 }
 
-type Continuity = { activeSite: string; mode: string; votosPrimarioCaido: number; sites: Array<{ id: string; vote: string; active: boolean }> };
+type Continuity = {
+  activeSite: string;
+  mode: string;
+  votosPrimarioCaido: number;
+  sites: Array<{ id: string; vote: string; active: boolean }>;
+};
 async function state(tok: string): Promise<Continuity> {
-  return (await fetch(`${BASE}/continuity`, { headers: { authorization: `Bearer ${tok}` } }).then((r) => r.json())) as Continuity;
+  return (await fetch(`${BASE}/continuity`, { headers: { authorization: `Bearer ${tok}` } }).then((r) =>
+    r.json(),
+  )) as Continuity;
 }
 
 /** Registro DNS del sitio activo, leído de etcd (lo que CoreDNS sirve para activo.nexo.lab). */
 function dnsRecord(): string | undefined {
   try {
-    const out = execFileSync("docker", ["exec", C("cont-etcd"), "etcdctl", "get", "/skydns/lab/nexo/activo"], { encoding: "utf8" });
+    const out = execFileSync(
+      "docker",
+      ["exec", C("cont-etcd"), "etcdctl", "get", "/skydns/lab/nexo/activo"],
+      { encoding: "utf8" },
+    );
     return (JSON.parse(out.split("\n").slice(1).join("\n") || "{}") as { host?: string }).host;
   } catch {
     return undefined;
@@ -46,14 +63,34 @@ function dnsRecord(): string | undefined {
 /** Consulta puntual (un valor) a un sitio, por psql dentro del contenedor (sin exponer puertos). */
 function query(site: "cont-cpd" | "cont-gcp", sql: string): string | undefined {
   try {
-    const out = execFileSync("docker", ["exec", "-e", `PGPASSWORD=${CONT_DB_PASSWORD}`, C(site), "psql", "-U", "postgres", "-d", "postgres", "-tAc", sql], { encoding: "utf8", timeout: 6000 });
+    const out = execFileSync(
+      "docker",
+      [
+        "exec",
+        "-e",
+        `PGPASSWORD=${CONT_DB_PASSWORD}`,
+        C(site),
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-tAc",
+        sql,
+      ],
+      { encoding: "utf8", timeout: 6000 },
+    );
     return out.trim();
   } catch {
     return undefined;
   }
 }
 
-async function waitFor<T>(fn: () => Promise<T>, pred: (v: T) => boolean, timeoutSec: number): Promise<{ value: T; sec: number } | undefined> {
+async function waitFor<T>(
+  fn: () => Promise<T>,
+  pred: (v: T) => boolean,
+  timeoutSec: number,
+): Promise<{ value: T; sec: number } | undefined> {
   const t0 = Date.now();
   while ((Date.now() - t0) / 1000 < timeoutSec) {
     const value = await fn();
@@ -67,14 +104,23 @@ const docker = (...args: string[]) => execFileSync("docker", args, { stdio: "ign
 
 async function main() {
   const approver = await token("luis.aprobador");
+  // Solicita el retorno (continuity:failback:request); no puede aprobarlo.
+  const operator = await token("carla.operacion");
   const rows: Array<Record<string, unknown>> = [];
   try {
     // 1) Estado sano.
-    const healthy = await waitFor(() => state(approver), (s) => s.activeSite === "cpd" && s.sites.length === 3 && s.sites.every((x) => x.vote === "primario_sano"), 60);
+    const healthy = await waitFor(
+      () => state(approver),
+      (s) =>
+        s.activeSite === "cpd" && s.sites.length === 3 && s.sites.every((x) => x.vote === "primario_sano"),
+      60,
+    );
     rows.push({
       prueba: "tres agentes sanos, CPD activo, DNS publicado",
       esperado: "3 sanos · activo cpd · dns 10.80.0.1",
-      obtenido: healthy ? `${healthy.value.sites.length} sanos · activo ${healthy.value.activeSite} · dns ${dnsRecord()}` : "no se estabilizó",
+      obtenido: healthy
+        ? `${healthy.value.sites.length} sanos · activo ${healthy.value.activeSite} · dns ${dnsRecord()}`
+        : "no se estabilizó",
       cumple: !!healthy && dnsRecord() === "10.80.0.1",
     });
 
@@ -99,37 +145,99 @@ async function main() {
 
     // 3) Conmutación automática: vuelven los otros agentes; ahora 3 ven el primario caído → quórum.
     docker("start", C("cont-agente-cpd"), C("cont-agente-testigo"));
-    const switched = await waitFor(() => state(approver), (s) => s.activeSite === "gcp", 90);
+    const switched = await waitFor(
+      () => state(approver),
+      (s) => s.activeSite === "gcp",
+      90,
+    );
     const promoted = query("cont-gcp", "SELECT NOT pg_is_in_recovery()") === "t";
-    const marcaPresente = query("cont-gcp", `SELECT count(*) FROM estado_plataforma WHERE clave = '${marca}'`) === "1";
+    const marcaPresente =
+      query("cont-gcp", `SELECT count(*) FROM estado_plataforma WHERE clave = '${marca}'`) === "1";
     rows.push({
       prueba: "conmutación automática con quórum (2 de 3)",
       esperado: "activo gcp · réplica promovida · DNS 10.80.0.2",
-      obtenido: switched ? `activo gcp en ${switched.sec.toFixed(0)} s · ${promoted ? "promovida" : "en recuperación"} · dns ${dnsRecord()}` : "no conmutó",
+      obtenido: switched
+        ? `activo gcp en ${switched.sec.toFixed(0)} s · ${promoted ? "promovida" : "en recuperación"} · dns ${dnsRecord()}`
+        : "no conmutó",
       cumple: !!switched && promoted && dnsRecord() === "10.80.0.2",
     });
-    rows.push({ prueba: "el dato confirmado sobrevive (RPO acotado)", esperado: "presente en GCP", obtenido: marcaPresente ? "presente" : "ausente", cumple: marcaPresente });
+    rows.push({
+      prueba: "el dato confirmado sobrevive (RPO acotado)",
+      esperado: "presente en GCP",
+      obtenido: marcaPresente ? "presente" : "ausente",
+      cumple: marcaPresente,
+    });
 
-    const ev = (await fetch(`${BASE}/continuity/events`, { headers: { authorization: `Bearer ${approver}` } }).then((r) => r.json())) as Array<{ kind: string; trigger: string; to: string; rtoSeconds?: number; status: string }>;
+    const ev = (await fetch(`${BASE}/continuity/events`, {
+      headers: { authorization: `Bearer ${approver}` },
+    }).then((r) => r.json())) as Array<{
+      kind: string;
+      trigger: string;
+      to: string;
+      rtoSeconds?: number;
+      status: string;
+    }>;
     const conm = ev.find((e) => e.kind === "conmutacion" && e.to === "gcp");
     rows.push({
       prueba: "evento de conmutación con RTO medido y auditado",
       esperado: "automatico · completado · RTO > 0",
-      obtenido: conm ? `${conm.trigger} · ${conm.status} · RTO ${conm.rtoSeconds?.toFixed?.(1)} s` : "sin evento",
-      cumple: !!conm && conm.trigger === "automatico" && conm.status === "completado" && (conm.rtoSeconds ?? 0) > 0,
+      obtenido: conm
+        ? `${conm.trigger} · ${conm.status} · RTO ${conm.rtoSeconds?.toFixed?.(1)} s`
+        : "sin evento",
+      cumple:
+        !!conm && conm.trigger === "automatico" && conm.status === "completado" && (conm.rtoSeconds ?? 0) > 0,
     });
 
-    // 4) Retorno guiado con aprobación (desde la Consola). Se repone el primario antes del retorno.
+    // 4) Retorno con dos personas desde la Consola: la operadora lo solicita y el aprobador lo aprueba (cuatro
+    //    ojos). Se repone el primario antes del retorno y se retiran solicitudes pendientes de corridas anteriores.
     docker("start", C("cont-cpd"));
     await sleep(5000);
-    const fb = await fetch(`${BASE}/continuity/failback`, { method: "POST", headers: { authorization: `Bearer ${approver}`, "content-type": "application/json" }, body: JSON.stringify({ reason: "Verificación D-05: primario restablecido" }) });
-    const back = await waitFor(() => state(approver), (s) => s.activeSite === "cpd", 60);
-    rows.push({
-      prueba: "retorno guiado con aprobación",
-      esperado: "activo vuelve a cpd · DNS 10.80.0.1",
-      obtenido: `${fb.status} · activo ${back?.value.activeSite ?? "?"} · dns ${dnsRecord()}`,
-      cumple: fb.status === 202 && !!back && dnsRecord() === "10.80.0.1",
+    const json = { "content-type": "application/json" };
+    const previas = (await fetch(`${BASE}/continuity/failback/requests`, {
+      headers: { authorization: `Bearer ${approver}` },
+    }).then((r) => r.json())) as SolicitudRetorno[];
+    for (const p of Array.isArray(previas) ? previas : []) {
+      if (p.status === "pendiente" && p.id)
+        await fetch(`${BASE}/continuity/failback/requests/${p.id}/reject`, {
+          method: "POST",
+          headers: { authorization: `Bearer ${approver}`, ...json },
+          body: JSON.stringify({ reason: "Retirada por la verificación D-05" }),
+        });
+    }
+    const pedido = await fetch(`${BASE}/continuity/failback/requests`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${operator}`, ...json },
+      body: JSON.stringify({ reason: "Verificación D-05: primario restablecido" }),
     });
+    const solicitud = (await pedido.json().catch(() => ({}))) as SolicitudRetorno;
+    const aprob =
+      pedido.status === 201 && solicitud.id
+        ? await fetch(`${BASE}/continuity/failback/requests/${solicitud.id}/approve`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${approver}`, ...json },
+            body: JSON.stringify({ reason: "Conforme: primario restablecido (verificación D-05)" }),
+          })
+        : undefined;
+    const aprobada = aprob
+      ? ((await aprob.json().catch(() => ({}))) as { request?: SolicitudRetorno }).request
+      : undefined;
+    const back =
+      aprob?.status === 202
+        ? await waitFor(
+            () => state(approver),
+            (s) => s.activeSite === "cpd",
+            60,
+          )
+        : undefined;
+    rows.push(
+      evaluarRetorno({
+        solicitud: pedido.status,
+        aprobacion: aprob?.status,
+        aprobada,
+        activo: back?.value.activeSite,
+        dns: dnsRecord(),
+      }),
+    );
   } finally {
     for (const c of ["cont-cpd", "cont-agente-cpd", "cont-agente-gcp", "cont-agente-testigo"]) {
       try {
@@ -141,7 +249,11 @@ async function main() {
   }
   console.table(rows);
   const ok = rows.every((r) => r.cumple);
-  console.log(ok ? "[D-05] verificado: quórum, conmutación automática con RTO/RPO medidos y retorno guiado" : "[D-05] NO cumple");
+  console.log(
+    ok
+      ? "[D-05] verificado: quórum, conmutación automática con RTO medido y retorno con dos personas"
+      : "[D-05] NO cumple",
+  );
   if (!ok) process.exit(1);
 }
 

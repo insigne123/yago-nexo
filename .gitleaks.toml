@@ -11,8 +11,10 @@ paths = [
 # Falsos positivos revisados uno a uno:
 #  - URL JDBC sin contraseña (la contraseña viene de una variable de entorno).
 #  - Clave publicable inventada en las pruebas de la mesa de soporte (formato sb_publishable_, no existe).
+#  - Token inventado de la prueba de lectura de secretos de la Consola (apps/console-api/src/common/common.test.ts).
 regexTarget = "line"
 regexes = [
   '''jdbc:postgresql://[a-z0-9.-]+:\d+/[a-z_]+''',
   '''sb_publishable_0123456789abcdef''',
+  '''NEXO_PRUEBA_TOKEN = "desde-variable-0123456789"''',
 ]

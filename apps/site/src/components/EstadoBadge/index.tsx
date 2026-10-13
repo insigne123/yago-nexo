@@ -1,4 +1,4 @@
-import { DESCRIPCION_ESTADO, type Estado } from "@site/src/data/estado";
+import { DESCRIPCION_ESTADO, ETIQUETA_ESTADO, type Estado } from "@site/src/data/estado";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
@@ -10,13 +10,12 @@ export default function EstadoBadge({ estado }: { estado: Estado }): ReactNode {
     <span
       className={clsx(
         styles.badge,
-        estado === "Disponible" && styles.disponible,
-        estado === "En desarrollo" && styles.desarrollo,
-        estado === "Planificado" && styles.planificado,
+        estado === "Incluida" && styles.incluida,
+        estado === "Servicio" && styles.servicio,
       )}
       title={DESCRIPCION_ESTADO[estado]}
     >
-      {estado}
+      {ETIQUETA_ESTADO[estado]}
     </span>
   );
 }

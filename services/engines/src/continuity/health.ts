@@ -48,7 +48,11 @@ export interface HealthState {
  * Agrega las comprobaciones y aplica histéresis: hacen falta `downThreshold` ciclos seguidos con una esencial
  * caída para votar "caído", y basta un ciclo sano para volver a "sano". Evita el aleteo entre estados.
  */
-export function aggregate(prev: HealthState | undefined, checks: readonly Check[], downThreshold: number): HealthState {
+export function aggregate(
+  prev: HealthState | undefined,
+  checks: readonly Check[],
+  downThreshold: number,
+): HealthState {
   const essentialDown = checks.filter((c) => c.essential && !c.ok);
   const healthy = essentialDown.length === 0;
   const failingCycles = healthy ? 0 : (prev?.failingCycles ?? 0) + 1;

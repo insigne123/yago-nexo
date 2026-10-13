@@ -198,6 +198,12 @@ secretos:
     claves:
       usuario: username
       password: password
+  # Token que exige el webhook de alertas de la Consola (/api/v1/alerts/alertmanager). Alertmanager envía el
+  # mismo valor como «Authorization: Bearer» (mínimo 16 caracteres; ver README, «Alertas hacia la Consola»).
+  alertas:
+    existingSecret: nexo-alertas
+    claves:
+      token: token
   # Opcional: token del SIEM cuando el destino es HTTP.
   siem:
     existingSecret: ""

@@ -71,16 +71,28 @@ suite("series desde OpenSearch", () => {
               nombre: { buckets: [{ key: "OperadorDemo" }] },
               dueno: { buckets: [{ key: "admin" }] },
               ip: { top: { buckets: [{ key: "10.0.0.7" }] } },
-              ventanas: { buckets: [{ key: from, doc_count: 4, errores: { doc_count: 1 } }, { key: from + 2 * step, doc_count: 50, errores: { doc_count: 0 } }] },
+              ventanas: {
+                buckets: [
+                  { key: from, doc_count: 4, errores: { doc_count: 1 } },
+                  { key: from + 2 * step, doc_count: 50, errores: { doc_count: 0 } },
+                ],
+              },
             },
           ],
         },
       },
     };
     const [s] = parseSeries("volumen", res, from, from + 3 * step, 60);
-    expect(s).toMatchObject({ applicationId: "app-1", name: "OperadorDemo", owner: "admin", topIp: "10.0.0.7" });
+    expect(s).toMatchObject({
+      applicationId: "app-1",
+      name: "OperadorDemo",
+      owner: "admin",
+      topIp: "10.0.0.7",
+    });
     expect(s!.windows.map((x) => x.calls)).toEqual([4, 0, 50]);
-    const q = buildQuery("latencia", from, from + 3 * step, 60, { apiId: "api-9" }) as { query: { bool: { filter: unknown[] } } };
+    const q = buildQuery("latencia", from, from + 3 * step, 60, { apiId: "api-9" }) as {
+      query: { bool: { filter: unknown[] } };
+    };
     expect(JSON.stringify(q.query.bool.filter)).toContain("api-9");
   });
 });

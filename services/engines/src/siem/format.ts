@@ -18,7 +18,7 @@ export function priority(result: AuditEvent["result"]): number {
   return 13 * 8 + severity;
 }
 
-const printable = (s: string, max: number) => (s.replace(/[^\x21-\x7E]/g, "_").slice(0, max) || "-");
+const printable = (s: string, max: number) => s.replace(/[^\x21-\x7E]/g, "_").slice(0, max) || "-";
 const sdValue = (s: string) => s.replace(/[\\"\]]/g, (c) => `\\${c}`);
 
 export function syslog5424(e: AuditEvent, o: SyslogOptions): string {
@@ -66,9 +66,18 @@ export function parseDestinations(spec: string): Destination[] {
       if (u.protocol === "syslog+tcp:" || u.protocol === "syslog+tls:") {
         const tls = u.protocol === "syslog+tls:";
         const framing = (u.searchParams.get("encuadre") as Framing | null) ?? (tls ? "octetos" : "lf");
-        if (framing !== "octetos" && framing !== "lf") throw new Error(`Encuadre inválido en ${raw}: use octetos o lf`);
-        if (tls && framing !== "octetos") throw new Error("Syslog sobre TLS exige encuadre por conteo de octetos (RFC 5425)");
-        return { key: `${u.protocol}//${u.host}`, kind: "syslog" as const, host: u.hostname, port: Number(u.port || (tls ? 6514 : 514)), tls, framing };
+        if (framing !== "octetos" && framing !== "lf")
+          throw new Error(`Encuadre inválido en ${raw}: use octetos o lf`);
+        if (tls && framing !== "octetos")
+          throw new Error("Syslog sobre TLS exige encuadre por conteo de octetos (RFC 5425)");
+        return {
+          key: `${u.protocol}//${u.host}`,
+          kind: "syslog" as const,
+          host: u.hostname,
+          port: Number(u.port || (tls ? 6514 : 514)),
+          tls,
+          framing,
+        };
       }
       if (u.protocol === "https:" || u.protocol === "http:") {
         const clean = new URL(raw);

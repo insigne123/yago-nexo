@@ -12,6 +12,7 @@ import {
 } from "../../components/ui";
 import { deleteShift, fetchShifts, saveShift } from "../../lib/api";
 import { formatDate, formatTime, fromDatetimeLocal, toDatetimeLocal } from "../../lib/format";
+import { oncallCandidates } from "../../lib/permissions";
 import { keys, useDirectory } from "../../lib/queries";
 import { friendlyError, useSupabase } from "../../lib/supabase";
 import type { OncallShiftRow } from "../../lib/types";
@@ -21,7 +22,7 @@ import { useNow } from "../../lib/useNow";
 const LEVELS: Array<{ level: 1 | 2 | 3; label: string }> = [
   { level: 1, label: "Nivel 1 · primer contacto y acuse" },
   { level: 2, label: "Nivel 2 · técnico de turno" },
-  { level: 3, label: "Nivel 3 · seguridad y supervisión" },
+  { level: 3, label: "Nivel 3 · supervisión y seguridad" },
 ];
 
 function startOfWeek(date: Date): Date {
@@ -64,13 +65,14 @@ export function OnCallPage() {
   const supabase = useSupabase();
   const now = useNow(60_000);
   const { data: people = [] } = useDirectory();
-  const staff = people.filter((p) => p.is_staff);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const weekEnd = addDays(weekStart, 7);
   const shiftsKey = keys.shifts(weekStart.toISOString());
   const shifts = useQuery({ queryKey: shiftsKey, queryFn: () => fetchShifts(supabase, weekStart, weekEnd) });
   const action = useRunAction([["shifts"]]);
   const [form, setForm] = useState<FormState>(() => emptyForm(weekStart));
+  // El nivel 3 es la supervisión: solo se ofrece a supervisores.
+  const candidates = oncallCandidates(people, Number(form.level));
 
   const nameOf = (userId: string) =>
     people.find((p) => p.user_id === userId)?.display_name ?? "Persona sin membresía";
@@ -119,7 +121,7 @@ export function OnCallPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageTitle description="Si nadie cubre un nivel, los avisos van a los supervisores. Los S1 sin acuse escalan cada 10 minutos.">
+      <PageTitle description="El nivel 3 es la supervisión: solo lo cubren supervisores. Si nadie cubre un nivel, los avisos van a los supervisores. Los S1 sin acuse escalan cada 10 minutos.">
         Turnos
       </PageTitle>
       <Card title="De turno ahora">
@@ -241,7 +243,7 @@ export function OnCallPage() {
             required
           >
             <option value="">Seleccione…</option>
-            {staff.map((p) => (
+            {candidates.map((p) => (
               <option key={`${p.user_id}-${p.org_id}`} value={p.user_id}>
                 {p.display_name}
               </option>
@@ -250,7 +252,11 @@ export function OnCallPage() {
           <SelectField
             label="Nivel"
             value={form.level}
-            onChange={(e) => setForm({ ...form, level: e.target.value })}
+            onChange={(e) => {
+              const level = e.target.value;
+              const keep = oncallCandidates(people, Number(level)).some((p) => p.user_id === form.userId);
+              setForm({ ...form, level, userId: keep ? form.userId : "" });
+            }}
           >
             {LEVELS.map((l) => (
               <option key={l.level} value={l.level}>

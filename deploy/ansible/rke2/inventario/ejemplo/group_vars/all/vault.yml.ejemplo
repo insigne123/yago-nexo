@@ -31,6 +31,9 @@ nexo_plataforma_secretos:
     password: "<definir>"
   nexo-keycloak-km:
     client-secret: "<definir>"
+  # Token del webhook de alertas de la Consola; el mismo Secret se monta en Alertmanager (openssl rand -hex 32).
+  nexo-alertas:
+    token: "<definir>"
   nexo-continuidad:
     primary-db-url: "postgres://<usuario>:<contraseña>@<primario>:5432/postgres"
     replica-db-url: "postgres://<usuario>:<contraseña>@<réplica>:5432/postgres"

@@ -16,15 +16,20 @@ export async function appToken(appName: string): Promise<string> {
   });
   const app = (await wso2.devportal.listApplications()).list.find((a) => a.name === appName);
   if (!app) throw new Error(`no existe la aplicación ${appName}`);
-  const key = (await wso2.devportal.listKeys(app.applicationId)).list.find((k) => k.keyManager === "Keycloak");
-  const res = await fetch(`${process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo"}/protocol/openid-connect/token`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-      authorization: `Basic ${Buffer.from(`${key?.consumerKey}:${key?.consumerSecret}`).toString("base64")}`,
+  const key = (await wso2.devportal.listKeys(app.applicationId)).list.find(
+    (k) => k.keyManager === "Keycloak",
+  );
+  const res = await fetch(
+    `${process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo"}/protocol/openid-connect/token`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        authorization: `Basic ${Buffer.from(`${key?.consumerKey}:${key?.consumerSecret}`).toString("base64")}`,
+      },
+      body: "grant_type=client_credentials",
     },
-    body: "grant_type=client_credentials",
-  });
+  );
   return ((await res.json()) as { access_token: string }).access_token;
 }
 
@@ -61,7 +66,14 @@ export async function runLoad(o: LoadOptions): Promise<LoadResult> {
   const app = o.app ?? "OperadorDemo";
   let token = await appToken(app);
   let tokenAt = Date.now();
-  const total: Omit<LoadResult, "duracionSeg" | "tasaError" | "timeline"> = { llamadas: 0, ok: 0, errores: 0, sinRespuesta: 0, porVersion: {}, porCodigo: {} };
+  const total: Omit<LoadResult, "duracionSeg" | "tasaError" | "timeline"> = {
+    llamadas: 0,
+    ok: 0,
+    errores: 0,
+    sinRespuesta: 0,
+    porVersion: {},
+    porCodigo: {},
+  };
   const timeline: LoadSecond[] = [];
   const t0 = Date.now();
   for (let s = 0; s < o.seconds && !o.signal?.aborted; s++) {
@@ -75,7 +87,11 @@ export async function runLoad(o: LoadOptions): Promise<LoadResult> {
       Array.from({ length: o.rps }, async (_, i) => {
         await new Promise((r) => setTimeout(r, (1000 / o.rps) * i));
         try {
-          const res = await fetch(o.url, { dispatcher: insecure, headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
+          const res = await fetch(o.url, {
+            dispatcher: insecure,
+            headers: { authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(10_000),
+          });
           await res.arrayBuffer();
           const v = res.headers.get("x-backend-version") ?? "—";
           total.llamadas++;
@@ -102,5 +118,10 @@ export async function runLoad(o: LoadOptions): Promise<LoadResult> {
     const wait = 1000 - (Date.now() - started);
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   }
-  return { ...total, duracionSeg: Math.round((Date.now() - t0) / 1000), tasaError: total.llamadas ? total.errores / total.llamadas : 0, timeline };
+  return {
+    ...total,
+    duracionSeg: Math.round((Date.now() - t0) / 1000),
+    tasaError: total.llamadas ? total.errores / total.llamadas : 0,
+    timeline,
+  };
 }

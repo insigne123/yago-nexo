@@ -68,8 +68,10 @@ Un error no controlado pasa por la `faultSequence`, que responde 502 con el cód
 ### Cola, reintentos y fallidos
 
 - El inbound endpoint `SolicitudesConsumidor` consume `solicitudes.nuevas` con **confirmación manual**: el mensaje se confirma solo al terminar la mediación.
-- La secuencia `procesar-solicitud` llama al sistema de destino con la `Idempotency-Key` original. Si falla, `reintentar-solicitud` publica en `solicitudes.reintento.1`, `.2` o `.3` (TTL de 2, 4 y 8 s, que devuelven el mensaje a la cola principal).
+- La secuencia `procesar-solicitud` llama al sistema de destino con la `Idempotency-Key` original. Solo se reintentan las fallas del destino: respuestas 5xx, fallas de red y tiempos de espera. En ese caso `reintentar-solicitud` publica en `solicitudes.reintento.1`, `.2` o `.3` (TTL de 2, 4 y 8 s, que devuelven el mensaje a la cola principal).
+- Un rechazo 4xx del destino no se reintenta: el mensaje va directo a `solicitudes.dlq` con 1 intento y el motivo `HTTP 4xx` (por ejemplo, `HTTP 422`).
 - Agotados los tres reintentos, el mensaje va a `solicitudes.dlq`. Desde la Consola, un **aprobador** lo reprocesa indicando un motivo; queda auditado.
+- La cola `solicitudes.dlq` es una cola quorum con la política `nexo-fallidos-sin-limite-de-entregas` (`delivery-limit` -1): consultarla no descarta mensajes, aunque se lea muchas veces.
 - La alerta `ColaConMensajesFallidos` (severidad S3) se activa si la cola de fallidos tiene mensajes por más de 5 minutos.
 
 ### Artefactos versionados
@@ -116,7 +118,7 @@ Cargue las ayudas en cada terminal: `source tools/lab-bootstrap/ayudas-curso.sh`
 <details>
 <summary>Respuesta</summary>
 
-La secuencia `reintentar-solicitud`: mientras el contador de intentos es menor que 3 publica en la cola de reintento siguiente; si no, en la de fallidos. Los tiempos de espera los dan los TTL de las colas, que crea el arranque del laboratorio.
+La secuencia `reintentar-solicitud`: mientras el contador de intentos es menor que 3 y la falla es reintentable (5xx, red o tiempo de espera) publica en la cola de reintento siguiente; si no, en la de fallidos. Los tiempos de espera los dan los TTL de las colas, que crea el arranque del laboratorio.
 
 </details>
 
@@ -156,7 +158,7 @@ La secuencia `reintentar-solicitud`: mientras el contador de intentos es menor q
    pnpm --filter @nexo/lab-bootstrap check:integracion
    ```
 
-**Resultado esperado.** La primera llamada responde `202` con `idSolicitud`, `estado: "recibida"`, los datos del operador y la `correlacion`; la repetición responde `200` con la misma respuesta, `"repeticion": true` y el encabezado `X-Idempotent-Replay: true`. Sin clave, `400`; con datos inválidos, `422` y el detalle de la validación. El contador `registrosCreados` del destino sube en 1, no en 2. `check:integracion` muestra lo mismo a través del gateway (202, 200 y 422) y la traza con spans del gateway y del integrador.
+**Resultado esperado.** La primera llamada responde `202` con `idSolicitud`, `estado: "recibida"`, los datos del operador y la `correlacion`; la repetición responde `200` con la misma respuesta, `"repeticion": true` y el encabezado `X-Idempotent-Replay: true`. Sin clave, `400`; con datos inválidos, `422` y el detalle de la validación. El contador `registrosCreados` del destino sube en 1, no en 2. `check:integracion` lo comprueba a través del gateway y termina con «8 de 8 verificaciones cumplen»: 202 enriquecido, repetición idempotente, 422, entrega única al destino, un rechazo 4xx sin reintentos que llega a la cola de fallidos con 1 intento, consulta de esa cola sin perder mensajes y la traza con spans del gateway y del integrador.
 
 **Autoevaluación.**
 
@@ -217,7 +219,7 @@ Porque el integrador solo deja la solicitud en la cola: el registro en el destin
    consola pedro.auditoria GET '/audit-events?action=mensajes.reprocesar&limit=1' | jq '.[0] | {actor, resource, details}'
    ```
 
-**Resultado esperado.** El integrador responde `202` aunque el destino esté caído. En el registro aparecen tres `8-reintento-programado` y un `9-enviado-a-fallidos`, y en unos 15 segundos el mensaje queda en `solicitudes.dlq`. La Consola lo muestra `pendiente`, con 4 intentos (el original y tres reintentos), el motivo `HTTP 500` y una vista previa con el RUT enmascarado. El desarrollador recibe `403` y la solicitud sin motivo `400`; el aprobador lo reprocesa (`reprocesado`). Veinte segundos después el mensaje no volvió a la cola, el destino registró la solicitud y la auditoría muestra la acción `mensajes.reprocesar` de `luis.aprobador` con su motivo.
+**Resultado esperado.** El integrador responde `202` aunque el destino esté caído. En el registro aparecen tres `8-reintento-programado` y un `9-enviado-a-fallidos`, y en unos 15 segundos el mensaje queda en `solicitudes.dlq`. La Consola lo muestra `pendiente`, con 4 intentos (el original y tres reintentos), el motivo `HTTP 500` y un extracto del mensaje con el RUT enmascarado. (El destino caído responde 500, que se reintenta; un rechazo 4xx llegaría a fallidos con 1 intento.) El desarrollador recibe `403` y la solicitud sin motivo `400`; el aprobador lo reprocesa (`reprocesado`). Veinte segundos después el mensaje no volvió a la cola, el destino registró la solicitud y la auditoría muestra la acción `mensajes.reprocesar` de `luis.aprobador` con su motivo.
 
 :::caution Restablezca el destino
 

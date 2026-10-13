@@ -6,6 +6,8 @@ PROFILES ?= --profile obs --profile legacy
 
 env:
 	@test -f .env || cp .env.example .env
+	@# Un .env creado con una versión anterior no trae el token del webhook de alertas (1.2.0).
+	@grep -q '^NEXO_ALERTS_TOKEN=' .env || grep '^NEXO_ALERTS_TOKEN=' .env.example >> .env
 
 build: env
 	cd ../.. && pnpm --filter @nexo/demo-backends build && pnpm --filter "@nexo/engines..." build

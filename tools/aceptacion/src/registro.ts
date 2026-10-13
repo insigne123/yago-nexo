@@ -65,16 +65,46 @@ export function resumenSalida(salida: string, lineas = 6): string {
   const limpias = salida
     .split("\n")
     .map((l) => l.replace(ANSI, "").trimEnd())
-    .filter((l) => l.trim() && !/^[│├└┌─┬┴┼┐┘┤\s]+$/.test(l) && !l.startsWith(">") && !/ERR_PNPM|^\s*at /.test(l));
+    .filter(
+      (l) => l.trim() && !/^[│├└┌─┬┴┼┐┘┤\s]+$/.test(l) && !l.startsWith(">") && !/ERR_PNPM|^\s*at /.test(l),
+    );
   return limpias.slice(-lineas).join("\n");
 }
 
 /** Topología del caso: los componentes que participan, con la imagen que corre cada uno si está en ejecución. */
 export function topologia(caso: Caso, contenedores: Record<string, string>): string[] {
-  return caso.componentes.map((c) => {
-    const nombre = Object.keys(contenedores).find((n) => n === `nexo-lab-${c}-1` || n === c);
-    return nombre ? `${c} (${contenedores[nombre]})` : `${c} (no está en ejecución)`;
-  });
+  return [
+    ...caso.componentes.map((c) => {
+      const nombre = Object.keys(contenedores).find((n) => n === `nexo-lab-${c}-1` || n === c);
+      return nombre ? `${c} (${contenedores[nombre]})` : `${c} (no está en ejecución)`;
+    }),
+    ...(caso.externos ?? []).map((e) => `${e} (servicio externo al laboratorio)`),
+  ];
+}
+
+/**
+ * Número de ejecución de cada caso (el «-02» de LAB-PA-008-02). NEXO_EJECUCION acepta un número para todos los
+ * casos («2») o una lista por caso («PA-008=2,PA-009=1»); los casos que no aparecen quedan en 1.
+ */
+export function numeroEjecucion(spec: string | undefined, casoId: string): number {
+  const valido = (v: string, origen: string) => {
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 1 || n > 99)
+      throw new Error(`NEXO_EJECUCION: «${origen}» no es un número de ejecución entre 1 y 99`);
+    return n;
+  };
+  const texto = spec?.trim();
+  if (!texto) return 1;
+  if (/^\d+$/.test(texto)) return valido(texto, texto);
+  for (const parte of texto
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean)) {
+    const m = /^([\w-]+)=(\S+)$/.exec(parte);
+    if (!m) throw new Error(`NEXO_EJECUCION: «${parte}» no tiene la forma CASO=número`);
+    if (m[1] === casoId) return valido(m[2]!, parte);
+  }
+  return 1;
 }
 
 export function construirRegistro(o: {
@@ -107,7 +137,11 @@ export function construirRegistro(o: {
     condicionesPrevias: caso.condicionesPrevias,
     pasos: caso.pasos,
     comando: caso.comando,
-    duracion: { inicio: x.inicio.toISOString(), fin: x.fin.toISOString(), segundos: Math.round((x.fin.getTime() - x.inicio.getTime()) / 100) / 10 },
+    duracion: {
+      inicio: x.inicio.toISOString(),
+      fin: x.fin.toISOString(),
+      segundos: Math.round((x.fin.getTime() - x.inicio.getTime()) / 100) / 10,
+    },
     carga: caso.carga,
     resultadoEsperado: caso.resultadoEsperado,
     tolerancia: caso.tolerancia,
@@ -117,7 +151,9 @@ export function construirRegistro(o: {
     evidencia: o.evidencia,
     resultadoObtenido: resumenSalida(x.salida) || "(sin salida)",
     estado: aprobada ? "Aprobada" : "Rechazada",
-    defectos: aprobada ? "Ninguno" : `La verificación terminó con código ${x.codigoSalida}; ver la salida completa en la evidencia.`,
+    defectos: aprobada
+      ? "Ninguno"
+      : `La verificación terminó con código ${x.codigoSalida}; ver la salida completa en la evidencia.`,
   };
 }
 
@@ -158,12 +194,24 @@ th{background:#1F3864;color:#fff;text-align:left;width:24%}th,td{border:1px soli
 .ok{color:#166534;font-weight:bold}.mal{color:#9a3412;font-weight:bold}</style></head><body>
 <h1>Registro de prueba de aceptación ${esc(r.numero)}</h1><p>${esc(r.titulo)}</p><table>
 ${filas(r)
-  .map(([c, v]) => `<tr><th>${esc(c)}</th><td${c === "Estado" ? ` class="${r.estado === "Aprobada" ? "ok" : "mal"}"` : ""}>${esc(v)}</td></tr>`)
+  .map(
+    ([c, v]) =>
+      `<tr><th>${esc(c)}</th><td${c === "Estado" ? ` class="${r.estado === "Aprobada" ? "ok" : "mal"}"` : ""}>${esc(v)}</td></tr>`,
+  )
   .join("\n")}
 </table><p>Firma del ejecutor: ____________________ &nbsp; Firma del testigo: ____________________ &nbsp; Firma del aprobador: ____________________</p></body></html>`;
 }
 
 export function markdown(r: Registro): string {
   const celda = (v: string) => v.replace(/\|/g, "\\|").replace(/\n/g, "<br>");
-  return [`# Registro ${r.numero}`, "", r.titulo, "", "| Campo | Valor |", "| --- | --- |", ...filas(r).map(([c, v]) => `| ${c} | ${celda(v)} |`), ""].join("\n");
+  return [
+    `# Registro ${r.numero}`,
+    "",
+    r.titulo,
+    "",
+    "| Campo | Valor |",
+    "| --- | --- |",
+    ...filas(r).map(([c, v]) => `| ${c} | ${celda(v)} |`),
+    "",
+  ].join("\n");
 }

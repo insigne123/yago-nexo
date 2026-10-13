@@ -4,6 +4,7 @@
 //   nexo-respaldo respaldar  [--config <archivo>]
 //   nexo-respaldo restaurar  [--config <archivo>] [--respaldo <id>]
 //   nexo-respaldo listar     [--config <archivo>]
+//   nexo-respaldo probar-clave-ajena [--config <archivo>] [--respaldo <id>]
 //   nexo-respaldo generar-clave --salida <archivo>
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
@@ -11,6 +12,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { listarRespaldos } from "./almacen.js";
 import { generarClaveHex } from "./cifrado.js";
+import { probarClaveAjena } from "./clave-ajena.js";
 import { cargarConfig } from "./config.js";
 import { tamano, segundos, type InformeRestauracion } from "./informe.js";
 import { ARCHIVO_MANIFIESTO, type Manifiesto } from "./manifiesto.js";
@@ -24,6 +26,8 @@ Comandos:
   restaurar       Prueba de restauración: restaura un respaldo en un PostgreSQL temporal y lo compara
   listar          Lista los respaldos del destino y el resultado de su última prueba
   generar-clave   Genera un archivo de clave maestra nuevo (32 bytes en hexadecimal)
+  probar-clave-ajena
+                  Caso de aceptación: restaurar con otra clave debe rechazarse antes de escribir nada
 
 Opciones:
   -c, --config <archivo>   configuración (por omisión respaldo.config.json o respaldo.config.example.json)
@@ -113,6 +117,21 @@ async function main(): Promise<number> {
         );
       }
       return 0;
+    }
+    case "probar-clave-ajena": {
+      const config = cargarConfig(values.config);
+      const r = await probarClaveAjena(config, values.respaldo ? { respaldo: values.respaldo } : {});
+      console.log("");
+      console.log(
+        `RESTAURAR CON OTRA CLAVE · respaldo ${r.respaldo}: ${r.ok ? "RECHAZADA ANTES DE ESCRIBIR (cumple)" : "NO CUMPLE"}`,
+      );
+      console.log(`  rechazo: ${r.rechazo ?? "ninguno"}`);
+      console.log(
+        `  carpeta del respaldo: ${r.archivosAntes} archivos, ${r.cambios.length} cambios (SHA-256 antes y después)`,
+      );
+      console.log(`  servidores temporales creados: ${r.contenedoresNuevos.length}`);
+      for (const m of r.motivos) console.log(`  ERROR: ${m}`);
+      return r.ok ? 0 : 1;
     }
     case "generar-clave": {
       if (!values.salida) throw new Error("indique --salida <archivo>");

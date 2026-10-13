@@ -16,6 +16,8 @@ import type {
   DiscoveryScan,
   DiscoveryScanRequest,
   ExportJob,
+  FailbackApproval,
+  FailbackRequest,
   FailoverEvent,
   FindingStatus,
   Graph,
@@ -38,7 +40,15 @@ import { appendAudit, verifyAudit } from "./audit";
 import { badRequest, conflict, HttpError, notFound } from "./errors";
 import { isSameActor, type Actor } from "./identity";
 import { simulateImpact } from "./impact";
-import { completenessOf, createSeed, DRILL_STEPS, FAILBACK_STEPS, scanTotals, STATE_VERSION } from "./seed";
+import {
+  completenessOf,
+  createSeed,
+  DRILL_STEPS,
+  FAILBACK_STEPS,
+  FAILOVER_STEPS,
+  scanTotals,
+  STATE_VERSION,
+} from "./seed";
 import type {
   ApiRecord,
   ExportRecord,
@@ -64,6 +74,8 @@ export interface MockStoreOptions {
 
 const STORAGE_KEY = "nexo-mock-state";
 const DEFAULT_THRESHOLDS = { maxErrorRate: 0.02, maxP99Ms: 800, minRequests: 20 };
+/** Vigencia de una solicitud de retorno (NEXO_FAILBACK_REQUEST_TTL_MIN de la API, 30 min por omisión). */
+export const FAILBACK_REQUEST_TTL_MS = 30 * 60_000;
 const FOUR_EYES_MESSAGE =
   "Regla de cuatro ojos: quien aprueba debe ser una persona distinta de quien inició la acción.";
 
@@ -487,18 +499,18 @@ export class MockStore {
 
   private applyFailoverEffects(event: FailoverRecord, reached: number): void {
     if (event.kind === "retorno") {
-      if (reached >= 5) this.setActiveSite(event.to);
+      if (reached >= 2) this.setActiveSite(event.to);
       return;
     }
+    // El simulacro del agente no conmuta ni afecta el tráfico: solo mide la réplica.
+    if (event.kind !== "conmutacion") return;
     const from = this.site(event.from);
     if (reached >= 1 && from) {
       from.checks = { ...from.checks, gateway: "falla", recorridoSintetico: "falla" };
       from.vote = "sin_voto";
-    }
-    if (reached >= 2) {
       for (const s of this.state.continuity.sites) if (s.id !== event.from) s.vote = "primario_caido";
     }
-    if (reached >= 6) this.setActiveSite(event.to);
+    if (reached >= FAILOVER_STEPS.length) this.setActiveSite(event.to);
   }
 
   private tickFailovers(now: number): boolean {
@@ -511,7 +523,7 @@ export class MockStore {
       if (due.length > (event.steps?.length ?? 0)) {
         event.steps = due.map((s) => ({
           name: s.name,
-          status: "ok",
+          status: s.status ?? "ok",
           ts: this.iso(started + s.offsetMs),
           detail: s.detail,
         }));
@@ -522,12 +534,13 @@ export class MockStore {
       if (last && elapsed >= last.offsetMs + 500) {
         event.status = "completado";
         event.finishedAt = this.iso(started + last.offsetMs + 500);
-        event.rtoSeconds = Math.round((event.rtoAtOffsetMs ?? last.offsetMs) / 1000);
-        event.rpoSecondsEstimated = event.kind === "retorno" ? 0 : 2;
+        // Como el agente de continuidad: solo la conmutación registra RTO; el RPO no se mide (solo el rezago en bytes).
+        if (event.kind === "conmutacion")
+          event.rtoSeconds = Math.round((event.rtoAtOffsetMs ?? last.offsetMs) / 1000);
         this.healAllSites();
         this.audit(
           "nexo-failover",
-          event.kind === "retorno" ? "continuity.failback.complete" : "continuity.drill.complete",
+          event.kind === "retorno" ? "continuidad.retorno" : "continuity.drill.complete",
           `continuity/${event.id}`,
         );
         changed = true;
@@ -541,7 +554,7 @@ export class MockStore {
     for (const job of this.state.exports) {
       if (job.status !== "en_curso" || now < job.readyAt) continue;
       job.status = "listo";
-      job.manifest = { version: "nexo-export/1.0", items: this.exportItems(job.id ?? "") };
+      job.manifest = { version: __APP_VERSION__, items: this.exportItems(job.id ?? "") };
       job.downloadUrl = `${this.baseUrl}/exports/${job.id}/download`;
       changed = true;
     }
@@ -894,7 +907,7 @@ export class MockStore {
     const anomaly = this.findAnomaly(id);
     if (anomaly.status !== "bloqueo_propuesto")
       throw conflict("La anomalía no tiene un bloqueo propuesto pendiente.");
-    if (isSameActor(actor, anomaly.initiatedBy)) throw new HttpError(403, FOUR_EYES_MESSAGE);
+    if (isSameActor(actor, anomaly.initiatedBy)) throw new HttpError(403, FOUR_EYES_MESSAGE, "cuatro-ojos");
     const rule = this.state.rules.find((r) => r.id === anomaly.ruleId);
     const ttl = rule?.blockTtlMinutes ?? 30;
     const now = this.clock();
@@ -985,6 +998,9 @@ export class MockStore {
     ) {
       throw badRequest("Los pasos deben ser enteros crecientes entre 1 y 100, terminando en 100.");
     }
+    // El simulador no emula el tráfico sombra del motor (services/engines/src/rollout): la Consola envía 0.
+    if ((input.shadowSeconds ?? 0) > 0)
+      throw badRequest("El simulador no emula el tráfico sombra: use 0 segundos.");
     const environment = input.environment ?? "prod";
     const slug = api.id.replace(/^api-/, "");
     const rollout: RolloutRecord = {
@@ -996,6 +1012,7 @@ export class MockStore {
       stableEndpoint: `https://${slug}-estable.interno.cliente.invalid`,
       steps,
       stepDurationSec: input.stepDurationSec ?? 60,
+      shadowSeconds: 0,
       thresholds: { ...DEFAULT_THRESHOLDS, ...input.thresholds },
       environment,
       status: "pendiente_aprobacion",
@@ -1021,6 +1038,7 @@ export class MockStore {
       throw new HttpError(
         403,
         "Regla de cuatro ojos: quien aprueba debe ser una persona distinta de quien creó el despliegue.",
+        "cuatro-ojos",
       );
     }
     rollout.approvedBy = actor.username;
@@ -1056,7 +1074,11 @@ export class MockStore {
   /* ------------------------------------------------------------- continuidad */
 
   continuity(): ContinuityState {
-    return structuredClone(this.state.continuity);
+    const pendingFailback = this.pendingFailback();
+    return {
+      ...structuredClone(this.state.continuity),
+      ...(pendingFailback ? { pendingFailback: structuredClone(pendingFailback) } : {}),
+    };
   }
 
   setMode(mode: string | undefined, actor: Actor): ContinuityState {
@@ -1068,7 +1090,7 @@ export class MockStore {
   }
 
   private startFailover(
-    kind: "simulacro" | "retorno",
+    kind: "simulacro" | "retorno" | "conmutacion",
     to: string,
     plan: PlannedStep[],
     rtoAt: number,
@@ -1078,7 +1100,7 @@ export class MockStore {
     const event: FailoverRecord = {
       id: this.nextId("fo", "failover"),
       kind,
-      trigger: kind === "simulacro" ? "simulacro" : "manual",
+      trigger: kind === "simulacro" ? "simulacro" : kind === "conmutacion" ? "automatico" : "manual",
       from: this.state.continuity.activeSite,
       to,
       startedAt: this.iso(),
@@ -1098,32 +1120,137 @@ export class MockStore {
     if (this.state.failovers.some((f) => f.status === "en_curso"))
       throw conflict("Ya hay una conmutación o un simulacro en curso.");
     if (this.state.continuity.activeSite !== this.primarySite())
-      throw conflict("El sitio principal no está activo. Apruebe primero el retorno.");
+      throw conflict("El sitio principal no está activo: primero se solicita y se aprueba el retorno.");
     const target = this.state.continuity.sites.find((s) => s.role === "respaldo")?.id ?? "gcp";
-    const event = this.startFailover("simulacro", target, DRILL_STEPS, 11_500, actor);
+    const event = this.startFailover("simulacro", target, DRILL_STEPS, 0, actor);
     this.audit(actor, "continuity.drill", `continuity/${event.id}`);
     this.persist();
     return publicFailover(event);
   }
 
-  approveFailback(reason: string | undefined, actor: Actor): FailoverEvent {
-    const primary = this.primarySite();
-    if (this.state.continuity.activeSite === primary)
-      throw conflict("El sitio principal ya está activo: no hay retorno pendiente.");
+  /**
+   * Solo en modo simulado: el sitio principal deja de responder y, como en el modo automático, los agentes
+   * conmutan al respaldo con quórum. En modo manual el agente no conmuta solo, igual que en el producto.
+   */
+  simulateOutage(actor: Actor): FailoverEvent {
     if (this.state.failovers.some((f) => f.status === "en_curso"))
-      throw conflict("Espere a que termine la operación en curso.");
-    const last = [...this.state.failovers]
-      .filter((f) => f.kind !== "retorno")
-      .sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? ""))[0];
-    if (last && isSameActor(actor, last.initiatedBy)) throw new HttpError(403, FOUR_EYES_MESSAGE);
-    const event = this.startFailover("retorno", primary, FAILBACK_STEPS, 8_500, actor, actor.username);
-    this.audit(
-      actor,
-      "continuity.failback.approve",
-      `continuity/${event.id}${reason ? ` (${reason.slice(0, 80)})` : ""}`,
-    );
+      throw conflict("Ya hay una conmutación o un simulacro en curso.", "conmutacion_en_curso");
+    if (this.state.continuity.activeSite !== this.primarySite())
+      throw conflict("El sitio principal ya no está activo.", "sitio_activo");
+    if (this.state.continuity.mode !== "automatico")
+      throw conflict(
+        "En modo manual los agentes no conmutan solos: la conmutación la ejecuta el operador con el procedimiento manual.",
+      );
+    const target = this.state.continuity.sites.find((s) => s.role === "respaldo")?.id ?? "gcp";
+    const event = this.startFailover("conmutacion", target, FAILOVER_STEPS, 4_500, actor);
+    event.requestedBy = `nexo-continuidad@${target}`;
+    event.initiatedBy = event.requestedBy;
+    this.audit(event.requestedBy, "continuidad.conmutar", `conmutacion/${event.id}`);
     this.persist();
     return publicFailover(event);
+  }
+
+  /** Vence las solicitudes pendientes con el plazo cumplido (como la API, que usa el reloj de la base). */
+  private expireFailbackRequests(): void {
+    const now = this.iso();
+    for (const r of this.state.failbackRequests) {
+      if (r.status === "pendiente" && r.expiresAt <= now) {
+        r.status = "vencida";
+        this.audit("nexo-consola", "continuidad.retorno.vencida", `retorno/${r.id}`);
+      }
+    }
+  }
+
+  private pendingFailback(): FailbackRequest | undefined {
+    this.expireFailbackRequests();
+    return this.state.failbackRequests.find((r) => r.status === "pendiente");
+  }
+
+  failbackRequests(): FailbackRequest[] {
+    this.expireFailbackRequests();
+    return [...this.state.failbackRequests]
+      .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
+      .slice(0, 50)
+      .map((r) => structuredClone(r));
+  }
+
+  /** Primer paso del retorno: una persona lo solicita con un motivo; vence a los 30 minutos. */
+  requestFailback(reason: string | undefined, actor: Actor): FailbackRequest {
+    const text = reason?.trim() ?? "";
+    if (text.length < 5 || text.length > 1000)
+      throw badRequest("Indique el motivo del retorno (entre 5 y 1000 caracteres).");
+    const primary = this.primarySite();
+    if (this.state.continuity.activeSite === primary)
+      throw conflict("El sitio principal ya está activo: no hay retorno que solicitar.", "sitio_activo");
+    if (this.state.failovers.some((f) => f.status === "en_curso"))
+      throw conflict("Espere a que termine la operación en curso.", "conmutacion_en_curso");
+    const pending = this.pendingFailback();
+    if (pending)
+      throw conflict("Ya hay una solicitud de retorno pendiente.", "pendiente_existente", pending.id);
+    const request: FailbackRequest = {
+      id: this.nextId("ret", "failbackRequest"),
+      fromSite: this.state.continuity.activeSite,
+      toSite: primary,
+      reason: text,
+      status: "pendiente",
+      requestedBy: actor.username,
+      requestedAt: this.iso(),
+      expiresAt: this.iso(this.clock() + FAILBACK_REQUEST_TTL_MS),
+    };
+    this.state.failbackRequests.push(request);
+    this.audit(actor, "continuidad.retorno.solicitar", `retorno/${request.id}`);
+    this.persist();
+    return structuredClone(request);
+  }
+
+  private openFailbackRequest(id: string): FailbackRequest {
+    this.expireFailbackRequests();
+    const request = this.state.failbackRequests.find((r) => r.id === id);
+    if (!request) throw notFound(`La solicitud de retorno ${id}`);
+    if (request.status === "vencida")
+      throw conflict("La solicitud venció: debe solicitarse de nuevo.", "vencida", request.id);
+    if (request.status !== "pendiente")
+      throw conflict("La solicitud ya no está pendiente.", "no_pendiente", request.id);
+    return request;
+  }
+
+  /** Segundo paso: otra persona aprueba y se crea el evento «retorno» que ejecutan los agentes. */
+  approveFailbackRequest(id: string, reason: string | undefined, actor: Actor): FailbackApproval {
+    const request = this.openFailbackRequest(id);
+    if (isSameActor(actor, request.requestedBy))
+      throw new HttpError(
+        403,
+        "Regla de cuatro ojos: quien aprueba el retorno debe ser una persona distinta de quien lo solicitó.",
+        "cuatro-ojos",
+      );
+    if (this.state.continuity.activeSite === request.toSite)
+      throw conflict("El sitio principal ya está activo.", "sitio_activo", request.id);
+    if (this.state.failovers.some((f) => f.status === "en_curso"))
+      throw conflict("Espere a que termine la operación en curso.", "conmutacion_en_curso", request.id);
+    const event = this.startFailover("retorno", request.toSite, FAILBACK_STEPS, 0, actor, actor.username);
+    event.requestedBy = request.requestedBy;
+    request.status = "aprobada";
+    request.decidedBy = actor.username;
+    request.decidedAt = this.iso();
+    if (reason?.trim()) request.decisionReason = reason.trim().slice(0, 1000);
+    request.failoverEventId = event.id;
+    this.audit(actor, "continuidad.retorno.aprobar", `retorno/${request.id}`);
+    this.persist();
+    return { request: structuredClone(request), event: publicFailover(event) };
+  }
+
+  rejectFailbackRequest(id: string, reason: string | undefined, actor: Actor): FailbackRequest {
+    const text = reason?.trim() ?? "";
+    if (text.length < 5 || text.length > 1000)
+      throw badRequest("Indique el motivo del rechazo (entre 5 y 1000 caracteres).");
+    const request = this.openFailbackRequest(id);
+    request.status = "rechazada";
+    request.decidedBy = actor.username;
+    request.decidedAt = this.iso();
+    request.decisionReason = text;
+    this.audit(actor, "continuidad.retorno.rechazar", `retorno/${request.id}`);
+    this.persist();
+    return structuredClone(request);
   }
 
   failoverEvents(): FailoverEvent[] {
@@ -1305,48 +1432,58 @@ export class MockStore {
     return publicExport(job);
   }
 
+  /**
+   * Mismos archivos que arma la API (ExportsController en apps/console-api/src/modules/platform.ts): cada API en
+   * el formato de proyecto de WSO2, los flujos del Integrador, el catálogo, el grafo y, como en el laboratorio
+   * (NEXO_PLATFORM_SPEC), la configuración de la plataforma. En la demo el contenido es un marcador de texto, no
+   * el archivo real.
+   */
   private exportFiles(): Array<{ tipo: string; nombre: string; archivo: string; contenido: string }> {
-    const files = this.state.apis.map((api) => {
-      const ext = api.type === "SOAP" ? "wsdl" : api.type === "GRAPHQL" ? "graphql" : "yaml";
-      return {
-        tipo: "contrato",
+    const files = this.state.apis
+      .filter((api) => api.state !== "RETIRED")
+      .map((api) => ({
+        tipo: "api",
         nombre: `${api.name} ${api.version}`,
-        archivo: `contratos/${api.id.replace(/^api-/, "")}-${api.version}.${ext}`,
-        contenido: `# ${api.name} ${api.version}\n# contexto: ${api.context}\n# referencia: ${api.contractRef ?? "sin referencia"}\n`,
-      };
-    });
+        archivo: `apis/${api.name}-${api.version}.zip`,
+        contenido: `Proyecto de WSO2 (apictl) de ${api.name} ${api.version}; contexto ${api.context}; contrato ${api.contractRef ?? "sin referencia"}.`,
+      }));
+    for (const flow of this.state.graph.nodes.filter((n) => n.type === "flujo"))
+      files.push({
+        tipo: "flujo",
+        nombre: flow.label ?? flow.id,
+        archivo: `flujos/${flow.id}.xml`,
+        contenido: `<!-- Definición del flujo ${flow.label ?? flow.id} en Micro Integrator -->`,
+      });
     files.push(
       {
-        tipo: "politica",
-        nombre: "Políticas de cuota y throttling",
-        archivo: "politicas/throttling.json",
-        contenido: JSON.stringify({
-          planes: ["Operador Oro", "Operador Plata", "Operador Bronce", "Interno", "Público"],
-        }),
-      },
-      {
-        tipo: "flujo",
-        nombre: "Flujos de Micro Integrator (CAR)",
-        archivo: "flujos/nexo-flujos-1.0.0.car",
-        contenido: "flujos: 9",
-      },
-      {
         tipo: "metadatos",
-        nombre: "Catálogo de gobierno",
+        nombre: "catálogo de APIs",
         archivo: "metadatos/catalogo.json",
         contenido: JSON.stringify(this.state.apis.map(toAsset)),
       },
       {
         tipo: "metadatos",
-        nombre: "Grafo de dependencias",
-        archivo: "metadatos/dependencias.json",
+        nombre: "grafo de dependencias",
+        archivo: "metadatos/grafo.json",
         contenido: JSON.stringify(this.state.graph),
       },
       {
-        tipo: "configuracion",
-        nombre: "Configuración de la plataforma (sin secretos)",
-        archivo: "configuracion/deployment.toml",
-        contenido: '[server]\nhostname = "api.cliente.invalid"\n',
+        tipo: "plataforma",
+        nombre: "configuración de la plataforma (ambientes, planes, flujos de aprobación y gobierno)",
+        archivo: "plataforma/platform.yaml",
+        contenido: "# platform.yaml: ambientes, planes, flujos de aprobación y guías de estilo",
+      },
+      {
+        tipo: "plataforma",
+        nombre: "flujos de aprobación (extensiones de workflow)",
+        archivo: "plataforma/workflows/workflow-extensions.xml",
+        contenido: "<!-- Extensiones de workflow de API Manager -->",
+      },
+      {
+        tipo: "plataforma",
+        nombre: "guía de estilo «Nexo · Guía de estilo institucional»",
+        archivo: "plataforma/governance/guia-estilo-institucional.yaml",
+        contenido: "# Guía de estilo de contratos",
       },
     );
     return files;

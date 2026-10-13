@@ -64,7 +64,8 @@ const RuntimeConfigSchema = z.object({
     .default("/api/v1")
     .transform((v) => v.replace(/\/+$/, "")),
   environmentLabel: z.string().min(1).default("Laboratorio Yago"),
-  version: z.string().min(1).default("1.0.0"),
+  // Sin «version» en config.json se muestra la del build (package.json), nunca un valor escrito a mano.
+  version: z.string().min(1).default(__APP_VERSION__),
   auth: AuthSchema,
   demoBanner: z.boolean().default(false),
 });

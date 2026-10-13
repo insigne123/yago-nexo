@@ -40,7 +40,15 @@ function escenario(fn, fraccion) {
       ],
     };
   }
-  return { executor: "constant-arrival-rate", exec: fn, rate: tasa, timeUnit: "1s", duration: DURACION, preAllocatedVUs: vus, maxVUs: vus * 6 };
+  return {
+    executor: "constant-arrival-rate",
+    exec: fn,
+    rate: tasa,
+    timeUnit: "1s",
+    duration: DURACION,
+    preAllocatedVUs: vus,
+    maxVUs: vus * 6,
+  };
 }
 
 export const options = {
@@ -54,7 +62,10 @@ export const options = {
   },
   thresholds: {
     // En estrés se corta si la tasa de error supera el 5% (se busca el límite, no aprobar).
-    http_req_failed: MODO === "estres" ? [{ threshold: "rate<0.05", abortOnFail: true, delayAbortEval: "30s" }] : ["rate<0.01"],
+    http_req_failed:
+      MODO === "estres"
+        ? [{ threshold: "rate<0.05", abortOnFail: true, delayAbortEval: "30s" }]
+        : ["rate<0.01"],
     "http_req_duration{tipo:operadores}": ["p(99)<1000"],
     "http_req_duration{tipo:publico}": ["p(99)<1000"],
     "http_req_duration{tipo:integracion}": ["p(99)<2000"],
@@ -76,12 +87,18 @@ export function setup() {
 const cabeceras = (d) => ({ authorization: `Bearer ${d.token}` });
 
 export function operadores(d) {
-  const r = http.get("https://apim:8243/concesiones/1.0.0/concesiones", { headers: cabeceras(d), tags: { tipo: "operadores" } });
+  const r = http.get("https://apim:8243/concesiones/1.0.0/concesiones", {
+    headers: cabeceras(d),
+    tags: { tipo: "operadores" },
+  });
   check(r, { "operadores 200": (x) => x.status === 200 });
 }
 
 export function publico(d) {
-  const r = http.get("https://publico.nexo.lab:18243/publico/concesiones/1.0.0/concesiones/CON-000001", { headers: cabeceras(d), tags: { tipo: "publico" } });
+  const r = http.get("https://publico.nexo.lab:18243/publico/concesiones/1.0.0/concesiones/CON-000001", {
+    headers: cabeceras(d),
+    tags: { tipo: "publico" },
+  });
   check(r, { "publico 200": (x) => x.status === 200 });
 }
 
@@ -90,7 +107,10 @@ export function integracion(d) {
   const r = http.post(
     "https://apim:8243/solicitudes/1.0.0/",
     JSON.stringify({ rutEmpresa: "76.086.428-5", servicio: "Internet", region: "Los Lagos" }),
-    { headers: { ...cabeceras(d), "content-type": "application/json", "idempotency-key": llave }, tags: { tipo: "integracion" } },
+    {
+      headers: { ...cabeceras(d), "content-type": "application/json", "idempotency-key": llave },
+      tags: { tipo: "integracion" },
+    },
   );
   check(r, { "integracion 2xx": (x) => x.status >= 200 && x.status < 300 });
 }

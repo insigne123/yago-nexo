@@ -1663,7 +1663,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Genera un paquete exportado (APIs, contratos, políticas, flujos y metadatos) */
+        /** Genera un paquete exportado (APIs, contratos, políticas, flujos, metadatos y, si NEXO_PLATFORM_SPEC la monta, la configuración de la plataforma) */
         post: {
             parameters: {
                 query?: never;
@@ -2474,6 +2474,8 @@ export interface components {
             protocolo?: string;
             versiones?: string[];
             cifrado?: string;
+            /** @description El canal rechaza un saludo TLS 1.0 */
+            rechazaTls10?: boolean;
             /** Format: date-time */
             verificado?: string;
         };

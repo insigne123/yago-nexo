@@ -4,6 +4,7 @@ import { z } from "zod";
 import { useSessionContext } from "../../auth/session";
 import { Alert, Button, Card, PageTitle, SelectField, TextArea, TextField } from "../../components/ui";
 import { createTicket } from "../../lib/api";
+import { fromDatetimeLocal, toDatetimeLocal } from "../../lib/format";
 import { CATEGORY_OPTIONS, ENVIRONMENT_LABEL } from "../../lib/labels";
 import { ticketOrgs } from "../../lib/permissions";
 import { useDirectory, useOrganizations } from "../../lib/queries";
@@ -42,6 +43,10 @@ export function NewTicketPage() {
 
   const [orgId, setOrgId] = useState<string>("");
   const [reporterId, setReporterId] = useState<string>("");
+  // Personal de Yago: por omisión el ticket llegó al teléfono de turno y se registra la hora real
+  // de la llamada (el reloj del SLA parte a esa hora).
+  const [byPhone, setByPhone] = useState(true);
+  const [callAt, setCallAt] = useState(() => toDatetimeLocal(new Date()));
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [environment, setEnvironment] = useState<Environment>("prod");
@@ -74,8 +79,14 @@ export function NewTicketPage() {
       for (const issue of parsed.error.issues) nextErrors[String(issue.path[0])] ??= issue.message;
     }
     if (!result) nextErrors["wizard"] = "Responda las preguntas del asistente de severidad";
+    const phoneCallAt = ctx.isStaff && byPhone ? fromDatetimeLocal(callAt) : null;
+    if (ctx.isStaff && byPhone) {
+      if (!phoneCallAt) nextErrors["callAt"] = "Indique la hora real de la llamada";
+      else if (new Date(phoneCallAt).getTime() > Date.now())
+        nextErrors["callAt"] = "La hora de la llamada no puede ser posterior a ahora";
+    }
     setErrors(nextErrors);
-    if (!parsed.success || !result) return;
+    if (!parsed.success || !result || nextErrors["callAt"]) return;
 
     setBusy(true);
     setError(null);
@@ -85,6 +96,7 @@ export function NewTicketPage() {
         isSecurityIncident: isSecurity,
         answers: toAnswers(answers),
         reporterId: ctx.isStaff && reporterId ? reporterId : null,
+        phoneCallAt,
       });
       navigate(`/tickets/${created.id}`, { state: { creado: created.number } });
     } catch (err) {
@@ -123,7 +135,28 @@ export function NewTicketPage() {
             ) : null}
             {ctx.isStaff ? (
               <SelectField
-                label="Reportante (si el ticket llegó por teléfono)"
+                label="¿Cómo llegó el ticket?"
+                value={byPhone ? "telefono" : "web"}
+                onChange={(e) => setByPhone(e.target.value === "telefono")}
+              >
+                <option value="telefono">Llamada al teléfono de turno</option>
+                <option value="web">Registro directo en la mesa web</option>
+              </SelectField>
+            ) : null}
+            {ctx.isStaff && byPhone ? (
+              <TextField
+                label="Hora real de la llamada"
+                type="datetime-local"
+                value={callAt}
+                onChange={(e) => setCallAt(e.target.value)}
+                error={errors["callAt"]}
+                help="El reloj del SLA parte a esta hora, aunque el ticket se registre después. No puede ser posterior al registro y queda en la línea de tiempo con su nombre."
+                required
+              />
+            ) : null}
+            {ctx.isStaff ? (
+              <SelectField
+                label={byPhone ? "Reportante (quién llamó)" : "Reportante"}
                 value={reporterId}
                 onChange={(e) => setReporterId(e.target.value)}
                 help="Opcional. Debe pertenecer a la organización seleccionada."

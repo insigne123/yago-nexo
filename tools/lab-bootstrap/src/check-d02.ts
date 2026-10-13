@@ -20,22 +20,38 @@ async function token(username: string) {
   const res = await fetch(`${KEYCLOAK}/protocol/openid-connect/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "password", client_id: "nexo-console", username, password: PASSWORD }).toString(),
+    body: new URLSearchParams({
+      grant_type: "password",
+      client_id: "nexo-console",
+      username,
+      password: PASSWORD,
+    }).toString(),
   });
   return ((await res.json()) as { access_token: string }).access_token;
 }
 
-async function api<T>(tok: string, method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
+async function api<T>(
+  tok: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<{ status: number; data: T }> {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { authorization: `Bearer ${tok}`, ...(body !== undefined ? { "content-type": "application/json" } : {}) },
+    headers: {
+      authorization: `Bearer ${tok}`,
+      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+    },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return { status: res.status, data: (await res.json().catch(() => ({}))) as T };
 }
 
 async function gatewayStatus(appTok: string): Promise<number> {
-  const res = await fetch(GATEWAY_URL, { dispatcher: insecure, headers: { authorization: `Bearer ${appTok}` } });
+  const res = await fetch(GATEWAY_URL, {
+    dispatcher: insecure,
+    headers: { authorization: `Bearer ${appTok}` },
+  });
   await res.arrayBuffer();
   return res.status;
 }
@@ -51,15 +67,35 @@ async function waitGateway(expected: number, timeoutSec: number): Promise<number
   return undefined;
 }
 
-type Rule = { id: string; name: string; enabled: boolean; metric: string; sensitivity: number; minVolume: number; action: string; blockTtlMinutes: number; apiId?: string };
-type Anomaly = { id: string; ruleId: string; status: string; consumer?: string; blockId?: string; observed: number; baseline: number; score: number };
+type Rule = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  metric: string;
+  sensitivity: number;
+  minVolume: number;
+  action: string;
+  blockTtlMinutes: number;
+  apiId?: string;
+};
+type Anomaly = {
+  id: string;
+  ruleId: string;
+  status: string;
+  consumer?: string;
+  blockId?: string;
+  observed: number;
+  baseline: number;
+  score: number;
+};
 type Block = { id: string; active: boolean; conditionValue: string; releasedBy?: string };
 
 async function main() {
   const admin = await token("admin.nexo");
   const approver = await token("luis.aprobador");
   const auditor = await token("pedro.auditoria");
-  const apis = (await api<Array<{ wso2ApiId: string; name: string }>>(approver, "GET", "/apis?q=Concesiones")).data;
+  const apis = (await api<Array<{ wso2ApiId: string; name: string }>>(approver, "GET", "/apis?q=Concesiones"))
+    .data;
   const apiId = apis.find((a) => a.name === "Concesiones")?.wso2ApiId;
   if (!apiId) throw new Error("falta la API Concesiones en el catálogo");
 
@@ -117,7 +153,8 @@ async function main() {
       prueba: "abuso detectado y bloqueado en el gateway",
       esperado: "bloqueada · 403 en menos de 2 min",
       obtenido: `${ev?.status ?? "sin evento"} · ${load.porCodigo["403"] ?? 0} respuestas 403 · a los ${detectSec ?? "—"} s`,
-      cumple: ev?.status === "bloqueada" && !!detectSec && detectSec < 120 && (load.porCodigo["403"] ?? 0) > 0,
+      cumple:
+        ev?.status === "bloqueada" && !!detectSec && detectSec < 120 && (load.porCodigo["403"] ?? 0) > 0,
     });
     const releaseSec = await waitGateway(200, 150);
     const block = (await api<Block[]>(approver, "GET", "/blocks")).data.find((b) => b.id === ev?.blockId);
@@ -148,7 +185,9 @@ async function main() {
     let proposed: Anomaly | undefined;
     for (let i = 0; i < 50 && !proposed; i++) {
       await sleep(3000);
-      proposed = (await api<Anomaly[]>(approver, "GET", "/anomalies?status=bloqueo_propuesto")).data.find((e) => e.ruleId === manual.id);
+      proposed = (await api<Anomaly[]>(approver, "GET", "/anomalies?status=bloqueo_propuesto")).data.find(
+        (e) => e.ruleId === manual.id,
+      );
     }
     ctrl2.abort();
     const load2 = await burst2;
@@ -161,7 +200,12 @@ async function main() {
     if (proposed) {
       const dev = await token("ana.desarrollo");
       const denied = await api(dev, "POST", `/anomalies/${proposed.id}/approve-block`);
-      rows.push({ prueba: "un desarrollador no puede aprobar", esperado: 403, obtenido: denied.status, cumple: denied.status === 403 });
+      rows.push({
+        prueba: "un desarrollador no puede aprobar",
+        esperado: 403,
+        obtenido: denied.status,
+        cumple: denied.status === 403,
+      });
       const approved = await api<Anomaly>(approver, "POST", `/anomalies/${proposed.id}/approve-block`);
       const enforcedSec = await waitGateway(403, 60);
       rows.push({
@@ -170,7 +214,9 @@ async function main() {
         obtenido: `${approved.data.status} · ${enforcedSec === undefined ? "sin 403" : `403 tras ${enforcedSec} s`}`,
         cumple: approved.data.status === "bloqueada" && enforcedSec !== undefined,
       });
-      const released = await api<Block>(approver, "POST", `/blocks/${approved.data.blockId}/release`, { reason: "Verificación D-02: consumidor contactado" });
+      const released = await api<Block>(approver, "POST", `/blocks/${approved.data.blockId}/release`, {
+        reason: "Verificación D-02: consumidor contactado",
+      });
       const backSec = await waitGateway(200, 60);
       rows.push({
         prueba: "aprobador libera y vuelve el acceso",
@@ -182,19 +228,41 @@ async function main() {
     await setEnabled(manual, false);
 
     // ------------------------------------------------------------ auditoría
-    const audit = (await api<Array<{ action: string }>>(auditor, "GET", "/audit-events?limit=300")).data.map((e) => e.action);
-    const needed = ["anomalias.bloqueo.automatico", "anomalias.bloqueo.vencer", "anomalias.detectar", "anomalias.bloqueo.aprobar", "anomalias.bloqueo.liberar"];
+    const audit = (await api<Array<{ action: string }>>(auditor, "GET", "/audit-events?limit=300")).data.map(
+      (e) => e.action,
+    );
+    const needed = [
+      "anomalias.bloqueo.automatico",
+      "anomalias.bloqueo.vencer",
+      "anomalias.detectar",
+      "anomalias.bloqueo.aprobar",
+      "anomalias.bloqueo.liberar",
+    ];
     const missing = needed.filter((a) => !audit.includes(a));
-    rows.push({ prueba: "cada acción queda auditada", esperado: "todas", obtenido: missing.length ? `faltan ${missing.join(", ")}` : "todas", cumple: !missing.length });
+    rows.push({
+      prueba: "cada acción queda auditada",
+      esperado: "todas",
+      obtenido: missing.length ? `faltan ${missing.join(", ")}` : "todas",
+      cumple: !missing.length,
+    });
     const chain = await api<{ ok: boolean }>(auditor, "GET", "/audit-events/verify");
-    rows.push({ prueba: "cadena de auditoría íntegra", esperado: true, obtenido: chain.data.ok, cumple: chain.data.ok === true });
+    rows.push({
+      prueba: "cadena de auditoría íntegra",
+      esperado: true,
+      obtenido: chain.data.ok,
+      cumple: chain.data.ok === true,
+    });
   } finally {
     for (const r of previous) await setEnabled(r, true);
   }
 
   console.table(rows);
   const ok = rows.every((r) => r.cumple);
-  console.log(ok ? "[D-02] verificado: detección, bloqueo automático y con aprobación, vencimiento y liberación" : "[D-02] NO cumple");
+  console.log(
+    ok
+      ? "[D-02] verificado: detección, bloqueo automático y con aprobación, vencimiento y liberación"
+      : "[D-02] NO cumple",
+  );
   if (!ok) process.exit(1);
 }
 

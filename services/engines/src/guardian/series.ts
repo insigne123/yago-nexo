@@ -13,7 +13,13 @@ export interface ConsumerSeries {
   windows: WindowSample[];
 }
 
-export function buildQuery(metric: Metric, fromMs: number, toMs: number, windowSec: number, filter: { apiId?: string | null; consumerId?: string | null }) {
+export function buildQuery(
+  metric: Metric,
+  fromMs: number,
+  toMs: number,
+  windowSec: number,
+  filter: { apiId?: string | null; consumerId?: string | null },
+) {
   const filters: unknown[] = [{ range: { "@timestamp": { gte: fromMs, lt: toMs, format: "epoch_millis" } } }];
   if (filter.apiId) filters.push({ term: { "apiId.keyword": filter.apiId } });
   if (filter.consumerId) filters.push({ term: { "applicationId.keyword": filter.consumerId } });
@@ -34,9 +40,19 @@ export function buildQuery(metric: Metric, fromMs: number, toMs: number, windowS
         aggs: {
           nombre: { terms: { field: "applicationName.keyword", size: 1 } },
           dueno: { terms: { field: "applicationOwner.keyword", size: 1 } },
-          ip: { filter: { range: { "@timestamp": { gte: toMs - windowSec * 1000, lt: toMs, format: "epoch_millis" } } }, aggs: { top: { terms: { field: "userIp.keyword", size: 1 } } } },
+          ip: {
+            filter: {
+              range: { "@timestamp": { gte: toMs - windowSec * 1000, lt: toMs, format: "epoch_millis" } },
+            },
+            aggs: { top: { terms: { field: "userIp.keyword", size: 1 } } },
+          },
           ventanas: {
-            date_histogram: { field: "@timestamp", fixed_interval: `${windowSec}s`, min_doc_count: 0, extended_bounds: { min: fromMs, max: toMs - 1 } },
+            date_histogram: {
+              field: "@timestamp",
+              fixed_interval: `${windowSec}s`,
+              min_doc_count: 0,
+              extended_bounds: { min: fromMs, max: toMs - 1 },
+            },
             aggs: { errores: { filter: { range: { proxyResponseCode: { gte: 400 } } } }, ...specific },
           },
         },
@@ -85,7 +101,13 @@ function valueOf(metric: Metric, b: Bucket | undefined): WindowSample {
 }
 
 /** Series completas (ventanas sin llamadas incluidas como cero), de la más antigua a la actual. */
-export function parseSeries(metric: Metric, res: SeriesResponse, fromMs: number, toMs: number, windowSec: number): ConsumerSeries[] {
+export function parseSeries(
+  metric: Metric,
+  res: SeriesResponse,
+  fromMs: number,
+  toMs: number,
+  windowSec: number,
+): ConsumerSeries[] {
   const step = windowSec * 1000;
   const out: ConsumerSeries[] = [];
   for (const c of res.aggregations?.consumidores?.buckets ?? []) {

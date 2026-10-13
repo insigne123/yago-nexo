@@ -10,7 +10,7 @@ Tres funciones Deno para Supabase Edge Functions. Todas usan `@supabase/supabase
 
 Todas se despliegan con `--no-verify-jwt`: las invocaciones de cron y los webhooks no traen un JWT de Supabase, y cada función valida a quien llama (secreto en tiempo constante, firma HMAC o JWT más membresía).
 
-Si falta la configuración de un proveedor, el aviso queda como `enviada` con `result.simulado = true` y se registra en el log: la función nunca se cae por un proveedor ausente.
+Si falta la configuración de un proveedor, el aviso no se envía y queda como `fallida` (sin reintentos), con `result.sin_proveedor = true` y el motivo en `last_error`; además queda en la línea de tiempo interna del ticket y en el log. Nunca se marca como `enviada` y la función no se cae por un proveedor ausente. La base de datos aplica la misma regla aunque una versión anterior de la función informe el envío como simulado.
 
 ## Secretos
 
@@ -51,7 +51,7 @@ supabase functions deploy nexo-sd-monthly-report --project-ref <ref> --no-verify
 
 supabase secrets set --project-ref <ref> NEXO_CRON_SECRET="$(openssl rand -hex 32)"   # el mismo valor va a Vault
 supabase secrets set --project-ref <ref> NEXO_INBOUND_SECRET="$(openssl rand -hex 32)"
-# Proveedores (opcionales; sin ellos los avisos quedan simulados):
+# Proveedores (sin ellos los avisos de ese canal quedan como fallidos; los avisos en la aplicación no los necesitan):
 supabase secrets set --project-ref <ref> NEXO_SD_RESEND_API_KEY=... NEXO_SD_WHATSAPP_TOKEN=... NEXO_SD_WHATSAPP_PHONE_ID=...
 ```
 
@@ -66,4 +66,4 @@ Webhooks:
 supabase/support/functions/run-checks.sh   # deno check de las tres funciones + deno test (requiere deno)
 ```
 
-Las pruebas (`tests/*.test.ts`) usan dobles de la base de datos y de `fetch`: verifican la firma de Meta con un vector calculado aparte, el secreto compartido, las plantillas en español, la forma de las llamadas a Resend, WhatsApp y Twilio, el modo simulado, los reintentos, el canal entrante y la generación del PDF.
+Las pruebas (`tests/*.test.ts`) usan dobles de la base de datos y de `fetch`: verifican la firma de Meta con un vector calculado aparte, el secreto compartido, las plantillas en español, la forma de las llamadas a Resend, WhatsApp y Twilio, el aviso fallido cuando falta el proveedor, los reintentos, el canal entrante y la generación del PDF.

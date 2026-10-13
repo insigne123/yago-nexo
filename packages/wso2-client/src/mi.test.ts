@@ -13,14 +13,18 @@ beforeAll(async () => {
   server = createServer((req, res) => {
     if (req.url === "/management/login") {
       vigente = `token-${++emitidos}`;
-      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ AccessToken: vigente }));
+      res
+        .writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify({ AccessToken: vigente }));
       return;
     }
     if (req.headers.authorization !== `Bearer ${vigente}`) {
       res.writeHead(401, { "content-type": "application/json" }).end('{"Error":"token vencido"}');
       return;
     }
-    res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ count: 1, list: [{ name: "SolicitudesConcesionAPI", url: "/x" }] }));
+    res
+      .writeHead(200, { "content-type": "application/json" })
+      .end(JSON.stringify({ count: 1, list: [{ name: "SolicitudesConcesionAPI", url: "/x" }] }));
   });
   await new Promise<void>((ok) => server.listen(0, "127.0.0.1", () => ok()));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

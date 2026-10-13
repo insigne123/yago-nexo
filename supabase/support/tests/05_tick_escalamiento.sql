@@ -14,8 +14,7 @@ update public.nexo_sd_members set phone_e164 = '+56900000003', whatsapp_opt_in =
  where email = 'supervisor.demo@yago.invalid';
 
 insert into public.nexo_sd_tickets (org_id, title, classification_answers, created_at, external_ref) values
-  (nexo_test.org('cliente-demo'), 'Tick S2', :'s2', now(), 'test:t2'),
-  (nexo_test.org('cliente-demo'), 'Tick S3 hábil', :'s3', nexo_test.cl('2026-10-05 10:00'), 'test:t3');
+  (nexo_test.org('cliente-demo'), 'Tick S2', :'s2', now(), 'test:t2');
 
 create temp view avisos as
   select t.external_ref as ref, n.*
@@ -120,6 +119,10 @@ select nexo_test.eq(
   2, 'cada escalamiento por falta de acuse queda en la línea de tiempo');
 
 -- C) S3 hábil: el 50 % llega a las 14:00 del lunes y el vencimiento a las 18:00.
+--    (Se crea recién aquí, con una fecha fija: así los ticks de las secciones A y B, que usan
+--    instantes cercanos a now(), no lo tocan, cualquiera sea la fecha en que corra la prueba.)
+insert into public.nexo_sd_tickets (org_id, title, classification_answers, created_at, external_ref) values
+  (nexo_test.org('cliente-demo'), 'Tick S3 hábil', :'s3', nexo_test.cl('2026-10-05 10:00'), 'test:t3');
 select nexo_private.sd_tick(nexo_test.cl('2026-10-05 13:59')) is not null as tick;
 select nexo_test.eq((select notified_50_at from relojes where ref = 'test:t3' and metric = 'acuse'), null::timestamptz,
   'S3: a las 13:59 no se llega al 50 % de 8 horas hábiles');

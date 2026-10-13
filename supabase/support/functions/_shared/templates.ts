@@ -84,7 +84,11 @@ export function renderNotification(template: string, payload: Payload): Rendered
       break;
     case "sd_sla_vencido":
       headline = `${ticket}: venció el plazo de ${str(payload, "metrica_texto")}`;
-      body = `${titulo}. Venció ${vence}. Se avisó a los niveles 1, 2 y 3 del turno.`;
+      body = `${titulo}. Venció ${vence}. Se avisó a los niveles 1 y 2 del turno y a supervisión (nivel 3).`;
+      break;
+    case "sd_sla_vencido_contraparte":
+      headline = `${ticket}: venció el plazo de ${str(payload, "metrica_texto")}`;
+      body = `${titulo}. Venció ${vence}. La mesa de soporte registró el incumplimiento del plazo.`;
       break;
     case "sd_escalamiento_acuse":
       headline = `${ticket} sin acuse hace ${str(payload, "minutos")} minutos: escalado al nivel ${str(payload, "nivel")}`;

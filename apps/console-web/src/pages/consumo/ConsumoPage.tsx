@@ -73,7 +73,7 @@ function chartOption(palette: VizPalette, rows: UsageRow[], groupBy: UsageGroupB
     series: [
       {
         type: "bar",
-        name: "Llamadas exitosas",
+        name: "Llamadas sin error 5xx",
         stack: "total",
         data: ok,
         barMaxWidth: BAR_MAX_WIDTH,
@@ -81,7 +81,7 @@ function chartOption(palette: VizPalette, rows: UsageRow[], groupBy: UsageGroupB
       },
       {
         type: "bar",
-        name: "Llamadas con error",
+        name: "Llamadas con error 5xx",
         stack: "total",
         data: errors,
         barMaxWidth: BAR_MAX_WIDTH,
@@ -165,14 +165,14 @@ export default function ConsumoPage() {
     },
     {
       id: "errors",
-      header: "Errores",
+      header: "Errores 5xx",
       align: "right",
       sortValue: (r) => r.errores,
       cell: (r) => <span className="tabular">{formatNumber(r.errores)}</span>,
     },
     {
       id: "rate",
-      header: "% de error",
+      header: "% de error 5xx",
       align: "right",
       sortValue: (r) => (r.llamadas ? (r.errores ?? 0) / r.llamadas : 0),
       cell: (r) => (
@@ -295,13 +295,13 @@ export default function ConsumoPage() {
               detail={formatNumber(totals.llamadas)}
             />
             <StatTile
-              label="Errores"
+              label="Errores 5xx"
               loading={usage.isLoading}
               value={formatCompact(totals.errores)}
               detail={formatNumber(totals.errores)}
             />
             <StatTile
-              label="Tasa de error"
+              label="Tasa de error 5xx"
               loading={usage.isLoading}
               value={formatPercent(totals.llamadas ? totals.errores / totals.llamadas : null, 2)}
             />
@@ -317,7 +317,7 @@ export default function ConsumoPage() {
                 ? "Llamadas por día"
                 : `Llamadas por ${groupLabel.toLowerCase()} (${Math.min(TOP, rows.length)} principales)`
             }
-            description="Barras apiladas: llamadas exitosas y con error. La tabla muestra todos los valores."
+            description="Barras apiladas: llamadas sin error 5xx y con error 5xx (respuestas del gateway con código 500 o mayor). La tabla muestra todos los valores."
             className="mb-4"
           >
             <div className={usage.isFetching ? "opacity-60 transition-opacity" : undefined}>

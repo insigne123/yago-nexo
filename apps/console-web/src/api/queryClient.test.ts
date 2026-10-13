@@ -25,6 +25,23 @@ describe("avisos de errores de la API", () => {
     );
   });
 
+  it("un rechazo por cuatro ojos no se presenta como un permiso faltante", async () => {
+    const client = createQueryClient();
+    const mutation = client.getMutationCache().build(client, {
+      mutationFn: async () => {
+        throw new ApiError(
+          403,
+          "Quien aprueba debe ser una persona distinta de quien solicitó.",
+          "cuatro-ojos",
+        );
+      },
+    });
+    await expect(mutation.execute(undefined)).rejects.toBeInstanceOf(ApiError);
+    const [item] = toastStore.getSnapshot();
+    expect(item?.description).toBe("Quien aprueba debe ser una persona distinta de quien solicitó.");
+    expect(item?.description).not.toContain("Requiere el permiso");
+  });
+
   it("una consulta con 403 también avisa, salvo las marcadas como silenciosas", async () => {
     const client = createQueryClient();
     await client

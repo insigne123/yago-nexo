@@ -66,6 +66,8 @@ export interface TicketRow {
   intake_status: IntakeStatus;
   channel: Channel;
   channel_sender: string | null;
+  /** Ticket telefónico: hora real de la llamada (el reloj parte a esa hora). */
+  call_received_at?: string | null;
   reporter_id: string | null;
   assignee_id: string | null;
   created_by: string | null;

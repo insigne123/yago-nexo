@@ -443,7 +443,7 @@ const release = readJson(fromSite("src/data/release.json"));
 
 function enLaboratorio(c) {
   const lab = c.laboratorio;
-  if (!lab) return "No incluido todavía";
+  if (!lab) return "No corre en el laboratorio";
   if (lab.servicio) {
     if (!servicios[lab.servicio])
       fail(SCRIPT, `componentes.json: el servicio ${lab.servicio} no existe en ${COMPOSE}`);

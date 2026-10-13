@@ -1,5 +1,5 @@
 # Yago Nexo · laboratorio local
-# Perfiles: core (siempre), obs (observabilidad), legacy (APISIX y NGINX "actuales"), contracts (Microcks)
+# Perfiles: core (siempre), obs (observabilidad), legacy (APISIX y NGINX "actuales"), cont (continuidad de dos sitios)
 # Uso: make up  ·  make status  ·  make down
 name: nexo-lab
 
@@ -87,7 +87,11 @@ services:
     depends_on:
       keycloak-db: { condition: service_healthy }
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q 'UP' <&3"]
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q 'UP' <&3",
+        ]
       interval: 10s
       retries: 30
 
@@ -111,7 +115,11 @@ services:
     depends_on:
       apim-dbinit: { condition: service_completed_successfully }
     healthcheck:
-      test: ["CMD-SHELL", "curl -sk -o /dev/null -w '%{http_code}' https://localhost:9443/services/Version | grep -q 200"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sk -o /dev/null -w '%{http_code}' https://localhost:9443/services/Version | grep -q 200",
+        ]
       interval: 15s
       retries: 40
       start_period: 60s
@@ -149,7 +157,7 @@ services:
   # ------------------------------------------------------------------ Consola Nexo (API)
   console-api:
     build: ../../apps/console-api/.deploy
-    image: nexo-lab/console-api:0.1.0
+    image: nexo-lab/console-api:1.2.0
     hostname: console-api
     environment:
       NEXO_DATABASE_URL: postgres://nexo:${NEXO_DB_PASSWORD}@postgres:5432/nexo
@@ -166,6 +174,13 @@ services:
       NEXO_RABBITMQ_API: http://rabbitmq:15672/api
       NEXO_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       NEXO_EXPORT_DIR: /tmp/nexo-exports
+      # Token que exige el webhook de alertas (el mismo que envía Alertmanager); se lee del secreto montado.
+      NEXO_ALERTS_TOKEN_FILE: /run/secrets/nexo_alertas_token
+      # Configuración de la plataforma como código: el paquete de exportación la incluye en plataforma/.
+      NEXO_PLATFORM_SPEC: /opt/nexo/wso2-apim/platform.yaml
+    secrets: [nexo_alertas_token]
+    volumes:
+      - ../../wso2/apim:/opt/nexo/wso2-apim:ro
     ports: ["8090:8090"]
     depends_on:
       postgres: { condition: service_healthy }
@@ -176,7 +191,7 @@ services:
     build:
       context: ../../services/engines
       args: { NSUPDATE: "0" } # el laboratorio cambia el DNS por etcd/CoreDNS, no por RFC 2136
-    image: nexo-lab/motores:0.1.0
+    image: nexo-lab/motores:1.2.0
     hostname: motores
     command: ["despliegues", "guardian", "descubrimiento", "siem"]
     environment:
@@ -306,6 +321,7 @@ services:
     image: prom/alertmanager:v0.34.1
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    secrets: [nexo_alertas_token] # credentials_file del receptor «consola»
     ports: ["9093:9093"]
 
   grafana:
@@ -353,7 +369,12 @@ services:
   opensearch-plantillas:
     profiles: [obs]
     image: curlimages/curl:8.17.0
-    command: ["sh", "-c", "curl -sf -X PUT http://opensearch:9200/_index_template/nexo-siem -H 'content-type: application/json' --data-binary @/plantillas/plantilla-siem.json && echo plantillas aplicadas"]
+    command:
+      [
+        "sh",
+        "-c",
+        "curl -sf -X PUT http://opensearch:9200/_index_template/nexo-siem -H 'content-type: application/json' --data-binary @/plantillas/plantilla-siem.json && echo plantillas aplicadas",
+      ]
     volumes:
       - ./opensearch:/plantillas:ro
     depends_on:
@@ -410,7 +431,8 @@ services:
     profiles: [cont]
     image: quay.io/coreos/etcd:v3.6.5
     hostname: cont-etcd
-    command: ["etcd", "--advertise-client-urls=http://cont-etcd:2379", "--listen-client-urls=http://0.0.0.0:2379"]
+    command:
+      ["etcd", "--advertise-client-urls=http://cont-etcd:2379", "--listen-client-urls=http://0.0.0.0:2379"]
     environment: { ETCD_DATA_DIR: /etcd-data }
 
   cont-coredns:
@@ -424,7 +446,7 @@ services:
 
   cont-agente-cpd: &cont-agente
     profiles: [cont]
-    image: nexo-lab/motores:0.1.0
+    image: nexo-lab/motores:1.2.0
     command: ["continuidad"]
     environment: &cont-env
       NEXO_DATABASE_URL: postgres://nexo:${NEXO_DB_PASSWORD}@postgres:5432/nexo
@@ -462,6 +484,11 @@ services:
       <<: *cont-env
       NEXO_SITE_ID: testigo
       NEXO_SITE_ROLE: testigo
+
+# Token compartido entre Alertmanager y el webhook de la Consola (variable NEXO_ALERTS_TOKEN del .env).
+secrets:
+  nexo_alertas_token:
+    environment: NEXO_ALERTS_TOKEN
 
 volumes:
   gwpublogs:

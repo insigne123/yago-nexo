@@ -73,7 +73,11 @@ describe("API simulada: identidad y permisos", () => {
 
   it("responde 403 con el permiso faltante y audita el rechazo", async () => {
     const rejected = async () => {
-      const audit = await call("GET", "/audit-events?action=rollout.approve&limit=1000", "pedro.auditoria");
+      const audit = await call(
+        "GET",
+        "/audit-events?action=acceso.rechazado.permiso&limit=1000",
+        "pedro.auditoria",
+      );
       const events = audit.body as unknown as Array<{ actor: string; result: string; resource: string }>;
       return events.filter((e) => e.actor === "ana.desarrollo" && e.result === "rechazado");
     };
@@ -98,7 +102,15 @@ describe("API simulada: regla de cuatro ojos", () => {
     const self = await call("POST", `/rollouts/${id}/approve`, "marta.dosroles");
     expect(self.status).toBe(403);
     expect(String(self.body.message)).toMatch(/cuatro ojos/i);
-    expect(self.body.permission).toBeUndefined();
+    expect(self.body.permission).toBe("cuatro-ojos");
+    const fourEyes = (
+      await call("GET", "/audit-events?action=acceso.rechazado.cuatro_ojos", "pedro.auditoria")
+    ).body as unknown as Array<{ actor: string; resource: string; result: string }>;
+    expect(fourEyes[0]).toMatchObject({
+      actor: "marta.dosroles",
+      resource: `/rollouts/${id}/approve`,
+      result: "rechazado",
+    });
 
     const other = await call("POST", `/rollouts/${id}/approve`, "luis.aprobador");
     expect(other.status).toBe(200);
@@ -107,20 +119,140 @@ describe("API simulada: regla de cuatro ojos", () => {
     expect(other.body.currentWeight).toBe(5);
   });
 
-  it("el retorno lo aprueba una persona distinta de quien inició el simulacro", async () => {
-    const drill = await call("POST", "/continuity/drill", "carla.operacion");
-    expect(drill.status).toBe(202);
+  it("el retorno lo solicita una persona y lo aprueba otra, como la API", async () => {
+    // Caída simulada del sitio principal: los agentes conmutan al respaldo (herramienta del modo simulado).
+    expect((await call("POST", "/__mock/continuity/outage", "carla.operacion")).status).toBe(202);
     now += 15_000;
-    // El operador no tiene el permiso de aprobar el retorno.
-    expect((await call("POST", "/continuity/failback", "carla.operacion", { reason: "Prueba" })).status).toBe(
-      403,
-    );
-    const ok = await call("POST", "/continuity/failback", "luis.aprobador", {
-      reason: "Simulacro terminado",
+    // Sin motivo no hay solicitud; el auditor no tiene el permiso de solicitar.
+    expect((await call("POST", "/continuity/failback/requests", "carla.operacion", {})).status).toBe(400);
+    expect(
+      (await call("POST", "/continuity/failback/requests", "pedro.auditoria", { reason: "Primario sano" }))
+        .status,
+    ).toBe(403);
+    const req = await call("POST", "/continuity/failback/requests", "carla.operacion", {
+      reason: "Primario restablecido y base al día",
+    });
+    expect(req.status).toBe(201);
+    expect(req.body.status).toBe("pendiente");
+    expect(req.body.requestedBy).toBe("carla.operacion");
+    const id = String(req.body.id);
+    // Solo una pendiente a la vez.
+    const dup = await call("POST", "/continuity/failback/requests", "luis.aprobador", {
+      reason: "Otra solicitud",
+    });
+    expect(dup.status).toBe(409);
+    expect(dup.body.code).toBe("pendiente_existente");
+    expect(dup.body.requestId).toBe(id);
+    // GET /continuity informa la pendiente.
+    const state = await call("GET", "/continuity", "carla.operacion");
+    expect((state.body.pendingFailback as { id: string }).id).toBe(id);
+    // La operadora no puede aprobar (permiso).
+    expect(
+      (await call("POST", `/continuity/failback/requests/${id}/approve`, "carla.operacion", {})).status,
+    ).toBe(403);
+    const ok = await call("POST", `/continuity/failback/requests/${id}/approve`, "luis.aprobador", {
+      reason: "Conforme",
     });
     expect(ok.status).toBe(202);
-    expect(ok.body.kind).toBe("retorno");
-    expect(ok.body.approvedBy).toBe("luis.aprobador");
+    const approval = ok.body as unknown as {
+      request: { status: string; decidedBy: string; failoverEventId: string };
+      event: { id: string; kind: string; requestedBy: string; approvedBy: string };
+    };
+    expect(approval.request.status).toBe("aprobada");
+    expect(approval.request.decidedBy).toBe("luis.aprobador");
+    expect(approval.event.kind).toBe("retorno");
+    expect(approval.event.requestedBy).toBe("carla.operacion");
+    expect(approval.event.approvedBy).toBe("luis.aprobador");
+    expect(approval.request.failoverEventId).toBe(approval.event.id);
+    const again = await call("POST", `/continuity/failback/requests/${id}/approve`, "luis.aprobador", {});
+    expect(again.status).toBe(409);
+    expect(again.body.code).toBe("no_pendiente");
+
+    // El retorno reapunta el tráfico; la re-sincronización de la réplica queda pendiente para el operador.
+    now += 5_000;
+    const events = (await call("GET", "/continuity/events", "carla.operacion")).body as unknown as Array<{
+      id: string;
+      status: string;
+      rtoSeconds?: number;
+      steps: Array<{ name: string; status: string }>;
+    }>;
+    const back = events.find((e) => e.id === approval.event.id);
+    expect(back?.status).toBe("completado");
+    expect(back?.rtoSeconds).toBeUndefined();
+    expect(back?.steps.at(-1)).toMatchObject({ name: "Re-sincronizar la réplica", status: "pendiente" });
+    expect((await call("GET", "/continuity", "carla.operacion")).body.activeSite).toBe("cpd");
+
+    const audit = (await call("GET", "/audit-events?action=continuidad.retorno", "pedro.auditoria"))
+      .body as unknown as Array<{ action: string; actor: string; result: string }>;
+    expect(audit.map((e) => `${e.action}:${e.actor}`)).toEqual(
+      expect.arrayContaining([
+        "continuidad.retorno.solicitar:carla.operacion",
+        "continuidad.retorno.aprobar:luis.aprobador",
+        // El segundo intento de aprobar una solicitud ya aprobada (409) queda como «rechazado».
+        "continuidad.retorno.aprobar:luis.aprobador",
+      ]),
+    );
+    // Rechazados como en la API: la solicitud sin motivo (400), el duplicado y la segunda aprobación (409).
+    expect(audit.filter((e) => e.result === "rechazado").map((e) => `${e.action}:${e.actor}`)).toEqual(
+      expect.arrayContaining([
+        "continuidad.retorno.solicitar:carla.operacion",
+        "continuidad.retorno.solicitar:luis.aprobador",
+        "continuidad.retorno.aprobar:luis.aprobador",
+      ]),
+    );
+    // La operadora sin el permiso de aprobar: rechazo por permiso, como en la API.
+    const denied = (await call("GET", "/audit-events?action=acceso.rechazado.permiso", "pedro.auditoria"))
+      .body as unknown as Array<{ actor: string; resource: string }>;
+    expect(denied.some((e) => e.actor === "carla.operacion" && e.resource.endsWith(`/${id}/approve`))).toBe(
+      true,
+    );
+  });
+
+  it("quien solicita el retorno no puede aprobarlo (cuatro ojos) y la solicitud vence", async () => {
+    await call("POST", "/__mock/continuity/outage", "carla.operacion");
+    now += 15_000;
+    const req = await call("POST", "/continuity/failback/requests", "luis.aprobador", {
+      reason: "Primario restablecido",
+    });
+    const id = String(req.body.id);
+    const self = await call("POST", `/continuity/failback/requests/${id}/approve`, "luis.aprobador", {});
+    expect(self.status).toBe(403);
+    expect(self.body.permission).toBe("cuatro-ojos");
+    expect(String(self.body.message)).toMatch(/cuatro ojos/i);
+    // Vence a los 30 minutos.
+    now += 31 * 60_000;
+    const late = await call("POST", `/continuity/failback/requests/${id}/approve`, "ana.desarrollo", {});
+    expect(late.status).toBe(403); // la desarrolladora no tiene el permiso
+    const expired = await call("POST", `/continuity/failback/requests/${id}/reject`, "luis.aprobador", {
+      reason: "Ya no aplica",
+    });
+    expect(expired.status).toBe(409);
+    expect(expired.body.code).toBe("vencida");
+    const list = (await call("GET", "/continuity/failback/requests", "carla.operacion"))
+      .body as unknown as Array<{
+      id: string;
+      status: string;
+    }>;
+    expect(list.find((r) => r.id === id)?.status).toBe("vencida");
+    expect((await call("GET", "/continuity", "carla.operacion")).body.pendingFailback).toBeUndefined();
+  });
+
+  it("una solicitud pendiente se puede rechazar con motivo", async () => {
+    await call("POST", "/__mock/continuity/outage", "carla.operacion");
+    now += 15_000;
+    const req = await call("POST", "/continuity/failback/requests", "carla.operacion", {
+      reason: "Primario sano",
+    });
+    const id = String(req.body.id);
+    expect(
+      (await call("POST", `/continuity/failback/requests/${id}/reject`, "luis.aprobador", {})).status,
+    ).toBe(400);
+    const rejected = await call("POST", `/continuity/failback/requests/${id}/reject`, "luis.aprobador", {
+      reason: "La base del CPD no está al día",
+    });
+    expect(rejected.status).toBe(200);
+    expect(rejected.body.status).toBe("rechazada");
+    expect(rejected.body.decisionReason).toBe("La base del CPD no está al día");
   });
 });
 
@@ -176,27 +308,62 @@ describe("API simulada: el estado cambia con las acciones y el tiempo", () => {
     expect((await call("POST", "/anomalies/anm-001/approve-block", "luis.aprobador")).status).toBe(409);
   });
 
-  it("el simulacro agrega pasos de a poco y cambia el sitio activo", async () => {
+  it("el simulacro, como el del agente, mide la réplica sin conmutar ni registrar RTO", async () => {
     const started = await call("POST", "/continuity/drill", "carla.operacion");
+    expect(started.status).toBe(202);
     expect(started.body.status).toBe("en_curso");
     expect((started.body.steps as unknown[]).length).toBe(1);
-    now += 5_200;
-    const partial = (await call("GET", "/continuity/events", "carla.operacion")).body as unknown as Array<{
-      id: string;
-      steps: unknown[];
-    }>;
-    expect(partial.find((e) => e.id === started.body.id)?.steps.length).toBe(4);
-    now += 9_000;
+    now += 5_000;
     const events = (await call("GET", "/continuity/events", "carla.operacion")).body as unknown as Array<{
       id: string;
       status: string;
-      rtoSeconds: number;
+      rtoSeconds?: number;
+      steps: Array<{ name: string }>;
     }>;
     const drill = events.find((e) => e.id === started.body.id);
     expect(drill?.status).toBe("completado");
-    expect(drill?.rtoSeconds).toBe(12);
-    const state = await call("GET", "/continuity", "carla.operacion");
-    expect(state.body.activeSite).toBe("gcp");
+    expect(drill?.rtoSeconds).toBeUndefined();
+    expect(drill?.steps.map((st) => st.name)).toEqual([
+      "Verificar réplica al día",
+      "Estimar tiempo de preparación",
+    ]);
+    expect((await call("GET", "/continuity", "carla.operacion")).body.activeSite).toBe("cpd");
+  });
+
+  it("la caída simulada del primario conmuta con los pasos del agente y registra el RTO", async () => {
+    const started = await call("POST", "/__mock/continuity/outage", "carla.operacion");
+    expect(started.status).toBe(202);
+    expect(started.body.kind).toBe("conmutacion");
+    expect(started.body.trigger).toBe("automatico");
+    now += 2_000;
+    const mid = (await call("GET", "/continuity", "carla.operacion")).body as {
+      activeSite: string;
+      sites: Array<{ id: string; vote: string }>;
+    };
+    expect(mid.activeSite).toBe("cpd");
+    expect(mid.sites.filter((x) => x.vote === "primario_caido").length).toBe(2);
+    now += 5_000;
+    const events = (await call("GET", "/continuity/events", "carla.operacion")).body as unknown as Array<{
+      id: string;
+      status: string;
+      rtoSeconds?: number;
+      requestedBy?: string;
+    }>;
+    const failover = events.find((e) => e.id === started.body.id);
+    expect(failover?.status).toBe("completado");
+    expect(failover?.rtoSeconds).toBe(5);
+    expect(failover?.requestedBy).toBe("nexo-continuidad@gcp");
+    expect((await call("GET", "/continuity", "carla.operacion")).body.activeSite).toBe("gcp");
+    // Ya en el respaldo: no hay otra caída que simular ni simulacro posible hasta el retorno.
+    expect((await call("POST", "/__mock/continuity/outage", "carla.operacion")).status).toBe(409);
+    expect((await call("POST", "/continuity/drill", "carla.operacion")).status).toBe(409);
+  });
+
+  it("en modo manual los agentes no conmutan solos", async () => {
+    expect((await call("PUT", "/continuity/mode", "admin.nexo", { mode: "manual" })).status).toBe(200);
+    const res = await call("POST", "/__mock/continuity/outage", "carla.operacion");
+    expect(res.status).toBe(409);
+    expect(String(res.body.message)).toMatch(/modo manual/);
   });
 
   it("la verificación detecta un evento de auditoría alterado", async () => {
@@ -225,5 +392,36 @@ describe("API simulada: el estado cambia con las acciones y el tiempo", () => {
     const res = await call("GET", "/discovery/report?format=csv", "carla.operacion");
     expect(res.status).toBe(200);
     expect(String(res.body.text)).toMatch(/^id,fuente,host,puerto,ruta/);
+  });
+});
+
+describe("API simulada: exportación con el mismo contenido que la API", () => {
+  it("el manifiesto lista las APIs de WSO2, los flujos, el catálogo y el grafo, con la versión publicada", async () => {
+    const created = await call("POST", "/exports", "admin.nexo");
+    expect(created.status).toBe(202);
+    now += 10_000;
+    const job = await call("GET", `/exports/${String(created.body.id)}`, "admin.nexo");
+    expect(job.body.status).toBe("listo");
+    const manifest = job.body.manifest as {
+      version: string;
+      items: Array<{ tipo: string; archivo: string; sha256: string }>;
+    };
+    expect(manifest.version).toBe(__APP_VERSION__);
+    expect(new Set(manifest.items.map((i) => i.tipo))).toEqual(
+      new Set(["api", "flujo", "metadatos", "plataforma"]),
+    );
+    expect(manifest.items.map((i) => i.archivo)).toEqual(
+      expect.arrayContaining([
+        "metadatos/catalogo.json",
+        "metadatos/grafo.json",
+        "plataforma/platform.yaml",
+        "plataforma/workflows/workflow-extensions.xml",
+        "plataforma/governance/guia-estilo-institucional.yaml",
+      ]),
+    );
+    expect(
+      manifest.items.filter((i) => i.tipo === "api").every((i) => /^apis\/.+\.zip$/.test(i.archivo)),
+    ).toBe(true);
+    expect(manifest.items.every((i) => /^[0-9a-f]{64}$/.test(i.sha256))).toBe(true);
   });
 });

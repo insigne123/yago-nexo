@@ -13,9 +13,13 @@ CycloneDX que acompaña cada versión):
 - Keycloak (Apache 2.0), PostgreSQL (PostgreSQL License), CloudNativePG (Apache 2.0),
   RabbitMQ (MPL 2.0), Prometheus y Alertmanager (Apache 2.0), Grafana (AGPL 3.0, sin
   modificaciones), OpenTelemetry Collector y Jaeger (Apache 2.0), OpenSearch y
-  OpenSearch Dashboards (Apache 2.0), Fluent Bit (Apache 2.0), OpenMetadata (Apache 2.0),
-  Argo CD (Apache 2.0), OpenBao (MPL 2.0), RKE2 (Apache 2.0), Spectral (Apache 2.0),
-  Microcks (Apache 2.0), StAEDI (Apache 2.0).
+  OpenSearch Dashboards (Apache 2.0), Fluent Bit (Apache 2.0), RKE2 (Apache 2.0),
+  OpenTofu (MPL 2.0), Spectral (Apache 2.0).
+
+La arquitectura de referencia considera además los siguientes componentes, que no se
+incluyen en la versión publicada y se incorporan, cuando corresponde, con el servicio
+de implementación: OpenMetadata (Apache 2.0), Argo CD (Apache 2.0), OpenBao (MPL 2.0)
+y External Secrets Operator (Apache 2.0), Microcks (Apache 2.0), StAEDI (Apache 2.0).
 
 "WSO2" es una marca de WSO2 LLC. Yago Nexo no está afiliado a WSO2 LLC ni es
 respaldado por ella; la marca se menciona solo para identificar el origen de los

@@ -24,7 +24,14 @@ function labels(raw: string): Record<string, string> {
   return out;
 }
 
-const empty = (): ClusterCounters => ({ completed: 0, errors5xx: 0, connectFail: 0, timeouts: 0, buckets: {}, members: 0 });
+const empty = (): ClusterCounters => ({
+  completed: 0,
+  errors5xx: 0,
+  connectFail: 0,
+  timeouts: 0,
+  buckets: {},
+  members: 0,
+});
 
 export function parseEnvoyStats(text: string, clusters: readonly string[]): StatsSnapshot {
   const wanted = new Set(clusters);
@@ -41,10 +48,12 @@ export function parseEnvoyStats(text: string, clusters: readonly string[]): Stat
     if (!Number.isFinite(v)) continue;
     const c = snap[cluster]!;
     if (metric === "envoy_cluster_upstream_rq_completed") c.completed += v;
-    else if (metric === "envoy_cluster_upstream_rq_xx" && l.envoy_response_code_class === "5") c.errors5xx += v;
+    else if (metric === "envoy_cluster_upstream_rq_xx" && l.envoy_response_code_class === "5")
+      c.errors5xx += v;
     else if (metric === "envoy_cluster_upstream_cx_connect_fail") c.connectFail += v;
     else if (metric === "envoy_cluster_upstream_rq_timeout") c.timeouts += v;
-    else if (metric === "envoy_cluster_upstream_rq_time_bucket" && l.le) c.buckets[l.le] = (c.buckets[l.le] ?? 0) + v;
+    else if (metric === "envoy_cluster_upstream_rq_time_bucket" && l.le)
+      c.buckets[l.le] = (c.buckets[l.le] ?? 0) + v;
     else if (metric === "envoy_cluster_membership_total") c.members += v;
   }
   return snap;

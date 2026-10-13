@@ -44,15 +44,20 @@ export class UsageService {
       groupBy === "day"
         ? { date_histogram: { field: "@timestamp", calendar_interval: "day", min_doc_count: 0 }, aggs }
         : { terms: { field: FIELD[groupBy] ?? FIELD.consumer, size: 200 }, aggs };
-    const res = await this.os.search<{ aggregations?: { grupos?: { buckets: Bucket[] } } }>(config.opensearchMetricsIndex, {
-      size: 0,
-      query: { bool: { filter: filters, must_not: [{ term: { "applicationName.keyword": "UNKNOWN" } }] } },
-      aggs: { grupos: group },
-    });
+    const res = await this.os.search<{ aggregations?: { grupos?: { buckets: Bucket[] } } }>(
+      config.opensearchMetricsIndex,
+      {
+        size: 0,
+        query: { bool: { filter: filters, must_not: [{ term: { "applicationName.keyword": "UNKNOWN" } }] } },
+        aggs: { grupos: group },
+      },
+    );
     const buckets = res.aggregations?.grupos?.buckets ?? [];
     const names = new Map<string, string>();
     if (groupBy === "consumer" || !(groupBy in FIELD)) {
-      const rows = await this.db.query("SELECT id, name FROM nexo.consumer WHERE id = ANY($1)", [buckets.map((b) => String(b.key))]);
+      const rows = await this.db.query("SELECT id, name FROM nexo.consumer WHERE id = ANY($1)", [
+        buckets.map((b) => String(b.key)),
+      ]);
       for (const r of rows.rows) names.set(String(r.id), String(r.name));
     }
     return buckets.map((b) => ({
@@ -86,15 +91,28 @@ export class UsageController {
 
   /** Un consumidor solo ve su propio consumo (usage:read:own); los demás roles ven todo. */
   @Get()
-  async list(@CurrentUser() user: AuthUser, @Query("from") from?: string, @Query("to") to?: string, @Query("groupBy") groupBy = "consumer") {
+  async list(
+    @CurrentUser() user: AuthUser,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("groupBy") groupBy = "consumer",
+  ) {
     const r = this.range(from, to);
     if (user.permissions.includes("usage:read:all")) return this.usage.query(r.from, r.to, groupBy);
     if (user.permissions.includes("usage:read:own")) {
       // Las aplicaciones del consumidor son las que creó en el portal (dueño = su usuario) o las que lo tienen de contacto.
       const ids = [user.username, user.email].filter((v): v is string => !!v);
-      const own = await this.db.query("SELECT id FROM nexo.consumer WHERE contact = ANY($1) OR organization = ANY($1)", [ids]);
+      const own = await this.db.query(
+        "SELECT id FROM nexo.consumer WHERE contact = ANY($1) OR organization = ANY($1)",
+        [ids],
+      );
       if (!own.rows.length) return [];
-      return this.usage.query(r.from, r.to, groupBy, own.rows.map((x) => String(x.id)));
+      return this.usage.query(
+        r.from,
+        r.to,
+        groupBy,
+        own.rows.map((x) => String(x.id)),
+      );
     }
     return [];
   }
@@ -108,8 +126,14 @@ export class UsageController {
     const rows = await this.usage.query(r.from, r.to, "consumer");
     const byEndpoint = await this.usage.query(r.from, r.to, "endpoint");
     const lines = ["tipo,clave,llamadas,errores,bytes,latencia_p95_ms,plan"];
-    for (const x of rows) lines.push(`consumidor,${cell(x.label)},${x.llamadas},${x.errores},${x.bytes},${x.latenciaP95Ms},${x.plan}`);
-    for (const x of byEndpoint) lines.push(`endpoint,${cell(x.key)},${x.llamadas},${x.errores},${x.bytes},${x.latenciaP95Ms},${x.plan}`);
+    for (const x of rows)
+      lines.push(
+        `consumidor,${cell(x.label)},${x.llamadas},${x.errores},${x.bytes},${x.latenciaP95Ms},${x.plan}`,
+      );
+    for (const x of byEndpoint)
+      lines.push(
+        `endpoint,${cell(x.key)},${x.llamadas},${x.errores},${x.bytes},${x.latenciaP95Ms},${x.plan}`,
+      );
     return lines.join("\n");
   }
 }

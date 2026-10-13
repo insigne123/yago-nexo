@@ -3,15 +3,14 @@
 import capacidadesJson from "./capacidades.json";
 import releaseJson from "./release.json";
 
-export type Estado = "Disponible" | "En desarrollo" | "Planificado";
+/**
+ * Dos estados, sin beta ni futuro (la versión ofertada debe ser estable):
+ * - "Incluida": forma parte de la versión publicada (release.json) y su evidencia existe en el repositorio.
+ * - "Servicio": se entrega con el servicio de implementación (desarrollo contratado, con prueba de aceptación).
+ */
+export type Estado = "Incluida" | "Servicio";
 
-export const ESTADOS: readonly Estado[] = ["Disponible", "En desarrollo", "Planificado"];
-
-export const DESCRIPCION_ESTADO: Record<Estado, string> = {
-  Disponible: "Implementado y verificable en el repositorio de esta versión.",
-  "En desarrollo": "En construcción; todavía no forma parte de una versión utilizable.",
-  Planificado: "Definido en la hoja de ruta; aún no se empieza a construir.",
-};
+export const ESTADOS: readonly Estado[] = ["Incluida", "Servicio"];
 
 export interface Grupo {
   id: string;
@@ -38,6 +37,18 @@ export const grupos: readonly Grupo[] = capacidadesJson.grupos;
 export const capacidades: readonly Capacidad[] = capacidadesJson.capacidades as unknown as Capacidad[];
 export const release: Release = releaseJson;
 
+/** Texto exacto de cada estado, tal como se muestra en las insignias y tablas. */
+export const ETIQUETA_ESTADO: Record<Estado, string> = {
+  Incluida: `Incluida en ${release.version}`,
+  Servicio: "Se entrega con el servicio de implementación (desarrollo contratado, con prueba de aceptación)",
+};
+
+export const DESCRIPCION_ESTADO: Record<Estado, string> = {
+  Incluida: `Forma parte de la versión ${release.version} publicada; la evidencia está en el repositorio de esa versión.`,
+  Servicio:
+    "No forma parte de la versión publicada: Yago la desarrolla dentro del servicio de implementación contratado y la entrega con su prueba de aceptación.",
+};
+
 export function capacidad(id: string): Capacidad {
   const encontrada = capacidades.find((c) => c.id === id);
   if (!encontrada) throw new Error(`Capacidad desconocida en capacidades.json: "${id}"`);
@@ -58,9 +69,8 @@ export function capacidadesDe(grupoId: string): Capacidad[] {
 
 export function conteoPorEstado(lista: readonly Capacidad[] = capacidades): Record<Estado, number> {
   return {
-    Disponible: lista.filter((c) => c.estado === "Disponible").length,
-    "En desarrollo": lista.filter((c) => c.estado === "En desarrollo").length,
-    Planificado: lista.filter((c) => c.estado === "Planificado").length,
+    Incluida: lista.filter((c) => c.estado === "Incluida").length,
+    Servicio: lista.filter((c) => c.estado === "Servicio").length,
   };
 }
 

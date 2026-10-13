@@ -1,6 +1,7 @@
 // Lógica de nexo-sd-notify: toma avisos pendientes, los envía por su canal y registra el
 // resultado. Los reintentos (espera 1, 2, 4, 8 minutos; máximo 5 intentos) los decide la
-// base de datos en nexo_sd_complete_notification.
+// base de datos en nexo_sd_complete_notification. Un aviso cuyo canal no tiene el proveedor
+// configurado queda «fallida» (sin reintentos), nunca «enviada».
 import { errorMessage, log } from "../_shared/http.ts";
 import {
   type ProviderDeps,
@@ -30,9 +31,10 @@ interface CompletedRow {
 export interface NotifySummary {
   procesadas: number;
   enviadas: number;
-  simuladas: number;
   reintentos: number;
   fallidas: number;
+  /** Parte de las fallidas: el canal no tiene el proveedor configurado. */
+  sin_proveedor: number;
 }
 
 export interface NotifyOptions {
@@ -62,7 +64,7 @@ export async function dispatchOne(row: NotificationRow, deps: ProviderDeps): Pro
     default:
       return {
         ok: false,
-        simulated: false,
+        notConfigured: false,
         permanent: true,
         error: `Canal desconocido: ${String(row.channel)}`,
       };
@@ -80,20 +82,13 @@ async function handleRow(
     result = await dispatchOne(row, deps);
   } catch (err) {
     // Error de red o tiempo de espera agotado: se reintenta.
-    result = { ok: false, simulated: false, error: errorMessage(err) };
-  }
-  if (result.simulated) {
-    log("info", "Aviso simulado: proveedor no configurado", {
-      notificacion: row.id,
-      canal: row.channel,
-      plantilla: row.template,
-    });
+    result = { ok: false, notConfigured: false, error: errorMessage(err) };
   }
   const completed = await callRpc<CompletedRow>(client, "nexo_sd_complete_notification", {
     p_id: row.id,
     p_ok: result.ok,
     p_result: {
-      simulado: result.simulated,
+      sin_proveedor: result.notConfigured,
       proveedor_id: result.providerId ?? null,
       ...(result.detail ?? {}),
     },
@@ -103,14 +98,19 @@ async function handleRow(
   summary.procesadas += 1;
   if (completed?.status === "enviada") {
     summary.enviadas += 1;
-    if (result.simulated) summary.simuladas += 1;
   } else if (completed?.status === "fallida") {
     summary.fallidas += 1;
-    log("warn", "Aviso fallido definitivamente", {
-      notificacion: row.id,
-      canal: row.channel,
-      error: result.error,
-    });
+    if (result.notConfigured) summary.sin_proveedor += 1;
+    log(
+      "warn",
+      result.notConfigured ? "Aviso fallido: proveedor no configurado" : "Aviso fallido definitivamente",
+      {
+        notificacion: row.id,
+        canal: row.channel,
+        plantilla: row.template,
+        error: result.error,
+      },
+    );
   } else {
     summary.reintentos += 1;
   }
@@ -123,7 +123,7 @@ export async function processPending(
   options: NotifyOptions = DEFAULT_OPTIONS,
   now: () => number = Date.now,
 ): Promise<NotifySummary> {
-  const summary: NotifySummary = { procesadas: 0, enviadas: 0, simuladas: 0, reintentos: 0, fallidas: 0 };
+  const summary: NotifySummary = { procesadas: 0, enviadas: 0, reintentos: 0, fallidas: 0, sin_proveedor: 0 };
   const deadline = now() + options.budgetMs;
   for (let i = 0; i < options.maxBatches && now() < deadline; i++) {
     const rows =

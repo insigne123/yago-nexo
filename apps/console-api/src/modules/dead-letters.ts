@@ -23,7 +23,11 @@ function maskPreview(payload: string): string {
 
 function idOf(m: RabbitMessage): string {
   const h = m.properties.headers ?? {};
-  return String(h["x-correlacion"] ?? m.properties.message_id ?? Buffer.from(m.payload).toString("base64url").slice(0, 32));
+  return String(
+    h["x-correlacion"] ??
+      m.properties.message_id ??
+      Buffer.from(m.payload).toString("base64url").slice(0, 32),
+  );
 }
 
 @Controller("dead-letters")
@@ -46,7 +50,14 @@ export class DeadLettersController {
          VALUES ($1,$2,$3,$4,$5,$6)
          ON CONFLICT (id) DO UPDATE SET error = EXCLUDED.error, attempts = EXCLUDED.attempts,
            status = CASE WHEN nexo.dead_letter.status = 'reprocesado' THEN 'pendiente' ELSE nexo.dead_letter.status END`,
-        [idOf(m), config.rabbitmq.dlq, "SolicitudesConcesion", String(h["x-motivo"] ?? "desconocido"), Number(h["x-intentos"] ?? 0), maskPreview(m.payload)],
+        [
+          idOf(m),
+          config.rabbitmq.dlq,
+          "SolicitudesConcesion",
+          String(h["x-motivo"] ?? "desconocido"),
+          Number(h["x-intentos"] ?? 0),
+          maskPreview(m.payload),
+        ],
       );
     }
     const res = await this.db.query("SELECT * FROM nexo.dead_letter ORDER BY first_failed_at DESC LIMIT 200");
@@ -85,14 +96,31 @@ export class DeadLettersController {
       // Lo que no se reprocesa vuelve a la cola de fallidos sin cambios.
       await this.mq.publish("nexo.dlq", "fallido", m.payload, m.properties.headers ?? {});
     }
-    if (!found) throw new NotFoundException({ statusCode: 404, message: "El mensaje ya no está en la cola de fallidos" });
-    const headers = { ...(found.properties.headers ?? {}), "x-intentos": "0", "x-reprocesado-por": user.username, "x-motivo-reproceso": reason };
-    await this.mq.publish(config.rabbitmq.reprocessExchange, config.rabbitmq.reprocessRoutingKey, found.payload, headers);
+    if (!found)
+      throw new NotFoundException({
+        statusCode: 404,
+        message: "El mensaje ya no está en la cola de fallidos",
+      });
+    const headers = {
+      ...(found.properties.headers ?? {}),
+      "x-intentos": "0",
+      "x-reprocesado-por": user.username,
+      "x-motivo-reproceso": reason,
+    };
+    await this.mq.publish(
+      config.rabbitmq.reprocessExchange,
+      config.rabbitmq.reprocessRoutingKey,
+      found.payload,
+      headers,
+    );
     const res = await this.db.query(
       "UPDATE nexo.dead_letter SET status = 'reprocesado', reprocessed_by = $1, reprocessed_at = now(), reason = $2 WHERE id = $3 RETURNING *",
       [user.username, reason, id],
     );
-    await this.audit.record(user, "mensajes.reprocesar", `mensaje/${id}`, "exito", { reason, cola: config.rabbitmq.dlq });
+    await this.audit.record(user, "mensajes.reprocesar", `mensaje/${id}`, "exito", {
+      reason,
+      cola: config.rabbitmq.dlq,
+    });
     const r = res.rows[0] ?? { id, queue: config.rabbitmq.dlq, status: "reprocesado" };
     return { id: r.id, queue: r.queue, status: r.status, reprocessedBy: user.username };
   }

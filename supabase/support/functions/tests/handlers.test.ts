@@ -37,7 +37,7 @@ function fakeRpc(handler: (fn: string, args: Record<string, unknown>) => unknown
 // ---------------------------------------------------------------------------
 // nexo-sd-notify
 // ---------------------------------------------------------------------------
-Deno.test("notify: envía, simula y reprograma según el resultado de cada canal", async () => {
+Deno.test("notify: envía, deja fallido lo que no tiene proveedor y reprograma", async () => {
   const rows: NotificationRow[] = [
     {
       id: "n1",
@@ -98,15 +98,21 @@ Deno.test("notify: envía, simula y reprograma según el resultado de cada canal
       budgetMs: 10_000,
     },
   );
-  assertEquals(summary, { procesadas: 4, enviadas: 3, simuladas: 2, reintentos: 1, fallidas: 0 });
+  assertEquals(summary, { procesadas: 4, enviadas: 1, reintentos: 1, fallidas: 2, sin_proveedor: 2 });
   const completes = calls.filter((c) => c.fn === "nexo_sd_complete_notification");
   const byId = Object.fromEntries(completes.map((c) => [c.args["p_id"], c.args]));
-  assertEquals(
-    (byId["n1"]?.["p_result"] as Record<string, unknown>)["simulado"],
-    true,
-    "correo sin NEXO_SD_RESEND_API_KEY",
-  );
-  assertEquals((byId["n4"]?.["p_result"] as Record<string, unknown>)["simulado"], true, "voz sin Twilio");
+  const sinProveedor: Array<[string, string]> = [
+    ["n1", "correo sin NEXO_SD_RESEND_API_KEY"],
+    ["n4", "voz sin Twilio"],
+  ];
+  for (const [id, motivo] of sinProveedor) {
+    assertEquals(byId[id]?.["p_ok"], false, `${motivo}: no se da por enviado`);
+    assertEquals(byId[id]?.["p_permanent"], true, `${motivo}: no se reintenta`);
+    assertEquals((byId[id]?.["p_result"] as Record<string, unknown>)["sin_proveedor"], true, motivo);
+    assertStringIncludes(String(byId[id]?.["p_error"]), "proveedor no configurado");
+  }
+  assertEquals(byId["n2"]?.["p_ok"], true, "el aviso en la aplicación no depende de un proveedor externo");
+  assertEquals((byId["n2"]?.["p_result"] as Record<string, unknown>)["sin_proveedor"], false);
   assertEquals(byId["n3"]?.["p_ok"], false);
   assertEquals(byId["n3"]?.["p_permanent"], false, "un 503 se reintenta");
   assertStringIncludes(String(byId["n3"]?.["p_error"]), "HTTP 503");

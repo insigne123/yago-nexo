@@ -105,10 +105,10 @@ Mientras sea respaldo, la base local está en solo lectura: los portales de este
 | --- | --- |
 | Una actualización de la plataforma | `helm -n nexo history nexo-platform` y `helm -n nexo rollback nexo-platform <revisión> --wait`. |
 | Un cambio de infraestructura | Vuelva `dr.tfvars` (o el código) a la versión anterior, revise con `tofu plan -var-file=dr.tfvars` y aplique. |
-| Una conmutación al respaldo | El retorno al CPD es guiado y lo aprueba una persona con rol aprobador desde la Consola ([Arquitectura](../arquitectura.md#continuidad-entre-sitios)). |
+| Una conmutación al respaldo | El retorno al CPD lo solicita una persona desde la Consola y lo aprueba otra con el rol aprobador ([Arquitectura](../arquitectura.md#continuidad-entre-sitios)). |
 | Retirar el sitio | `tofu destroy -var-file=dr.tfvars`. El clúster queda protegido mientras `proteccion_borrado = true`; la zona DNS y el registro se borran con su contenido. |
 
-## Pendiente {#pendiente}
+## Con el servicio de implementación {#pendiente}
 
-- La promoción de la réplica la hace hoy el agente con `pg_promote()` sobre una réplica PostgreSQL por streaming. Con CloudNativePG en modo réplica (opción del chart), la promoción debe pasar por el operador; esa integración está pendiente.
-- El primer ensayo de conmutación con los dos sitios reales, con RTO y RPO medidos.
+- La promoción de la réplica la hace el agente con `pg_promote()` sobre una réplica PostgreSQL por streaming. Con CloudNativePG en modo réplica (opción del chart), la promoción debe pasar por el operador; esa integración se entrega con el servicio de implementación.
+- El primer ensayo de conmutación con los dos sitios reales, con el RTO medido y el rezago de replicación registrado, se hace en el servicio de implementación, con su prueba de aceptación.

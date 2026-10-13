@@ -21,7 +21,7 @@ Al terminar el módulo, el participante:
 3. Despliega APIs por etapas (desarrollo, QA y producción) con `nexo-ctl`, sin editar a mano.
 4. Verifica la integridad y el inventario de componentes de una versión de Nexo.
 5. Actualiza y restablece el laboratorio sin perder ni duplicar configuración.
-6. Distingue lo que hoy se instala con el laboratorio de lo que entregarán los instaladores de producción (en desarrollo).
+6. Distingue lo que hoy se instala con el laboratorio de lo que se instala en producción con el servicio de implementación.
 
 ## Agenda
 
@@ -41,7 +41,7 @@ Al terminar el módulo, el participante:
 | 3 | 1:15 – 2:15 | Proyectos de API y etapas. [Ejercicio 1.3](#ejercicio-1-3): APIs del curso en las tres etapas. |
 | — | 2:15 – 2:30 | Pausa. |
 | 4 | 2:30 – 3:15 | Versiones, soporte y entregables (SBOM y sumas SHA-256). Primera parte del [ejercicio 1.4](#ejercicio-1-4). |
-| 5 | 3:15 – 3:45 | Instalación en producción: diseño e instaladores (en desarrollo). |
+| 5 | 3:15 – 3:45 | Instalación en producción: diseño e instaladores (se entregan con el servicio de implementación). |
 | — | 3:45 – 4:00 | Pausa. |
 | 6 | 4:00 – 4:45 | Segunda parte del ejercicio 1.4: actualizar y restablecer el laboratorio. |
 | 7 | 4:45 – 5:00 | Cierre y autoevaluación. |
@@ -97,9 +97,9 @@ Cada API vive en `wso2/apim/apis/<nombre>/` como un proyecto: `api.yaml` (dueño
 
 <SiNoDisponible id="helm">
 
-:::note En desarrollo
+:::note Servicio de implementación
 
-Esta parte del módulo es conceptual: se revisa el diseño de la [arquitectura](../arquitectura.md) (componentes por ambiente, réplicas, continuidad) y cómo se traduce lo practicado en el laboratorio (plataforma como código, proyectos de API por etapa, llave de cifrado compartida). No tiene ejercicios hasta que los instaladores estén disponibles.
+Esta parte del módulo es conceptual: se revisa el diseño de la [arquitectura](../arquitectura.md) (componentes por ambiente, réplicas, continuidad) y cómo se traduce lo practicado en el laboratorio (plataforma como código, proyectos de API por etapa, llave de cifrado compartida). No tiene ejercicios: la instalación en la infraestructura de la institución y su prueba se hacen con el servicio de implementación.
 
 :::
 

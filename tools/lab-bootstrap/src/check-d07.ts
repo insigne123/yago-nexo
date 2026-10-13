@@ -23,13 +23,17 @@ async function main() {
       const zip = await wso2.devportal.generateSdk(api.id, lang);
       const files = Object.keys(unzipSync(new Uint8Array(zip)));
       writeFileSync(join(out, `concesiones-sdk-${lang}.zip`), zip);
-      console.log(`[D-07] SDK ${lang}: ${(zip.length / 1024).toFixed(0)} KB, ${files.length} archivos (ej.: ${files.find((f) => /api|Api/.test(f)) ?? files[0]})`);
+      console.log(
+        `[D-07] SDK ${lang}: ${(zip.length / 1024).toFixed(0)} KB, ${files.length} archivos (ej.: ${files.find((f) => /api|Api/.test(f)) ?? files[0]})`,
+      );
       ok++;
     } catch (e) {
       console.log(`[D-07] SDK ${lang}: ERROR ${e instanceof Error ? e.message.slice(0, 200) : e}`);
     }
   }
-  console.log(ok >= 3 ? `[D-07] verificado: ${ok} lenguajes generados` : `[D-07] NO cumple: solo ${ok} lenguajes`);
+  console.log(
+    ok >= 3 ? `[D-07] verificado: ${ok} lenguajes generados` : `[D-07] NO cumple: solo ${ok} lenguajes`,
+  );
   if (ok < 3) process.exit(1);
 }
 main().catch((e) => {

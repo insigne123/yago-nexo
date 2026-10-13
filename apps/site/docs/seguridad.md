@@ -4,6 +4,7 @@ description: Modelo de seguridad de Yago Nexo, identidad con Keycloak, mínimo p
 ---
 
 import CuatroOjos from './_generated/cuatro-ojos.md';
+import MotivoObligatorio from './_generated/motivo-obligatorio.md';
 import KeycloakLaboratorio from './_generated/keycloak-laboratorio.md';
 import MatrizRoles from './_generated/matriz-roles.md';
 import Roles from './_generated/roles.md';
@@ -12,7 +13,7 @@ import EstadoCapacidad from '@site/src/components/EstadoCapacidad';
 
 # Seguridad
 
-Resumen del modelo de seguridad de Nexo. Cada parte indica si ya existe o si está en desarrollo.
+Resumen del modelo de seguridad de Nexo. Cada parte indica si está incluida en la versión o si se entrega con el servicio de implementación.
 
 | Ámbito | Qué hace Nexo | Estado |
 | --- | --- | --- |
@@ -47,9 +48,15 @@ Nexo define seis roles y una **matriz rol-permiso única**, escrita en código e
 
 ### Acciones de cuatro ojos
 
-Quien inicia una de estas acciones no puede aprobarla: la API verificará que quien aprueba sea una persona distinta de quien inició. Toda acción no permitida se rechazará y quedará auditada.
+Quien inicia una de estas acciones no puede aprobarla: la API verifica que quien aprueba sea una persona distinta de quien inició (por usuario y por el sujeto del token) y, si es la misma, responde `403` con `"permission": "cuatro-ojos"`. El retorno al sitio principal lo solicita una persona y lo aprueba otra. Todo rechazo queda auditado.
 
 <CuatroOjos />
+
+### Acciones con motivo obligatorio
+
+Las decide una sola persona con el rol indicado: debe escribir el motivo, y la acción queda auditada, también cuando se rechaza.
+
+<MotivoObligatorio />
 
 ## Auditoría con cadena de hash {#auditoria}
 

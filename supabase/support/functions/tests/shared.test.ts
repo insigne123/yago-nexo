@@ -79,6 +79,7 @@ Deno.test("las plantillas están en español, sin emojis y escapan HTML", () => 
     "sd_ticket_nuevo",
     "sd_sla_umbral",
     "sd_sla_vencido",
+    "sd_sla_vencido_contraparte",
     "sd_escalamiento_acuse",
     "sd_escalamiento_manual",
     "sd_ticket_cuarentena",
@@ -103,6 +104,28 @@ Deno.test("las plantillas están en español, sin emojis y escapan HTML", () => 
   assertEquals(formatDate("no es fecha"), "");
 });
 
+Deno.test("el vencimiento de un plazo tiene un aviso propio para la contraparte del cliente", () => {
+  const payload = {
+    numero: "SD-2026-0007",
+    severidad: "S2",
+    titulo: "API de trámites lenta",
+    metrica_texto: "solución",
+    vence: "2026-10-05T21:00:00Z",
+  };
+  const turno = renderNotification("sd_sla_vencido", payload);
+  assertStringIncludes(turno.text, "Se avisó a los niveles 1 y 2 del turno y a supervisión (nivel 3).");
+  const contraparte = renderNotification("sd_sla_vencido_contraparte", payload);
+  assertStringIncludes(contraparte.subject, "SD-2026-0007 (S2): venció el plazo de solución");
+  assertStringIncludes(
+    contraparte.text,
+    "Venció lun 05-10-2026, 18:00. La mesa de soporte registró el incumplimiento del plazo.",
+  );
+  assertFalse(
+    contraparte.text.includes("nivel"),
+    "el aviso al cliente no habla de los niveles internos del turno",
+  );
+});
+
 function fakeFetch(status: number, response: unknown) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const impl = (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
@@ -118,7 +141,7 @@ const message = renderNotification("sd_ticket_nuevo", {
   titulo: "Caída",
 });
 
-Deno.test("sin proveedores configurados todo queda simulado y no se llama a la red", async () => {
+Deno.test("sin proveedor configurado el envío falla de forma definitiva y no se llama a la red", async () => {
   const net = fakeFetch(500, {});
   const deps: ProviderDeps = { env: () => undefined, fetch: net.impl };
   for (const result of [
@@ -126,13 +149,15 @@ Deno.test("sin proveedores configurados todo queda simulado y no se llama a la r
     await sendWhatsApp("+56900000001", message, deps),
     await sendVoice("+56900000001", message, deps),
   ]) {
-    assert(result.ok);
-    assert(result.simulated);
+    assertFalse(result.ok, "un aviso sin proveedor nunca se da por enviado");
+    assert(result.notConfigured);
+    assert(result.permanent, "no se reintenta");
+    assertStringIncludes(String(result.error), "proveedor no configurado");
   }
   assertEquals(net.calls.length, 0);
   assertEquals(sendPush(), {
     ok: true,
-    simulated: false,
+    notConfigured: false,
     providerId: "en_aplicacion",
     detail: { canal: "en_aplicacion" },
   });
@@ -145,7 +170,12 @@ Deno.test("Resend recibe remitente, destinatario, asunto, texto y HTML", async (
     NEXO_SD_RESEND_FROM: "Soporte <soporte@yago.cl>",
   };
   const result = await sendEmail("a@ejemplo.invalid", message, { env: (k) => env[k], fetch: net.impl });
-  assertEquals(result, { ok: true, simulated: false, providerId: "re_123", detail: { proveedor: "resend" } });
+  assertEquals(result, {
+    ok: true,
+    notConfigured: false,
+    providerId: "re_123",
+    detail: { proveedor: "resend" },
+  });
   assertEquals(net.calls[0]?.url, "https://api.resend.com/emails");
   const headers = new Headers(net.calls[0]?.init.headers);
   assertEquals(headers.get("authorization"), "Bearer re_clave");
@@ -212,19 +242,23 @@ Deno.test("los secretos con prefijo NEXO_SD_ tienen prioridad (proyecto comparti
   );
   // Sin habilitarlo, el nombre genérico (posible secreto de otro producto) se ignora.
   assertEquals(
-    readSecret((k) => ({ WHATSAPP_TOKEN: "generico" } as Record<string, string>)[k], "WHATSAPP_TOKEN"),
+    readSecret((k) => (({ WHATSAPP_TOKEN: "generico" }) as Record<string, string>)[k], "WHATSAPP_TOKEN"),
     undefined,
   );
   assertEquals(
     readSecret(
-      (k) => ({ WHATSAPP_TOKEN: "generico", NEXO_SD_USE_GENERIC_SECRETS: "true" } as Record<string, string>)[k],
+      (k) =>
+        (({ WHATSAPP_TOKEN: "generico", NEXO_SD_USE_GENERIC_SECRETS: "true" }) as Record<string, string>)[k],
       "WHATSAPP_TOKEN",
     ),
     "generico",
   );
   // Un prefijado vacío no tapa nada ni habilita el genérico por sí solo.
   assertEquals(
-    readSecret((k) => ({ NEXO_SD_RESEND_API_KEY: " ", RESEND_API_KEY: "ajeno" } as Record<string, string>)[k], "RESEND_API_KEY"),
+    readSecret(
+      (k) => (({ NEXO_SD_RESEND_API_KEY: " ", RESEND_API_KEY: "ajeno" }) as Record<string, string>)[k],
+      "RESEND_API_KEY",
+    ),
     undefined,
   );
   assertEquals(

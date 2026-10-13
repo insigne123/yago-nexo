@@ -26,6 +26,7 @@ import {
 import {
   ARCHIVO_MANIFIESTO,
   artefactos,
+  comprobarHuellaClave,
   fechaDeId,
   verificarManifiesto,
   type Manifiesto,
@@ -318,6 +319,13 @@ export async function restaurar(
   const carpeta = join(config.destino, id);
   if (!existsSync(join(carpeta, ARCHIVO_MANIFIESTO)))
     throw new Error(`no existe el respaldo ${id} en ${config.destino}`);
+  // Con otra clave se rechaza aquí, antes de escribir nada: ni la marca de prueba ni el informe en la carpeta
+  // del respaldo (que conserva el resultado de su última prueba válida), ni un servidor temporal. La firma y
+  // las sumas se verifican después, con el manifiesto completo.
+  comprobarHuellaClave(
+    JSON.parse(await readFile(join(carpeta, ARCHIVO_MANIFIESTO), "utf8")),
+    huellaClave(clave),
+  );
 
   const informe: InformeRestauracion = {
     formato: FORMATO_INFORME,

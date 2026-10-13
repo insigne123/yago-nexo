@@ -18,7 +18,7 @@ Al terminar el módulo, el participante:
 1. Encuentra en tableros, métricas, logs y trazas lo que le pasa a una API.
 2. Sigue una alerta desde Prometheus hasta la Consola.
 3. Comprueba que la auditoría llega al SIEM completa, en orden y sin duplicados.
-4. Explica y observa la conmutación entre sitios con quórum: estado sano, simulacro, conmutación automática con RTO medido y retorno guiado.
+4. Explica y observa la conmutación entre sitios con quórum: estado sano, simulacro, conmutación automática con RTO medido y retorno con dos personas.
 5. Clasifica la severidad de un incidente con la regla de Nexo y conoce el proceso de soporte, sus plazos y el análisis de causa raíz.
 
 ## Agenda
@@ -59,7 +59,7 @@ Estados: <EstadoCapacidad id="tableros" conNombre /> · <EstadoCapacidad id="tra
 | `LatenciaAlta` | p99 de una API sobre 2 s durante 10 minutos | S3 |
 | `ColaConMensajesFallidos` | La cola de fallidos tiene mensajes durante 5 minutos | S3 |
 
-Alertmanager agrupa las alertas y las envía al webhook de la Consola (`/api/v1/alerts/alertmanager`); en producción van a la mesa de soporte y al SIEM.
+Alertmanager agrupa las alertas y las envía al webhook de la Consola (`/api/v1/alerts/alertmanager`), que exige un token compartido (`Authorization: Bearer`): sin él responde `401`. Cada alerta recibida queda en la auditoría (`alerta.recibida`) y llega al SIEM con el reenvío de la auditoría.
 
 ### Continuidad entre sitios
 
@@ -68,7 +68,7 @@ Un agente en el CPD, otro en Google Cloud y un testigo revisan la salud del siti
 - `cont-cpd` es el PostgreSQL primario y `cont-gcp` su réplica por streaming; `cont-etcd` guarda los votos y el registro DNS que sirve `cont-coredns` para `activo.nexo.lab` (10.80.0.1 para el CPD, 10.80.0.2 para GCP).
 - **Simulacro** (operador): no disruptivo; el agente de respaldo mide el rezago de la réplica y confirma que es promovible, sin promoverla.
 - **Conmutación automática**: con quórum, el agente de respaldo promueve la réplica, cambia el DNS y registra el RTO medido.
-- **Retorno guiado**: la vuelta al CPD la aprueba una persona con rol aprobador.
+- **Retorno con dos personas**: la vuelta al CPD la solicita una persona y la aprueba otra con el rol aprobador; la solicitud vence si nadie la aprueba.
 
 En producción la conmutación además cierra la escritura en el CPD, escala los gateways y el integrador del sitio de respaldo y avisa a la mesa de soporte y al SIEM (ver [Arquitectura](../arquitectura.md#continuidad-entre-sitios)).
 
@@ -189,7 +189,7 @@ S2: avisa que un componente no responde, lo que no significa por sí solo que el
 
 ### Ejercicio 6.3 · Continuidad entre sitios {#ejercicio-6-3}
 
-**Objetivo.** Ver el quórum, ejecutar un simulacro y observar una conmutación automática con su RTO y el retorno guiado.
+**Objetivo.** Ver el quórum, ejecutar un simulacro y observar una conmutación automática con su RTO y el retorno con dos personas.
 
 **Pasos.**
 
@@ -212,14 +212,14 @@ S2: avisa que un componente no responde, lo que no significa por sí solo que el
    consola luis.aprobador GET /continuity/events | jq '.[0] | {kind, trigger, status, rpoSecondsEstimated, steps}'
    ```
 
-3. Ejecute la verificación de continuidad, que detiene el primario y dos agentes, comprueba que sin quórum no se conmuta, conmuta con quórum y aprueba el retorno:
+3. Ejecute la verificación de continuidad, que detiene el primario y dos agentes, comprueba que sin quórum no se conmuta, conmuta con quórum y hace el retorno en dos pasos (una persona lo solicita y otra lo aprueba):
 
    ```bash
    pnpm --filter @nexo/lab-bootstrap check:d05
    consola luis.aprobador GET /continuity/events | jq -c '.[0:3][] | {kind, trigger, from, to, status, rtoSeconds}'
    ```
 
-**Resultado esperado.** Tres sitios (`cpd` primario, `gcp` respaldo y `testigo`) con voto `primario_sano`, sitio activo `cpd`, quórum «2 de 3» y el registro DNS con `"host":"10.80.0.1"`. El simulacro queda `completado` con el paso «verificar réplica al día» y los bytes de WAL sin aplicar. `check:d05` muestra que con un solo agente activo el sitio sigue siendo `cpd` y la réplica no se promueve; con quórum, el activo pasa a `gcp`, la réplica se promueve, el DNS cambia a 10.80.0.2 y un dato confirmado antes de la caída sigue presente; el evento de conmutación es `automatico`, `completado` y con RTO mayor que 0; el retorno aprobado vuelve a `cpd`. La línea final dice «verificado: quórum, conmutación automática con RTO/RPO medidos y retorno guiado».
+**Resultado esperado.** Tres sitios (`cpd` primario, `gcp` respaldo y `testigo`) con voto `primario_sano`, sitio activo `cpd`, quórum «2 de 3» y el registro DNS con `"host":"10.80.0.1"`. El simulacro queda `completado` con el paso «verificar réplica al día» y los bytes de WAL sin aplicar. `check:d05` muestra que con un solo agente activo el sitio sigue siendo `cpd` y la réplica no se promueve; con quórum, el activo pasa a `gcp`, la réplica se promueve, el DNS cambia a 10.80.0.2 y un dato confirmado antes de la caída sigue presente; el evento de conmutación es `automatico`, `completado` y con RTO mayor que 0; el retorno, solicitado por una persona y aprobado por otra, vuelve a `cpd`. La última línea empieza con «verificado:».
 
 **Autoevaluación.**
 
@@ -229,7 +229,7 @@ S2: avisa que un componente no responde, lo que no significa por sí solo que el
 <details>
 <summary>Respuestas</summary>
 
-Porque podría ser un corte de red entre ese agente y el CPD, con el CPD sirviendo: conmutar dejaría dos sitios activos. El quórum de 2 de 3 lo evita. El retorno es guiado y con aprobación para no rebotar entre sitios y para que una persona confirme que el CPD está listo y la réplica sincronizada.
+Porque podría ser un corte de red entre ese agente y el CPD, con el CPD sirviendo: conmutar dejaría dos sitios activos. El quórum de 2 de 3 lo evita. El retorno lo solicita una persona y lo aprueba otra, para no rebotar entre sitios y para que dos personas confirmen que el CPD está listo y su base al día.
 
 </details>
 

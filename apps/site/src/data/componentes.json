@@ -1,5 +1,5 @@
 {
-  "$comment": "Componentes de terceros y su licencia. La columna 'En el laboratorio' NO se escribe a mano: scripts/gen-repo-docs.mjs la calcula desde deploy/compose (imagen del servicio, imagen base del Dockerfile o ARG del Dockerfile). Sin 'laboratorio' = no incluido todavía.",
+  "$comment": "Componentes de terceros y su licencia. La columna 'En el laboratorio' NO se escribe a mano: scripts/gen-repo-docs.mjs la calcula desde deploy/compose (imagen del servicio, imagen base del Dockerfile o ARG del Dockerfile). Sin 'laboratorio' = no corre en el laboratorio.",
   "componentes": [
     {
       "funcion": "Gateway, Publisher, Dev Portal, Admin y Key Manager",

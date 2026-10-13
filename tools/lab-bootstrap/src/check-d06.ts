@@ -11,11 +11,13 @@ const wso2 = new Wso2Client({
   auth: { type: "basic", username: "admin", password: process.env.APIM_ADMIN_PASSWORD ?? "admin" },
   tls: { rejectUnauthorized: false },
 });
-const log = (m: string, x?: unknown) => console.log(`[D-06] ${m}${x !== undefined ? ` ${JSON.stringify(x)}` : ""}`);
+const log = (m: string, x?: unknown) =>
+  console.log(`[D-06] ${m}${x !== undefined ? ` ${JSON.stringify(x)}` : ""}`);
 
 async function approveAll(type: string) {
   const pending = await wso2.admin.listWorkflows(type);
-  for (const w of pending.list) await wso2.admin.resolveWorkflow(w.referenceId, "APPROVED", "Aprobado (verificación D-06)");
+  for (const w of pending.list)
+    await wso2.admin.resolveWorkflow(w.referenceId, "APPROVED", "Aprobado (verificación D-06)");
 }
 
 async function main() {
@@ -26,14 +28,19 @@ async function main() {
   const ws = apis.find((a) => a.name === "EventosRed");
   if (!gql || !ws) throw new Error("faltan las APIs ConcesionesGraphQL o EventosRed");
   const subs = (await wso2.devportal.listSubscriptions(app.applicationId)).list;
-  for (const [api, plan] of [[gql, "Unlimited"], [ws, "AsyncUnlimited"]] as const) {
+  for (const [api, plan] of [
+    [gql, "Unlimited"],
+    [ws, "AsyncUnlimited"],
+  ] as const) {
     if (!subs.some((s) => s.apiId === api.id || s.apiInfo?.id === api.id)) {
       await wso2.devportal.subscribe(app.applicationId, api.id, plan);
       log(`suscripción solicitada a ${api.name}`);
     }
   }
   await approveAll("AM_SUBSCRIPTION_CREATION");
-  const key = (await wso2.devportal.listKeys(app.applicationId)).list.find((k) => k.keyManager === "Keycloak");
+  const key = (await wso2.devportal.listKeys(app.applicationId)).list.find(
+    (k) => k.keyManager === "Keycloak",
+  );
   const tok = await fetch("http://keycloak:8080/realms/nexo/protocol/openid-connect/token", {
     method: "POST",
     headers: {
@@ -78,7 +85,9 @@ async function main() {
         resolve();
       }
     });
-    sock.on("unexpected-response", (_req, res) => reject(new Error(`WebSocket rechazado: ${res.statusCode}`)));
+    sock.on("unexpected-response", (_req, res) =>
+      reject(new Error(`WebSocket rechazado: ${res.statusCode}`)),
+    );
     sock.on("error", reject);
   });
   log("D-06 verificado: GraphQL y eventos (AsyncAPI) operan a través del gateway con token Keycloak");

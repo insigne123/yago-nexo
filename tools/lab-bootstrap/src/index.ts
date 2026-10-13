@@ -74,7 +74,8 @@ async function kc<T>(token: string, method: string, path: string, body?: unknown
     headers: { authorization: `Bearer ${token}`, ...(body ? { "content-type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok && res.status !== 409) throw new Error(`Keycloak ${method} ${path}: ${res.status} ${await res.text()}`);
+  if (!res.ok && res.status !== 409)
+    throw new Error(`Keycloak ${method} ${path}: ${res.status} ${await res.text()}`);
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;
 }
@@ -94,7 +95,11 @@ async function ensureDefaultScope(): Promise<void> {
   }
   if (!scope) throw new Error("no se pudo crear el client scope default");
   await kc(token, "PUT", `/default-default-client-scopes/${scope.id}`);
-  const clients = await kc<Array<{ id: string; clientId: string }>>(token, "GET", "/clients?clientId=wso2-km");
+  const clients = await kc<Array<{ id: string; clientId: string }>>(
+    token,
+    "GET",
+    "/clients?clientId=wso2-km",
+  );
   if (clients[0]) await kc(token, "PUT", `/clients/${clients[0].id}/default-client-scopes/${scope.id}`);
   log("Keycloak: scope 'default' disponible para las aplicaciones");
 }
@@ -121,7 +126,8 @@ async function ensureKeyManager(): Promise<void> {
     name: "Keycloak",
     displayName: "Keycloak institucional",
     type: "KeyCloak",
-    description: "Keycloak como Key Manager de Nexo (BT-025). En producción apunta al Keycloak institucional.",
+    description:
+      "Keycloak como Key Manager de Nexo (BT-025). En producción apunta al Keycloak institucional.",
     enabled: true,
     wellKnownEndpoint: `${base}/.well-known/openid-configuration`,
     issuer: base,
@@ -174,12 +180,16 @@ async function ensureConcesionesApi(): Promise<ApiSummary> {
     return found;
   }
   // Contrato versionado en el repositorio (cumple la guía de estilo; la política de gobierno lo exige).
-  const spec = readFileSync(new URL("../../../wso2/apim/apis/concesiones/openapi.yaml", import.meta.url), "utf8");
+  const spec = readFileSync(
+    new URL("../../../wso2/apim/apis/concesiones/openapi.yaml", import.meta.url),
+    "utf8",
+  );
   const api = await wso2.publisher.importOpenApi(spec, {
     name: "Concesiones",
     version: "1.0.0",
     context: "/concesiones",
-    description: "Consulta y solicitud de concesiones de telecomunicaciones (datos sintéticos de laboratorio)",
+    description:
+      "Consulta y solicitud de concesiones de telecomunicaciones (datos sintéticos de laboratorio)",
     policies: ["Unlimited", "Gold", "Silver"],
     securityScheme: ["oauth2", "oauth_basic_auth_api_key_mandatory"],
     keyManagers: ["Keycloak"],
@@ -196,7 +206,11 @@ async function ensureConcesionesApi(): Promise<ApiSummary> {
       technicalOwnerEmail: "devops@ejemplo.invalid",
     },
     additionalProperties: [
-      { name: "proposito", value: "Consultar y registrar concesiones de servicios de telecomunicaciones", display: true },
+      {
+        name: "proposito",
+        value: "Consultar y registrar concesiones de servicios de telecomunicaciones",
+        display: true,
+      },
       { name: "audiencia", value: "operadores", display: true },
       { name: "clasificacion", value: "publica", display: true },
     ],
@@ -215,7 +229,10 @@ async function ensureConcesionesApi(): Promise<ApiSummary> {
  * suscripción queda pendiente. El arranque del laboratorio actúa como aprobador institucional
  * usando la Admin REST API (lo mismo que hace la Consola Nexo).
  */
-async function approvePending(workflowType: string, match: (props: Record<string, unknown>) => boolean): Promise<number> {
+async function approvePending(
+  workflowType: string,
+  match: (props: Record<string, unknown>) => boolean,
+): Promise<number> {
   const pending = await wso2.admin.listWorkflows(workflowType);
   let n = 0;
   for (const w of pending.list) {
@@ -233,7 +250,10 @@ async function ensureConsumerApp(apiId: string): Promise<{ consumerKey: string; 
   const apps = await wso2.devportal.listApplications();
   let app = apps.list.find((a) => a.name === appName);
   if (!app) {
-    app = await wso2.devportal.createApplication(appName, "Aplicación de un operador de telecomunicaciones (sintético)");
+    app = await wso2.devportal.createApplication(
+      appName,
+      "Aplicación de un operador de telecomunicaciones (sintético)",
+    );
     log("Dev Portal: aplicación creada", { id: app.applicationId, estado: app.status });
   }
   if (app.status && app.status !== "APPROVED") {
@@ -242,15 +262,24 @@ async function ensureConsumerApp(apiId: string): Promise<{ consumerKey: string; 
   const keys = await wso2.devportal.listKeys(app.applicationId);
   let key = keys.list.find((k) => k.keyManager === "Keycloak" && k.keyType === "PRODUCTION");
   if (!key) {
-    key = await wso2.devportal.generateKeys(app.applicationId, "Keycloak", ["client_credentials"], "PRODUCTION", {
-      subject_type: "public",
-      token_endpoint_auth_method: "client_secret_basic",
-      tls_client_certificate_bound_access_tokens: "false",
-    });
+    key = await wso2.devportal.generateKeys(
+      app.applicationId,
+      "Keycloak",
+      ["client_credentials"],
+      "PRODUCTION",
+      {
+        subject_type: "public",
+        token_endpoint_auth_method: "client_secret_basic",
+        tls_client_certificate_bound_access_tokens: "false",
+      },
+    );
     log("Dev Portal: credenciales solicitadas en Keycloak", { estado: key.keyState });
   }
   if (!key.consumerKey || key.keyState === "CREATED") {
-    await approvePending("AM_APPLICATION_REGISTRATION_PRODUCTION", (p) => p.applicationName === appName || !p.applicationName);
+    await approvePending(
+      "AM_APPLICATION_REGISTRATION_PRODUCTION",
+      (p) => p.applicationName === appName || !p.applicationName,
+    );
     const again = await wso2.devportal.listKeys(app.applicationId);
     key = again.list.find((k) => k.keyManager === "Keycloak" && k.keyType === "PRODUCTION") ?? key;
     log("Dev Portal: credenciales emitidas", { consumerKey: key.consumerKey });
@@ -266,9 +295,13 @@ async function ensureConsumerApp(apiId: string): Promise<{ consumerKey: string; 
   }
   const subsNow = await wso2.devportal.listSubscriptions(app.applicationId);
   if (subsNow.list.some((s) => (s.apiId === apiId || s.apiInfo?.id === apiId) && s.status === "ON_HOLD")) {
-    await approvePending("AM_SUBSCRIPTION_CREATION", (p) => p.applicationName === appName || !p.applicationName);
+    await approvePending(
+      "AM_SUBSCRIPTION_CREATION",
+      (p) => p.applicationName === appName || !p.applicationName,
+    );
   }
-  if (!key.consumerKey || !key.consumerSecret) throw new Error("las llaves no traen consumerKey/consumerSecret");
+  if (!key.consumerKey || !key.consumerSecret)
+    throw new Error("las llaves no traen consumerKey/consumerSecret");
   return { consumerKey: key.consumerKey, consumerSecret: key.consumerSecret };
 }
 
@@ -287,11 +320,18 @@ async function endToEnd(creds: { consumerKey: string; consumerSecret: string }):
 
   const url = `${CFG.gateway}/concesiones/1.0.0/concesiones?estado=vigente`;
   for (let i = 1; i <= 20; i++) {
-    const res = await fetch(url, { headers: { authorization: `Bearer ${access_token}` }, dispatcher: insecure });
+    const res = await fetch(url, {
+      headers: { authorization: `Bearer ${access_token}` },
+      dispatcher: insecure,
+    });
     const body = await res.text();
     if (res.status === 200) {
       const parsed = JSON.parse(body) as { total: number; version: string };
-      log("PRUEBA DE PUNTA A PUNTA OK: gateway → backend", { status: 200, total: parsed.total, version: parsed.version });
+      log("PRUEBA DE PUNTA A PUNTA OK: gateway → backend", {
+        status: 200,
+        total: parsed.total,
+        version: parsed.version,
+      });
       const denied = await fetch(url, { dispatcher: insecure });
       log("Sin token el gateway rechaza la llamada", { status: denied.status });
       return;

@@ -27,7 +27,12 @@ async function main() {
     app: args.app,
     onSecond: args.silencioso
       ? undefined
-      : (s) => console.log(`[carga] t=${String(s.t).padStart(3)}s ok=${s.ok} err=${s.errores} ${Object.entries(s.versiones).map(([k, n]) => `v${k}:${n}`).join(" ")}`),
+      : (s) =>
+          console.log(
+            `[carga] t=${String(s.t).padStart(3)}s ok=${s.ok} err=${s.errores} ${Object.entries(s.versiones)
+              .map(([k, n]) => `v${k}:${n}`)
+              .join(" ")}`,
+          ),
   });
   console.log(`[carga] resumen: ${JSON.stringify({ ...res, timeline: undefined })}`);
   if (args.salida) writeFileSync(args.salida, JSON.stringify(res, null, 2));

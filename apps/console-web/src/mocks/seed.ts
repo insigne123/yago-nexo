@@ -7,6 +7,7 @@ import type {
   Classification,
   DeadLetter,
   DiscoveryFinding,
+  FailbackRequest,
   GraphEdge,
   GraphNode,
   SiteHealth,
@@ -20,12 +21,13 @@ import type {
   ConsumerRecord,
   FailoverRecord,
   MockState,
+  PlannedStep,
   RolloutRecord,
   ScanRecord,
   Subscription,
 } from "./types";
 
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -103,7 +105,7 @@ const API_SEEDS: ApiSeed[] = [
     audience: "operadores",
     state: "PUBLISHED",
     classification: "reservada",
-    authType: "WS-Security y mTLS (PISEE)",
+    authType: "OAuth2 (client credentials) con Keycloak",
     ownerTeam: "Unidad de Interoperabilidad",
     withContact: true,
     purpose:
@@ -404,25 +406,37 @@ function buildGraph(
     });
   }
   const flows: Array<[string, string, string]> = [
-    ["flujo-concesiones", "Orquestación de concesiones", "Valida el operador en PISEE y consulta Oracle."],
-    ["flujo-pisee", "Mediación SOAP con PISEE", "Transforma SOAP 1.2 y firma WS-Security."],
+    [
+      "flujo-concesiones",
+      "Orquestación de concesiones",
+      "Valida el operador en PISEE y consulta la base de concesiones.",
+    ],
+    [
+      "flujo-pisee",
+      "Mediación SOAP con PISEE",
+      "Transforma la solicitud JSON en SOAP 1.2 y la respuesta SOAP en JSON.",
+    ],
     ["flujo-reclamos", "Ingreso de reclamos", "Valida con JSON Schema, guarda y publica en la cola."],
     ["flujo-portabilidad", "Sincronización de portabilidad", "Orquesta la solicitud con el sistema OAP."],
     ["flujo-espectro", "Consulta de espectro", "Lee asignaciones desde el sistema SAE."],
     ["flujo-calidad", "ETL de indicadores", "Consulta vistas analíticas en BigQuery."],
     ["flujo-incidentes", "Publicación de incidentes", "Distribuye eventos a los suscriptores."],
     ["flujo-tramites", "Resolución GraphQL de trámites", "Une reclamos y solicitudes en una sola consulta."],
-    ["flujo-infraestructura", "Consulta de infraestructura", "Lee antenas autorizadas desde Oracle."],
+    [
+      "flujo-infraestructura",
+      "Consulta de infraestructura",
+      "Lee antenas autorizadas desde la base de infraestructura.",
+    ],
   ];
   for (const [id, label, detalle] of flows)
     nodes.push({ id, type: "flujo", label, meta: { motor: "Micro Integrator 4.6.0", detalle } });
   const systems: Array<[string, string, string]> = [
-    ["sis-oracle", "Oracle Concesiones (CPD)", "Oracle 19c"],
+    ["sis-oracle", "Base de concesiones (CPD)", "Base relacional (JDBC)"],
     ["sis-pisee", "PISEE (interoperabilidad del Estado)", "SOAP 1.2"],
     ["sis-rabbitmq", "RabbitMQ Nexo", "RabbitMQ 4.3"],
     ["sis-cloudsql", "Cloud SQL Reclamos (GCP)", "PostgreSQL 16"],
     ["sis-oap", "Sistema de portabilidad (OAP)", "REST externo"],
-    ["sis-sae", "Sistema de administración de espectro", "Oracle 19c"],
+    ["sis-sae", "Sistema de administración de espectro", "Base relacional (JDBC)"],
     ["sis-bigquery", "BigQuery Analítica (GCP)", "BigQuery"],
   ];
   for (const [id, label, tecnologia] of systems)
@@ -482,11 +496,12 @@ function buildGraph(
   link("sis-oap", "dato-portabilidad", "escribe", "openmetadata");
   link("sis-sae", "dato-banda", "escribe", "openmetadata");
   link("sis-bigquery", "dato-indicadores", "escribe", "openmetadata");
-  link("dato-reclamo", "rep-reclamos", "transforma", "openmetadata");
-  link("dato-indicadores", "rep-calidad", "transforma", "openmetadata");
-  link("dato-indicadores", "rep-mercado", "transforma", "openmetadata");
-  link("dato-concesion", "rep-mercado", "transforma", "openmetadata");
-  link("dato-banda", "rep-espectro", "transforma", "openmetadata");
+  // Como en nexo.graph_edge, la arista va de quien depende hacia lo que usa: el reporte lee el dato.
+  link("rep-reclamos", "dato-reclamo", "lee", "openmetadata");
+  link("rep-calidad", "dato-indicadores", "lee", "openmetadata");
+  link("rep-mercado", "dato-indicadores", "lee", "openmetadata");
+  link("rep-mercado", "dato-concesion", "lee", "openmetadata");
+  link("rep-espectro", "dato-banda", "lee", "openmetadata");
   return { nodes, edges };
 }
 
@@ -528,84 +543,79 @@ function sites(now: number): SiteHealth[] {
   ];
 }
 
-export const DRILL_STEPS = [
+/**
+ * Simulacro tal como lo hace el agente de continuidad (services/engines/src/continuity/engine.ts): no conmuta ni
+ * afecta el tráfico; mide el rezago de la réplica y confirma que es promovible, sin promoverla.
+ */
+export const DRILL_STEPS: PlannedStep[] = [
   {
     offsetMs: 0,
-    name: "Inicio del simulacro",
-    detail: "Se aísla el sitio CPD del recorrido sintético (sin afectar el tráfico real).",
+    name: "Verificar réplica al día",
+    detail: "0 bytes de WAL sin aplicar en la réplica de Google Cloud.",
   },
   {
     offsetMs: 1500,
-    name: "Votación de los agentes",
-    detail: "GCP y el testigo informan «primario caído»: quórum 2 de 3 alcanzado.",
+    name: "Estimar tiempo de preparación",
+    detail: "Réplica promovible, comprobada sin promover; el tráfico sigue en el sitio principal.",
+  },
+];
+
+/**
+ * Conmutación con los pasos del agente de continuidad: la ejecuta el sitio de respaldo cuando 2 de 3 votos
+ * indican que el primario cayó (modo automático). En la demo se provoca con la herramienta del modo simulado.
+ */
+export const FAILOVER_STEPS: PlannedStep[] = [
+  {
+    offsetMs: 0,
+    name: "Medir rezago de replicación",
+    detail: "0 bytes de WAL sin aplicar.",
+  },
+  {
+    offsetMs: 1500,
+    name: "Cerrar escritura en el primario",
+    detail: "Primario no responde (no fue necesario).",
   },
   {
     offsetMs: 3000,
-    name: "Cerrar la escritura en el CPD",
-    detail: "Se bloquea la escritura en PostgreSQL del CPD para evitar dos sitios activos.",
+    name: "Promover la réplica de PostgreSQL",
+    detail: "Lista para escribir en 850 ms.",
   },
   {
-    offsetMs: 5000,
-    name: "Promover la réplica en GKE",
-    detail: "CloudNativePG promueve la réplica de PostgreSQL a primaria.",
-  },
-  {
-    offsetMs: 7500,
-    name: "Escalar gateways e integrador en GKE",
-    detail: "Gateways de WSO2 y Micro Integrator pasan de 1 a 3 réplicas.",
-  },
-  {
-    offsetMs: 9500,
-    name: "Actualizar DNS y balanceador global",
-    detail: "api.cliente.invalid apunta al balanceador de Google Cloud.",
-  },
-  {
-    offsetMs: 11500,
-    name: "Recorrido sintético en GCP",
-    detail: "Token, API Concesiones y flujo SOAP responden correctamente.",
-  },
-  {
-    offsetMs: 12500,
-    name: "Aviso a mesa de soporte y SIEM",
-    detail: "Se registra el evento con el RTO y el RPO medidos.",
+    offsetMs: 4500,
+    name: "Reapuntar el DNS al sitio activo",
+    detail: "api.cliente.invalid apunta a Google Cloud (TTL 10 s).",
   },
 ];
 
-export const FAILBACK_STEPS = [
-  { offsetMs: 0, name: "Retorno aprobado", detail: "Aprobación registrada en la auditoría." },
+/**
+ * Pasos del retorno tal como los ejecuta el agente de continuidad (services/engines/src/continuity/engine.ts):
+ * reapunta el DNS y fija el sitio activo. No copia datos ni promueve bases: la réplica del respaldo la
+ * reconstruye el operador desde el primario (pg_basebackup), y ese paso queda «pendiente» hasta entonces.
+ */
+export const FAILBACK_STEPS: PlannedStep[] = [
+  {
+    offsetMs: 0,
+    name: "Retorno aprobado",
+    detail: "Una persona lo solicitó y otra lo aprobó; ambas acciones quedan en la auditoría.",
+  },
   {
     offsetMs: 1500,
-    name: "Replicación inversa GKE → CPD",
-    detail: "El CPD recupera los cambios hechos mientras operó el respaldo.",
+    name: "Reapuntar el DNS al sitio primario",
+    detail: "api.cliente.invalid vuelve a apuntar al CPD y el sitio activo queda registrado en etcd.",
   },
   {
-    offsetMs: 3500,
-    name: "Congelar la escritura en GCP",
-    detail: "Ventana de escritura cerrada para el corte final.",
+    offsetMs: 2500,
+    name: "Re-sincronizar la réplica",
+    status: "pendiente",
+    detail:
+      "Pendiente: el respaldo quedó promovido; reconstruya su réplica desde el primario (pg_basebackup) antes de volver a conmutar.",
   },
-  {
-    offsetMs: 5000,
-    name: "Promover la base de datos del CPD",
-    detail: "PostgreSQL del CPD vuelve a ser la primaria.",
-  },
-  {
-    offsetMs: 7000,
-    name: "Actualizar DNS y balanceador global",
-    detail: "api.cliente.invalid vuelve a apuntar al CPD.",
-  },
-  {
-    offsetMs: 8500,
-    name: "Recorrido sintético en el CPD",
-    detail: "Token, API Concesiones y flujo SOAP responden correctamente.",
-  },
-  { offsetMs: 9500, name: "Reducir réplicas en GKE", detail: "El respaldo vuelve a modo en espera." },
-  { offsetMs: 10000, name: "Aviso a mesa de soporte y SIEM", detail: "Se cierra el evento de continuidad." },
 ];
 
-function stepsAt(base: number, plan: typeof DRILL_STEPS): FailoverRecord["steps"] {
+function stepsAt(base: number, plan: readonly PlannedStep[]): FailoverRecord["steps"] {
   return plan.map((s) => ({
     name: s.name,
-    status: "ok",
+    status: s.status ?? "ok",
     ts: new Date(base + s.offsetMs * 30).toISOString(),
     detail: s.detail,
   }));
@@ -1037,6 +1047,7 @@ function rollouts(now: number): RolloutRecord[] {
       stableEndpoint: "https://concesiones-v12.interno.cliente.invalid",
       steps: [5, 25, 50, 100],
       stepDurationSec: 60,
+      shadowSeconds: 0,
       thresholds,
       environment: "prod",
       status: "en_curso",
@@ -1074,6 +1085,7 @@ function rollouts(now: number): RolloutRecord[] {
       stableEndpoint: "https://reclamos-v21.interno.cliente.invalid",
       steps: [5, 25, 50, 100],
       stepDurationSec: 60,
+      shadowSeconds: 0,
       thresholds,
       environment: "prod",
       status: "revertido",
@@ -1105,6 +1117,7 @@ function rollouts(now: number): RolloutRecord[] {
       stableEndpoint: "https://espectro-verde.interno.cliente.invalid",
       steps: [100],
       stepDurationSec: 120,
+      shadowSeconds: 0,
       thresholds,
       environment: "prod",
       status: "completado",
@@ -1134,6 +1147,7 @@ function rollouts(now: number): RolloutRecord[] {
       stableEndpoint: "https://portabilidad-v30.interno.cliente.invalid",
       steps: [5, 25, 50, 100],
       stepDurationSec: 60,
+      shadowSeconds: 0,
       thresholds: { maxErrorRate: 0.01, maxP99Ms: 900, minRequests: 30 },
       environment: "prod",
       status: "pendiente_aprobacion",
@@ -1147,22 +1161,24 @@ function rollouts(now: number): RolloutRecord[] {
 }
 
 function failovers(now: number): FailoverRecord[] {
-  const drillStart = now - 9 * DAY;
-  const backStart = drillStart + 2 * HOUR;
+  const outageStart = now - 9 * DAY;
+  const backStart = outageStart + 2 * HOUR;
+  const drillStart = now - 2 * DAY;
   return [
     {
       id: "fo-0001",
-      kind: "simulacro",
-      trigger: "simulacro",
+      kind: "conmutacion",
+      trigger: "automatico",
       from: "cpd",
       to: "gcp",
-      startedAt: new Date(drillStart).toISOString(),
-      finishedAt: new Date(drillStart + 412_000).toISOString(),
+      startedAt: new Date(outageStart).toISOString(),
+      finishedAt: new Date(outageStart + 412_000).toISOString(),
       rtoSeconds: 412,
-      rpoSecondsEstimated: 3,
-      steps: stepsAt(drillStart, DRILL_STEPS),
+      rpoSecondsEstimated: 0,
+      steps: stepsAt(outageStart, FAILOVER_STEPS),
       status: "completado",
-      initiatedBy: "carla.operacion",
+      requestedBy: "nexo-continuidad@gcp",
+      initiatedBy: "nexo-continuidad@gcp",
     },
     {
       id: "fo-0002",
@@ -1171,13 +1187,46 @@ function failovers(now: number): FailoverRecord[] {
       from: "gcp",
       to: "cpd",
       startedAt: new Date(backStart).toISOString(),
-      finishedAt: new Date(backStart + 380_000).toISOString(),
-      rtoSeconds: 380,
-      rpoSecondsEstimated: 0,
+      finishedAt: new Date(backStart + 75_000).toISOString(),
       steps: stepsAt(backStart, FAILBACK_STEPS),
       status: "completado",
+      requestedBy: "carla.operacion",
       approvedBy: "luis.aprobador",
-      initiatedBy: "luis.aprobador",
+      initiatedBy: "carla.operacion",
+    },
+    {
+      id: "fo-0003",
+      kind: "simulacro",
+      trigger: "simulacro",
+      from: "cpd",
+      to: "gcp",
+      startedAt: new Date(drillStart).toISOString(),
+      finishedAt: new Date(drillStart + 60_000).toISOString(),
+      rpoSecondsEstimated: 0,
+      steps: stepsAt(drillStart, DRILL_STEPS),
+      status: "completado",
+      initiatedBy: "carla.operacion",
+    },
+  ];
+}
+
+/** Historial: la solicitud que dio origen al retorno fo-0002 (solicitó la operadora, aprobó el aprobador). */
+function failbackRequests(now: number): FailbackRequest[] {
+  const backStart = now - 9 * DAY + 2 * HOUR;
+  return [
+    {
+      id: "ret-0001",
+      fromSite: "gcp",
+      toSite: "cpd",
+      reason: "El CPD volvió a estar sano y su base está al día con la del respaldo.",
+      status: "aprobada",
+      requestedBy: "carla.operacion",
+      requestedAt: new Date(backStart - 12 * MIN).toISOString(),
+      expiresAt: new Date(backStart + 18 * MIN).toISOString(),
+      decidedBy: "luis.aprobador",
+      decidedAt: new Date(backStart).toISOString(),
+      decisionReason: "Conforme",
+      failoverEventId: "fo-0002",
     },
   ];
 }
@@ -1263,7 +1312,7 @@ function deadLetters(now: number, synth: SyntheticData): DeadLetter[] {
       id: "dlq-0006",
       queue: "nexo.concesiones.dlq",
       flow: "Orquestación de concesiones",
-      error: "Oracle ORA-12541: no hay listener (mantención programada).",
+      error: "JDBC: conexión rechazada por la base de concesiones (mantención programada).",
       attempts: 5,
       firstFailedAt: ago(3 * DAY),
       status: "reprocesado",
@@ -1277,81 +1326,28 @@ function deadLetters(now: number, synth: SyntheticData): DeadLetter[] {
   ];
 }
 
+/**
+ * Los 4 canales que sondea la API de la Consola (NEXO_TLS_PROBES de apps/console-api/src/config.ts), con la misma
+ * forma de respuesta: protocolo y cifrado negociados con TLS 1.2-1.3 y si el canal rechaza TLS 1.0. Los valores
+ * son simulados; en una instalación los mide la API en cada consulta.
+ */
 function tlsChannels(now: number): TlsChannel[] {
   const v = new Date(now - 2 * HOUR).toISOString();
+  const channel = (canal: string, origen: string, destino: string) => ({
+    canal,
+    origen,
+    destino,
+    protocolo: "HTTPS",
+    versiones: ["TLSv1.3"],
+    cifrado: "TLS_AES_256_GCM_SHA384",
+    verificado: v,
+    rechazaTls10: true,
+  });
   return [
-    {
-      canal: "Consumidores → Gateway",
-      origen: "Internet",
-      destino: "Gateway WSO2 (CPD)",
-      protocolo: "HTTPS",
-      versiones: ["TLSv1.3", "TLSv1.2"],
-      cifrado: "TLS_AES_256_GCM_SHA384; ECDHE-RSA-AES256-GCM-SHA384",
-      verificado: v,
-    },
-    {
-      canal: "Operadores (mTLS) → Gateway",
-      origen: "Redes de operadores",
-      destino: "Gateway WSO2 (CPD)",
-      protocolo: "HTTPS con mTLS",
-      versiones: ["TLSv1.3"],
-      cifrado: "TLS_AES_256_GCM_SHA384",
-      verificado: v,
-    },
-    {
-      canal: "Gateway → Micro Integrator",
-      origen: "Gateway WSO2",
-      destino: "Micro Integrator",
-      protocolo: "HTTPS con mTLS",
-      versiones: ["TLSv1.3"],
-      cifrado: "TLS_AES_128_GCM_SHA256",
-      verificado: v,
-    },
-    {
-      canal: "Micro Integrator → PISEE",
-      origen: "Micro Integrator",
-      destino: "PISEE",
-      protocolo: "HTTPS y WS-Security",
-      versiones: ["TLSv1.2"],
-      cifrado: "ECDHE-RSA-AES256-GCM-SHA384",
-      verificado: v,
-    },
-    {
-      canal: "Consola → API de la Consola",
-      origen: "Navegador",
-      destino: "API de la Consola",
-      protocolo: "HTTPS",
-      versiones: ["TLSv1.3"],
-      cifrado: "TLS_AES_256_GCM_SHA384",
-      verificado: v,
-    },
-    {
-      canal: "API de la Consola → PostgreSQL",
-      origen: "API de la Consola",
-      destino: "PostgreSQL (nexo_console)",
-      protocolo: "TLS (verify-full)",
-      versiones: ["TLSv1.3"],
-      cifrado: "TLS_AES_256_GCM_SHA384",
-      verificado: v,
-    },
-    {
-      canal: "Replicación CPD → GKE",
-      origen: "PostgreSQL CPD",
-      destino: "CloudNativePG (GKE)",
-      protocolo: "TLS",
-      versiones: ["TLSv1.3"],
-      cifrado: "TLS_AES_256_GCM_SHA384",
-      verificado: v,
-    },
-    {
-      canal: "Fluent Bit → SIEM",
-      origen: "Fluent Bit",
-      destino: "SIEM institucional",
-      protocolo: "Syslog sobre TLS",
-      versiones: ["TLSv1.2"],
-      cifrado: "ECDHE-RSA-AES128-GCM-SHA256",
-      verificado: v,
-    },
+    channel("Gateway interno", "Consumidores internos y operadores", "apim:8243"),
+    channel("Control plane", "Portales y REST API", "apim:9443"),
+    channel("Gateway público", "Consumo público", "gw-publico:8243"),
+    channel("Integrador", "Gateway → integrador", "mi:8253"),
   ];
 }
 
@@ -1396,16 +1392,30 @@ const AUDIT_SEED: Array<{
   },
   {
     minutesAgo: 9 * 1440,
+    actor: "nexo-continuidad@gcp",
+    type: "tecnico",
+    action: "continuidad.conmutar",
+    resource: "conmutacion/fo-0001",
+  },
+  {
+    minutesAgo: 2 * 1440,
     actor: "carla.operacion",
     action: "continuity.drill",
-    resource: "continuity/fo-0001",
+    resource: "continuity/fo-0003",
+    ip: "10.20.1.43",
+  },
+  {
+    minutesAgo: 9 * 1440 - 132,
+    actor: "carla.operacion",
+    action: "continuidad.retorno.solicitar",
+    resource: "retorno/ret-0001",
     ip: "10.20.1.43",
   },
   {
     minutesAgo: 9 * 1440 - 120,
     actor: "luis.aprobador",
-    action: "continuity.failback.approve",
-    resource: "continuity/fo-0002",
+    action: "continuidad.retorno.aprobar",
+    resource: "retorno/ret-0001",
     ip: "10.20.1.32",
   },
   {
@@ -1425,8 +1435,8 @@ const AUDIT_SEED: Array<{
   {
     minutesAgo: 2 * 1440 + 20,
     actor: "ana.desarrollo",
-    action: "rollout.approve",
-    resource: "rollout/rol-0003",
+    action: "acceso.rechazado.permiso",
+    resource: "/rollouts/rol-0003/approve",
     result: "rechazado",
     ip: "10.20.1.21",
   },
@@ -1483,7 +1493,8 @@ const AUDIT_SEED: Array<{
   {
     minutesAgo: 1440 - 10,
     actor: "consumidor.demo",
-    action: "audit.read",
+    action: "acceso.rechazado.permiso",
+    resource: "/audit-events",
     result: "rechazado",
     ip: "200.27.14.8",
   },
@@ -1685,7 +1696,16 @@ export function createSeed(now: number): MockState {
   return {
     version: STATE_VERSION,
     seededAt: now,
-    counters: { scan: 2, finding: 10, rule: 5, block: 2, rollout: 4, failover: 2, export: 1 },
+    counters: {
+      scan: 2,
+      finding: 10,
+      rule: 5,
+      block: 2,
+      rollout: 4,
+      failover: 3,
+      export: 1,
+      failbackRequest: 1,
+    },
     apis,
     consumers,
     subscriptions,
@@ -1706,6 +1726,7 @@ export function createSeed(now: number): MockState {
       rpoObjetivoMin: 5,
     },
     failovers: failovers(now),
+    failbackRequests: failbackRequests(now),
     deadLetters: deadLetters(now, synth),
     audit,
     tamper: null,

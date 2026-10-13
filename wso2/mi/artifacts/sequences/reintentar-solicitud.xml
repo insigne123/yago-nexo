@@ -2,6 +2,7 @@
 <!--
   Reintentos acotados con espera progresiva (2 s, 4 s y 8 s) y cola de mensajes fallidos (BT-007, BT-051).
   El mensaje original se restaura y se publica en nexo.reintentos con clave = intento siguiente.
+  Se reintentan las fallas del destino (5xx, red, tiempo de espera); un rechazo (4xx) va directo a fallidos.
 -->
 <sequence xmlns="http://ws.apache.org/ns/synapse" name="reintentar-solicitud">
   <filter xpath="string(number(get-property('intentos'))) = 'NaN'">
@@ -17,7 +18,9 @@
   <header name="x-intentos" scope="transport" expression="get-property('siguiente')"/>
   <header name="x-correlacion" scope="transport" expression="get-property('correlacion')"/>
   <header name="x-motivo" scope="transport" expression="get-property('motivo')"/>
-  <filter xpath="number(get-property('intentos')) &lt; 3">
+  <!-- Se reintenta solo si quedan intentos y la falla es reintentable (procesar-solicitud marca reintentable=false
+       cuando el destino rechaza el mensaje con un 4xx). -->
+  <filter xpath="number(get-property('intentos')) &lt; 3 and not(get-property('reintentable') = 'false')">
     <then>
       <log level="custom">
         <property name="etapa" value="8-reintento-programado"/>
@@ -36,6 +39,7 @@
         <property name="etapa" value="9-enviado-a-fallidos"/>
         <property name="correlacion" expression="get-property('correlacion')"/>
         <property name="motivo" expression="get-property('motivo')"/>
+        <property name="intentos" expression="get-property('siguiente')"/>
       </log>
       <call>
         <endpoint key="ColaFallidosEP"/>

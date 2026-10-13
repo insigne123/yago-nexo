@@ -103,7 +103,8 @@ export function TicketsListPage() {
                     <SlaClocks clocks={t.clocks} now={now} compact />
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-600">
-                    {formatDateTime(t.created_at)}
+                    {/* En un ticket telefónico la recepción es la hora real de la llamada. */}
+                    {formatDateTime(t.call_received_at ?? t.created_at)}
                   </td>
                 </tr>
               ))}

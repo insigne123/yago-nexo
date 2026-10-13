@@ -130,6 +130,7 @@ El chart solo referencia Secrets que ya existen en el espacio de nombres (`secre
 | `nexo-mi` | `admin-password` | Management API del integrador |
 | `nexo-rabbitmq` | `password` | Usuario `nexo` de RabbitMQ |
 | `nexo-keycloak-km` | `client-secret` | Cliente técnico `wso2-km` de Keycloak |
+| `nexo-alertas` | `token` | Token que exige el webhook de alertas de la Consola; Alertmanager envía el mismo valor (README del chart, «Alertas hacia la Consola») |
 | `nexo-wso2-almacen` | `wso2carbon.jks`, `client-truststore.jks`, `keystore-password` | Almacenes de llaves de WSO2 (producción y respaldo) |
 | `nexo-ca-interna` | `ca.crt` | CA de los certificados internos de WSO2 |
 | `nexo-tls` | `tls.crt`, `tls.key` | Certificado de los nombres públicos |

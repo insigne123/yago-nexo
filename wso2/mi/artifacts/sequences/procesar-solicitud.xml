@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Consumidor de la cola solicitudes.nuevas: registra la solicitud en el sistema de destino.
-  Si falla, la deriva a reintento con espera progresiva o, agotados los intentos, a la cola de fallidos.
+  Si el destino falla (5xx, error de red o tiempo de espera), la deriva a reintento con espera progresiva o,
+  agotados los intentos, a la cola de fallidos. Si el destino la rechaza (4xx), va directo a fallidos sin reintentos.
   El sistema de destino recibe la Idempotency-Key, así un reintento no duplica efectos (BT-051).
 -->
 <sequence xmlns="http://ws.apache.org/ns/synapse" name="procesar-solicitud" onError="error-solicitud">
@@ -42,6 +43,15 @@
     </then>
     <else>
       <property name="motivo" expression="fn:concat('HTTP ', $axis2:HTTP_SC)"/>
+      <!-- Solo un 5xx (falla del destino) se reintenta. Un 4xx, o cualquier otra respuesta que no sea 2xx ni 5xx,
+           es un rechazo del destino: repetir el mismo mensaje no cambia el resultado, así que va directo a fallidos
+           sin reintentos. Las fallas de red y los tiempos de espera llegan por error-solicitud y sí se reintentan. -->
+      <filter source="$axis2:HTTP_SC" regex="5[0-9][0-9]">
+        <then/>
+        <else>
+          <property name="reintentable" value="false"/>
+        </else>
+      </filter>
       <sequence key="reintentar-solicitud"/>
     </else>
   </filter>

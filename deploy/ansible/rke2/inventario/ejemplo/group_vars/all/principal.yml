@@ -58,6 +58,7 @@ nexo_plataforma_secretos_requeridos:
   - nexo-mi
   - nexo-rabbitmq
   - nexo-keycloak-km
+  - nexo-alertas
   - nexo-continuidad
   - nexo-opensearch
   - nexo-wso2-almacen

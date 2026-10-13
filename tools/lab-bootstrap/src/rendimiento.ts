@@ -26,7 +26,17 @@ const raiz = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const K6 = process.env.K6_BIN ?? "k6";
 const SCRIPT = join(raiz, "tests/rendimiento/mezcla.js");
 const TOKEN_URL = `${process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo"}/protocol/openid-connect/token`;
-const CONTENEDORES = ["apim", "gw-publico", "mi", "keycloak", "postgres", "rabbitmq", "opensearch", "concesiones-v1", "registro-soap"];
+const CONTENEDORES = [
+  "apim",
+  "gw-publico",
+  "mi",
+  "keycloak",
+  "postgres",
+  "rabbitmq",
+  "opensearch",
+  "concesiones-v1",
+  "registro-soap",
+];
 const UMBRAL_P99 = { operadores: 1000, publico: 1000, integracion: 2000 } as const;
 type Tipo = keyof typeof UMBRAL_P99;
 
@@ -98,7 +108,12 @@ function muestrear(muestras: Muestra[]): () => void {
           const mem = s.MemUsage.split("/")[0]!.trim();
           const n = parseFloat(mem);
           const memMiB = mem.endsWith("GiB") ? n * 1024 : mem.endsWith("KiB") ? n / 1024 : n;
-          muestras.push({ t, contenedor: s.Name.replace(/^nexo-lab-|-1$/g, ""), cpu: parseFloat(s.CPUPerc), memMiB });
+          muestras.push({
+            t,
+            contenedor: s.Name.replace(/^nexo-lab-|-1$/g, ""),
+            cpu: parseFloat(s.CPUPerc),
+            memMiB,
+          });
         } catch {
           /* línea parcial */
         }
@@ -112,7 +127,11 @@ function muestrear(muestras: Muestra[]): () => void {
   };
 }
 
-function correrK6(fase: Fase, dir: string, cred: { key: string; secret: string }): Promise<{ resumen: Record<string, unknown>; codigo: number }> {
+function correrK6(
+  fase: Fase,
+  dir: string,
+  cred: { key: string; secret: string },
+): Promise<{ resumen: Record<string, unknown>; codigo: number }> {
   const resumen = join(dir, `k6-${fase.id}.json`);
   return new Promise((ok) => {
     const p = spawn(K6, ["run", "--quiet", "--no-color", SCRIPT], {
@@ -129,7 +148,12 @@ function correrK6(fase: Fase, dir: string, cred: { key: string; secret: string }
       },
       stdio: ["ignore", "inherit", "inherit"],
     });
-    p.on("close", (codigo) => ok({ resumen: JSON.parse(readFileSync(resumen, "utf8")) as Record<string, unknown>, codigo: codigo ?? 1 }));
+    p.on("close", (codigo) =>
+      ok({
+        resumen: JSON.parse(readFileSync(resumen, "utf8")) as Record<string, unknown>,
+        codigo: codigo ?? 1,
+      }),
+    );
   });
 }
 
@@ -156,8 +180,10 @@ function analizar(fase: Fase, r: Record<string, unknown>, muestras: Muestra[]): 
   const checksOk = m.checks?.values.rate ?? 0;
   const motivos: string[] = [];
   if (tasaError >= 0.01) motivos.push(`error ${(tasaError * 100).toFixed(2)}% ≥ 1%`);
-  for (const t of Object.keys(UMBRAL_P99) as Tipo[]) if (latencia[t].p99 > UMBRAL_P99[t]) motivos.push(`p99 ${t} ${latencia[t].p99} ms > ${UMBRAL_P99[t]} ms`);
-  if (perdidas > fase.tasa * seg * 0.02) motivos.push(`k6 no sostuvo la tasa (${perdidas} iteraciones no lanzadas)`);
+  for (const t of Object.keys(UMBRAL_P99) as Tipo[])
+    if (latencia[t].p99 > UMBRAL_P99[t]) motivos.push(`p99 ${t} ${latencia[t].p99} ms > ${UMBRAL_P99[t]} ms`);
+  if (perdidas > fase.tasa * seg * 0.02)
+    motivos.push(`k6 no sostuvo la tasa (${perdidas} iteraciones no lanzadas)`);
   const recursos: ResultadoFase["recursos"] = {};
   for (const c of CONTENEDORES) {
     const xs = muestras.filter((x) => x.contenedor === c);
@@ -199,7 +225,8 @@ function entorno() {
       return "desconocido";
     }
   };
-  const version = (JSON.parse(readFileSync(join(raiz, "package.json"), "utf8")) as { version: string }).version;
+  const version = (JSON.parse(readFileSync(join(raiz, "package.json"), "utf8")) as { version: string })
+    .version;
   const k6 = spawnSync(K6, ["version"], { encoding: "utf8" }).stdout.split("\n")[0] ?? "";
   return {
     producto: `Yago Nexo ${version}`,
@@ -216,10 +243,20 @@ function entorno() {
 
 const fmt = (n: number) => n.toLocaleString("es-CL", { maximumFractionDigits: 1 });
 
-function html(res: { fecha: string; entorno: ReturnType<typeof entorno>; fases: ResultadoFase[]; estres: ResultadoFase[]; limite: number | null }): string {
+function html(res: {
+  fecha: string;
+  entorno: ReturnType<typeof entorno>;
+  fases: ResultadoFase[];
+  estres: ResultadoFase[];
+  limite: number | null;
+}): string {
   const filaLat = (f: ResultadoFase) =>
     `<tr><td>${f.nombre}</td><td>${fmt(f.tasaObjetivo)}</td><td>${fmt(f.tasaLograda)}</td><td>${fmt(f.solicitudes)}</td><td>${(f.tasaError * 100).toFixed(2)}%</td>` +
-    (["operadores", "publico", "integracion"] as Tipo[]).map((t) => `<td>${fmt(f.latencia[t].med)} / ${fmt(f.latencia[t].p95)} / ${fmt(f.latencia[t].p99)}</td>`).join("") +
+    (["operadores", "publico", "integracion"] as Tipo[])
+      .map(
+        (t) => `<td>${fmt(f.latencia[t].med)} / ${fmt(f.latencia[t].p95)} / ${fmt(f.latencia[t].p99)}</td>`,
+      )
+      .join("") +
     `<td class="${f.cumple ? "ok" : "mal"}">${f.cumple ? "Cumple" : f.motivo}</td></tr>`;
   const todas = [...res.fases, ...res.estres];
   const filaRec = (f: ResultadoFase) =>
@@ -264,7 +301,9 @@ async function main() {
     const { resumen } = await correrK6(f, dir, cred);
     parar();
     const r = analizar(f, resumen, muestras);
-    console.log(`[rendimiento]   lograda ${r.tasaLograda} tx/s · error ${(r.tasaError * 100).toFixed(2)}% · p99 operadores ${r.latencia.operadores.p99} ms · integración ${r.latencia.integracion.p99} ms → ${r.motivo}`);
+    console.log(
+      `[rendimiento]   lograda ${r.tasaLograda} tx/s · error ${(r.tasaError * 100).toFixed(2)}% · p99 operadores ${r.latencia.operadores.p99} ms · integración ${r.latencia.integracion.p99} ms → ${r.motivo}`,
+    );
     return r;
   };
   for (const f of FASES.filter((x) => elegidas.includes(x.id))) {
@@ -274,7 +313,12 @@ async function main() {
   let limite: number | null = null;
   if (elegidas.includes("estres")) {
     for (const tasa of ESCALONES) {
-      const r = await correr({ id: `estres-${tasa}`, nombre: `Estrés ${tasa} tx/s`, tasa, duracion: DUR_ESCALON });
+      const r = await correr({
+        id: `estres-${tasa}`,
+        nombre: `Estrés ${tasa} tx/s`,
+        tasa,
+        duracion: DUR_ESCALON,
+      });
       estres.push(r);
       if (!r.cumple) break;
       limite = tasa;
@@ -286,7 +330,22 @@ async function main() {
   writeFileSync(join(dir, "informe.html"), html(res));
   const imagen = "nexo-tools/libreoffice:1";
   if (spawnSync("docker", ["image", "inspect", imagen]).status === 0) {
-    spawnSync("docker", ["run", "--rm", "-v", `${dir}:/w`, imagen, "soffice", "--headless", "--convert-to", "pdf:writer_web_pdf_Export", "informe.html"], { stdio: "ignore" });
+    spawnSync(
+      "docker",
+      [
+        "run",
+        "--rm",
+        "-v",
+        `${dir}:/w`,
+        imagen,
+        "soffice",
+        "--headless",
+        "--convert-to",
+        "pdf:writer_web_pdf_Export",
+        "informe.html",
+      ],
+      { stdio: "ignore" },
+    );
   }
   console.log(`[rendimiento] informe en ${dir}${existsSync(join(dir, "informe.pdf")) ? " (con PDF)" : ""}`);
   if (fases.some((f) => !f.cumple)) process.exitCode = 1;

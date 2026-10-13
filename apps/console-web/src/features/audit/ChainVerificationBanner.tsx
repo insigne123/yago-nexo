@@ -32,7 +32,7 @@ export function ChainVerificationBanner({ result, verifiedAt }: ChainVerificatio
           <p className="mt-1 text-sm text-fg">
             Se verificaron {formatNumber(result.count ?? 0)} eventos
             {result.lastSeq !== undefined ? `; el último es el número ${formatNumber(result.lastSeq)}` : ""}.
-            Ningún evento fue alterado, eliminado ni reordenado.
+            Hasta ese número, ningún evento fue alterado, reordenado ni eliminado.
           </p>
           {when}
         </div>

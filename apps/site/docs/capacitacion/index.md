@@ -20,9 +20,9 @@ Portal de capacitación: <EstadoCapacidad id="portal-capacitacion" />
 
 <SiNoDisponible id="portal-capacitacion">
 
-:::note Qué existe hoy
+:::note Qué está publicado
 
-Esta sección reúne el programa, las guías de cada módulo y los ejercicios. El portal con cursos por rol y verificación automática de cada ejercicio por participante está en desarrollo. Mientras tanto, los ejercicios se comprueban con los scripts de verificación que trae el laboratorio (`pnpm --filter @nexo/lab-bootstrap check:…`) y con las autoevaluaciones de cada módulo.
+Esta sección reúne el programa, las guías de cada módulo y los ejercicios. El portal con cursos por rol y verificación automática de cada ejercicio por participante se entrega con el servicio de implementación. En esta sección, los ejercicios se comprueban con los scripts de verificación que trae el laboratorio (`pnpm --filter @nexo/lab-bootstrap check:…`) y con las autoevaluaciones de cada módulo.
 
 :::
 
@@ -83,7 +83,7 @@ Quien sigue una ruta que no incluye M1 recibe el laboratorio ya preparado al ter
 - Se prepara una sola vez, en M0 y M1, y se reutiliza en todo el curso. Al inicio de M7 se restablece desde cero para la evaluación.
 - Cada ejercicio indica sus requisitos (por ejemplo, el perfil `obs` o el laboratorio de continuidad) y cómo comprobar el resultado.
 - Los ejercicios usan los comandos reales del laboratorio: `make -C deploy/compose …`, `nexo-ctl`, las REST API de WSO2, la API de la Consola y los scripts de verificación de `tools/lab-bootstrap`.
-- Las capacidades en estado *Disponible* se practican en el laboratorio. Las que están *En desarrollo* se explican en secciones marcadas como tales, sin ejercicios.
+- Las capacidades incluidas en la versión se practican en el laboratorio. Las que se entregan con el servicio de implementación se explican en secciones marcadas como tales, sin ejercicios.
 
 ## Estructura de cada módulo {#estructura}
 

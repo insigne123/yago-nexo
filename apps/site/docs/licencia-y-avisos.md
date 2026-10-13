@@ -24,7 +24,7 @@ Texto completo del archivo `NOTICE` del repositorio:
 
 <SiNoDisponible id="sbom">
 
-El archivo `NOTICE` se refiere al SBOM CycloneDX que acompaña cada versión. La generación automática de ese inventario está en estado <EstadoCapacidad id="sbom" />: la versión actual todavía no lo incluye. Mientras tanto, el detalle está en [Componentes y licencias](./componentes-y-licencias.md).
+El archivo `NOTICE` se refiere al SBOM CycloneDX que acompaña cada versión. Generación automática de ese inventario: <EstadoCapacidad id="sbom" />. El detalle está en [Componentes y licencias](./componentes-y-licencias.md).
 
 </SiNoDisponible>
 

@@ -187,7 +187,7 @@ function EscalateControl({ ticket }: { ticket: TicketDetail }) {
       <SelectField label="Escalar al nivel de turno" value={level} onChange={(e) => setLevel(e.target.value)}>
         <option value="1">Nivel 1 · primer contacto</option>
         <option value="2">Nivel 2 · técnico de turno</option>
-        <option value="3">Nivel 3 · seguridad y supervisión</option>
+        <option value="3">Nivel 3 · supervisión y seguridad</option>
       </SelectField>
       <TextField label="Motivo" value={reason} onChange={(e) => setReason(e.target.value)} required />
       <Button type="submit" variant="secundario" disabled={action.busy || reason.trim().length < 5}>
@@ -204,7 +204,9 @@ function RemoteAccessRequestControl({ ticket }: { ticket: TicketDetail }) {
   const [scope, setScope] = useState("");
   const [justification, setJustification] = useState("");
   if (ticket.remote.some((r) => r.status === "pendiente")) {
-    return <p className="text-sm text-slate-700">Hay una solicitud de acceso remoto pendiente del cliente.</p>;
+    return (
+      <p className="text-sm text-slate-700">Hay una solicitud de acceso remoto pendiente del cliente.</p>
+    );
   }
   return (
     <form

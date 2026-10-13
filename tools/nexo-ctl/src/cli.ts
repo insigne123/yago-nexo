@@ -47,7 +47,9 @@ api
   );
 api
   .command("lint-all")
-  .description("Valida todos los contratos de wso2/apim/apis contra su guía de estilo (paso del pipeline de CI)")
+  .description(
+    "Valida todos los contratos de wso2/apim/apis contra su guía de estilo (paso del pipeline de CI)",
+  )
   .option("-d, --dir <carpeta>", "carpeta de proyectos de API", "wso2/apim/apis")
   .option("-g, --governance <carpeta>", "carpeta de guías de estilo", "wso2/apim/governance")
   .action((o: { dir: string; governance: string }) =>
@@ -83,13 +85,21 @@ api
   );
 api
   .command("export")
-  .description("Exporta todas las APIs con manifiesto de hashes (BT-049)")
+  .description(
+    "Exporta todas las APIs y la configuración de la plataforma, con manifiesto de hashes (BT-049)",
+  )
   .requiredOption("-s, --stage <etapa>", "etapa")
   .option("-o, --out <dir>", "carpeta de salida", "out/export")
-  .action((o: { stage: string; out: string }) =>
+  .option(
+    "-f, --file <archivo>",
+    "especificación de plataforma que se incluye en el paquete",
+    "wso2/apim/platform.yaml",
+  )
+  .action((o: { stage: string; out: string; file: string }) =>
     run(async () => {
       const cfg = loadConfig(program.opts().config);
-      await exportApis(stage(cfg, o.stage), resolve(o.out));
+      const plataforma = existsSync(resolve(o.file)) ? resolve(o.file) : resolve(cfg.baseDir, o.file);
+      await exportApis(stage(cfg, o.stage), resolve(o.out), { plataforma });
     })(),
   );
 api

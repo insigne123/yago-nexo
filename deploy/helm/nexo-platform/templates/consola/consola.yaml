@@ -118,6 +118,7 @@ spec:
             - { name: NEXO_RABBITMQ_USER, value: {{ .Values.global.dependencias.rabbitmq.usuario | quote }} }
             {{- include "nexo.envSecreto" (dict "nombre" "NEXO_RABBITMQ_PASSWORD" "secreto" .Values.secretos.rabbitmq.existingSecret "clave" .Values.secretos.rabbitmq.claves.password) | nindent 12 }}
             - { name: NEXO_EXPORT_DIR, value: /tmp/nexo-exports }
+            {{- include "nexo.envSecreto" (dict "nombre" "NEXO_ALERTS_TOKEN" "secreto" .Values.secretos.alertas.existingSecret "clave" .Values.secretos.alertas.claves.token) | nindent 12 }}
             - { name: NEXO_TLS_PROBES, value: {{ join ";" $sondasTls | quote }} }
             {{- with $cfg.extraEnv }}
             {{- toYaml . | nindent 12 }}

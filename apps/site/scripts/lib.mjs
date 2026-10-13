@@ -67,6 +67,13 @@ export const FORBIDDEN = [
   { re: /criterio\s+N[°º]\s*\d/i, motivo: "criterio de evaluación" },
   { re: /US\$\s?\d|\bUSD\s?\d/, motivo: "precio" },
   { re: /\b(?:Donders|Cristian|Nicol[aá]s)\b/, motivo: "nombre de una persona del equipo" },
+  // La versión ofertada debe ser estable: lo beta o futuro no acredita una capacidad. Cada capacidad dice
+  // «Incluida en <versión>» o que se entrega con el servicio de implementación (ver check-capacidades.mjs).
+  { re: /\bEn desarrollo\b|\*en desarrollo\*/, motivo: "estado de beta o futuro" },
+  { re: /\bPlanificad[oa]s?\b/, motivo: "estado de beta o futuro" },
+  { re: /hoja de ruta/i, motivo: "estado de beta o futuro" },
+  { re: /vista previa/i, motivo: "estado de beta o futuro" },
+  { re: /qu[eé] sigue/i, motivo: "estado de beta o futuro" },
 ];
 
 export function findForbidden(text) {

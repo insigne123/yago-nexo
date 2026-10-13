@@ -34,9 +34,27 @@ const USERS = {
 } as const;
 type Role = keyof typeof USERS;
 
-const rows: Array<{ requisito: string; prueba: string; esperado: string; obtenido: string; cumple: boolean }> = [];
-function check(requisito: string, prueba: string, esperado: unknown, obtenido: unknown, cumple = String(esperado) === String(obtenido)) {
-  rows.push({ requisito, prueba, esperado: String(esperado), obtenido: String(obtenido).slice(0, 60), cumple });
+const rows: Array<{
+  requisito: string;
+  prueba: string;
+  esperado: string;
+  obtenido: string;
+  cumple: boolean;
+}> = [];
+function check(
+  requisito: string,
+  prueba: string,
+  esperado: unknown,
+  obtenido: unknown,
+  cumple = String(esperado) === String(obtenido),
+) {
+  rows.push({
+    requisito,
+    prueba,
+    esperado: String(esperado),
+    obtenido: String(obtenido).slice(0, 60),
+    cumple,
+  });
   return cumple;
 }
 
@@ -44,28 +62,58 @@ async function token(username: string): Promise<string> {
   const res = await fetch(`${KEYCLOAK}/protocol/openid-connect/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "password", client_id: "nexo-console", scope: "openid", username, password: PASSWORD }).toString(),
+    body: new URLSearchParams({
+      grant_type: "password",
+      client_id: "nexo-console",
+      scope: "openid",
+      username,
+      password: PASSWORD,
+    }).toString(),
   });
   const body = (await res.json()) as { access_token?: string; error_description?: string };
-  if (!body.access_token) throw new Error(`Keycloak no entregó token para ${username}: ${body.error_description ?? res.status}`);
+  if (!body.access_token)
+    throw new Error(`Keycloak no entregó token para ${username}: ${body.error_description ?? res.status}`);
   return body.access_token;
 }
 
-async function call(tok: string | undefined, method: string, path: string, body?: unknown, authorization?: string) {
+async function call(
+  tok: string | undefined,
+  method: string,
+  path: string,
+  body?: unknown,
+  authorization?: string,
+) {
   const auth = authorization ?? (tok ? `Bearer ${tok}` : undefined);
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { ...(auth ? { authorization: auth } : {}), ...(body !== undefined ? { "content-type": "application/json" } : {}) },
+    headers: {
+      ...(auth ? { authorization: auth } : {}),
+      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+    },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const type = res.headers.get("content-type") ?? "";
-  const data = type.includes("json") ? await res.json() : type.includes("zip") || type.includes("octet") ? new Uint8Array(await res.arrayBuffer()) : await res.text();
+  const data = type.includes("json")
+    ? await res.json()
+    : type.includes("zip") || type.includes("octet")
+      ? new Uint8Array(await res.arrayBuffer())
+      : await res.text();
   return { status: res.status, data: data as any }; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-type AuditRow = { id: string; ts: string; actor: string; action: string; resource?: string; result: string; sourceIp?: string; details?: Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
+type AuditRow = {
+  id: string;
+  ts: string;
+  actor: string;
+  action: string;
+  resource?: string;
+  result: string;
+  sourceIp?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  details?: Record<string, any>;
+};
 
 async function waitUntil<T>(fn: () => Promise<T | undefined>, timeoutSec: number): Promise<T | undefined> {
   const t0 = Date.now();
@@ -80,7 +128,11 @@ const insecure = new Agent({ connect: { rejectUnauthorized: false } });
 const CHAOS = process.env.NEXO_LAB_CHAOS_URL ?? "http://localhost:7001/_chaos";
 
 async function chaos(failRate: number) {
-  await fetch(CHAOS, { method: "POST", headers: { "x-chaos-token": "nexo-lab-chaos", "content-type": "application/json" }, body: JSON.stringify({ failRate }) });
+  await fetch(CHAOS, {
+    method: "POST",
+    headers: { "x-chaos-token": "nexo-lab-chaos", "content-type": "application/json" },
+    body: JSON.stringify({ failRate }),
+  });
 }
 
 /** Provoca un mensaje fallido real: el destino responde 500 y el Integrador agota los reintentos. */
@@ -92,7 +144,9 @@ async function produceDeadLetter(): Promise<string> {
   });
   const app = (await wso2.devportal.listApplications()).list.find((a) => a.name === "OperadorDemo");
   if (!app) throw new Error("falta la aplicación OperadorDemo (ejecute el bootstrap)");
-  const key = (await wso2.devportal.listKeys(app.applicationId)).list.find((k) => k.keyManager === "Keycloak");
+  const key = (await wso2.devportal.listKeys(app.applicationId)).list.find(
+    (k) => k.keyManager === "Keycloak",
+  );
   const tok = await fetch("http://keycloak:8080/realms/nexo/protocol/openid-connect/token", {
     method: "POST",
     headers: {
@@ -106,11 +160,16 @@ async function produceDeadLetter(): Promise<string> {
   const res = await fetch("https://apim:8243/solicitudes/1.0.0/", {
     method: "POST",
     dispatcher: insecure,
-    headers: { authorization: `Bearer ${access_token}`, "content-type": "application/json", "idempotency-key": `consola-${randomUUID()}` },
+    headers: {
+      authorization: `Bearer ${access_token}`,
+      "content-type": "application/json",
+      "idempotency-key": `consola-${randomUUID()}`,
+    },
     body: JSON.stringify({ rutEmpresa: "76.086.428-5", servicio: "Internet", region: "Los Lagos" }),
   });
   const body = (await res.json()) as { correlacion?: string };
-  if (res.status !== 202 || !body.correlacion) throw new Error(`el flujo no aceptó la solicitud (${res.status})`);
+  if (res.status !== 202 || !body.correlacion)
+    throw new Error(`el flujo no aceptó la solicitud (${res.status})`);
   return body.correlacion;
 }
 
@@ -120,9 +179,15 @@ async function main() {
   // Eventos de auditoría de esta corrida (margen por diferencias de reloj).
   const since = new Date(Date.now() - 5000).toISOString();
   const audit = async (prefix: string, from = since): Promise<AuditRow[]> =>
-    ((await call(tok.auditor, "GET", `/audit-events?action=${encodeURIComponent(prefix)}&from=${encodeURIComponent(from)}&limit=1000`)).data as AuditRow[]).filter(
-      (e) => e.action === prefix || e.action.startsWith(`${prefix}.`),
-    );
+    (
+      (
+        await call(
+          tok.auditor,
+          "GET",
+          `/audit-events?action=${encodeURIComponent(prefix)}&from=${encodeURIComponent(from)}&limit=1000`,
+        )
+      ).data as AuditRow[]
+    ).filter((e) => e.action === prefix || e.action.startsWith(`${prefix}.`));
   const db = new pg.Client({ connectionString: DB_URL });
   await db.connect();
   try {
@@ -132,7 +197,11 @@ async function main() {
   }
   console.table(rows);
   const failed = rows.filter((r) => !r.cumple);
-  console.log(failed.length ? `[Consola] ${failed.length} de ${rows.length} verificaciones NO cumplen` : `[Consola] ${rows.length} verificaciones cumplen`);
+  console.log(
+    failed.length
+      ? `[Consola] ${failed.length} de ${rows.length} verificaciones NO cumplen`
+      : `[Consola] ${rows.length} verificaciones cumplen`,
+  );
   if (failed.length) process.exit(1);
 }
 
@@ -142,24 +211,57 @@ async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: st
   // --------------------------------------------------------------- autenticación y roles (BT-026)
   check("BT-026", "salud sin token", 200, (await call(undefined, "GET", "/health")).status);
   check("BT-026", "sin token → rechazo", 401, (await call(undefined, "GET", "/me")).status);
-  check("BT-026", "token alterado → rechazo", 401, (await call(`${tok.auditor.slice(0, -4)}AAAA`, "GET", "/me")).status);
+  check(
+    "BT-026",
+    "token alterado → rechazo",
+    401,
+    (await call(`${tok.auditor.slice(0, -4)}AAAA`, "GET", "/me")).status,
+  );
   // Ráfaga de 20 intentos sin token: la auditoría los agrupa por IP (un evento al primero y un resumen al cerrar la ventana).
   for (let i = 0; i < 20; i++) await call(undefined, "GET", "/audit-events");
   // La ventana puede haberse abierto en una corrida anterior (hasta 60 s antes): se mira desde entonces.
   const desdeVentana = new Date(new Date(since).getTime() - 65_000).toISOString();
-  const firsts = (await audit("acceso.rechazado.autenticacion", desdeVentana)).filter((e) => e.details?.fase === "primero");
+  const firsts = (await audit("acceso.rechazado.autenticacion", desdeVentana)).filter(
+    (e) => e.details?.fase === "primero",
+  );
   const nuevos = firsts.filter((e) => e.ts >= since);
   const ips = new Set(nuevos.map((e) => e.sourceIp ?? e.resource));
-  check("BT-031", "401 auditados y agrupados por IP", "1 evento por IP para 22 intentos", `${nuevos.length} evento(s) de ${ips.size} IP`, firsts.length >= 1 && nuevos.length === ips.size);
+  check(
+    "BT-031",
+    "401 auditados y agrupados por IP",
+    "1 evento por IP para 22 intentos",
+    `${nuevos.length} evento(s) de ${ips.size} IP`,
+    firsts.length >= 1 && nuevos.length === ips.size,
+  );
   for (const role of Object.keys(USERS) as Role[]) {
     const me = await call(tok[role], "GET", "/me");
     check("BT-026", `rol de ${USERS[role]}`, role, (me.data.roles ?? []).join(","));
   }
-  check("BT-026", "consumidor no edita el catálogo", 403, (await call(tok.consumidor, "PATCH", "/apis/x", { purpose: "x" })).status);
-  check("BT-026", "desarrollador no lee auditoría", 403, (await call(tok.desarrollador, "GET", "/audit-events")).status);
-  check("BT-026", "administrador no verifica auditoría", 403, (await call(tok.administrador, "GET", "/audit-events/verify")).status);
+  check(
+    "BT-026",
+    "consumidor no edita el catálogo",
+    403,
+    (await call(tok.consumidor, "PATCH", "/apis/x", { purpose: "x" })).status,
+  );
+  check(
+    "BT-026",
+    "desarrollador no lee auditoría",
+    403,
+    (await call(tok.desarrollador, "GET", "/audit-events")).status,
+  );
+  check(
+    "BT-026",
+    "administrador no verifica auditoría",
+    403,
+    (await call(tok.administrador, "GET", "/audit-events/verify")).status,
+  );
   const matrix = await call(tok.auditor, "GET", "/compliance/role-matrix");
-  check("BT-026", "matriz rol-permiso publicada", `${PERMISSIONS.length} permisos × ${ROLES.length} roles`, `${matrix.data.length} permisos × ${Object.keys(matrix.data[0] ?? {}).length - 1} roles`);
+  check(
+    "BT-026",
+    "matriz rol-permiso publicada",
+    `${PERMISSIONS.length} permisos × ${ROLES.length} roles`,
+    `${matrix.data.length} permisos × ${Object.keys(matrix.data[0] ?? {}).length - 1} roles`,
+  );
   const denied = await audit("acceso.rechazado.permiso");
   const deniedOk = [
     ["consumidor.demo", "catalog:write"],
@@ -171,13 +273,25 @@ async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: st
   // --------------------------------------------------------------- catálogo e impacto (BT-018, BT-022, BT-024)
   const sync = await call(tok.desarrollador, "POST", "/catalog/sync");
   check("BT-018", "sincronización con WSO2", 200, sync.status);
-  const apis = (await call(tok.consumidor, "GET", "/apis")).data as Array<{ name: string; completeness: number }>;
+  const apis = (await call(tok.consumidor, "GET", "/apis")).data as Array<{
+    name: string;
+    completeness: number;
+  }>;
   check("BT-018", "APIs en el catálogo", ">= 5", apis.length, apis.length >= 5);
   const incompletas = apis.filter((a) => a.completeness < 100).map((a) => a.name);
   check("BT-018", "fichas con los 8 campos", "todas", incompletas.length ? incompletas.join(", ") : "todas");
   const graph = (await call(tok.desarrollador, "GET", "/graph")).data as { edges: Array<{ source: string }> };
-  check("BT-022", "dependencias derivadas del Integrador", "> 0", graph.edges.filter((e) => e.source === "analizador_mi").length, graph.edges.some((e) => e.source === "analizador_mi"));
-  const impact = await call(tok.desarrollador, "POST", "/impact/simulate", { nodeId: "sistema:registro-soap:7001", change: { kind: "campo", detail: "Se elimina el campo estado" } });
+  check(
+    "BT-022",
+    "dependencias derivadas del Integrador",
+    "> 0",
+    graph.edges.filter((e) => e.source === "analizador_mi").length,
+    graph.edges.some((e) => e.source === "analizador_mi"),
+  );
+  const impact = await call(tok.desarrollador, "POST", "/impact/simulate", {
+    nodeId: "sistema:registro-soap:7001",
+    change: { kind: "campo", detail: "Se elimina el campo estado" },
+  });
   const af = impact.data.affected ?? {};
   check(
     "BT-024",
@@ -188,29 +302,76 @@ async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: st
   );
 
   // --------------------------------------------------------------- consumo sin cobro (BT-021)
-  const usageAll = (await call(tok.aprobador, "GET", "/usage")).data as Array<{ label: string; plan: string }>;
-  check("BT-021", "consumo atribuido por consumidor", "OperadorDemo, sin cobro", usageAll.map((u) => `${u.label}, ${u.plan}`).join("; "), usageAll.some((u) => u.label === "OperadorDemo" && u.plan === "sin cobro"));
+  const usageAll = (await call(tok.aprobador, "GET", "/usage")).data as Array<{
+    label: string;
+    plan: string;
+  }>;
+  check(
+    "BT-021",
+    "consumo atribuido por consumidor",
+    "OperadorDemo, sin cobro",
+    usageAll.map((u) => `${u.label}, ${u.plan}`).join("; "),
+    usageAll.some((u) => u.label === "OperadorDemo" && u.plan === "sin cobro"),
+  );
   const usageOwn = (await call(tok.consumidor, "GET", "/usage")).data as unknown[];
   check("BT-021", "un consumidor no ve el consumo de otros", 0, usageOwn.length);
   const csv = await call(tok.aprobador, "GET", "/usage/export");
-  check("BT-021", "exportación CSV del consumo", "tipo,clave,llamadas…", String(csv.data).split("\n")[0], String(csv.data).startsWith("tipo,clave,llamadas"));
+  check(
+    "BT-021",
+    "exportación CSV del consumo",
+    "tipo,clave,llamadas…",
+    String(csv.data).split("\n")[0],
+    String(csv.data).startsWith("tipo,clave,llamadas"),
+  );
 
   // --------------------------------------------------------------- canales TLS (BT-028)
-  const tls = (await call(tok.auditor, "GET", "/compliance/tls-channels")).data as Array<{ canal: string; versiones: string[]; rechazaTls10: boolean }>;
+  const tls = (await call(tok.auditor, "GET", "/compliance/tls-channels")).data as Array<{
+    canal: string;
+    versiones: string[];
+    rechazaTls10: boolean;
+  }>;
   for (const c of tls) {
-    check("BT-028", `TLS en ${c.canal}`, "TLS ≥ 1.2 y rechaza 1.0", `${c.versiones.join("/") || "sin TLS"}${c.rechazaTls10 ? ", rechaza 1.0" : ""}`, c.versiones.length > 0 && c.versiones.every((v) => v === "TLSv1.2" || v === "TLSv1.3") && c.rechazaTls10);
+    check(
+      "BT-028",
+      `TLS en ${c.canal}`,
+      "TLS ≥ 1.2 y rechaza 1.0",
+      `${c.versiones.join("/") || "sin TLS"}${c.rechazaTls10 ? ", rechaza 1.0" : ""}`,
+      c.versiones.length > 0 &&
+        c.versiones.every((v) => v === "TLSv1.2" || v === "TLSv1.3") &&
+        c.rechazaTls10,
+    );
   }
 
   // --------------------------------------------------------------- despliegue progresivo: segregación de funciones (D-04)
-  const apiConcesiones = (await call(tok.desarrollador, "GET", "/apis?q=Concesiones")).data.find((a: { name: string }) => a.name === "Concesiones");
-  const created = await call(tok.desarrollador, "POST", "/rollouts", { apiId: apiConcesiones.id, strategy: "canary", candidateEndpoint: "http://concesiones-v2:7001", steps: [10, 50, 100], stepDurationSec: 30 });
+  const apiConcesiones = (await call(tok.desarrollador, "GET", "/apis?q=Concesiones")).data.find(
+    (a: { name: string }) => a.name === "Concesiones",
+  );
+  const created = await call(tok.desarrollador, "POST", "/rollouts", {
+    apiId: apiConcesiones.id,
+    strategy: "canary",
+    candidateEndpoint: "http://concesiones-v2:7001",
+    steps: [10, 50, 100],
+    stepDurationSec: 30,
+  });
   if (created.status === 201) {
     check("D-04", "desarrollador solicita el despliegue", 201, created.status);
-    check("D-04", "desarrollador no aprueba (sin el permiso)", 403, (await call(tok.desarrollador, "POST", `/rollouts/${created.data.id}/approve`)).status);
-    const aborted = await call(tok.operador, "POST", `/rollouts/${created.data.id}/abort`, { reason: "verificación de la Consola" });
+    check(
+      "D-04",
+      "desarrollador no aprueba (sin el permiso)",
+      403,
+      (await call(tok.desarrollador, "POST", `/rollouts/${created.data.id}/approve`)).status,
+    );
+    const aborted = await call(tok.operador, "POST", `/rollouts/${created.data.id}/abort`, {
+      reason: "verificación de la Consola",
+    });
     check("D-04", "operador detiene el despliegue", "abortado", aborted.data.status);
   } else {
-    check("D-04", "desarrollador solicita el despliegue", 201, `${created.status} ${created.data.message ?? ""}`);
+    check(
+      "D-04",
+      "desarrollador solicita el despliegue",
+      201,
+      `${created.status} ${created.data.message ?? ""}`,
+    );
   }
 
   // --------------------------------------------------------------- retorno al sitio principal con dos personas (BT-036, BT-026)
@@ -222,52 +383,144 @@ async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: st
   try {
     for (let i = 0; i < 40 && !pending; i++) {
       await sleep(1500);
-      const dlq = (await call(tok.aprobador, "GET", "/dead-letters")).data as Array<{ id: string; status: string; payloadPreview: string }>;
+      const dlq = (await call(tok.aprobador, "GET", "/dead-letters")).data as Array<{
+        id: string;
+        status: string;
+        payloadPreview: string;
+      }>;
       pending = dlq.find((m) => m.id === correlacion && m.status === "pendiente");
     }
   } finally {
     await chaos(0); // el destino vuelve a responder antes de reprocesar
   }
-  check("BT-051", "falla del destino llega a la cola de fallidos", "pendiente", pending?.status ?? "no llegó");
+  check(
+    "BT-051",
+    "falla del destino llega a la cola de fallidos",
+    "pendiente",
+    pending?.status ?? "no llegó",
+  );
   if (pending) {
-    check("BT-029", "vista previa sin RUT completo", "RUT enmascarado", /\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]/.test(pending.payloadPreview) ? "RUT visible" : "RUT enmascarado");
+    check(
+      "BT-029",
+      "vista previa sin RUT completo",
+      "RUT enmascarado",
+      /\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]/.test(pending.payloadPreview) ? "RUT visible" : "RUT enmascarado",
+    );
     const path = `/dead-letters/${encodeURIComponent(pending.id)}/reprocess`;
     check("BT-051", "reproceso exige motivo", 400, (await call(tok.aprobador, "POST", path, {})).status);
-    check("BT-051", "desarrollador no puede reprocesar", 403, (await call(tok.desarrollador, "POST", path, { reason: "intento sin permiso" })).status);
-    const rep = await call(tok.aprobador, "POST", path, { reason: "Destino restablecido, se reintenta (verificación)" });
+    check(
+      "BT-051",
+      "desarrollador no puede reprocesar",
+      403,
+      (await call(tok.desarrollador, "POST", path, { reason: "intento sin permiso" })).status,
+    );
+    const rep = await call(tok.aprobador, "POST", path, {
+      reason: "Destino restablecido, se reintenta (verificación)",
+    });
     check("BT-051", "reproceso con rol aprobador y motivo", "reprocesado", rep.data.status);
-    const repAudit = (await audit("mensajes.reprocesar")).filter((e) => e.resource === `mensaje/${pending.id}` || String(e.resource).includes(encodeURIComponent(pending.id)) || String(e.resource).includes(pending.id));
-    const okEv = repAudit.find((e) => e.result === "exito" && e.actor === USERS.aprobador && typeof e.details?.reason === "string");
+    const repAudit = (await audit("mensajes.reprocesar")).filter(
+      (e) =>
+        e.resource === `mensaje/${pending.id}` ||
+        String(e.resource).includes(encodeURIComponent(pending.id)) ||
+        String(e.resource).includes(pending.id),
+    );
+    const okEv = repAudit.find(
+      (e) => e.result === "exito" && e.actor === USERS.aprobador && typeof e.details?.reason === "string",
+    );
     const sinMotivo = repAudit.find((e) => e.result === "rechazado" && e.details?.estado === 400);
-    const sinPermiso = (await audit("acceso.rechazado.permiso")).find((e) => e.actor === USERS.desarrollador && e.details?.permiso === "dlq:reprocess:approve");
-    check("BT-051", "reproceso y sus rechazos auditados", "éxito con motivo, sin motivo y sin permiso", [okEv ? "éxito" : "sin éxito", sinMotivo ? "sin motivo" : "falta 400", sinPermiso ? "sin permiso" : "falta 403"].join(", "), !!okEv && !!sinMotivo && !!sinPermiso);
+    const sinPermiso = (await audit("acceso.rechazado.permiso")).find(
+      (e) => e.actor === USERS.desarrollador && e.details?.permiso === "dlq:reprocess:approve",
+    );
+    check(
+      "BT-051",
+      "reproceso y sus rechazos auditados",
+      "éxito con motivo, sin motivo y sin permiso",
+      [
+        okEv ? "éxito" : "sin éxito",
+        sinMotivo ? "sin motivo" : "falta 400",
+        sinPermiso ? "sin permiso" : "falta 403",
+      ].join(", "),
+      !!okEv && !!sinMotivo && !!sinPermiso,
+    );
     // Si el destino fallara de nuevo, el mensaje volvería a la cola en ~15 s (reintentos 2/4/8 s).
     await sleep(20_000);
-    const after = (await call(tok.aprobador, "GET", "/dead-letters")).data as Array<{ id: string; status: string }>;
-    check("BT-051", "mensaje reprocesado con éxito", "fuera de la cola", after.find((m) => m.id === correlacion)?.status === "pendiente" ? "volvió a fallar" : "fuera de la cola");
+    const after = (await call(tok.aprobador, "GET", "/dead-letters")).data as Array<{
+      id: string;
+      status: string;
+    }>;
+    check(
+      "BT-051",
+      "mensaje reprocesado con éxito",
+      "fuera de la cola",
+      after.find((m) => m.id === correlacion)?.status === "pendiente"
+        ? "volvió a fallar"
+        : "fuera de la cola",
+    );
   }
 
   // --------------------------------------------------------------- alertas (webhook con token, auditoría y SIEM)
   const alerta = {
-    alerts: [{ status: "firing", labels: { alertname: "VerificacionConsola", severidad: "S3" }, annotations: { resumen: "Alerta de prueba de la verificación" }, fingerprint: `verificacion-${Date.now()}` }],
+    alerts: [
+      {
+        status: "firing",
+        labels: { alertname: "VerificacionConsola", severidad: "S3" },
+        annotations: { resumen: "Alerta de prueba de la verificación" },
+        fingerprint: `verificacion-${Date.now()}`,
+      },
+    ],
   };
-  check("BT-034", "webhook de alertas sin token → rechazo", 401, (await call(undefined, "POST", "/alerts/alertmanager", alerta)).status);
-  check("BT-034", "webhook de alertas con token inválido → rechazo", 401, (await call(undefined, "POST", "/alerts/alertmanager", alerta, `Bearer ${ALERTS_TOKEN}-otro`)).status);
+  check(
+    "BT-034",
+    "webhook de alertas sin token → rechazo",
+    401,
+    (await call(undefined, "POST", "/alerts/alertmanager", alerta)).status,
+  );
+  check(
+    "BT-034",
+    "webhook de alertas con token inválido → rechazo",
+    401,
+    (await call(undefined, "POST", "/alerts/alertmanager", alerta, `Bearer ${ALERTS_TOKEN}-otro`)).status,
+  );
   const am = await call(undefined, "POST", "/alerts/alertmanager", alerta, `Bearer ${ALERTS_TOKEN}`);
   check("BT-034", "webhook de alertas con token", 204, am.status);
   const ov = (await call(tok.operador, "GET", "/overview")).data;
-  check("BT-034", "resumen muestra alertas abiertas", "≥ 1", ov.alertas?.abiertas, Number(ov.alertas?.abiertas) >= 1);
-  const alertEv = (await audit("alerta.recibida")).find((e) => e.details?.huella === alerta.alerts[0]!.fingerprint);
-  check("BT-031", "alerta recibida queda en la auditoría", "alerta.recibida · alertmanager", alertEv ? `${alertEv.action} · ${alertEv.actor}` : "sin evento", alertEv?.actor === "alertmanager");
+  check(
+    "BT-034",
+    "resumen muestra alertas abiertas",
+    "≥ 1",
+    ov.alertas?.abiertas,
+    Number(ov.alertas?.abiertas) >= 1,
+  );
+  const alertEv = (await audit("alerta.recibida")).find(
+    (e) => e.details?.huella === alerta.alerts[0]!.fingerprint,
+  );
+  check(
+    "BT-031",
+    "alerta recibida queda en la auditoría",
+    "alerta.recibida · alertmanager",
+    alertEv ? `${alertEv.action} · ${alertEv.actor}` : "sin evento",
+    alertEv?.actor === "alertmanager",
+  );
   const enSiem = alertEv
     ? await waitUntil(async () => {
         await fetch(`${OPENSEARCH}/nexo-siem-*/_refresh`, { method: "POST" }).catch(() => undefined);
-        const r = await fetch(`${OPENSEARCH}/nexo-siem-*/_search`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: { ids: { values: [alertEv.id] } } }) }).catch(() => undefined);
-        const body = r ? ((await r.json().catch(() => ({}))) as { hits?: { total?: { value?: number } } }) : {};
+        const r = await fetch(`${OPENSEARCH}/nexo-siem-*/_search`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query: { ids: { values: [alertEv.id] } } }),
+        }).catch(() => undefined);
+        const body = r
+          ? ((await r.json().catch(() => ({}))) as { hits?: { total?: { value?: number } } })
+          : {};
         return (body.hits?.total?.value ?? 0) > 0 ? true : undefined;
       }, 90)
     : undefined;
-  check("BT-031", "la alerta llega al SIEM (reenvío de auditoría)", "en nexo-siem-*", enSiem ? "en nexo-siem-*" : "no llegó");
+  check(
+    "BT-031",
+    "la alerta llega al SIEM (reenvío de auditoría)",
+    "en nexo-siem-*",
+    enSiem ? "en nexo-siem-*" : "no llegó",
+  );
 
   // --------------------------------------------------------------- exportación con manifiesto (BT-049, BT-060)
   const job = await call(tok.auditor, "POST", "/exports");
@@ -280,17 +533,44 @@ async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: st
   if (st.status === "listo") {
     const zip = (await call(tok.auditor, "GET", `/exports/${job.data.id}/download`)).data as Uint8Array;
     const files = unzipSync(zip);
-    const manifest = JSON.parse(strFromU8(files["manifiesto.json"]!)) as { items: Array<{ archivo: string; sha256: string; tipo: string }> };
-    const bad = manifest.items.filter((it) => !files[it.archivo] || createHash("sha256").update(files[it.archivo]!).digest("hex") !== it.sha256);
-    check("BT-060", "hashes del manifiesto coinciden", `${manifest.items.length} de ${manifest.items.length}`, `${manifest.items.length - bad.length} de ${manifest.items.length}`);
+    const manifest = JSON.parse(strFromU8(files["manifiesto.json"]!)) as {
+      items: Array<{ archivo: string; sha256: string; tipo: string }>;
+    };
+    const bad = manifest.items.filter(
+      (it) =>
+        !files[it.archivo] || createHash("sha256").update(files[it.archivo]!).digest("hex") !== it.sha256,
+    );
+    check(
+      "BT-060",
+      "hashes del manifiesto coinciden",
+      `${manifest.items.length} de ${manifest.items.length}`,
+      `${manifest.items.length - bad.length} de ${manifest.items.length}`,
+    );
     const tipos = [...new Set(manifest.items.map((i) => i.tipo))].sort().join(", ");
-    check("BT-049", "incluye APIs, flujos y metadatos", "api, flujo, metadatos", tipos);
+    check(
+      "BT-049",
+      "incluye APIs, flujos, metadatos y plataforma",
+      "api, flujo, metadatos, plataforma",
+      tipos,
+    );
+    check(
+      "BT-049",
+      "incluye la configuración de la plataforma (NEXO_PLATFORM_SPEC)",
+      "plataforma/platform.yaml",
+      files["plataforma/platform.yaml"] ? "plataforma/platform.yaml" : "no está",
+    );
   }
 
   // --------------------------------------------------------------- auditoría encadenada (BT-031)
   const verify = await call(tok.auditor, "GET", "/audit-events/verify");
   check("BT-031", "cadena de auditoría íntegra", true, verify.data.ok);
-  const events = (await call(tok.auditor, "GET", `/audit-events?from=${encodeURIComponent(new Date(Date.now() - 3_600_000).toISOString())}&limit=1000`)).data as Array<{ action: string }>;
+  const events = (
+    await call(
+      tok.auditor,
+      "GET",
+      `/audit-events?from=${encodeURIComponent(new Date(Date.now() - 3_600_000).toISOString())}&limit=1000`,
+    )
+  ).data as Array<{ action: string }>;
   const acciones = new Set(events.map((e) => e.action));
   const esperadas = [
     "catalogo.sincronizar",
@@ -307,18 +587,54 @@ async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: st
     "acceso.rechazado.autenticacion",
   ];
   const faltan = esperadas.filter((a) => !acciones.has(a));
-  check("BT-031", "acciones y rechazos de la Consola auditados", "todas", faltan.length ? `faltan ${faltan.join(", ")}` : "todas");
+  check(
+    "BT-031",
+    "acciones y rechazos de la Consola auditados",
+    "todas",
+    faltan.length ? `faltan ${faltan.join(", ")}` : "todas",
+  );
   // Resumen de la ráfaga de 401 al cerrar la ventana de agrupación (60 s por omisión).
-  const resumen401 = await waitUntil(async () => (await audit("acceso.rechazado.autenticacion")).find((e) => e.details?.fase === "resumen" && Number(e.details?.intentos) >= 20), 90);
-  check("BT-031", "resumen de 401 con el total de intentos", "≥ 20 intentos en un evento", resumen401 ? `${resumen401.details?.intentos} intentos (${resumen401.details?.ventanaSeg} s)` : "sin resumen", !!resumen401);
+  const resumen401 = await waitUntil(
+    async () =>
+      (await audit("acceso.rechazado.autenticacion")).find(
+        (e) => e.details?.fase === "resumen" && Number(e.details?.intentos) >= 20,
+      ),
+    90,
+  );
+  check(
+    "BT-031",
+    "resumen de 401 con el total de intentos",
+    "≥ 20 intentos en un evento",
+    resumen401
+      ? `${resumen401.details?.intentos} intentos (${resumen401.details?.ventanaSeg} s)`
+      : "sin resumen",
+    !!resumen401,
+  );
   // Alteración deliberada de un evento directamente en la base: la verificación debe detectarla.
-  const victim = (await db.query("SELECT seq, details FROM nexo.audit_event ORDER BY seq LIMIT 1 OFFSET 1")).rows[0];
+  const victim = (await db.query("SELECT seq, details FROM nexo.audit_event ORDER BY seq LIMIT 1 OFFSET 1"))
+    .rows[0];
   if (victim) {
-    await db.query("UPDATE nexo.audit_event SET details = $1 WHERE seq = $2", [JSON.stringify({ alterado: true }), victim.seq]);
+    await db.query("UPDATE nexo.audit_event SET details = $1 WHERE seq = $2", [
+      JSON.stringify({ alterado: true }),
+      victim.seq,
+    ]);
     const broken = await call(tok.auditor, "GET", "/audit-events/verify");
-    check("BT-031", "detecta un evento alterado", `quiebre en seq ${victim.seq}`, broken.data.ok ? "no detectado" : `quiebre en seq ${broken.data.brokenAt}`);
-    await db.query("UPDATE nexo.audit_event SET details = $1 WHERE seq = $2", [victim.details === null ? null : JSON.stringify(victim.details), victim.seq]);
-    check("BT-031", "cadena íntegra tras restaurar", true, (await call(tok.auditor, "GET", "/audit-events/verify")).data.ok);
+    check(
+      "BT-031",
+      "detecta un evento alterado",
+      `quiebre en seq ${victim.seq}`,
+      broken.data.ok ? "no detectado" : `quiebre en seq ${broken.data.brokenAt}`,
+    );
+    await db.query("UPDATE nexo.audit_event SET details = $1 WHERE seq = $2", [
+      victim.details === null ? null : JSON.stringify(victim.details),
+      victim.seq,
+    ]);
+    check(
+      "BT-031",
+      "cadena íntegra tras restaurar",
+      true,
+      (await call(tok.auditor, "GET", "/audit-events/verify")).data.ok,
+    );
   }
 }
 
@@ -329,20 +645,41 @@ async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: st
  * si no los hay, el evento de prueba se elimina para no dejar una conmutación «en curso» que nadie ejecutará.
  */
 async function checkFailback(tok: Record<Role, string>, audit: AuditQuery, db: pg.Client) {
-  const engines = ((await call(tok.operador, "GET", "/engines")).data ?? []) as Array<{ engine: string; status: string }>;
+  const engines = ((await call(tok.operador, "GET", "/engines")).data ?? []) as Array<{
+    engine: string;
+    status: string;
+  }>;
   const agentes = engines.some((e) => e.engine === "continuidad" && e.status !== "sin_latido");
-  const original = String((await db.query("SELECT active_site FROM nexo.continuity_settings WHERE id = 1")).rows[0]?.active_site ?? "cpd");
-  const busy = (await db.query("SELECT count(*)::int AS n FROM nexo.failover_event WHERE status = 'en_curso'")).rows[0].n as number;
+  const original = String(
+    (await db.query("SELECT active_site FROM nexo.continuity_settings WHERE id = 1")).rows[0]?.active_site ??
+      "cpd",
+  );
+  const busy = (
+    await db.query("SELECT count(*)::int AS n FROM nexo.failover_event WHERE status = 'en_curso'")
+  ).rows[0].n as number;
   if (busy) {
-    check("BT-036", "retorno con dos personas", "sin conmutación en curso", `${busy} conmutación(es) en curso: no se verifica`, false);
+    check(
+      "BT-036",
+      "retorno con dos personas",
+      "sin conmutación en curso",
+      `${busy} conmutación(es) en curso: no se verifica`,
+      false,
+    );
     return;
   }
   const precondicion = async () => {
-    if (original === "cpd") await db.query("UPDATE nexo.continuity_settings SET active_site = 'gcp' WHERE id = 1");
+    if (original === "cpd")
+      await db.query("UPDATE nexo.continuity_settings SET active_site = 'gcp' WHERE id = 1");
   };
   // Solicitudes pendientes de corridas anteriores: se retiran.
-  for (const r of ((await call(tok.auditor, "GET", "/continuity/failback/requests")).data ?? []) as Array<{ id: string; status: string }>) {
-    if (r.status === "pendiente") await call(tok.aprobador, "POST", `/continuity/failback/requests/${r.id}/reject`, { reason: "Retirada por la verificación de la Consola" });
+  for (const r of ((await call(tok.auditor, "GET", "/continuity/failback/requests")).data ?? []) as Array<{
+    id: string;
+    status: string;
+  }>) {
+    if (r.status === "pendiente")
+      await call(tok.aprobador, "POST", `/continuity/failback/requests/${r.id}/reject`, {
+        reason: "Retirada por la verificación de la Consola",
+      });
   }
   const request = async (who: Role, reason: string) => {
     for (let i = 0; i < 3; i++) {
@@ -358,19 +695,49 @@ async function checkFailback(tok: Record<Role, string>, audit: AuditQuery, db: p
     const own = await request("aprobador", "Verificación: el aprobador solicita");
     check("BT-026", "solicitud de retorno (aprobador)", 201, own.status);
     if (own.status === 201) {
-      const self = await call(tok.aprobador, "POST", `/continuity/failback/requests/${own.data.id}/approve`, {});
-      check("BT-026", "quien solicita no aprueba (cuatro ojos)", "403 cuatro-ojos", `${self.status} ${self.data?.permission ?? ""}`.trim(), self.status === 403 && self.data?.permission === "cuatro-ojos");
-      await call(tok.aprobador, "POST", `/continuity/failback/requests/${own.data.id}/reject`, { reason: "La aprueba otra persona (verificación)" });
+      const self = await call(
+        tok.aprobador,
+        "POST",
+        `/continuity/failback/requests/${own.data.id}/approve`,
+        {},
+      );
+      check(
+        "BT-026",
+        "quien solicita no aprueba (cuatro ojos)",
+        "403 cuatro-ojos",
+        `${self.status} ${self.data?.permission ?? ""}`.trim(),
+        self.status === 403 && self.data?.permission === "cuatro-ojos",
+      );
+      await call(tok.aprobador, "POST", `/continuity/failback/requests/${own.data.id}/reject`, {
+        reason: "La aprueba otra persona (verificación)",
+      });
     }
     // La operadora lo pide (con vencimiento); ella no puede aprobar y el aprobador sí.
     const req = await request("operador", "Verificación: CPD restablecido y réplica al día");
-    check("BT-036", "solicitud de retorno (operadora)", "201 pendiente con vencimiento", `${req.status} ${req.data?.status ?? ""}`.trim(), req.status === 201 && req.data?.status === "pendiente" && new Date(req.data?.expiresAt).getTime() > Date.now());
+    check(
+      "BT-036",
+      "solicitud de retorno (operadora)",
+      "201 pendiente con vencimiento",
+      `${req.status} ${req.data?.status ?? ""}`.trim(),
+      req.status === 201 &&
+        req.data?.status === "pendiente" &&
+        new Date(req.data?.expiresAt).getTime() > Date.now(),
+    );
     if (req.status !== 201) return;
-    check("BT-026", "la operadora no aprueba (sin el permiso)", 403, (await call(tok.operador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, {})).status);
-    let ok = await call(tok.aprobador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, { reason: "Conforme (verificación)" });
+    check(
+      "BT-026",
+      "la operadora no aprueba (sin el permiso)",
+      403,
+      (await call(tok.operador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, {})).status,
+    );
+    let ok = await call(tok.aprobador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, {
+      reason: "Conforme (verificación)",
+    });
     for (let i = 0; i < 2 && ok.status === 409 && ok.data?.code === "sitio_activo"; i++) {
       await precondicion();
-      ok = await call(tok.aprobador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, { reason: "Conforme (verificación)" });
+      ok = await call(tok.aprobador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, {
+        reason: "Conforme (verificación)",
+      });
     }
     eventId = ok.data?.event?.id;
     check(
@@ -378,19 +745,45 @@ async function checkFailback(tok: Record<Role, string>, audit: AuditQuery, db: p
       "retorno con dos personas",
       `202 · pidió ${USERS.operador} · aprobó ${USERS.aprobador}`,
       `${ok.status} · pidió ${ok.data?.event?.requestedBy ?? "?"} · aprobó ${ok.data?.event?.approvedBy ?? "?"}`,
-      ok.status === 202 && ok.data?.event?.requestedBy === USERS.operador && ok.data?.event?.approvedBy === USERS.aprobador,
+      ok.status === 202 &&
+        ok.data?.event?.requestedBy === USERS.operador &&
+        ok.data?.event?.approvedBy === USERS.aprobador,
     );
-    const pidio = (await audit("continuidad.retorno.solicitar")).some((e) => e.result === "exito" && e.actor === USERS.operador && e.resource === `retorno/${req.data.id}`);
-    const aprobo = (await audit("continuidad.retorno.aprobar")).some((e) => e.result === "exito" && e.actor === USERS.aprobador && e.resource === `retorno/${req.data.id}`);
-    const cuatroOjos = (await audit("acceso.rechazado.cuatro_ojos")).some((e) => e.actor === USERS.aprobador && e.details?.accion === "continuidad.retorno.aprobar");
-    check("BT-031", "retorno: ambas personas y el rechazo de cuatro ojos auditados", "solicitud, aprobación y cuatro ojos", [pidio ? "solicitud" : "falta solicitud", aprobo ? "aprobación" : "falta aprobación", cuatroOjos ? "cuatro ojos" : "falta cuatro ojos"].join(", "), pidio && aprobo && cuatroOjos);
+    const pidio = (await audit("continuidad.retorno.solicitar")).some(
+      (e) => e.result === "exito" && e.actor === USERS.operador && e.resource === `retorno/${req.data.id}`,
+    );
+    const aprobo = (await audit("continuidad.retorno.aprobar")).some(
+      (e) => e.result === "exito" && e.actor === USERS.aprobador && e.resource === `retorno/${req.data.id}`,
+    );
+    const cuatroOjos = (await audit("acceso.rechazado.cuatro_ojos")).some(
+      (e) => e.actor === USERS.aprobador && e.details?.accion === "continuidad.retorno.aprobar",
+    );
+    check(
+      "BT-031",
+      "retorno: ambas personas y el rechazo de cuatro ojos auditados",
+      "solicitud, aprobación y cuatro ojos",
+      [
+        pidio ? "solicitud" : "falta solicitud",
+        aprobo ? "aprobación" : "falta aprobación",
+        cuatroOjos ? "cuatro ojos" : "falta cuatro ojos",
+      ].join(", "),
+      pidio && aprobo && cuatroOjos,
+    );
   } finally {
     if (eventId && agentes) {
-      await waitUntil(async () => ((await db.query("SELECT status FROM nexo.failover_event WHERE id = $1", [eventId])).rows[0]?.status !== "en_curso" ? true : undefined), 30);
+      await waitUntil(
+        async () =>
+          (await db.query("SELECT status FROM nexo.failover_event WHERE id = $1", [eventId])).rows[0]
+            ?.status !== "en_curso"
+            ? true
+            : undefined,
+        30,
+      );
     } else if (eventId) {
       await db.query("DELETE FROM nexo.failover_event WHERE id = $1 AND status = 'en_curso'", [eventId]);
     }
-    if (!agentes) await db.query("UPDATE nexo.continuity_settings SET active_site = $1 WHERE id = 1", [original]);
+    if (!agentes)
+      await db.query("UPDATE nexo.continuity_settings SET active_site = $1 WHERE id = 1", [original]);
   }
 }
 

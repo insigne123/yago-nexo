@@ -54,7 +54,16 @@ function socketFor(d: Destination): Promise<Socket> {
       reject(e);
     };
     const s = d.tls
-      ? tlsConnect({ host: d.host, port: d.port, servername: d.host, ca: opt("NEXO_SIEM_TLS_CA") ? readFileSync(opt("NEXO_SIEM_TLS_CA")!) : undefined, minVersion: "TLSv1.2" }, () => resolve(s))
+      ? tlsConnect(
+          {
+            host: d.host,
+            port: d.port,
+            servername: d.host,
+            ca: opt("NEXO_SIEM_TLS_CA") ? readFileSync(opt("NEXO_SIEM_TLS_CA")!) : undefined,
+            minVersion: "TLSv1.2",
+          },
+          () => resolve(s),
+        )
       : netConnect({ host: d.host!, port: d.port! }, () => resolve(s));
     s.setKeepAlive(true, 15_000);
     s.setTimeout(30_000, () => s.destroy(new Error("sin respuesta del SIEM")));
@@ -69,7 +78,9 @@ async function sendSyslog(d: Destination, events: readonly AuditEvent[]): Promis
   const s = await socketFor(d);
   const host = env("NEXO_SIEM_HOSTNAME", hostname());
   const pen = num("NEXO_SIEM_PEN", 32473);
-  const payload = Buffer.concat(events.map((e) => frame(syslog5424(e, { hostname: host, appName: "nexo", pen }), d.framing ?? "lf")));
+  const payload = Buffer.concat(
+    events.map((e) => frame(syslog5424(e, { hostname: host, appName: "nexo", pen }), d.framing ?? "lf")),
+  );
   await new Promise<void>((resolve, reject) => s.write(payload, (err) => (err ? reject(err) : resolve())));
   await new Promise((r) => setTimeout(r, 300));
   if (s.destroyed || !s.writable) throw new Error("la conexión con el SIEM se cerró durante el envío");
@@ -79,7 +90,10 @@ async function sendHttp(d: Destination, events: readonly AuditEvent[]): Promise<
   const token = opt("NEXO_SIEM_HTTP_TOKEN");
   const res = await fetch(d.url!, {
     method: "POST",
-    headers: { "content-type": "application/x-ndjson", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    headers: {
+      "content-type": "application/x-ndjson",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
     body: ndjson(events),
     signal: AbortSignal.timeout(15_000),
   });
@@ -87,12 +101,26 @@ async function sendHttp(d: Destination, events: readonly AuditEvent[]): Promise<
   if (!res.ok) throw new Error(`el colector respondió ${res.status}`);
 }
 
-async function forward(ctx: EngineContext, d: Destination, maxBatches: number): Promise<{ delivered: number; lagEvents: number; error?: string }> {
-  await ctx.db.query("INSERT INTO nexo.siem_cursor (destination) VALUES ($1) ON CONFLICT DO NOTHING", [d.key]);
+async function forward(
+  ctx: EngineContext,
+  d: Destination,
+  maxBatches: number,
+): Promise<{ delivered: number; lagEvents: number; error?: string }> {
+  await ctx.db.query("INSERT INTO nexo.siem_cursor (destination) VALUES ($1) ON CONFLICT DO NOTHING", [
+    d.key,
+  ]);
   let delivered = 0;
   for (let i = 0; i < maxBatches; i++) {
-    const cursor = Number((await ctx.db.query("SELECT last_seq FROM nexo.siem_cursor WHERE destination = $1", [d.key])).rows[0]?.last_seq ?? 0);
-    const rows = (await ctx.db.query("SELECT * FROM nexo.audit_event WHERE seq > $1 ORDER BY seq LIMIT $2", [cursor, BATCH])).rows;
+    const cursor = Number(
+      (await ctx.db.query("SELECT last_seq FROM nexo.siem_cursor WHERE destination = $1", [d.key])).rows[0]
+        ?.last_seq ?? 0,
+    );
+    const rows = (
+      await ctx.db.query("SELECT * FROM nexo.audit_event WHERE seq > $1 ORDER BY seq LIMIT $2", [
+        cursor,
+        BATCH,
+      ])
+    ).rows;
     if (!rows.length) break;
     const events = rows.map(toEvent);
     try {
@@ -100,22 +128,26 @@ async function forward(ctx: EngineContext, d: Destination, maxBatches: number): 
       else await sendHttp(d, events);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      await ctx.db.query("UPDATE nexo.siem_cursor SET last_error = $1, updated_at = now() WHERE destination = $2", [message, d.key]);
+      await ctx.db.query(
+        "UPDATE nexo.siem_cursor SET last_error = $1, updated_at = now() WHERE destination = $2",
+        [message, d.key],
+      );
       failures.inc({ destino: d.key });
       throw e;
     }
     const last = events.at(-1)!.seq;
-    await ctx.db.query("UPDATE nexo.siem_cursor SET last_seq = $1, sent_total = sent_total + $2, last_error = NULL, updated_at = now() WHERE destination = $3 AND last_seq = $4", [
-      last,
-      events.length,
-      d.key,
-      cursor,
-    ]);
+    await ctx.db.query(
+      "UPDATE nexo.siem_cursor SET last_seq = $1, sent_total = sent_total + $2, last_error = NULL, updated_at = now() WHERE destination = $3 AND last_seq = $4",
+      [last, events.length, d.key, cursor],
+    );
     delivered += events.length;
     sent.inc({ destino: d.key }, events.length);
   }
   const state = (
-    await ctx.db.query("SELECT (SELECT coalesce(max(seq), 0) FROM nexo.audit_event) - last_seq AS lag FROM nexo.siem_cursor WHERE destination = $1", [d.key])
+    await ctx.db.query(
+      "SELECT (SELECT coalesce(max(seq), 0) FROM nexo.audit_event) - last_seq AS lag FROM nexo.siem_cursor WHERE destination = $1",
+      [d.key],
+    )
   ).rows[0];
   const lagEvents = Number(state?.lag ?? 0);
   lag.set({ destino: d.key }, lagEvents);
@@ -127,9 +159,24 @@ export const siemEngine: Engine = {
   lockKey: 727104,
   intervalMs: num("NEXO_SIEM_INTERVAL_MS", 3000),
   async init(ctx) {
-    sent = new Counter({ name: "nexo_siem_eventos_enviados_total", help: "Eventos de auditoría entregados al SIEM", labelNames: ["destino"], registers: [ctx.registry] });
-    failures = new Counter({ name: "nexo_siem_fallas_total", help: "Envíos al SIEM que fallaron (se reintentan)", labelNames: ["destino"], registers: [ctx.registry] });
-    lag = new Gauge({ name: "nexo_siem_rezago_eventos", help: "Eventos de auditoría que aún no llegan al SIEM", labelNames: ["destino"], registers: [ctx.registry] });
+    sent = new Counter({
+      name: "nexo_siem_eventos_enviados_total",
+      help: "Eventos de auditoría entregados al SIEM",
+      labelNames: ["destino"],
+      registers: [ctx.registry],
+    });
+    failures = new Counter({
+      name: "nexo_siem_fallas_total",
+      help: "Envíos al SIEM que fallaron (se reintentan)",
+      labelNames: ["destino"],
+      registers: [ctx.registry],
+    });
+    lag = new Gauge({
+      name: "nexo_siem_rezago_eventos",
+      help: "Eventos de auditoría que aún no llegan al SIEM",
+      labelNames: ["destino"],
+      registers: [ctx.registry],
+    });
   },
   async tick(ctx) {
     const destinations = parseDestinations(env("NEXO_SIEM_DESTINOS", ""));
@@ -137,7 +184,11 @@ export const siemEngine: Engine = {
     for (const d of destinations) {
       const b = backoff.get(d.key);
       if (b && Date.now() < b.until) {
-        estado.push({ destino: d.key, estado: "reintentando", proximoIntento: new Date(b.until).toISOString() });
+        estado.push({
+          destino: d.key,
+          estado: "reintentando",
+          proximoIntento: new Date(b.until).toISOString(),
+        });
         continue;
       }
       try {
@@ -146,7 +197,12 @@ export const siemEngine: Engine = {
         const failed = failingSince.get(d.key);
         if (failed) {
           failingSince.delete(d.key);
-          await ctx.alert({ name: "SiemRecuperado", severity: "S4", summary: `La auditoría vuelve a llegar a ${d.key}; se entregaron los eventos pendientes`, ttlMinutes: 10 });
+          await ctx.alert({
+            name: "SiemRecuperado",
+            severity: "S4",
+            summary: `La auditoría vuelve a llegar a ${d.key}; se entregaron los eventos pendientes`,
+            ttlMinutes: 10,
+          });
         }
         estado.push({ destino: d.key, estado: "al día", entregados: r.delivered, rezago: r.lagEvents });
       } catch (e) {
@@ -155,7 +211,10 @@ export const siemEngine: Engine = {
         sockets.get(d.key)?.destroy();
         const message = e instanceof Error ? e.message : String(e);
         estado.push({ destino: d.key, estado: "error", error: message, reintentoEnMs: delay });
-        ctx.log("warn", `no se pudo entregar la auditoría a ${d.key}; se reintentará`, { error: message, reintentoEnMs: delay });
+        ctx.log("warn", `no se pudo entregar la auditoría a ${d.key}; se reintentará`, {
+          error: message,
+          reintentoEnMs: delay,
+        });
         const f = failingSince.get(d.key) ?? { since: Date.now(), alerted: 0 };
         failingSince.set(d.key, f);
         const minutes = (Date.now() - f.since) / 60_000;

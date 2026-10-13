@@ -19,7 +19,7 @@ Al terminar el módulo, el participante:
 2. Verifica la cadena de auditoría y demuestra que una alteración se detecta.
 3. Configura una regla del guardián de anomalías y sigue un bloqueo desde la detección hasta su vencimiento.
 4. Ejecuta un escaneo de descubrimiento, interpreta el puntaje de exposición y clasifica hallazgos.
-5. Explica cómo se separan las audiencias y qué controles están en desarrollo.
+5. Explica cómo se separan las audiencias y qué controles se entregan con el servicio de implementación.
 
 ## Agenda
 
@@ -32,7 +32,7 @@ Al terminar el módulo, el participante:
 | 4 | 2:15 – 3:30 | [Ejercicio 5.3](#ejercicio-5-3): guardián de anomalías. |
 | — | 3:30 – 3:45 | Pausa. |
 | 5 | 3:45 – 4:45 | [Ejercicio 5.4](#ejercicio-5-4): descubrimiento de APIs no gobernadas. |
-| 6 | 4:45 – 5:00 | Controles en desarrollo. Cierre y autoevaluación. |
+| 6 | 4:45 – 5:00 | Controles que se entregan con el servicio de implementación. Cierre y autoevaluación. |
 
 ## Conceptos
 
@@ -71,13 +71,13 @@ El motor de descubrimiento revisa otros gateways (APISIX), servidores web (confi
 
 Cada audiencia tiene su gateway y su portal: interna (Default), entidades externas (Operadores) y público (Publico, en un gateway separado). Una API desplegada solo para una audiencia responde 404 en los gateways de las demás (<EstadoCapacidad id="audiencias" />).
 
-### Controles de identidad, datos y secretos {#en-desarrollo}
+### Controles de identidad, datos y secretos {#controles-servicio}
 
 <SiNoDisponible id="sso-keycloak">
 
-:::note En desarrollo
+:::note Servicio de implementación
 
-Los controles marcados *En desarrollo* todavía no forman parte del laboratorio; se revisan en la sesión sin ejercicios.
+Los controles que se entregan con el servicio de implementación no forman parte del laboratorio; se revisan en la sesión sin ejercicios.
 
 :::
 
@@ -89,7 +89,7 @@ Los controles marcados *En desarrollo* todavía no forman parte del laboratorio;
 | Enmascaramiento de RUT, correos, teléfonos, tarjetas y tokens en los logs (la auditoría no se enmascara: la identidad de quien actúa es evidencia) | <EstadoCapacidad id="enmascaramiento-logs" /> |
 | Gestor de secretos para producción (OpenBao, External Secrets, Secure Vault) | <EstadoCapacidad id="secretos" /> |
 
-Lo que sí existe hoy en el laboratorio: Fluent Bit enmascara los datos personales y secretos de los logs antes de enviarlos (se comprueba con `deploy/compose/fluent-bit/pruebas/probar-enmascaramiento.sh`, que levanta un Fluent Bit aparte y no toca el laboratorio), la vista previa de los mensajes fallidos enmascara el RUT (M4) y el colector de trazas elimina el encabezado `Authorization` y reemplaza el identificador de usuario final por un hash.
+Lo que sí existe hoy en el laboratorio: Fluent Bit enmascara los datos personales y secretos de los logs antes de enviarlos (se comprueba con `deploy/compose/fluent-bit/pruebas/probar-enmascaramiento.sh`, que levanta un Fluent Bit aparte y no toca el laboratorio), el contenido de los mensajes fallidos que muestra la Consola enmascara el RUT (M4) y el colector de trazas elimina el encabezado `Authorization` y reemplaza el identificador de usuario final por un hash.
 
 ## Ejercicios de laboratorio
 

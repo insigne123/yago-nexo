@@ -9,12 +9,12 @@ interface Props {
   children: ReactNode;
 }
 
-/** Muestra el contenido solo si la capacidad está Disponible. */
+/** Muestra el contenido solo si la capacidad está incluida en la versión publicada. */
 export function SiDisponible({ id, children }: Props): ReactNode {
-  return capacidad(id).estado === "Disponible" ? children : null;
+  return capacidad(id).estado === "Incluida" ? children : null;
 }
 
-/** Muestra el contenido solo si la capacidad todavía no está Disponible. */
+/** Muestra el contenido solo si la capacidad se entrega con el servicio de implementación. */
 export function SiNoDisponible({ id, children }: Props): ReactNode {
-  return capacidad(id).estado === "Disponible" ? null : children;
+  return capacidad(id).estado === "Incluida" ? null : children;
 }

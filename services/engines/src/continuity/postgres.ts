@@ -7,7 +7,14 @@ import pg from "pg";
  * es el mismo con CloudNativePG en GKE.
  */
 async function withClient<T>(url: string, fn: (c: pg.Client) => Promise<T>): Promise<T> {
-  const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: 4000, ssl: process.env.NEXO_DATABASE_SSL === "true" ? { rejectUnauthorized: process.env.NEXO_DATABASE_SSL_INSECURE !== "true" } : undefined });
+  const client = new pg.Client({
+    connectionString: url,
+    connectionTimeoutMillis: 4000,
+    ssl:
+      process.env.NEXO_DATABASE_SSL === "true"
+        ? { rejectUnauthorized: process.env.NEXO_DATABASE_SSL_INSECURE !== "true" }
+        : undefined,
+  });
   await client.connect();
   try {
     return await fn(client);
@@ -17,7 +24,10 @@ async function withClient<T>(url: string, fn: (c: pg.Client) => Promise<T>): Pro
 }
 
 export function isInRecovery(url: string): Promise<boolean> {
-  return withClient(url, async (c) => (await c.query<{ r: boolean }>("SELECT pg_is_in_recovery() AS r")).rows[0]!.r);
+  return withClient(
+    url,
+    async (c) => (await c.query<{ r: boolean }>("SELECT pg_is_in_recovery() AS r")).rows[0]!.r,
+  );
 }
 
 /** ¿El sitio de respaldo puede tomar el control? Su base responde (esté en espera o ya promovida). */
@@ -31,7 +41,11 @@ export async function backupReady(replicaUrl: string): Promise<boolean> {
 /** Rezago de replicación de la réplica en bytes (0 si está al día o no se puede medir). */
 export async function replicationLagBytes(replicaUrl: string): Promise<number> {
   return withClient(replicaUrl, async (c) => {
-    const r = await c.query<{ lag: string | null }>("SELECT pg_wal_lsn_diff(pg_last_wal_receive_lsn(), pg_last_wal_replay_lsn()) AS lag").catch(() => ({ rows: [{ lag: null }] }));
+    const r = await c
+      .query<{ lag: string | null }>(
+        "SELECT pg_wal_lsn_diff(pg_last_wal_receive_lsn(), pg_last_wal_replay_lsn()) AS lag",
+      )
+      .catch(() => ({ rows: [{ lag: null }] }));
     return Number(r.rows[0]?.lag ?? 0) || 0;
   });
 }
@@ -68,7 +82,11 @@ export async function fenceWrites(primaryUrl: string): Promise<boolean> {
   return withClient(primaryUrl, async (c) => {
     await c.query("ALTER SYSTEM SET default_transaction_read_only = on");
     await c.query("SELECT pg_reload_conf()");
-    await c.query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND backend_type = 'client backend'").catch(() => undefined);
+    await c
+      .query(
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND backend_type = 'client backend'",
+      )
+      .catch(() => undefined);
     return true;
   }).catch(() => false);
 }

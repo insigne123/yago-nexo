@@ -194,7 +194,7 @@ curl -s http://localhost:8090/api/v1/health   # {"status":"ok",…,"ambiente":"L
 | Script | Qué verifica | Requiere | Cambia el laboratorio |
 | --- | --- | --- | --- |
 | `check:audiencias` | Cada gateway expone solo las APIs de su audiencia. | Preparación completa | Si falta, suscribe OperadorDemo a ConsultaPublica y aprueba las suscripciones pendientes. |
-| `check:integracion` | Flujo de solicitudes por el gateway: 202, repetición idempotente, 422 y traza en Jaeger. | Preparación completa y perfil `obs` | Si falta, suscribe OperadorDemo a SolicitudesConcesion y aprueba las suscripciones pendientes. |
+| `check:integracion` | Flujo de solicitudes por el gateway, con 8 verificaciones: 202 enriquecido por SOAP, repetición idempotente, 422, entrega única, rechazo 4xx sin reintentos, cola de fallidos, consulta sin pérdida y traza en Jaeger. Termina con error si alguna no se cumple. | Preparación completa y perfil `obs` | Si falta, suscribe OperadorDemo a SolicitudesConcesion y aprueba las suscripciones pendientes. Deja en `solicitudes.dlq` el mensaje que el destino rechazó con 422. |
 | `check:d06` | API GraphQL y API de eventos (WebSocket) a través del gateway. | Preparación completa | Si falta, suscribe OperadorDemo a esas APIs; siempre aprueba las suscripciones pendientes. |
 | `check:d07` | SDK generados desde el contrato publicado (al menos tres lenguajes). | Preparación completa | Deja los zip en `out/sdk`. |
 | `check:consola` | API de la Consola: roles, catálogo, impacto, consumo, TLS, mensajes fallidos, alertas, exportación y auditoría. | Preparación completa y perfil `obs` | Crea y detiene un despliegue, provoca y reprocesa un mensaje fallido y altera un evento de auditoría que luego restaura. |
@@ -202,7 +202,7 @@ curl -s http://localhost:8090/api/v1/health   # {"status":"ok",…,"ambiente":"L
 | `check:d02` | Guardián de anomalías: bloqueo automático, bloqueo con aprobación, vencimiento y liberación. | Perfil `obs` | Desactiva las reglas activas durante la prueba y las restaura; deja sus reglas desactivadas. |
 | `check:d04` | Despliegues progresivos con reversa automática y sin errores para los consumidores. | `make deploy-apis` | Termina con la API Concesiones de vuelta en la versión 1.0.0. |
 | `check:siem` | Auditoría entregada al SIEM sin pérdida, en orden y sin duplicados. | Perfil `obs` | Detiene y vuelve a iniciar Fluent Bit. |
-| `check:d05` | Quórum, conmutación automática con RTO medido y retorno guiado. | `make continuidad` | Detiene y vuelve a iniciar contenedores del laboratorio de continuidad. |
+| `check:d05` | Quórum, conmutación automática con RTO medido y retorno con dos personas. | `make continuidad` | Detiene y vuelve a iniciar contenedores del laboratorio de continuidad. |
 
 Las verificaciones `check:d02`, `check:d04` y `check:d05` generan tráfico o detienen servicios y toman varios minutos. Ninguna verificación debe correr mientras hace otro ejercicio: algunas aprueban solicitudes pendientes o cambian estados que el ejercicio espera.
 

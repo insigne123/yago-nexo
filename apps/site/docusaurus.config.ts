@@ -116,7 +116,7 @@ const config: Config = {
     ],
     announcementBar: {
       id: `version-${release.version}`,
-      content: `Versión ${release.version} ${release.estado}: cada capacidad indica su estado real. Consulte la <a href="/docs/hoja-de-ruta">hoja de ruta</a>.`,
+      content: `Versión ${release.version} ${release.estado}: cada capacidad indica si está incluida en la versión o si se entrega con el servicio de implementación. Consulte las <a href="/docs/capacidades">capacidades</a>.`,
       backgroundColor: "var(--nexo-aviso-bg)",
       textColor: "var(--nexo-aviso-fg)",
       isCloseable: true,
@@ -133,7 +133,7 @@ const config: Config = {
         { type: "doc", docId: "intro", label: "Documentación", position: "left" },
         { to: "/docs/laboratorio", label: "Laboratorio", position: "left" },
         { to: "/docs/api-consola", label: "API", position: "left" },
-        { to: "/docs/hoja-de-ruta", label: "Hoja de ruta", position: "left" },
+        { to: "/docs/capacidades", label: "Capacidades", position: "left" },
         { to: "/novedades", label: "Novedades", position: "left" },
         {
           to: "/docs/ciclo-de-vida-y-soporte",
@@ -159,7 +159,7 @@ const config: Config = {
         {
           title: "Producto",
           items: [
-            { label: "Hoja de ruta", to: "/docs/hoja-de-ruta" },
+            { label: "Capacidades", to: "/docs/capacidades" },
             { label: "Ciclo de vida y soporte", to: "/docs/ciclo-de-vida-y-soporte" },
             { label: "Demostraciones registradas", to: "/evidencias" },
             { label: "Novedades", to: "/novedades" },

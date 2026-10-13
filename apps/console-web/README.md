@@ -26,7 +26,6 @@ Desde la raíz del monorepo, después de `pnpm install`:
 {
   "apiBaseUrl": "/api/v1",
   "environmentLabel": "Laboratorio Yago",
-  "version": "1.0.0",
   "auth": {
     "provider": "mock",
     "oidc": { "authority": "http://keycloak:8080/realms/nexo", "clientId": "nexo-console", "rolesClaimPath": "resource_access.nexo-console.roles" },
@@ -36,6 +35,7 @@ Desde la raíz del monorepo, después de `pnpm install`:
 }
 ```
 
+- `version` es opcional: sin ella se muestra la versión del build, que sale de `package.json` (la demo publicada no la fija). En Kubernetes la escribe el chart con su `appVersion`.
 - `auth.provider`: `mock`, `oidc` o `supabase`. Solo se valida el bloque del proveedor elegido; si falta un dato, la Consola muestra qué campo corregir.
 - `demoBanner`: franja superior con «ambiente · Nexo versión · fecha y hora local» que se actualiza cada segundo. La usan los videos de Playwright como prueba de fecha y versión.
 - Valores opcionales: `oidc.scope` (por defecto `openid profile email`), `supabase.rolesClaimPath` (por defecto `app_metadata.roles`) y `supabase.requireMfa` (por defecto `true`).
@@ -51,9 +51,10 @@ pnpm --filter @nexo/console-web dev
 ```
 
 - Hay un usuario por rol (los mismos del realm del laboratorio) y un caso de prueba con dos roles, `marta.dosroles`, para comprobar la regla de cuatro ojos: puede crear un despliegue pero no aprobarlo.
-- Las acciones cambian el estado y quedan en la auditoría encadenada: aprobar un bloqueo, liberar, clasificar hallazgos, reprocesar mensajes, exportar, etc. Las acciones rechazadas (403) también se auditan.
+- Las acciones cambian el estado y quedan en la auditoría encadenada: aprobar un bloqueo, liberar, clasificar hallazgos, reprocesar mensajes, exportar, etc. Como en la API, un 403 queda como `acceso.rechazado.permiso` o `acceso.rechazado.cuatro_ojos`, y una escritura que no se completa queda con resultado «rechazado».
+- El análisis de impacto usa el mismo motor que la API (`impactOf` de `apps/console-api/src/modules/catalog-graph.ts`, importado como `@nexo/console-api/impacto`) y la exportación arma la misma lista de archivos.
 - El tiempo de los procesos va acelerado diez veces: un paso de despliegue de 60 s dura 6 s (entre 4 y 15 s). Un endpoint candidato que contenga `mala` o `falla` simula una versión defectuosa y se revierte solo en el primer paso.
-- El simulacro de conmutación agrega sus pasos de a poco, cambia el sitio activo a GCP y mide el RTO; luego un aprobador debe aprobar el retorno.
+- El simulacro de conmutación hace lo mismo que el agente de continuidad: mide la réplica y confirma que es promovible, sin conmutar. En Continuidad, «Herramientas del modo simulado» provoca la caída del sitio principal: con el modo automático, los agentes conmutan a GCP con los pasos del agente y registran el RTO. Después, una persona solicita el retorno (`continuity:failback:request`, motivo obligatorio, vence a los 30 minutos) y otra lo aprueba; el paso «Re-sincronizar la réplica» queda pendiente para el operador.
 - En Auditoría aparece «Herramientas del modo simulado» para alterar un evento y demostrar que la verificación de la cadena lo detecta.
 - El estado se guarda en la pestaña (sessionStorage): sobrevive a recargas y a cambios de usuario. «Restablecer datos de demostración», en la pantalla de ingreso, vuelve al estado inicial.
 - Con otro proveedor se puede forzar el modo simulado abriendo la Consola con `?mock=1` (se recuerda en la pestaña; `?mock=0` lo apaga). Así se usa, por ejemplo, el ingreso real de Keycloak con datos simulados.
@@ -68,8 +69,7 @@ pnpm --filter @nexo/console-web dev
    {
      "apiBaseUrl": "/api/v1",
      "environmentLabel": "Laboratorio Yago",
-     "version": "1.0.0",
-     "auth": {
+        "auth": {
        "provider": "oidc",
        "oidc": { "authority": "http://keycloak:8080/realms/nexo", "clientId": "nexo-console", "rolesClaimPath": "resource_access.nexo-console.roles" }
      },
@@ -90,7 +90,6 @@ En desarrollo, las llamadas a `/api` se envían a la API de la Consola en `http:
 {
   "apiBaseUrl": "https://api-demo.nexo.example/api/v1",
   "environmentLabel": "Demo Yago",
-  "version": "1.0.0",
   "auth": {
     "provider": "supabase",
     "supabase": { "url": "https://<proyecto>.supabase.co", "anonKey": "<clave pública anon>", "requireMfa": true }
@@ -108,23 +107,23 @@ En desarrollo, las llamadas a `/api` se envían a la API de la Consola en `http:
 ```bash
 pnpm --filter @nexo/console-web build
 cd apps/console-web
-docker build -t nexo/console-web:1.0.0 .
+docker build -t nexo/console-web:1.2.0 .
 docker run -p 8090:8080 \
   -v "$PWD/config.produccion.json:/etc/nexo/config.json:ro" \
   -e NEXO_CSP_CONNECT_SRC="'self' https://sso.institucion.example https://api-consola.institucion.example" \
   -e NEXO_CSP_FRAME_SRC="'self' https://sso.institucion.example" \
-  nexo/console-web:1.0.0
+  nexo/console-web:1.2.0
 ```
 
 - `nginx.conf` sirve la aplicación con respaldo a `index.html`, gzip, caché larga para `/assets/`, `/healthz` para las sondas y encabezados de seguridad (CSP sin `unsafe-inline` ni `unsafe-eval` para scripts, HSTS, `nosniff`, `frame-ancestors 'self'`, Permissions-Policy).
 - `/config.json` se lee desde `/etc/nexo/config.json` (monte ahí un ConfigMap) y nunca queda en caché.
 - La CSP permite conexiones solo a los orígenes de `NEXO_CSP_CONNECT_SRC`: agregue la API de la Consola, el Keycloak o el proyecto de Supabase del ambiente.
 
-En Firebase Hosting se publica la misma carpeta `dist/` con reescritura de todas las rutas a `/index.html` y `Cache-Control: no-store` para `/config.json`.
+En Firebase Hosting se publica la misma carpeta `dist/` con reescritura de todas las rutas a `/index.html`, `Cache-Control: no-store` para `/config.json` y la misma política de seguridad de contenido, con `connect-src 'self'` y `frame-ancestors 'none'` (`firebase.json`; lo prueba `src/config/hosting.test.ts`).
 
 ## Para los guiones de Playwright
 
-- Los controles principales tienen `data-testid`: navegación (`nav-catalogo`, `nav-despliegues`…), ingreso simulado (`mock-login-aprobador`, `mock-login-marta.dosroles`), botones (`btn-sync-wso2`, `btn-approve-rollout`, `btn-abort-rollout`, `btn-start-drill`, `btn-approve-failback`, `btn-verify-audit`, `btn-create-export`, `btn-logout`…), tablas (`table-apis`, `table-findings`, `table-audit`…), estados (`rollout-status`, `anomaly-status-<id>`, `finding-status-<id>`) y el banner (`demo-banner-text`).
+- Los controles principales tienen `data-testid`: navegación (`nav-catalogo`, `nav-despliegues`…), ingreso simulado (`mock-login-aprobador`, `mock-login-marta.dosroles`), botones (`btn-sync-wso2`, `btn-approve-rollout`, `btn-abort-rollout`, `btn-start-drill`, `btn-request-failback`, `btn-approve-failback`, `btn-reject-failback`, `btn-mock-outage`, `btn-verify-audit`, `btn-create-export`, `btn-logout`…), tablas (`table-apis`, `table-findings`, `table-audit`…), estados (`rollout-status`, `anomaly-status-<id>`, `finding-status-<id>`) y el banner (`demo-banner-text`).
 - Una acción sin permiso no se oculta: queda deshabilitada (`aria-disabled="true"`, `data-blocked="permiso"` o `"regla"`) con un tooltip que nombra el permiso que falta.
 - Para un estado inicial conocido, use «Restablecer datos de demostración» (`btn-mock-reset`) en la pantalla de ingreso.
 

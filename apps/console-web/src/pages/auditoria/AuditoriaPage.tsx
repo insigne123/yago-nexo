@@ -162,7 +162,7 @@ export default function AuditoriaPage() {
       <PageHeader
         title="Auditoría"
         reference="BT-031 · BT-032"
-        description="Eventos de auditoría con identidad, fecha y hora, acción, resultado e IP de origen. Cada evento lleva un número de secuencia y un hash encadenado con el anterior: si alguien altera, borra o reordena un evento, la verificación lo detecta."
+        description="Eventos de auditoría con identidad, fecha y hora, acción, resultado e IP de origen. Cada evento lleva un número de secuencia y un hash encadenado con el anterior: la verificación detecta un evento alterado, reordenado o borrado entre otros dos. Borrar los últimos eventos no rompe la cadena: para detectarlo, compare el último número y su hash con la copia reenviada al SIEM."
         actions={
           <>
             <Button
@@ -264,7 +264,7 @@ export default function AuditoriaPage() {
               {...control}
               value={draft.action}
               onChange={(e) => setDraft({ ...draft, action: e.target.value })}
-              placeholder="por ejemplo rollout.approve"
+              placeholder="por ejemplo acceso.rechazado"
               data-testid="audit-filter-action"
             />
           )}

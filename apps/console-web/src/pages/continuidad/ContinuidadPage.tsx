@@ -1,4 +1,18 @@
-import { CircleCheck, CircleX, Clock, LoaderCircle, Play, Server, ShieldCheck, Undo2, Vote } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  CircleCheck,
+  CircleX,
+  Clock,
+  FlaskConical,
+  LoaderCircle,
+  Play,
+  Send,
+  Server,
+  ShieldCheck,
+  Undo2,
+  Vote,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import {
   keys,
@@ -6,10 +20,14 @@ import {
   useContinuity,
   useFailoverEvents,
   useRefreshWhenFinished,
+  useRejectFailback,
+  useRequestFailback,
   useSetContinuityMode,
   useStartDrill,
 } from "../../api/queries";
-import type { ContinuityMode, FailoverEvent, SiteHealth } from "../../api/types";
+import { authorizedFetch } from "../../api/client";
+import { describeError } from "../../api/errors";
+import type { ContinuityMode, FailbackRequest, FailoverEvent, SiteHealth } from "../../api/types";
 import { requiredPermissionText } from "../../auth/permissions";
 import { useSession } from "../../auth/session";
 import { GuardedButton } from "../../components/GuardedButton";
@@ -24,6 +42,8 @@ import { Dialog } from "../../components/ui/Dialog";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { SegmentedControl } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { toast } from "../../components/ui/toast-store";
+import { useRuntime } from "../../config/RuntimeContext";
 import { formatDateTime, formatDuration, formatRelative, formatTime } from "../../lib/format";
 import {
   CHECK_LABELS,
@@ -118,6 +138,7 @@ function EventCard({
           <p className="text-xs text-fg-muted">
             {labelOf(FAILOVER_TRIGGER_LABELS, event.trigger)} · Inicio {formatDateTime(event.startedAt)}
             {event.finishedAt ? ` · Término ${formatDateTime(event.finishedAt)}` : ""}
+            {event.requestedBy ? ` · Solicitó ${event.requestedBy}` : ""}
             {event.approvedBy ? ` · Aprobó ${event.approvedBy}` : ""}
           </p>
         </div>
@@ -126,12 +147,16 @@ function EventCard({
       <div className="mt-2 flex flex-wrap gap-2">
         <Badge tone={rtoTone(event.rtoSeconds, rtoObjetivoMin)} data-testid={`failover-rto-${event.id}`}>
           RTO medido{" "}
-          {event.rtoSeconds !== undefined ? formatDuration(event.rtoSeconds) : live ? "en medición" : "no registrado"}
+          {event.rtoSeconds !== undefined
+            ? formatDuration(event.rtoSeconds)
+            : live
+              ? "en medición"
+              : "no registrado"}
           {rtoObjetivoMin !== undefined ? ` · objetivo ${rtoObjetivoMin} min` : ""}
         </Badge>
-        <Badge tone={rtoTone(event.rpoSecondsEstimated, rpoObjetivoMin)}>
-          RPO estimado{" "}
-          {event.rpoSecondsEstimated !== undefined ? formatDuration(event.rpoSecondsEstimated) : "—"}
+        {/* El agente registra el rezago de replicación en bytes de WAL (en los pasos), no el RPO en tiempo. */}
+        <Badge tone="neutral" data-testid={`failover-rpo-${event.id}`}>
+          RPO: no medido
           {rpoObjetivoMin !== undefined ? ` · objetivo ${rpoObjetivoMin} min` : ""}
         </Badge>
       </div>
@@ -161,6 +186,32 @@ function EventCard({
   );
 }
 
+function PendingFailbackCard({ request, now }: { request: FailbackRequest; now: number }) {
+  return (
+    <section
+      aria-label="Solicitud de retorno pendiente"
+      className="mb-6 rounded-lg border border-warn/40 bg-surface p-4"
+      data-testid="pending-failback"
+    >
+      <p className="text-sm font-semibold text-fg">
+        Retorno al sitio principal solicitado por {request.requestedBy}
+      </p>
+      <p className="mt-1 text-xs text-fg-muted">
+        {request.fromSite} → {request.toSite} · Solicitado{" "}
+        <time dateTime={request.requestedAt}>{formatRelative(request.requestedAt, now)}</time> · Vence{" "}
+        <time dateTime={request.expiresAt} data-testid="pending-failback-expires">
+          {formatDateTime(request.expiresAt)}
+        </time>
+      </p>
+      <p className="mt-2 text-sm text-fg">Motivo: {request.reason}</p>
+      <p className="mt-2 text-xs text-fg-muted">
+        Debe aprobarlo otra persona con el rol aprobador. Si nadie lo aprueba antes del vencimiento, la
+        solicitud vence y hay que pedirla de nuevo.
+      </p>
+    </section>
+  );
+}
+
 export default function ContinuidadPage() {
   const events = useFailoverEvents();
   const anyLive = (events.data ?? []).some((e) => e.status === "en_curso");
@@ -169,10 +220,33 @@ export default function ContinuidadPage() {
   const session = useSession();
   const setMode = useSetContinuityMode();
   const drill = useStartDrill();
-  const failback = useApproveFailback();
+  const requestFailback = useRequestFailback();
+  const approveFailback = useApproveFailback();
+  const rejectFailback = useRejectFailback();
   const now = useNow();
   const [pendingMode, setPendingMode] = useState<ContinuityMode | null>(null);
-  const [failbackOpen, setFailbackOpen] = useState(false);
+  const [failbackDialog, setFailbackDialog] = useState<"solicitar" | "aprobar" | "rechazar" | null>(null);
+  const { mock } = useRuntime();
+  const queryClient = useQueryClient();
+  const [simulating, setSimulating] = useState(false);
+
+  // Solo en modo simulado: provoca la caída del sitio principal para que los agentes conmuten (demo).
+  const simulateOutage = async () => {
+    setSimulating(true);
+    try {
+      await authorizedFetch("__mock/continuity/outage", { method: "POST" });
+      toast.warning(
+        "Caída del sitio principal simulada (solo modo simulado)",
+        "Los agentes votan y, con quórum, conmutan al sitio de respaldo.",
+      );
+      await queryClient.invalidateQueries({ queryKey: keys.continuityAll });
+    } catch (error) {
+      const { title, description } = describeError(error);
+      toast.error(title, description);
+    } finally {
+      setSimulating(false);
+    }
+  };
 
   const s = state.data;
   const primary = s?.sites?.find((site) => site.role === "primario");
@@ -181,6 +255,9 @@ export default function ContinuidadPage() {
   const healthyVotes = (s?.sites ?? []).filter((site) => site.vote === "primario_sano").length;
   const downVotes = (s?.sites ?? []).filter((site) => site.vote === "primario_caido").length;
   const canWriteMode = session.can("admin:settings:write");
+  const pendingFailback = s?.pendingFailback;
+  const requestedBySelf = pendingFailback ? session.isSelf(pendingFailback.requestedBy) : false;
+  const closeFailback = () => setFailbackDialog(null);
   const sortedEvents = [...(events.data ?? [])].sort((a, b) =>
     (b.startedAt ?? "").localeCompare(a.startedAt ?? ""),
   );
@@ -190,7 +267,7 @@ export default function ContinuidadPage() {
       <PageHeader
         title="Continuidad operacional"
         reference="D-05 · BT-036"
-        description="Agentes en el CPD, en Google Cloud y en un sitio testigo votan la salud del sitio principal. Se conmuta solo si 2 de 3 votos coinciden (evita que ambos sitios queden activos). El retorno es guiado y requiere aprobación."
+        description="Agentes en el CPD, en Google Cloud y en un sitio testigo votan la salud del sitio principal. Se conmuta solo si 2 de 3 votos coinciden (evita que ambos sitios queden activos). El retorno lo solicita una persona y lo aprueba otra."
         actions={
           <>
             <GuardedButton
@@ -200,7 +277,7 @@ export default function ContinuidadPage() {
                 anyLive
                   ? "Hay una conmutación o simulacro en curso."
                   : !onPrimary
-                    ? "El sitio principal no está activo: primero apruebe el retorno."
+                    ? "El sitio principal no está activo: primero se solicita y se aprueba el retorno."
                     : null
               }
               loading={drill.isPending}
@@ -209,22 +286,51 @@ export default function ContinuidadPage() {
             >
               Iniciar simulacro
             </GuardedButton>
-            <GuardedButton
-              permission="continuity:failback:approve"
-              variant="primary"
-              icon={<Undo2 className="size-4" aria-hidden="true" />}
-              blockedReason={
-                onPrimary
-                  ? "El sitio principal ya está activo: no hay retorno pendiente."
-                  : anyLive
-                    ? "Espere a que termine la operación en curso."
-                    : null
-              }
-              onClick={() => setFailbackOpen(true)}
-              data-testid="btn-approve-failback"
-            >
-              Aprobar retorno
-            </GuardedButton>
+            {pendingFailback ? (
+              <>
+                <GuardedButton
+                  permission="continuity:failback:approve"
+                  icon={<X className="size-4" aria-hidden="true" />}
+                  onClick={() => setFailbackDialog("rechazar")}
+                  data-testid="btn-reject-failback"
+                >
+                  Rechazar retorno
+                </GuardedButton>
+                <GuardedButton
+                  permission="continuity:failback:approve"
+                  variant="primary"
+                  icon={<Undo2 className="size-4" aria-hidden="true" />}
+                  blockedReason={
+                    requestedBySelf
+                      ? "Regla de cuatro ojos: usted solicitó este retorno; debe aprobarlo otra persona."
+                      : anyLive
+                        ? "Espere a que termine la operación en curso."
+                        : null
+                  }
+                  onClick={() => setFailbackDialog("aprobar")}
+                  data-testid="btn-approve-failback"
+                >
+                  Aprobar retorno
+                </GuardedButton>
+              </>
+            ) : (
+              <GuardedButton
+                permission="continuity:failback:request"
+                variant="primary"
+                icon={<Send className="size-4" aria-hidden="true" />}
+                blockedReason={
+                  onPrimary
+                    ? "El sitio principal ya está activo: no hay retorno que solicitar."
+                    : anyLive
+                      ? "Espere a que termine la operación en curso."
+                      : null
+                }
+                onClick={() => setFailbackDialog("solicitar")}
+                data-testid="btn-request-failback"
+              >
+                Solicitar retorno
+              </GuardedButton>
+            )}
           </>
         }
       />
@@ -245,7 +351,9 @@ export default function ContinuidadPage() {
               <p className="mt-1 text-xl font-semibold text-fg">{activeSite?.name ?? s.activeSite ?? "—"}</p>
               {!onPrimary && (
                 <p className="mt-1 text-xs font-medium text-warn">
-                  Operando en el sitio de respaldo. Retorno pendiente.
+                  {pendingFailback
+                    ? "Operando en el sitio de respaldo. Retorno solicitado, falta la aprobación."
+                    : "Operando en el sitio de respaldo. El retorno no se ha solicitado."}
                 </p>
               )}
             </div>
@@ -262,7 +370,10 @@ export default function ContinuidadPage() {
               <p className="mt-1 text-sm text-fg">
                 RTO {s.rtoObjetivoMin ?? "—"} min · RPO {s.rpoObjetivoMin ?? "—"} min
               </p>
-              <p className="mt-1 text-xs text-fg-muted">Cada conmutación registra el RTO y el RPO medidos.</p>
+              <p className="mt-1 text-xs text-fg-muted">
+                Cada conmutación registra el RTO medido. El RPO no se mide en esta versión: se registra el
+                rezago de replicación (bytes de WAL sin aplicar) en los pasos.
+              </p>
             </div>
             <div className="rounded-lg border border-line bg-surface p-4">
               <p className="mb-2 text-xs font-medium text-fg-muted" id="modo-label">
@@ -288,6 +399,27 @@ export default function ContinuidadPage() {
               </p>
             </div>
           </section>
+
+          {pendingFailback && <PendingFailbackCard request={pendingFailback} now={now} />}
+
+          {mock && (
+            <Card
+              className="mb-6 border-dashed"
+              title="Herramientas del modo simulado"
+              description="Disponibles solo con datos simulados. En una instalación, la conmutación la deciden los agentes de continuidad con quórum (modo automático) o el operador con el procedimiento manual."
+            >
+              <Button
+                size="sm"
+                icon={<FlaskConical className="size-4" aria-hidden="true" />}
+                loading={simulating}
+                disabled={!onPrimary || anyLive}
+                onClick={() => void simulateOutage()}
+                data-testid="btn-mock-outage"
+              >
+                Simular la caída del sitio principal
+              </Button>
+            </Card>
+          )}
 
           <div className="mb-6 grid gap-4 md:grid-cols-3">
             {(s.sites ?? []).map((site) => (
@@ -345,15 +477,66 @@ export default function ContinuidadPage() {
       </Dialog>
 
       <ReasonDialog
-        open={failbackOpen}
-        onClose={() => setFailbackOpen(false)}
+        open={failbackDialog === "solicitar"}
+        onClose={closeFailback}
+        title="Solicitar el retorno al sitio principal"
+        description={
+          <>
+            <span className="block">
+              El retorno reapunta el DNS al sitio principal y fija el sitio activo; no copia datos ni promueve
+              bases. Antes de solicitarlo, el operador confirma que la base del sitio principal tiene los
+              cambios hechos en el respaldo (la reconstruye desde el respaldo con pg_basebackup, según el
+              procedimiento del motor de base de datos). Después del retorno reconstruye la réplica del
+              respaldo desde el primario: hasta entonces el paso «Re-sincronizar la réplica» queda pendiente.
+            </span>
+            <span className="mt-2 block">
+              La solicitud la aprueba otra persona con el rol aprobador y vence si nadie la aprueba a tiempo.
+            </span>
+          </>
+        }
+        confirmLabel="Solicitar retorno"
+        minLength={5}
+        pending={requestFailback.isPending}
+        testId="failback-request-dialog"
+        onConfirm={(reason) => requestFailback.mutate(reason, { onSuccess: closeFailback })}
+      />
+
+      <ReasonDialog
+        open={failbackDialog === "aprobar" && Boolean(pendingFailback)}
+        onClose={closeFailback}
         title="Aprobar el retorno al sitio principal"
-        description="Se sincronizan los datos, se congela la escritura en el respaldo y se devuelve el tráfico al CPD. Quien inició la conmutación no puede aprobar el retorno."
+        description={
+          pendingFailback
+            ? `Solicitado por ${pendingFailback.requestedBy}: «${pendingFailback.reason}». Al aprobar, los agentes de continuidad reapuntan el tráfico al sitio principal. La solicitud y la aprobación quedan en la auditoría.`
+            : undefined
+        }
         confirmLabel="Aprobar retorno"
-        minLength={10}
-        pending={failback.isPending}
+        minLength={0}
+        pending={approveFailback.isPending}
         testId="failback-dialog"
-        onConfirm={(reason) => failback.mutate(reason, { onSuccess: () => setFailbackOpen(false) })}
+        onConfirm={(reason) =>
+          pendingFailback &&
+          approveFailback.mutate(
+            { id: pendingFailback.id, reason: reason || undefined },
+            { onSuccess: closeFailback },
+          )
+        }
+      />
+
+      <ReasonDialog
+        open={failbackDialog === "rechazar" && Boolean(pendingFailback)}
+        onClose={closeFailback}
+        title="Rechazar la solicitud de retorno"
+        description="La solicitud queda rechazada y el tráfico sigue en el sitio de respaldo. El motivo queda en la auditoría."
+        confirmLabel="Rechazar"
+        confirmVariant="danger"
+        minLength={5}
+        pending={rejectFailback.isPending}
+        testId="failback-reject-dialog"
+        onConfirm={(reason) =>
+          pendingFailback &&
+          rejectFailback.mutate({ id: pendingFailback.id, reason }, { onSuccess: closeFailback })
+        }
       />
     </>
   );

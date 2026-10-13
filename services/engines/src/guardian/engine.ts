@@ -31,11 +31,23 @@ let detections: Counter<"metrica" | "accion">;
 let activeBlocks: Gauge;
 
 async function expireBlocks(ctx: EngineContext): Promise<number> {
-  const expired = (await ctx.db.query("SELECT * FROM nexo.block WHERE active AND expires_at IS NOT NULL AND expires_at < now()")).rows;
+  const expired = (
+    await ctx.db.query(
+      "SELECT * FROM nexo.block WHERE active AND expires_at IS NOT NULL AND expires_at < now()",
+    )
+  ).rows;
   for (const b of expired) {
     await releaseBlock(ctx.db, ctx.wso2().admin, String(b.id), "nexo-guardian");
-    await ctx.audit("anomalias.bloqueo.vencer", `bloqueo/${b.id}`, "exito", { objetivo: b.condition_value, tipo: b.condition_type });
-    await ctx.alert({ name: "BloqueoVencido", severity: "S4", summary: `Se levantó el bloqueo de ${b.condition_value} al cumplirse su duración`, ttlMinutes: 10 });
+    await ctx.audit("anomalias.bloqueo.vencer", `bloqueo/${b.id}`, "exito", {
+      objetivo: b.condition_value,
+      tipo: b.condition_type,
+    });
+    await ctx.alert({
+      name: "BloqueoVencido",
+      severity: "S4",
+      summary: `Se levantó el bloqueo de ${b.condition_value} al cumplirse su duración`,
+      ttlMinutes: 10,
+    });
   }
   return expired.length;
 }
@@ -44,26 +56,47 @@ async function expireBlocks(ctx: EngineContext): Promise<number> {
  * Acción que corresponde aplicar: las aplicaciones excluidas de bloqueo y las que una persona liberó después
  * del inicio de la ventana evaluada solo generan alerta.
  */
-export function effectiveAction(ruleAction: string, neverBlock: boolean, releasedByPersonAfterWindow: boolean): string {
+export function effectiveAction(
+  ruleAction: string,
+  neverBlock: boolean,
+  releasedByPersonAfterWindow: boolean,
+): string {
   if (ruleAction === "alertar") return ruleAction;
   return neverBlock || releasedByPersonAfterWindow ? "alertar" : ruleAction;
 }
 
-async function evaluateRule(ctx: EngineContext, rule: Row, endMs: number, blocked: Set<string>): Promise<number> {
+async function evaluateRule(
+  ctx: EngineContext,
+  rule: Row,
+  endMs: number,
+  blocked: Set<string>,
+): Promise<number> {
   const metric = rule.metric as Metric;
   const fromMs = endMs - (BASELINE_WINDOWS + 1) * WINDOW_SEC * 1000;
-  const res = await ctx.os().search<SeriesResponse>(
-    env("NEXO_OPENSEARCH_METRICS_INDEX", "nexo-apim-metrics-*"),
-    buildQuery(metric, fromMs, endMs, WINDOW_SEC, { apiId: rule.api_id, consumerId: rule.consumer_id }),
-  );
+  const res = await ctx
+    .os()
+    .search<SeriesResponse>(
+      env("NEXO_OPENSEARCH_METRICS_INDEX", "nexo-apim-metrics-*"),
+      buildQuery(metric, fromMs, endMs, WINDOW_SEC, { apiId: rule.api_id, consumerId: rule.consumer_id }),
+    );
   const windowStart = new Date(endMs - WINDOW_SEC * 1000);
   const offHours = !isBusinessHours(windowStart, BUSINESS_HOURS, TIME_ZONE);
-  const apiName = rule.api_id ? ((await ctx.db.query("SELECT name, version FROM nexo.api_asset WHERE wso2_api_id = $1", [rule.api_id])).rows[0] ?? null) : null;
+  const apiName = rule.api_id
+    ? ((await ctx.db.query("SELECT name, version FROM nexo.api_asset WHERE wso2_api_id = $1", [rule.api_id]))
+        .rows[0] ?? null)
+    : null;
   let found = 0;
   for (const s of parseSeries(metric, res, fromMs, endMs, WINDOW_SEC)) {
     const current = s.windows.at(-1)!;
     if (current.calls === 0) continue;
-    const d = detect(metric, current, s.windows.slice(0, -1), Number(rule.sensitivity), Number(rule.min_volume), offHours);
+    const d = detect(
+      metric,
+      current,
+      s.windows.slice(0, -1),
+      Number(rule.sensitivity),
+      Number(rule.min_volume),
+      offHours,
+    );
     if (!d.anomalous) continue;
     const target = `${s.owner}:${s.name}`;
     if (blocked.has(target)) continue; // ya bloqueado: sus llamadas rechazadas no generan nuevos eventos
@@ -77,7 +110,12 @@ async function evaluateRule(ctx: EngineContext, rule: Row, endMs: number, blocke
       )
     ).rowCount;
     const action = effectiveAction(String(rule.action), NEVER_BLOCK.has(target), !!liberado);
-    const status = action === "alertar" ? "abierta" : action === "bloquear_con_aprobacion" ? "bloqueo_propuesto" : "bloqueada";
+    const status =
+      action === "alertar"
+        ? "abierta"
+        : action === "bloquear_con_aprobacion"
+          ? "bloqueo_propuesto"
+          : "bloqueada";
     const inserted = (
       await ctx.db.query(
         `INSERT INTO nexo.anomaly_event (rule_id, api_name, consumer, source_ip, metric, observed, baseline, score, window_start, action_taken, status, detected_by)
@@ -93,7 +131,11 @@ async function evaluateRule(ctx: EngineContext, rule: Row, endMs: number, blocke
           d.baseline,
           d.score,
           windowStart.toISOString(),
-          action === "bloquear_automatico" ? "bloqueo_automatico" : action === "bloquear_con_aprobacion" ? "bloqueo_propuesto" : "alerta",
+          action === "bloquear_automatico"
+            ? "bloqueo_automatico"
+            : action === "bloquear_con_aprobacion"
+              ? "bloqueo_propuesto"
+              : "alerta",
           status,
         ],
       )
@@ -110,9 +152,18 @@ async function evaluateRule(ctx: EngineContext, rule: Row, endMs: number, blocke
         ttlMinutes: Number(rule.block_ttl_minutes),
         createdBy: "nexo-guardian",
       });
-      await ctx.db.query("UPDATE nexo.anomaly_event SET block_id = $1 WHERE id = $2", [block.id, inserted.id]);
+      await ctx.db.query("UPDATE nexo.anomaly_event SET block_id = $1 WHERE id = $2", [
+        block.id,
+        inserted.id,
+      ]);
       blocked.add(target);
-      await ctx.audit("anomalias.bloqueo.automatico", `anomalia/${inserted.id}`, "exito", { regla: rule.name, objetivo: target, bloqueo: block.id, motivo: d.reason, ipPrincipal: s.topIp });
+      await ctx.audit("anomalias.bloqueo.automatico", `anomalia/${inserted.id}`, "exito", {
+        regla: rule.name,
+        objetivo: target,
+        bloqueo: block.id,
+        motivo: d.reason,
+        ipPrincipal: s.topIp,
+      });
       await ctx.alert({
         name: "ConsumidorBloqueado",
         severity: "S2",
@@ -120,7 +171,13 @@ async function evaluateRule(ctx: EngineContext, rule: Row, endMs: number, blocke
         labels: { consumidor: target },
       });
     } else {
-      await ctx.audit("anomalias.detectar", `anomalia/${inserted.id}`, "exito", { regla: rule.name, objetivo: target, accion: action, motivo: d.reason, ipPrincipal: s.topIp });
+      await ctx.audit("anomalias.detectar", `anomalia/${inserted.id}`, "exito", {
+        regla: rule.name,
+        objetivo: target,
+        accion: action,
+        motivo: d.reason,
+        ipPrincipal: s.topIp,
+      });
       await ctx.alert({
         name: action === "alertar" ? "AnomaliaDetectada" : "BloqueoPorAprobar",
         severity: action === "alertar" ? "S3" : "S2",
@@ -128,7 +185,10 @@ async function evaluateRule(ctx: EngineContext, rule: Row, endMs: number, blocke
         labels: { consumidor: target },
       });
     }
-    ctx.log("warn", `anomalía ${metric} de ${target}${where}: ${d.reason}`, { regla: rule.id, accion: action });
+    ctx.log("warn", `anomalía ${metric} de ${target}${where}: ${d.reason}`, {
+      regla: rule.id,
+      accion: action,
+    });
   }
   return found;
 }
@@ -138,14 +198,29 @@ export const guardianEngine: Engine = {
   lockKey: 727102,
   intervalMs: num("NEXO_GUARDIAN_INTERVAL_MS", 15_000),
   async init(ctx) {
-    detections = new Counter({ name: "nexo_guardian_anomalias_total", help: "Anomalías detectadas por métrica y acción", labelNames: ["metrica", "accion"], registers: [ctx.registry] });
-    activeBlocks = new Gauge({ name: "nexo_guardian_bloqueos_activos", help: "Bloqueos activos en el gateway", registers: [ctx.registry] });
+    detections = new Counter({
+      name: "nexo_guardian_anomalias_total",
+      help: "Anomalías detectadas por métrica y acción",
+      labelNames: ["metrica", "accion"],
+      registers: [ctx.registry],
+    });
+    activeBlocks = new Gauge({
+      name: "nexo_guardian_bloqueos_activos",
+      help: "Bloqueos activos en el gateway",
+      registers: [ctx.registry],
+    });
   },
   async tick(ctx) {
     const released = await expireBlocks(ctx);
     const endMs = Math.floor((Date.now() - LAG_SEC * 1000) / (WINDOW_SEC * 1000)) * WINDOW_SEC * 1000;
     const rules = (await ctx.db.query("SELECT * FROM nexo.anomaly_rule WHERE enabled ORDER BY name")).rows;
-    const blocked = new Set((await ctx.db.query("SELECT condition_value FROM nexo.block WHERE active AND condition_type = 'APPLICATION'")).rows.map((r) => String(r.condition_value)));
+    const blocked = new Set(
+      (
+        await ctx.db.query(
+          "SELECT condition_value FROM nexo.block WHERE active AND condition_type = 'APPLICATION'",
+        )
+      ).rows.map((r) => String(r.condition_value)),
+    );
     let found = 0;
     for (const rule of rules) {
       const key = `${rule.id}:${rule.updated_at}`;
@@ -154,11 +229,20 @@ export const guardianEngine: Engine = {
         found += await evaluateRule(ctx, rule, endMs, blocked);
         lastEvaluated.set(key, endMs);
       } catch (e) {
-        ctx.log("error", `regla "${rule.name}": ${e instanceof Error ? e.message : String(e)}`, { regla: rule.id });
+        ctx.log("error", `regla "${rule.name}": ${e instanceof Error ? e.message : String(e)}`, {
+          regla: rule.id,
+        });
       }
     }
-    const active = (await ctx.db.query("SELECT count(*)::int AS n FROM nexo.block WHERE active")).rows[0]?.n ?? 0;
+    const active =
+      (await ctx.db.query("SELECT count(*)::int AS n FROM nexo.block WHERE active")).rows[0]?.n ?? 0;
     activeBlocks.set(active);
-    return { reglas: rules.length, ventana: new Date(endMs - WINDOW_SEC * 1000).toISOString(), anomalias: found, bloqueosActivos: active, liberados: released };
+    return {
+      reglas: rules.length,
+      ventana: new Date(endMs - WINDOW_SEC * 1000).toISOString(),
+      anomalias: found,
+      bloqueosActivos: active,
+      liberados: released,
+    };
   },
 };

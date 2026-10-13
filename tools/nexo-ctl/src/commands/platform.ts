@@ -8,14 +8,31 @@ import { RegistryClient, WORKFLOW_EXTENSIONS_PATH } from "../registry.js";
 interface PlatformSpec {
   gatewayEnvironments: Array<{ name: string; displayName: string; description: string; vhost: string }>;
   throttling: {
-    subscription: Array<{ name: string; description: string; requestsPerMinute: number; burstPerSecond: number }>;
+    subscription: Array<{
+      name: string;
+      description: string;
+      requestsPerMinute: number;
+      burstPerSecond: number;
+    }>;
     application: Array<{ name: string; description: string; requestsPerMinute: number }>;
     advanced: Array<{ name: string; description: string; requestsPerMinute: number }>;
   };
   workflows: { file: string };
   governance: {
-    rulesets: Array<{ name: string; file: string; ruleType: string; artifactType: string; description: string }>;
-    policies: Array<{ name: string; description: string; rulesets: string[]; block: string[]; notify: string[] }>;
+    rulesets: Array<{
+      name: string;
+      file: string;
+      ruleType: string;
+      artifactType: string;
+      description: string;
+    }>;
+    policies: Array<{
+      name: string;
+      description: string;
+      rulesets: string[];
+      block: string[];
+      notify: string[];
+    }>;
   };
 }
 
@@ -100,7 +117,12 @@ async function applyThrottling(wso2: Wso2Client, spec: PlatformSpec): Promise<vo
         wso2.request({
           method: "POST",
           path: "/api/am/admin/v4/throttling/policies/application",
-          json: { policyName: p.name, displayName: p.name, description: p.description, defaultLimit: perMinute(p.requestsPerMinute) },
+          json: {
+            policyName: p.name,
+            displayName: p.name,
+            description: p.description,
+            defaultLimit: perMinute(p.requestsPerMinute),
+          },
         }),
       `política de aplicación ${p.name}`,
     ).then((r) => r && log(`política de aplicación ${p.name}: creada`));
@@ -134,13 +156,18 @@ async function applyWorkflows(s: StageConfig, baseDir: string, spec: PlatformSpe
     return;
   }
   await registry.putText(WORKFLOW_EXTENSIONS_PATH, desired);
-  log("flujos de aprobación: actualizados (registro, aplicación, credenciales y suscripción requieren aprobación)");
+  log(
+    "flujos de aprobación: actualizados (registro, aplicación, credenciales y suscripción requieren aprobación)",
+  );
 }
 
 const GOV = "/api/am/governance/v1";
 
 async function applyGovernance(wso2: Wso2Client, baseDir: string, spec: PlatformSpec): Promise<void> {
-  const rulesets = await wso2.request<{ list: Array<{ id: string; name: string }> }>({ method: "GET", path: `${GOV}/rulesets?limit=100` });
+  const rulesets = await wso2.request<{ list: Array<{ id: string; name: string }> }>({
+    method: "GET",
+    path: `${GOV}/rulesets?limit=100`,
+  });
   const byName = new Map(rulesets.list.map((r) => [r.name, r.id]));
   for (const r of spec.governance.rulesets) {
     const content = readFileSync(join(baseDir, r.file), "utf8");
@@ -163,7 +190,10 @@ async function applyGovernance(wso2: Wso2Client, baseDir: string, spec: Platform
       log(`ruleset '${r.name}': creado`);
     }
   }
-  const policies = await wso2.request<{ list: Array<{ id: string; name: string }> }>({ method: "GET", path: `${GOV}/policies?limit=100` });
+  const policies = await wso2.request<{ list: Array<{ id: string; name: string }> }>({
+    method: "GET",
+    path: `${GOV}/policies?limit=100`,
+  });
   for (const p of spec.governance.policies) {
     const ids = p.rulesets.map((n) => {
       const id = byName.get(n);
@@ -178,7 +208,14 @@ async function applyGovernance(wso2: Wso2Client, baseDir: string, spec: Platform
         type: p.block.includes(state) && sev === "ERROR" ? "BLOCK" : "NOTIFY",
       })),
     );
-    const body = { name: p.name, description: p.description, governableStates: states, actions, rulesets: ids, labels: ["GLOBAL"] };
+    const body = {
+      name: p.name,
+      description: p.description,
+      governableStates: states,
+      actions,
+      rulesets: ids,
+      labels: ["GLOBAL"],
+    };
     const existing = policies.list.find((x) => x.name === p.name);
     if (existing) {
       await wso2.request({ method: "PUT", path: `${GOV}/policies/${existing.id}`, json: body });

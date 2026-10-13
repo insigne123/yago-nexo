@@ -61,7 +61,7 @@ La guía se aplica en dos lugares: en el pipeline (`nexo-ctl api lint` y `api de
 
 - `nexo-ctl api deploy <proyecto> -s <etapa>`: valida, crea o actualiza la API, crea una **revisión** y la despliega en los gateways de la etapa.
 - `nexo-ctl api rollback <nombre> <versión> -s <etapa>`: vuelve a desplegar la revisión anterior donde está desplegada la actual.
-- `nexo-ctl api export -s <etapa> -o <carpeta>`: un zip por API (formato de proyecto de WSO2) y `manifiesto.json` con la suma SHA-256 de cada archivo.
+- `nexo-ctl api export -s <etapa> -o <carpeta>`: un zip por API (formato de proyecto de WSO2), la configuración de la plataforma en `plataforma/` (`platform.yaml` con sus flujos de aprobación y guías de estilo; otro archivo con `-f`) y `manifiesto.json` con la suma SHA-256 de cada archivo.
 
 ### Catálogo e impacto
 
@@ -198,7 +198,7 @@ Sí: solo los errores bloquean; las advertencias se informan para corregirlas. W
    jq -r '.items[] | select(.archivo == "Concesiones-1.0.0.zip") | .sha256' out/curso/export/manifiesto.json
    ```
 
-**Resultado esperado.** Cada despliegue informa «Revisión … desplegada en: Desarrollo (dev.nexo.lab)» o «QA (qa.nexo.lab)». La reversa informa «Reversa: Concesiones 1.0.0 vuelve de la revisión … a … en Desarrollo». La exportación lista cada API exportada y el manifiesto; las dos sumas SHA-256 son iguales.
+**Resultado esperado.** Cada despliegue informa «Revisión … desplegada en: Desarrollo (dev.nexo.lab)» o «QA (qa.nexo.lab)». La reversa informa «Reversa: Concesiones 1.0.0 vuelve de la revisión … a … en Desarrollo». La exportación lista cada API exportada, los archivos de plataforma incluidos y el manifiesto; las dos sumas SHA-256 son iguales.
 
 :::caution Reversa en el laboratorio
 

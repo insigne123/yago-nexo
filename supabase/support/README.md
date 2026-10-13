@@ -4,7 +4,7 @@ Base de datos, reglas de seguridad, motor del SLA y tareas programadas de la mes
 
 ```
 supabase/support/
-├─ migrations/        8 migraciones SQL (se aplican en orden)
+├─ migrations/        11 migraciones SQL (se aplican en orden)
 ├─ seed.sql           datos de demostración 100 % sintéticos
 ├─ functions/         funciones Edge nexo-sd-notify, nexo-sd-inbound y nexo-sd-monthly-report
 └─ tests/             pruebas SQL (run-local.sh levanta un PostgreSQL 16 desechable)
@@ -38,6 +38,7 @@ La prueba `tests/09_estructura_proyecto_compartido.sql` verifica estas reglas en
 | `20261004130700_nexo_sd_cron.sql` | pg_cron y pg_net (si están disponibles), invocación de funciones Edge con secretos de Vault y los trabajos `nexo_sd_sla_tick` (cada minuto), `nexo_sd_notify_dispatch` (cada minuto) y `nexo_sd_monthly_report` (día 1, 12:20 UTC). |
 | `20261004140000_nexo_sd_cuentas_autorizadas.sql` | Lista de correos autorizados que lee la excepción del trigger de `auth.users` en el proyecto compartido, sin acceso para ningún rol de la API. |
 | `20261005090000_nexo_sd_nombres_neutros.sql` | Lleva una base creada con la versión anterior a los nombres neutros (`client_ack_*`, `infraestructura_cliente`, `decision_cliente`): renombra columnas y restricciones, migra motivos y eventos, y recrea las funciones que los usan. **Aplíquela antes de desplegar la aplicación web y las funciones de esta versión.** |
+| `20261013010000_nexo_sd_avisos_y_llamada_telefonica.sql` | Versión 1.2.0. Ticket telefónico con la hora real de la llamada (`nexo_sd_tickets.call_received_at`, margen `nexo_sd_settings.phone_call_max_backdate_minutes`): fija el inicio del reloj, no puede ser posterior al registro ni anterior a él en más de 24 horas, solo se escribe al crear el ticket y queda en la línea de tiempo con quien la ingresó. Aviso a la contraparte cuando vence un plazo (trigger `nexo_sd_sla_clocks_after_breach`, uno por vencimiento). Un aviso sin proveedor configurado queda `fallida` (`nexo_sd_complete_notification`). Nivel 3 = supervisión (`sd_oncall_validate`, `sd_oncall_users`, `sd_notify_incident`). Solo toca objetos `nexo_sd_*` y `nexo_private`. **Aplíquela antes de desplegar la aplicación web y las funciones 1.2.0.** |
 
 Las migraciones se pueden reaplicar sin error (`if not exists`, `create or replace`, `drop policy if exists`, `on conflict do nothing`); las pruebas las aplican dos veces para comprobarlo.
 
@@ -80,7 +81,7 @@ Las migraciones se pueden reaplicar sin error (`if not exists`, `create or repla
    ```
 
    Los roles `agente` y `supervisor` solo existen en la organización proveedora (Yago). Los avisos por WhatsApp y voz requieren teléfono y la aceptación del canal (`whatsapp_opt_in`, `voice_opt_in`).
-7. **Semilla (opcional, solo demostración):** `seed.sql` crea las organizaciones «Cliente (demo)» y «Yago», tickets de ejemplo, un RCA y un paquete de corrección, y vincula solo las cuentas de demostración `*.demo@*.invalid` que ya existan en Auth (no crea usuarios). Los avisos que genera quedan marcados como simulados.
+7. **Semilla (opcional, solo demostración):** `seed.sql` crea las organizaciones «Cliente (demo)» y «Yago», tickets de ejemplo, un RCA y un paquete de corrección, y vincula solo las cuentas de demostración `*.demo@*.invalid` que ya existan en Auth (no crea usuarios). Los avisos que genera no se envían: los de la aplicación quedan como entregados y los de correo, WhatsApp y voz como `fallida` («Aviso de demostración (semilla): no se envía»).
 
 ## Modelo del SLA
 
@@ -93,10 +94,12 @@ Las migraciones se pueden reaplicar sin error (`if not exists`, `create or repla
 
 - **Recepción 24x7x365 para todas las severidades.** Calendario hábil: lunes a viernes de 09:00 a 18:00 en America/Santiago, sin los feriados de `nexo_sd_holidays` (1 día hábil = 9 horas). Un plazo que se cumple al cierre vence a las 18:00 de ese día.
 - **Severidad determinista:** al crear o reclasificar un ticket, la base de datos calcula la severidad y la regla con `nexo_private.sd_classify` a partir de las cinco respuestas del asistente; el cliente no puede escribir la severidad. Los tickets de correo o WhatsApp sin asistente quedan con severidad provisional (`inbound_provisional_severity`, S1 por omisión: ante la duda se trata como crítica) hasta que un agente los reclasifica.
-- **Relojes:** al aceptar un ticket se crean tres relojes (acuse, diagnóstico y solución) que parten en la recepción. Los hitos se marcan al llegar al estado: `acusado` cumple el acuse, `en_diagnostico` el diagnóstico, y `solucion_temporal` o `resuelto` la solución. Un salto de estado marca también los hitos anteriores.
+- **Relojes:** al aceptar un ticket se crean tres relojes (acuse, diagnóstico y solución) que parten en la recepción. En un ticket telefónico la recepción es la hora real de la llamada, que el agente ingresa al registrarlo (`call_received_at`): no puede ser posterior al registro ni anterior a él en más de `phone_call_max_backdate_minutes` (24 horas por omisión), la API no la puede cambiar después y queda en la línea de tiempo pública con el nombre de quien la ingresó. Los hitos se marcan al llegar al estado: `acusado` cumple el acuse, `en_diagnostico` el diagnóstico, y `solucion_temporal` o `resuelto` la solución. Un salto de estado marca también los hitos anteriores.
 - **Pausas:** solo con motivo tipificado (`infraestructura_cliente`, `red`, `terceros`, `decision_cliente`, `acceso_remoto_pendiente`), justificación, autor, inicio y fin, y acuse opcional de la contraparte del cliente, que puede aceptarla u objetarla. El tiempo en pausa no cuenta: en 24x7 se descuenta el tiempo corrido y en calendario hábil solo los minutos hábiles. Una pausa que empieza cuando el plazo ya venció no lo salva. Hay como máximo una pausa abierta por ticket.
 - **Acceso remoto (BT-065):** al solicitarlo, el reloj se pausa solo (`acceso_remoto_pendiente`) hasta que la contraparte lo habilita, lo rechaza o se revoca. Al cerrar la sesión se registra la referencia de la bitácora (`session_log_ref`).
 - **`sd_tick()`** (cada minuto): avisa al 50 % del plazo al nivel 1 del turno, al 80 % a los niveles 1 y 2, y al vencer (100 %) marca el incumplimiento y avisa a los niveles 1, 2 y 3. Los S1 sin acuse se escalan al nivel 2 a los 10 minutos y al nivel 3 a los 20, con llamada de voz. Si nadie cubre un nivel, el aviso va a los supervisores. Los avisos no se duplican (`dedup_key`).
+- **Nivel 3 = supervisión:** un turno de nivel 3 solo se asigna a un miembro con rol `supervisor`, y el aviso al nivel 3 llega solo a supervisores (un turno de nivel 3 antiguo de un agente no cuenta).
+- **Vencimiento y contraparte:** cuando un plazo (acuse, diagnóstico o solución) pasa a incumplido, sea en el tick, al cumplir un hito tarde o al reclasificar, la mesa avisa además a la contraparte activa de la organización del ticket (plantilla `sd_sla_vencido_contraparte`, por los canales de la política sin voz) y lo registra en la línea de tiempo interna. Hay un solo aviso por vencimiento de cada reloj, aunque el reloj vuelva a vencer tras una reclasificación.
 - **Cuarentena:** un mensaje de un remitente no registrado queda sin organización y sin relojes. El nivel 1 recibe un aviso; el agente lo acepta (el SLA parte en ese momento) o lo descarta.
 - **`nexo_sd_sla_summary('AAAA-MM', org)`:** cumplimiento por severidad y métrica de los relojes iniciados en el mes, con minutos efectivos (sin pausas). Es `SECURITY INVOKER`: cada persona solo agrega lo que su RLS le deja ver.
 
@@ -116,7 +119,7 @@ Las migraciones se pueden reaplicar sin error (`if not exists`, `create or repla
 
 ## Incidentes de seguridad (Ley 21.663)
 
-Los plazos están en `nexo_sd_settings` y se copian en cada incidente al crearlo: alerta temprana 3 horas y segundo reporte 72 horas desde que se toma conocimiento, e informe final 15 días desde el envío de la alerta temprana. **Verificar con el procedimiento institucional** antes de operar (por ejemplo, el plazo de 24 horas del segundo reporte para operadores de importancia vital). `sd_tick()` avisa al nivel 3 y a supervisión al 50 %, 80 % y 100 % de cada hito pendiente.
+Los plazos están en `nexo_sd_settings` y se copian en cada incidente al crearlo: alerta temprana 3 horas y segundo reporte 72 horas desde que se toma conocimiento, e informe final 15 días desde el envío de la alerta temprana. **Verificar con el procedimiento institucional** antes de operar (por ejemplo, el plazo de 24 horas del segundo reporte para operadores de importancia vital). `sd_tick()` avisa a supervisión (nivel 3: quien está de turno y todos los supervisores) al 50 %, 80 % y 100 % de cada hito pendiente.
 
 ## Pruebas locales
 
@@ -139,6 +142,7 @@ El script usa los binarios de PostgreSQL 16 (`/usr/lib/postgresql/16/bin`, o `PG
 | `07_canal_entrante_informes.sql` | Correo y WhatsApp entrantes, cuarentena, bandeja de salida con reintentos y resumen mensual |
 | `08_incidentes_parches_rca.sql` | Plazos configurables, aprobación de cuatro ojos y RCA publicados |
 | `09_estructura_proyecto_compartido.sql` | Prefijos, RLS y políticas en todas las tablas, nada para anon, `search_path` fijo, sin triggers en `auth.users` y sin referencias a `anton2_*` |
+| `10_llamada_vencimientos_avisos.sql` | Versión 1.2.0: hora real de la llamada (inicio del reloj, límites, margen configurable, inmutable desde la API, registro en la línea de tiempo), aviso a la contraparte al vencer un plazo (uno solo por vencimiento, también con hito tardío y reclasificación), aviso sin proveedor como `fallida` y nivel 3 = supervisión |
 
 La matriz de severidades se regenera con `pnpm --filter @nexo/shared build && node supabase/support/tests/fixtures/generate-severity-matrix.mjs`.
 
@@ -146,4 +150,5 @@ La matriz de severidades se regenera con `pnpm --filter @nexo/shared build && no
 
 - **Feriados de años siguientes:** insertar filas en `nexo_sd_holidays` (los traslados de las Leyes 19.668, 20.299 y 20.983 se calculan al cargar el año).
 - **Ver los trabajos programados:** `select * from cron.job where jobname like 'nexo_sd_%';` y `select * from cron.job_run_details order by start_time desc limit 20;`.
-- **Avisos fallidos:** `select * from nexo_sd_notifications where status = 'fallida' order by created_at desc;` (además quedan en la línea de tiempo interna del ticket).
+- **Turnos de nivel 3 de agentes (anteriores a la 1.2.0):** no reciben los avisos del nivel 3 (van a los supervisores). Para encontrarlos: `select * from nexo_sd_oncall_shifts s where s.level = 3 and s.ends_at > now() and not exists (select 1 from nexo_sd_members m join nexo_sd_organizations o on o.id = m.org_id where m.user_id = s.user_id and m.active and o.is_provider and m.role = 'supervisor');` y reasígnelos a un supervisor.
+- **Avisos fallidos:** `select * from nexo_sd_notifications where status = 'fallida' order by created_at desc;` (además quedan en la línea de tiempo interna del ticket). Los que fallaron porque falta el proveedor del canal tienen `result ->> 'sin_proveedor' = 'true'`: configure el secreto del proveedor (ver `functions/README.md`).

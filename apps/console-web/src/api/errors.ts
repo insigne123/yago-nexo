@@ -1,4 +1,4 @@
-import { requiredPermissionText } from "../auth/permissions";
+import { isPermission, requiredPermissionText } from "../auth/permissions";
 
 /** Error de la API con el código HTTP y, en un 403, el permiso que faltó. */
 export class ApiError extends Error {
@@ -59,7 +59,9 @@ export async function unwrap<T>(request: Promise<FetchResult<T>>): Promise<T> {
 export function describeError(error: unknown): { title: string; description: string } {
   if (error instanceof ApiError) {
     if (error.status === 403) {
-      const extra = error.permission ? requiredPermissionText([error.permission]) : "";
+      // La API informa «cuatro-ojos» (no es un permiso de la matriz) cuando la regla de segregación rechaza.
+      const extra =
+        error.permission && isPermission(error.permission) ? requiredPermissionText([error.permission]) : "";
       return { title: "Acción no permitida", description: [error.message, extra].filter(Boolean).join(" ") };
     }
     if (error.status === 0) return { title: "Sin conexión con la API", description: error.message };

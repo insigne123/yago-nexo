@@ -14,7 +14,14 @@ export class AuditService {
     this.store = new AuditStore(db);
   }
 
-  record(user: AuthUser | { username: string; ip?: string }, action: string, resource: string, result: AuditResult, details?: Record<string, unknown>, correlationId?: string) {
+  record(
+    user: AuthUser | { username: string; ip?: string },
+    action: string,
+    resource: string,
+    result: AuditResult,
+    details?: Record<string, unknown>,
+    correlationId?: string,
+  ) {
     const isTech = !("roles" in user);
     return this.store.append({
       source: "consola",
@@ -38,7 +45,9 @@ export class AuditService {
       await this.store.append({ source: "consola", ...input });
       return true;
     } catch (e) {
-      this.log.error(`no se pudo registrar en la auditoría: ${e instanceof Error ? e.message : String(e)} · evento ${JSON.stringify(input)}`);
+      this.log.error(
+        `no se pudo registrar en la auditoría: ${e instanceof Error ? e.message : String(e)} · evento ${JSON.stringify(input)}`,
+      );
       return false;
     }
   }

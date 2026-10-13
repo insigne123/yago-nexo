@@ -100,14 +100,28 @@ export function createHandlers(store: MockStore, options: HandlerOptions) {
           search: new URL(request.url).searchParams,
         });
       } catch (error) {
+        const write = request.method !== "GET" && !action.startsWith("mock.");
         if (error instanceof HttpError) {
+          // Como la API: el 403 por permiso y el de cuatro ojos tienen su propia acción de auditoría, y una
+          // escritura que no se completa queda registrada como «rechazado».
           if (error.status === 403) {
+            const rejection =
+              error.permission === "cuatro-ojos"
+                ? "acceso.rechazado.cuatro_ojos"
+                : "acceso.rechazado.permiso";
+            store.audit(actor, rejection, resourceOf(request), "rechazado");
+            store.persist();
+          } else if (write) {
             store.audit(actor, action, resourceOf(request), "rechazado");
             store.persist();
           }
           return json(error.toBody(), error.status);
         }
         console.error("Error en el simulador de la API", error);
+        if (write) {
+          store.audit(actor, action, resourceOf(request), "error");
+          store.persist();
+        }
         return json({ statusCode: 500, message: "Error interno del simulador." }, 500);
       }
     };
@@ -290,10 +304,45 @@ export function createHandlers(store: MockStore, options: HandlerOptions) {
       url("/continuity/drill"),
       route(["continuity:drill"], "continuity.drill", ({ actor }) => json(store.startDrill(actor), 202)),
     ),
+    http.get(
+      url("/continuity/failback/requests"),
+      route(["continuity:read"], "continuity.read", () => json(store.failbackRequests())),
+    ),
     http.post(
-      url("/continuity/failback"),
-      route(["continuity:failback:approve"], "continuity.failback.approve", async ({ request, actor }) =>
-        json(store.approveFailback((await readJson<{ reason: string }>(request)).reason, actor), 202),
+      url("/continuity/failback/requests"),
+      route(["continuity:failback:request"], "continuidad.retorno.solicitar", async ({ request, actor }) =>
+        json(store.requestFailback((await readJson<{ reason: string }>(request)).reason, actor), 201),
+      ),
+    ),
+    http.post(
+      url("/continuity/failback/requests/:id/approve"),
+      route(
+        ["continuity:failback:approve"],
+        "continuidad.retorno.aprobar",
+        async ({ request, params, actor }) =>
+          json(
+            store.approveFailbackRequest(
+              params.id ?? "",
+              (await readJson<{ reason: string }>(request)).reason,
+              actor,
+            ),
+            202,
+          ),
+      ),
+    ),
+    http.post(
+      url("/continuity/failback/requests/:id/reject"),
+      route(
+        ["continuity:failback:approve"],
+        "continuidad.retorno.rechazar",
+        async ({ request, params, actor }) =>
+          json(
+            store.rejectFailbackRequest(
+              params.id ?? "",
+              (await readJson<{ reason: string }>(request)).reason,
+              actor,
+            ),
+          ),
       ),
     ),
     http.get(
@@ -403,6 +452,10 @@ export function createHandlers(store: MockStore, options: HandlerOptions) {
     http.post(
       url("/__mock/audit/restore"),
       route([], "mock.audit.restore", () => json(store.restoreTamper())),
+    ),
+    http.post(
+      url("/__mock/continuity/outage"),
+      route([], "mock.continuity.outage", ({ actor }) => json(store.simulateOutage(actor), 202)),
     ),
   ];
 }

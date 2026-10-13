@@ -145,9 +145,14 @@ select public.nexo_sd_inbound_message(
   'Consulta por la API de concesiones', 'Hola, ¿cómo solicito credenciales para la API de concesiones?',
   'seed-correo-1', now() - interval '10 minutes');
 
--- Los avisos que generó la semilla son de demostración: se marcan como enviados en modo
--- simulado para que nexo-sd-notify nunca intente entregarlos.
+-- Los avisos que generó la semilla son de demostración y nexo-sd-notify nunca debe intentar
+-- entregarlos: los avisos en la aplicación quedan como entregados (la fila es el aviso) y los de
+-- correo, WhatsApp y voz como no enviados (fallida), sin fingir un envío.
 update public.nexo_sd_notifications n
-   set status = 'enviada', sent_at = now(), result = '{"simulado": true, "origen": "semilla"}'::jsonb
+   set status = case when n.channel = 'push' then 'enviada' else 'fallida' end,
+       sent_at = case when n.channel = 'push' then now() end,
+       result = '{"origen": "semilla"}'::jsonb,
+       last_error = case when n.channel = 'push' then null
+                         else 'Aviso de demostración (semilla): no se envía' end
  where n.status = 'pendiente'
    and n.recipient_user_id in (select m.user_id from public.nexo_sd_members m where m.email like '%.invalid');

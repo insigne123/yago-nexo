@@ -4,7 +4,16 @@ import { Counter, Gauge } from "@prometheus-io/client";
 import { env, num, opt } from "../kit/config.js";
 import type { Engine, EngineContext } from "../kit/runtime.js";
 import { exposureScore, parseSpec, SCANNER_AGENT, type ParsedSpec } from "./analysis.js";
-import { apisixFindings, expandTargets, gcpFindings, networkFindings, nginxFindings, probe, tlsInfo, type RawFinding } from "./sources.js";
+import {
+  apisixFindings,
+  expandTargets,
+  gcpFindings,
+  networkFindings,
+  nginxFindings,
+  probe,
+  tlsInfo,
+  type RawFinding,
+} from "./sources.js";
 
 /**
  * Motor de descubrimiento de APIs no gobernadas (D-01). Inventaría lo que publica la plataforma "actual"
@@ -21,7 +30,11 @@ const SPEC_SUFFIXES = ["/v2/api-docs", "/v3/api-docs", "/openapi.json", "/swagge
 let scansTotal: Counter<"resultado">;
 let findingsGauge: Gauge<"estado">;
 
-const fingerprint = (f: RawFinding) => createHash("sha256").update(`${f.source}|${f.host}|${f.port ?? ""}|${f.path}`).digest("hex").slice(0, 32);
+const fingerprint = (f: RawFinding) =>
+  createHash("sha256")
+    .update(`${f.source}|${f.host}|${f.port ?? ""}|${f.path}`)
+    .digest("hex")
+    .slice(0, 32);
 
 interface CatalogIndex {
   gateways: Set<string>;
@@ -31,8 +44,13 @@ interface CatalogIndex {
 
 /** Catálogo gobernado: contextos publicados en los gateways y backends de cada API (incluidos los de sus flujos). */
 async function catalogIndex(ctx: EngineContext): Promise<CatalogIndex> {
-  const apis = (await ctx.db.query("SELECT id, context, version FROM nexo.api_asset WHERE state <> 'RETIRED'")).rows;
-  const contexts = apis.map((a) => ({ context: `${String(a.context).replace(/\/+$/, "")}/${a.version}`, apiId: String(a.id) }));
+  const apis = (
+    await ctx.db.query("SELECT id, context, version FROM nexo.api_asset WHERE state <> 'RETIRED'")
+  ).rows;
+  const contexts = apis.map((a) => ({
+    context: `${String(a.context).replace(/\/+$/, "")}/${a.version}`,
+    apiId: String(a.id),
+  }));
   const backends = new Map<string, string>();
   const direct = await ctx.db.query(
     `SELECT e.from_id AS api, n.id AS node FROM nexo.graph_edge e JOIN nexo.graph_node n ON n.id = e.to_id
@@ -42,11 +60,16 @@ async function catalogIndex(ctx: EngineContext): Promise<CatalogIndex> {
      WHERE e1.from_id LIKE 'api:%' AND e1.to_id LIKE 'flujo:%' AND n.type = 'sistema'`,
   );
   for (const r of direct.rows) backends.set(String(r.node).replace(/^sistema:/, ""), String(r.api));
-  for (const r of (await ctx.db.query("SELECT api_id, stable_url, candidate_url FROM nexo.traffic_route")).rows) {
-    for (const u of [r.stable_url, r.candidate_url].filter(Boolean)) backends.set(new URL(String(u)).host, `api:${r.api_id}`);
+  for (const r of (await ctx.db.query("SELECT api_id, stable_url, candidate_url FROM nexo.traffic_route"))
+    .rows) {
+    for (const u of [r.stable_url, r.candidate_url].filter(Boolean))
+      backends.set(new URL(String(u)).host, `api:${r.api_id}`);
   }
   const gateways = new Set(
-    env("NEXO_DISCOVERY_GATEWAYS", "apim:8243,apim:8280,gw-publico:8243,dev.nexo.lab:8243,qa.nexo.lab:8243,operadores.nexo.lab:8243,publico.nexo.lab:18243")
+    env(
+      "NEXO_DISCOVERY_GATEWAYS",
+      "apim:8243,apim:8280,gw-publico:8243,dev.nexo.lab:8243,qa.nexo.lab:8243,operadores.nexo.lab:8243,publico.nexo.lab:18243",
+    )
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean),
@@ -54,11 +77,16 @@ async function catalogIndex(ctx: EngineContext): Promise<CatalogIndex> {
   return { gateways, contexts, backends };
 }
 
-function match(f: RawFinding, idx: CatalogIndex): { matchedApiId?: string; governed: boolean; bypass: boolean } {
+function match(
+  f: RawFinding,
+  idx: CatalogIndex,
+): { matchedApiId?: string; governed: boolean; bypass: boolean } {
   const hp = `${f.host}:${f.port ?? 80}`;
   if (idx.gateways.has(hp)) {
     const hit = idx.contexts.find((c) => f.path === c.context || f.path.startsWith(`${c.context}/`));
-    return hit ? { matchedApiId: hit.apiId, governed: true, bypass: false } : { governed: false, bypass: false };
+    return hit
+      ? { matchedApiId: hit.apiId, governed: true, bypass: false }
+      : { governed: false, bypass: false };
   }
   const backend = idx.backends.get(hp);
   if (backend) return { matchedApiId: backend, governed: true, bypass: true };
@@ -80,7 +108,11 @@ async function specUnderPrefix(f: RawFinding): Promise<{ spec: ParsedSpec; at: s
   for (const suffix of SPEC_SUFFIXES) {
     const url = `${base.protocol}//${base.host}${prefix}${suffix}`;
     try {
-      const res = await fetch(url, { dispatcher: insecure, headers: { "user-agent": SCANNER_AGENT, ...(f.probe.host ? { host: f.probe.host } : {}) }, signal: AbortSignal.timeout(4000) });
+      const res = await fetch(url, {
+        dispatcher: insecure,
+        headers: { "user-agent": SCANNER_AGENT, ...(f.probe.host ? { host: f.probe.host } : {}) },
+        signal: AbortSignal.timeout(4000),
+      });
       if (res.status !== 200) {
         await res.arrayBuffer();
         continue;
@@ -122,31 +154,70 @@ async function collect(ctx: EngineContext, scan: Row): Promise<{ findings: RawFi
   if (sources.includes("apisix")) {
     const admin = opt("NEXO_DISCOVERY_APISIX_ADMIN");
     if (!admin) errors.push("apisix: no está configurada la Admin API (NEXO_DISCOVERY_APISIX_ADMIN)");
-    else await safe("apisix", () => apisixFindings(admin, env("NEXO_DISCOVERY_APISIX_KEY"), env("NEXO_DISCOVERY_APISIX_ADDRESS", "apisix:9080")));
+    else
+      await safe("apisix", () =>
+        apisixFindings(
+          admin,
+          env("NEXO_DISCOVERY_APISIX_KEY"),
+          env("NEXO_DISCOVERY_APISIX_ADDRESS", "apisix:9080"),
+        ),
+      );
   }
   if (sources.includes("nginx")) {
     const conf = opt("NEXO_DISCOVERY_NGINX_CONF");
-    if (!conf) errors.push("nginx: no está configurada la ruta de la configuración (NEXO_DISCOVERY_NGINX_CONF)");
-    else await safe("nginx", () => nginxFindings(conf, opt("NEXO_DISCOVERY_NGINX_LOG"), env("NEXO_DISCOVERY_NGINX_ADDRESS", "localhost:80")));
+    if (!conf)
+      errors.push("nginx: no está configurada la ruta de la configuración (NEXO_DISCOVERY_NGINX_CONF)");
+    else
+      await safe("nginx", () =>
+        nginxFindings(
+          conf,
+          opt("NEXO_DISCOVERY_NGINX_LOG"),
+          env("NEXO_DISCOVERY_NGINX_ADDRESS", "localhost:80"),
+        ),
+      );
   }
   // Contratos publicados detrás de las rutas de los gateways "actuales".
   const gatewayFindings = [...findings];
   const prefixes = new Map<string, RawFinding>();
-  for (const f of gatewayFindings) prefixes.set(`${f.source}|${f.host}|${f.path.split("/").slice(0, 2).join("/")}`, f);
+  for (const f of gatewayFindings)
+    prefixes.set(`${f.source}|${f.host}|${f.path.split("/").slice(0, 2).join("/")}`, f);
   for (const f of prefixes.values()) {
     const found = await specUnderPrefix(f);
     if (!found) continue;
-    for (const g of gatewayFindings.filter((x) => x.source === f.source && x.host === f.host && x.path.startsWith(f.path.split("/").slice(0, 2).join("/")))) {
+    for (const g of gatewayFindings.filter(
+      (x) =>
+        x.source === f.source &&
+        x.host === f.host &&
+        x.path.startsWith(f.path.split("/").slice(0, 2).join("/")),
+    )) {
       g.spec = found.spec;
       g.evidence.contrato = found.at;
     }
-    for (const p of found.spec.paths.filter((p) => !gatewayFindings.some((x) => x.source === f.source && x.host === f.host && x.path === p))) {
-      findings.push({ ...f, path: p, spec: found.spec, observedCalls: 0, probe: f.probe && !p.includes("{") ? { ...f.probe, url: `${new URL(f.probe.url).origin}${p}` } : undefined, evidence: { ...f.evidence, contrato: found.at } });
+    for (const p of found.spec.paths.filter(
+      (p) => !gatewayFindings.some((x) => x.source === f.source && x.host === f.host && x.path === p),
+    )) {
+      findings.push({
+        ...f,
+        path: p,
+        spec: found.spec,
+        observedCalls: 0,
+        probe:
+          f.probe && !p.includes("{") ? { ...f.probe, url: `${new URL(f.probe.url).origin}${p}` } : undefined,
+        evidence: { ...f.evidence, contrato: found.at },
+      });
     }
   }
   if (sources.includes("red")) {
-    const targets = (scan.targets as string[])?.length ? (scan.targets as string[]) : env("NEXO_DISCOVERY_TARGETS", "").split(",");
-    await safe("red", async () => (await pool(expandTargets(targets.filter(Boolean)), num("NEXO_DISCOVERY_CONCURRENCY", 8), (t) => networkFindings(t))).flat());
+    const targets = (scan.targets as string[])?.length
+      ? (scan.targets as string[])
+      : env("NEXO_DISCOVERY_TARGETS", "").split(",");
+    await safe("red", async () =>
+      (
+        await pool(expandTargets(targets.filter(Boolean)), num("NEXO_DISCOVERY_CONCURRENCY", 8), (t) =>
+          networkFindings(t),
+        )
+      ).flat(),
+    );
   }
   if (sources.includes("gcp")) {
     const key = opt("NEXO_GCP_SA_KEY");
@@ -177,13 +248,23 @@ async function runScan(ctx: EngineContext, scan: Row) {
   for (const f of ordered) {
     const service = `${f.source}|${f.host}|${f.port ?? ""}`;
     let p = await probe(f);
-    if (!f.probe && p.auth === "desconocida" && probed.has(service)) p = { ...probed.get(service)!, personal: [], status: undefined };
+    if (!f.probe && p.auth === "desconocida" && probed.has(service))
+      p = { ...probed.get(service)!, personal: [], status: undefined };
     else if (f.probe && !probed.has(service)) probed.set(service, p);
     const personal = [...new Set([...(f.spec?.personalFields ?? []), ...p.personal])];
-    const tls = f.tls ?? (f.protocol === "https" ? ((await tlsInfo(f.host, f.port ?? 443)) ?? "sin TLS") : "sin TLS");
+    const tls =
+      f.tls ?? (f.protocol === "https" ? ((await tlsInfo(f.host, f.port ?? 443)) ?? "sin TLS") : "sin TLS");
     const m = match(f, idx);
     const auth = p.auth;
-    const { score, reasons } = exposureScore({ auth, tls, personalData: personal, governed: m.governed, bypassesGateway: m.bypass, external: f.external, specFound: !!f.spec });
+    const { score, reasons } = exposureScore({
+      auth,
+      tls,
+      personalData: personal,
+      governed: m.governed,
+      bypassesGateway: m.bypass,
+      external: f.external,
+      specFound: !!f.spec,
+    });
     const autoStatus = m.governed && !m.bypass ? "gobernado" : "nuevo";
     const authLabel = f.authDetail && auth === f.authHint ? `${auth} · ${f.authDetail}` : auth;
     const res = await ctx.db.query(
@@ -212,7 +293,11 @@ async function runScan(ctx: EngineContext, scan: Row) {
         score,
         reasons,
         autoStatus,
-        JSON.stringify({ ...f.evidence, ...(personal.length ? { datosPersonales: personal } : {}), ...(p.status ? { respuestaSinCredenciales: p.status } : {}) }),
+        JSON.stringify({
+          ...f.evidence,
+          ...(personal.length ? { datosPersonales: personal } : {}),
+          ...(p.status ? { respuestaSinCredenciales: p.status } : {}),
+        }),
         f.observedCalls ?? 0,
       ],
     );
@@ -232,7 +317,14 @@ async function runScan(ctx: EngineContext, scan: Row) {
       }
     }
   }
-  return { hallazgos: findings.length, nuevos: created, noGobernados: ungoverned, riesgoAlto: highRisk, porFuente: bySource, errores: errors };
+  return {
+    hallazgos: findings.length,
+    nuevos: created,
+    noGobernados: ungoverned,
+    riesgoAlto: highRisk,
+    porFuente: bySource,
+    errores: errors,
+  };
 }
 
 let lastScheduled = 0;
@@ -242,42 +334,74 @@ export const discoveryEngine: Engine = {
   lockKey: 727101,
   intervalMs: num("NEXO_DISCOVERY_INTERVAL_MS", 10_000),
   async init(ctx) {
-    scansTotal = new Counter({ name: "nexo_descubrimiento_escaneos_total", help: "Escaneos ejecutados", labelNames: ["resultado"], registers: [ctx.registry] });
-    findingsGauge = new Gauge({ name: "nexo_descubrimiento_hallazgos", help: "Hallazgos por estado", labelNames: ["estado"], registers: [ctx.registry] });
+    scansTotal = new Counter({
+      name: "nexo_descubrimiento_escaneos_total",
+      help: "Escaneos ejecutados",
+      labelNames: ["resultado"],
+      registers: [ctx.registry],
+    });
+    findingsGauge = new Gauge({
+      name: "nexo_descubrimiento_hallazgos",
+      help: "Hallazgos por estado",
+      labelNames: ["estado"],
+      registers: [ctx.registry],
+    });
   },
   async tick(ctx) {
     const everyMin = num("NEXO_DISCOVERY_SCHEDULE_MIN", 0);
     if (everyMin > 0 && Date.now() - lastScheduled > everyMin * 60_000) {
-      const recent = await ctx.db.query("SELECT 1 FROM nexo.discovery_scan WHERE requested_by = 'nexo-descubrimiento' AND started_at > now() - make_interval(mins => $1)", [everyMin]);
+      const recent = await ctx.db.query(
+        "SELECT 1 FROM nexo.discovery_scan WHERE requested_by = 'nexo-descubrimiento' AND started_at > now() - make_interval(mins => $1)",
+        [everyMin],
+      );
       if (!recent.rowCount) {
-        await ctx.db.query("INSERT INTO nexo.discovery_scan (sources, targets, requested_by) VALUES ($1, '{}', 'nexo-descubrimiento')", [
-          env("NEXO_DISCOVERY_SCHEDULE_SOURCES", "apisix,nginx,red").split(","),
-        ]);
+        await ctx.db.query(
+          "INSERT INTO nexo.discovery_scan (sources, targets, requested_by) VALUES ($1, '{}', 'nexo-descubrimiento')",
+          [env("NEXO_DISCOVERY_SCHEDULE_SOURCES", "apisix,nginx,red").split(",")],
+        );
       }
       lastScheduled = Date.now();
     }
-    const scan = (await ctx.db.query("SELECT * FROM nexo.discovery_scan WHERE status = 'en_curso' ORDER BY started_at LIMIT 1")).rows[0];
+    const scan = (
+      await ctx.db.query(
+        "SELECT * FROM nexo.discovery_scan WHERE status = 'en_curso' ORDER BY started_at LIMIT 1",
+      )
+    ).rows[0];
     if (scan) {
       ctx.log("info", `escaneo ${scan.id} iniciado (${(scan.sources as string[]).join(", ")})`);
       try {
         const totals = await runScan(ctx, scan);
         const status = totals.hallazgos === 0 && totals.errores.length ? "fallido" : "terminado";
-        await ctx.db.query("UPDATE nexo.discovery_scan SET status = $1, totals = $2, error = $3, finished_at = now() WHERE id = $4", [
-          status,
-          JSON.stringify(totals),
-          totals.errores.length ? totals.errores.join(" · ") : null,
-          scan.id,
-        ]);
+        await ctx.db.query(
+          "UPDATE nexo.discovery_scan SET status = $1, totals = $2, error = $3, finished_at = now() WHERE id = $4",
+          [
+            status,
+            JSON.stringify(totals),
+            totals.errores.length ? totals.errores.join(" · ") : null,
+            scan.id,
+          ],
+        );
         scansTotal.inc({ resultado: status });
-        await ctx.audit("descubrimiento.escaneo.terminar", `scan/${scan.id}`, status === "terminado" ? "exito" : "error", totals);
+        await ctx.audit(
+          "descubrimiento.escaneo.terminar",
+          `scan/${scan.id}`,
+          status === "terminado" ? "exito" : "error",
+          totals,
+        );
         ctx.log("info", `escaneo ${scan.id} ${status}`, totals);
       } catch (e) {
-        await ctx.db.query("UPDATE nexo.discovery_scan SET status = 'fallido', error = $1, finished_at = now() WHERE id = $2", [e instanceof Error ? e.message : String(e), scan.id]);
+        await ctx.db.query(
+          "UPDATE nexo.discovery_scan SET status = 'fallido', error = $1, finished_at = now() WHERE id = $2",
+          [e instanceof Error ? e.message : String(e), scan.id],
+        );
         scansTotal.inc({ resultado: "fallido" });
         throw e;
       }
     }
-    for (const r of (await ctx.db.query("SELECT status, count(*)::int AS n FROM nexo.discovery_finding GROUP BY status")).rows) findingsGauge.set({ estado: r.status }, r.n);
+    for (const r of (
+      await ctx.db.query("SELECT status, count(*)::int AS n FROM nexo.discovery_finding GROUP BY status")
+    ).rows)
+      findingsGauge.set({ estado: r.status }, r.n);
     return { escaneoEnCurso: scan?.id ?? null };
   },
 };

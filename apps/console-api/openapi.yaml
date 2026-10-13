@@ -455,7 +455,7 @@ paths:
   /exports:
     post:
       tags: [exportacion]
-      summary: Genera un paquete exportado (APIs, contratos, políticas, flujos y metadatos)
+      summary: Genera un paquete exportado (APIs, contratos, políticas, flujos, metadatos y, si NEXO_PLATFORM_SPEC la monta, la configuración de la plataforma)
       responses:
         "202": { description: Aceptado, content: { application/json: { schema: { $ref: "#/components/schemas/ExportJob" } } } }
   /exports/{id}:
@@ -1011,6 +1011,7 @@ components:
         protocolo: { type: string }
         versiones: { type: array, items: { type: string } }
         cifrado: { type: string }
+        rechazaTls10: { type: boolean, description: "El canal rechaza un saludo TLS 1.0" }
         verificado: { type: string, format: date-time }
     ExportJob:
       type: object

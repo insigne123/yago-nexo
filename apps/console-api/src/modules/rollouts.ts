@@ -1,4 +1,14 @@
-import { Body, ConflictException, Controller, Get, HttpCode, Inject, NotFoundException, Param, Post } from "@nestjs/common";
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  NotFoundException,
+  Param,
+  Post,
+} from "@nestjs/common";
 import { z } from "zod";
 import type { Db } from "@nexo/console-db";
 import { assertFourEyes, CurrentUser, RequirePermission, type AuthUser } from "../auth/auth.js";
@@ -67,7 +77,8 @@ export class TrafficRoutesController {
   @Get()
   @RequirePermission("rollout:read")
   async list() {
-    const rows = (await this.db.query("SELECT * FROM nexo.traffic_route ORDER BY environment, route_prefix")).rows;
+    const rows = (await this.db.query("SELECT * FROM nexo.traffic_route ORDER BY environment, route_prefix"))
+      .rows;
     return rows.map((r) => ({
       apiId: r.api_id,
       apiName: r.api_name,
@@ -93,7 +104,9 @@ export class RolloutsController {
   private async load(id: string) {
     const r = (await this.db.query("SELECT * FROM nexo.rollout WHERE id = $1", [id])).rows[0];
     if (!r) throw new NotFoundException({ statusCode: 404, message: "El despliegue no existe" });
-    const steps = (await this.db.query("SELECT * FROM nexo.rollout_step WHERE rollout_id = $1 ORDER BY id", [id])).rows;
+    const steps = (
+      await this.db.query("SELECT * FROM nexo.rollout_step WHERE rollout_id = $1 ORDER BY id", [id])
+    ).rows;
     return rolloutRow(r, steps);
   }
 
@@ -115,12 +128,24 @@ export class RolloutsController {
   @AuditAction("despliegue.crear")
   async create(@Body() body: unknown, @CurrentUser() user: AuthUser) {
     const r = parse(RolloutSchema, body);
-    const api = (await this.db.query("SELECT * FROM nexo.api_asset WHERE id = $1 OR wso2_api_id = $1", [r.apiId])).rows[0];
+    const api = (
+      await this.db.query("SELECT * FROM nexo.api_asset WHERE id = $1 OR wso2_api_id = $1", [r.apiId])
+    ).rows[0];
     if (!api) throw new NotFoundException({ statusCode: 404, message: "La API no existe en el catálogo" });
-    const active = await this.db.query("SELECT 1 FROM nexo.rollout WHERE api_id = $1 AND status IN ('pendiente_aprobacion','en_curso')", [api.wso2_api_id]);
-    if (active.rowCount) throw new ConflictException({ statusCode: 409, message: "Ya hay un despliegue en curso para esta API" });
+    const active = await this.db.query(
+      "SELECT 1 FROM nexo.rollout WHERE api_id = $1 AND status IN ('pendiente_aprobacion','en_curso')",
+      [api.wso2_api_id],
+    );
+    if (active.rowCount)
+      throw new ConflictException({
+        statusCode: 409,
+        message: "Ya hay un despliegue en curso para esta API",
+      });
     // Los pasos se aplican en nexo-division sin redesplegar la API: la API debe estar conectada a una ruta.
-    const route = await this.db.query("SELECT stable_url FROM nexo.traffic_route WHERE api_id = $1 AND environment = $2", [api.wso2_api_id, r.environment]);
+    const route = await this.db.query(
+      "SELECT stable_url FROM nexo.traffic_route WHERE api_id = $1 AND environment = $2",
+      [api.wso2_api_id, r.environment],
+    );
     if (!route.rowCount) {
       throw new ConflictException({
         statusCode: 409,
@@ -128,15 +153,32 @@ export class RolloutsController {
       });
     }
     if (String(route.rows[0].stable_url).replace(/\/+$/, "") === r.candidateEndpoint.replace(/\/+$/, "")) {
-      throw new ConflictException({ statusCode: 409, message: "El candidato es la misma versión estable que ya recibe el tráfico" });
+      throw new ConflictException({
+        statusCode: 409,
+        message: "El candidato es la misma versión estable que ya recibe el tráfico",
+      });
     }
     const steps = r.strategy === "blue_green" ? [100] : [...new Set(r.steps)].sort((a, b) => a - b);
     const res = await this.db.query(
       `INSERT INTO nexo.rollout (api_id, api_name, strategy, candidate_endpoint, steps, step_duration_sec, thresholds, environment, shadow_seconds, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [api.wso2_api_id, `${api.name} ${api.version}`, r.strategy, r.candidateEndpoint, steps, r.stepDurationSec, JSON.stringify(r.thresholds), r.environment, r.shadowSeconds, user.username],
+      [
+        api.wso2_api_id,
+        `${api.name} ${api.version}`,
+        r.strategy,
+        r.candidateEndpoint,
+        steps,
+        r.stepDurationSec,
+        JSON.stringify(r.thresholds),
+        r.environment,
+        r.shadowSeconds,
+        user.username,
+      ],
     );
-    await this.audit.record(user, "despliegue.crear", `rollout/${res.rows[0].id}`, "exito", { api: api.name, ...r });
+    await this.audit.record(user, "despliegue.crear", `rollout/${res.rows[0].id}`, "exito", {
+      api: api.name,
+      ...r,
+    });
     return rolloutRow(res.rows[0]);
   }
 
@@ -147,9 +189,13 @@ export class RolloutsController {
   async approve(@Param("id") id: string, @CurrentUser() user: AuthUser) {
     const r = (await this.db.query("SELECT * FROM nexo.rollout WHERE id = $1", [id])).rows[0];
     if (!r) throw new NotFoundException({ statusCode: 404, message: "El despliegue no existe" });
-    if (r.status !== "pendiente_aprobacion") throw new ConflictException({ statusCode: 409, message: `El despliegue está ${r.status}` });
+    if (r.status !== "pendiente_aprobacion")
+      throw new ConflictException({ statusCode: 409, message: `El despliegue está ${r.status}` });
     assertFourEyes(user, r.created_by as string, "el despliegue");
-    await this.db.query("UPDATE nexo.rollout SET status = 'en_curso', approved_by = $1, updated_at = now() WHERE id = $2", [user.username, id]);
+    await this.db.query(
+      "UPDATE nexo.rollout SET status = 'en_curso', approved_by = $1, updated_at = now() WHERE id = $2",
+      [user.username, id],
+    );
     await this.audit.record(user, "despliegue.aprobar", `rollout/${id}`, "exito");
     return this.load(id);
   }
@@ -166,7 +212,8 @@ export class RolloutsController {
        WHERE id = $3 AND status IN ('pendiente_aprobacion','en_curso') RETURNING *`,
       [reason ?? null, user.username, id],
     );
-    if (!res.rows[0]) throw new ConflictException({ statusCode: 409, message: "El despliegue no está activo" });
+    if (!res.rows[0])
+      throw new ConflictException({ statusCode: 409, message: "El despliegue no está activo" });
     if (res.rows[0].status === "pendiente_aprobacion") {
       await this.db.query("UPDATE nexo.rollout SET status = 'abortado' WHERE id = $1", [id]);
     }

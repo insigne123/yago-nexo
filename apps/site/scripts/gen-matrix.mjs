@@ -6,6 +6,7 @@
 //   docs/_generated/matriz-roles.md         matriz rol-permiso
 //   docs/_generated/roles.md                roles y responsabilidades
 //   docs/_generated/cuatro-ojos.md          acciones que exigen segregación (quien inicia no aprueba)
+//   docs/_generated/motivo-obligatorio.md   acciones de una persona con rol aprobador, motivo y auditoría
 //   docs/_generated/severidad-ejemplos.md   ejemplos de la matriz de severidades (severity.js)
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -19,9 +20,14 @@ if (!existsSync(DIST)) {
   fail(SCRIPT, `no existe ${DIST}.\n  Compile primero la biblioteca: pnpm --filter @nexo/shared build`);
 }
 
-const { ROLES, ROLE_DESCRIPTIONS, PERMISSIONS, FOUR_EYES_ACTIONS, permissionMatrix } = await import(
-  pathToFileURL(DIST).href
-);
+const {
+  ROLES,
+  ROLE_DESCRIPTIONS,
+  PERMISSIONS,
+  FOUR_EYES_ACTIONS,
+  REASON_REQUIRED_ACTIONS,
+  permissionMatrix,
+} = await import(pathToFileURL(DIST).href);
 
 if (!Array.isArray(ROLES) || !Array.isArray(PERMISSIONS) || typeof permissionMatrix !== "function") {
   fail(SCRIPT, `${DIST} no exporta ROLES, PERMISSIONS y permissionMatrix() como se esperaba`);
@@ -45,11 +51,12 @@ const DESCRIPCION = {
   "rollout:abort": "Detener y revertir un despliegue",
   "continuity:read": "Consultar el estado de los sitios y del quórum",
   "continuity:drill": "Iniciar un simulacro de conmutación",
+  "continuity:failback:request": "Solicitar el retorno al sitio principal (lo aprueba otra persona)",
   "continuity:failback:approve": "Aprobar el retorno al sitio principal",
   "usage:read:all": "Consultar el consumo de todos los consumidores",
   "usage:read:own": "Consultar el consumo propio",
   "dlq:read": "Consultar los mensajes fallidos",
-  "dlq:reprocess:approve": "Aprobar el reproceso de un mensaje fallido",
+  "dlq:reprocess:approve": "Reprocesar un mensaje fallido, con motivo obligatorio",
   "audit:read": "Consultar los eventos de auditoría",
   "audit:verify": "Verificar la cadena de hash de la auditoría",
   "compliance:read": "Consultar las matrices de cumplimiento",
@@ -58,10 +65,16 @@ const DESCRIPCION = {
   "admin:settings:write": "Cambiar parámetros de la plataforma",
 };
 
+// Un permiso nuevo sin descripción dejaría la matriz publicada con «—»: el build se detiene.
 const sinDescripcion = PERMISSIONS.filter((p) => !DESCRIPCION[p]);
 if (sinDescripcion.length > 0) {
-  console.warn(`[${SCRIPT}] aviso: permisos sin descripción en el sitio: ${sinDescripcion.join(", ")}`);
+  fail(
+    SCRIPT,
+    `permisos sin descripción en el sitio: ${sinDescripcion.join(", ")} (agréguelos a DESCRIPCION)`,
+  );
 }
+if (!Array.isArray(REASON_REQUIRED_ACTIONS))
+  fail(SCRIPT, `${DIST} no exporta REASON_REQUIRED_ACTIONS. Compile: pnpm --filter @nexo/shared build`);
 
 const titulo = (rol) => rol.charAt(0).toUpperCase() + rol.slice(1);
 const filas = permissionMatrix();
@@ -106,6 +119,22 @@ writeGenerated(
 ${table(
   ["Acción", "Qué permite", "Roles que pueden aprobar"],
   [...FOUR_EYES_ACTIONS].map((accion) => [
+    code(accion, { inTable: true }),
+    cell(DESCRIPCION[accion] ?? "—"),
+    holders(accion)
+      .map((r) => code(r, { inTable: true }))
+      .join(", ") || "—",
+  ]),
+)}
+`,
+);
+
+writeGenerated(
+  fromSite("docs/_generated/motivo-obligatorio.md"),
+  `${banner(SCRIPT, FUENTE)}
+${table(
+  ["Acción", "Qué permite", "Roles que pueden hacerla"],
+  [...REASON_REQUIRED_ACTIONS].map((accion) => [
     code(accion, { inTable: true }),
     cell(DESCRIPCION[accion] ?? "—"),
     holders(accion)

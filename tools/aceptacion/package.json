@@ -6,6 +6,7 @@
   "description": "Pruebas de aceptación con evidencia: ejecuta las verificaciones automáticas del laboratorio y emite un registro por caso con los campos exigidos (ambiente, versión, topología, recursos, configuración, datos, pasos, duración, carga, resultado esperado, tolerancia, ejecutor, testigo, aprobador y evidencia)",
   "scripts": {
     "start": "tsx src/cli.ts",
+    "conciliacion": "tsx src/check-conciliacion.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run"

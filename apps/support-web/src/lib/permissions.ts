@@ -122,3 +122,14 @@ export function ticketOrgs(ctx: SessionContext): Membership[] {
     (m) => !m.isProvider && (m.role === "reportante" || m.role === "contraparte"),
   );
 }
+
+/**
+ * Personas que pueden cubrir un nivel del turno. El nivel 3 es la supervisión: solo
+ * supervisores de Yago (la base de datos rechaza un turno de nivel 3 de un agente).
+ */
+export function oncallCandidates<T extends { is_staff: boolean; role: MemberRole }>(
+  people: T[],
+  level: number,
+): T[] {
+  return people.filter((p) => p.is_staff && (level !== 3 || p.role === "supervisor"));
+}

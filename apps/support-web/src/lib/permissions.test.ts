@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ORG_CLIENTE, sessionFor } from "../test/render";
-import { can, ticketOrgs, toSessionContext } from "./permissions";
+import { can, oncallCandidates, ticketOrgs, toSessionContext } from "./permissions";
 
 const OTHER_ORG = "33333333-3333-4333-8333-333333333333";
 
@@ -87,5 +87,16 @@ describe("permisos de la interfaz", () => {
         memberships: [],
       }),
     ).toBeNull();
+  });
+
+  it("el nivel 3 del turno es la supervisión: solo se ofrece a supervisores", () => {
+    const people = [
+      { user_id: "a1", is_staff: true, role: "agente" as const },
+      { user_id: "s1", is_staff: true, role: "supervisor" as const },
+      { user_id: "c1", is_staff: false, role: "contraparte" as const },
+    ];
+    expect(oncallCandidates(people, 1).map((p) => p.user_id)).toEqual(["a1", "s1"]);
+    expect(oncallCandidates(people, 2).map((p) => p.user_id)).toEqual(["a1", "s1"]);
+    expect(oncallCandidates(people, 3).map((p) => p.user_id)).toEqual(["s1"]);
   });
 });

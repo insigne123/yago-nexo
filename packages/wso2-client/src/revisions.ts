@@ -8,7 +8,12 @@ export const DEFAULT_MAX_REVISIONS = 5;
  * Libera espacio para una revisión nueva borrando las más antiguas que no están desplegadas en ningún gateway.
  * Nunca borra una revisión desplegada: si todas lo están, falla con un mensaje claro.
  */
-export async function pruneRevisions(wso2: Wso2Client, apiId: string, max = DEFAULT_MAX_REVISIONS, keep: readonly string[] = []): Promise<string[]> {
+export async function pruneRevisions(
+  wso2: Wso2Client,
+  apiId: string,
+  max = DEFAULT_MAX_REVISIONS,
+  keep: readonly string[] = [],
+): Promise<string[]> {
   const revs = (await wso2.publisher.listRevisions(apiId)).list;
   const deleted: string[] = [];
   if (revs.length < max) return deleted;
@@ -23,7 +28,9 @@ export async function pruneRevisions(wso2: Wso2Client, apiId: string, max = DEFA
     count--;
   }
   if (count >= max) {
-    throw new Error(`La API tiene ${count} revisiones y todas están desplegadas o reservadas: no se puede crear otra sin retirar una.`);
+    throw new Error(
+      `La API tiene ${count} revisiones y todas están desplegadas o reservadas: no se puede crear otra sin retirar una.`,
+    );
   }
   return deleted;
 }

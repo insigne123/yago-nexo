@@ -22,7 +22,12 @@ async function token(username: string) {
   const res = await fetch(`${KEYCLOAK}/protocol/openid-connect/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "password", client_id: "nexo-console", username, password: PASSWORD }).toString(),
+    body: new URLSearchParams({
+      grant_type: "password",
+      client_id: "nexo-console",
+      username,
+      password: PASSWORD,
+    }).toString(),
   });
   return ((await res.json()) as { access_token: string }).access_token;
 }
@@ -47,12 +52,29 @@ async function siemEvents(): Promise<AuditEvent[]> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ size: 1000, sort: [{ seq: "asc" }], ...(after ? { search_after: after } : {}) }),
     });
-    const body = (await res.json()) as { hits?: { hits: Array<{ _source: Record<string, unknown>; sort: unknown[] }> } };
+    const body = (await res.json()) as {
+      hits?: { hits: Array<{ _source: Record<string, unknown>; sort: unknown[] }> };
+    };
     const hits = body.hits?.hits ?? [];
     for (const h of hits) {
       const s = h._source;
       const e: Record<string, unknown> = {};
-      for (const k of ["id", "ts", "seq", "source", "actor", "actorType", "action", "resource", "result", "sourceIp", "correlationId", "details", "prevHash", "hash"]) {
+      for (const k of [
+        "id",
+        "ts",
+        "seq",
+        "source",
+        "actor",
+        "actorType",
+        "action",
+        "resource",
+        "result",
+        "sourceIp",
+        "correlationId",
+        "details",
+        "prevHash",
+        "hash",
+      ]) {
         if (s[k] !== undefined) e[k] = s[k];
       }
       out.push(e as unknown as AuditEvent);
@@ -80,8 +102,11 @@ function verify(events: readonly AuditEvent[]): { ok: boolean; detail: string } 
 async function main() {
   const db = new pg.Client({ connectionString: DB_URL });
   await db.connect();
-  const maxSeq = async () => Number((await db.query("SELECT coalesce(max(seq), 0) AS n FROM nexo.audit_event")).rows[0].n);
-  const cursor = async () => (await db.query("SELECT last_seq, last_error FROM nexo.siem_cursor LIMIT 1")).rows[0] as { last_seq: number; last_error: string | null } | undefined;
+  const maxSeq = async () =>
+    Number((await db.query("SELECT coalesce(max(seq), 0) AS n FROM nexo.audit_event")).rows[0].n);
+  const cursor = async () =>
+    (await db.query("SELECT last_seq, last_error FROM nexo.siem_cursor LIMIT 1")).rows[0] as
+      { last_seq: number; last_error: string | null } | undefined;
   const caughtUp = async () => Number((await cursor())?.last_seq ?? -1) === (await maxSeq());
   const rows: Array<Record<string, unknown>> = [];
   try {
@@ -91,7 +116,12 @@ async function main() {
     const total = await maxSeq();
     let siem = await siemEvents();
     let v = verify(siem);
-    rows.push({ prueba: "toda la cadena llegó al SIEM", esperado: `${total} eventos · cadena íntegra`, obtenido: `${siem.length} eventos · ${v.detail}${t1 === undefined ? " · cursor atrasado" : ""}`, cumple: siem.length === total && v.ok });
+    rows.push({
+      prueba: "toda la cadena llegó al SIEM",
+      esperado: `${total} eventos · cadena íntegra`,
+      obtenido: `${siem.length} eventos · ${v.detail}${t1 === undefined ? " · cursor atrasado" : ""}`,
+      cumple: siem.length === total && v.ok,
+    });
 
     // 2) SIEM caído: los eventos esperan; al volver llegan todos.
     execFileSync("docker", ["stop", SIEM_CONTAINER], { stdio: "ignore" });
@@ -101,7 +131,10 @@ async function main() {
       await fetch(`${BASE}/impact/simulate`, {
         method: "POST",
         headers: { authorization: `Bearer ${dev}`, "content-type": "application/json" },
-        body: JSON.stringify({ nodeId: "sistema:registro-soap:7001", change: { kind: "campo", detail: `verificación SIEM ${i + 1}` } }),
+        body: JSON.stringify({
+          nodeId: "sistema:registro-soap:7001",
+          change: { kind: "campo", detail: `verificación SIEM ${i + 1}` },
+        }),
       });
     }
     await sleep(12_000);
@@ -131,7 +164,12 @@ async function main() {
     await waitUntil(caughtUp, 60);
     await sleep(5000);
     const again = await siemEvents();
-    rows.push({ prueba: "un reenvío no duplica eventos", esperado: `${after} eventos`, obtenido: `${again.length} eventos`, cumple: again.length === after && verify(again).ok });
+    rows.push({
+      prueba: "un reenvío no duplica eventos",
+      esperado: `${after} eventos`,
+      obtenido: `${again.length} eventos`,
+      cumple: again.length === after && verify(again).ok,
+    });
   } finally {
     try {
       execFileSync("docker", ["start", SIEM_CONTAINER], { stdio: "ignore" });
@@ -142,7 +180,11 @@ async function main() {
   }
   console.table(rows);
   const ok = rows.every((r) => r.cumple);
-  console.log(ok ? "[SIEM] verificado: auditoría entregada sin pérdida, en orden y verificable en el SIEM" : "[SIEM] NO cumple");
+  console.log(
+    ok
+      ? "[SIEM] verificado: auditoría entregada sin pérdida, en orden y verificable en el SIEM"
+      : "[SIEM] NO cumple",
+  );
   if (!ok) process.exit(1);
 }
 

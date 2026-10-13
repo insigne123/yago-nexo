@@ -11,8 +11,9 @@ import { EtcdVotes, type StoredVote } from "./votes.js";
  * Agente de continuidad (D-05). Corre uno por sitio (CPD, Google Cloud y un testigo); todos votan, pero solo
  * el sitio de respaldo ejecuta la conmutación, y únicamente con quórum (2 de 3) y estando sano. Pasos de la
  * conmutación: cerrar la escritura en el primario, promover la réplica de PostgreSQL, reapuntar el DNS al
- * sitio activo y avisar; se registra el RTO y el RPO medidos. El modo manual (BT-036) y el automático (D-05)
- * comparten el mismo procedimiento. El retorno al primario es guiado y requiere aprobación.
+ * sitio activo y avisar; se registra el RTO medido y el rezago de replicación en bytes de WAL (el RPO en segundos
+ * no se mide). El modo manual (BT-036) y el automático (D-05) comparten el mismo procedimiento. El retorno al
+ * primario lo solicita una persona y lo aprueba otra distinta en la Consola; este agente solo lo ejecuta.
  */
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -37,8 +38,15 @@ let gauge: Gauge<"sitio" | "estado">;
 
 async function probePrimary(): Promise<Check[]> {
   const checks: Check[] = [];
-  for (const url of env("NEXO_PRIMARY_HEALTH_URLS", "").split(",").map((s) => s.trim()).filter(Boolean)) checks.push(await httpOk(url));
-  for (const hp of env("NEXO_PRIMARY_TCP", "").split(",").map((s) => s.trim()).filter(Boolean)) {
+  for (const url of env("NEXO_PRIMARY_HEALTH_URLS", "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean))
+    checks.push(await httpOk(url));
+  for (const hp of env("NEXO_PRIMARY_TCP", "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     const [h, p] = hp.split(":");
     checks.push(await tcpOk(h!, Number(p)));
   }
@@ -52,12 +60,16 @@ async function probePrimary(): Promise<Check[]> {
 /** Lee el sitio activo coordinado en etcd (sobrevive a la caída del primario). */
 async function activeSite(ctx: EngineContext): Promise<string> {
   try {
-    const res = (await (votes as unknown as { post: (p: string, b: unknown) => Promise<{ kvs?: Array<{ value: string }> }> }).post("kv/range", {
+    const res = (await (
+      votes as unknown as { post: (p: string, b: unknown) => Promise<{ kvs?: Array<{ value: string }> }> }
+    ).post("kv/range", {
       key: Buffer.from(ACTIVE_KEY).toString("base64"),
     })) as { kvs?: Array<{ value: string }> };
     if (res.kvs?.[0]) return Buffer.from(res.kvs[0].value, "base64").toString("utf8");
   } catch (e) {
-    ctx.log("warn", "no se pudo leer el sitio activo de etcd", { error: e instanceof Error ? e.message : String(e) });
+    ctx.log("warn", "no se pudo leer el sitio activo de etcd", {
+      error: e instanceof Error ? e.message : String(e),
+    });
   }
   return env("NEXO_PRIMARY_SITE_ID", "cpd");
 }
@@ -80,11 +92,21 @@ async function mirror(ctx: EngineContext, all: StoredVote[], active: string): Pr
       )
       .catch(() => undefined);
   }
-  await ctx.db.query("UPDATE nexo.continuity_settings SET active_site = $1, mode = $2 WHERE id = 1", [active, AUTO ? "automatico" : "manual"]).catch(() => undefined);
+  await ctx.db
+    .query("UPDATE nexo.continuity_settings SET active_site = $1, mode = $2 WHERE id = 1", [
+      active,
+      AUTO ? "automatico" : "manual",
+    ])
+    .catch(() => undefined);
 }
 
 /** Ejecuta la conmutación hacia este sitio (respaldo) y registra el evento con RTO y RPO medidos. */
-async function failover(ctx: EngineContext, trigger: "automatico" | "manual", from: string, approvedBy?: string): Promise<void> {
+async function failover(
+  ctx: EngineContext,
+  trigger: "automatico" | "manual",
+  from: string,
+  approvedBy?: string,
+): Promise<void> {
   if (switching) return;
   switching = true;
   const steps: Array<{ paso: string; ok: boolean; detalle?: string }> = [];
@@ -101,34 +123,71 @@ async function failover(ctx: EngineContext, trigger: "automatico" | "manual", fr
   ).rows[0];
   try {
     const rpoBytes = await replicationLagBytes(replicaUrl).catch(() => 0);
-    steps.push({ paso: "medir rezago de replicación", ok: true, detalle: `${rpoBytes} bytes de WAL sin aplicar` });
+    steps.push({
+      paso: "medir rezago de replicación",
+      ok: true,
+      detalle: `${rpoBytes} bytes de WAL sin aplicar`,
+    });
     const fenced = await fenceWrites(env("NEXO_PRIMARY_DB_URL", "")).catch(() => false);
-    steps.push({ paso: "cerrar escritura en el primario", ok: true, detalle: fenced ? "primario en solo lectura" : "primario no responde (no fue necesario)" });
+    steps.push({
+      paso: "cerrar escritura en el primario",
+      ok: true,
+      detalle: fenced ? "primario en solo lectura" : "primario no responde (no fue necesario)",
+    });
     const promoteMs = await promote(replicaUrl);
-    steps.push({ paso: "promover la réplica de PostgreSQL", ok: true, detalle: `lista para escribir en ${promoteMs} ms` });
+    steps.push({
+      paso: "promover la réplica de PostgreSQL",
+      ok: true,
+      detalle: `lista para escribir en ${promoteMs} ms`,
+    });
     if (SERVE_IP) {
       await dns.update({ name: DNS_NAME, ip: SERVE_IP, ttl: DNS_TTL });
-      steps.push({ paso: "reapuntar el DNS al sitio activo", ok: true, detalle: `${DNS_NAME} → ${SERVE_IP} (TTL ${DNS_TTL} s)` });
+      steps.push({
+        paso: "reapuntar el DNS al sitio activo",
+        ok: true,
+        detalle: `${DNS_NAME} → ${SERVE_IP} (TTL ${DNS_TTL} s)`,
+      });
     }
     await setActiveSite(SITE_ID);
     const rtoSec = (Date.now() - t0) / 1000;
     if (ev.id) {
       await ctx.db
-        .query("UPDATE nexo.failover_event SET status = 'completado', finished_at = now(), rto_seconds = $1, rpo_seconds_estimated = $2, steps = $3 WHERE id = $4", [
-          rtoSec,
-          rpoBytes === 0 ? 0 : null,
-          JSON.stringify(steps),
-          ev.id,
-        ])
+        .query(
+          "UPDATE nexo.failover_event SET status = 'completado', finished_at = now(), rto_seconds = $1, rpo_seconds_estimated = $2, steps = $3 WHERE id = $4",
+          [rtoSec, rpoSegundosEstimado(rpoBytes), JSON.stringify(steps), ev.id],
+        )
         .catch(() => undefined);
     }
-    await ctx.audit("continuidad.conmutar", `conmutacion/${ev.id ?? SITE_ID}`, "exito", { trigger, desde: from, hacia: SITE_ID, rtoSeg: rtoSec, rpoBytes, pasos: steps });
-    await ctx.alert({ name: "ConmutacionEjecutada", severity: "S1", summary: `Conmutación ${trigger} de ${from} a ${SITE_NAME}: RTO ${rtoSec.toFixed(1)} s, ${rpoBytes} bytes sin replicar`, ttlMinutes: 60 });
-    ctx.log("warn", `conmutación ${trigger} completada: ${from} → ${SITE_ID} en ${rtoSec.toFixed(1)} s`, { rpoBytes });
+    await ctx.audit("continuidad.conmutar", `conmutacion/${ev.id ?? SITE_ID}`, "exito", {
+      trigger,
+      desde: from,
+      hacia: SITE_ID,
+      rtoSeg: rtoSec,
+      rpoBytes,
+      pasos: steps,
+    });
+    await ctx.alert({
+      name: "ConmutacionEjecutada",
+      severity: "S1",
+      summary: `Conmutación ${trigger} de ${from} a ${SITE_NAME}: RTO ${rtoSec.toFixed(1)} s, ${rpoBytes} bytes sin replicar`,
+      ttlMinutes: 60,
+    });
+    ctx.log("warn", `conmutación ${trigger} completada: ${from} → ${SITE_ID} en ${rtoSec.toFixed(1)} s`, {
+      rpoBytes,
+    });
   } catch (e) {
     steps.push({ paso: "conmutación", ok: false, detalle: e instanceof Error ? e.message : String(e) });
-    if (ev.id) await ctx.db.query("UPDATE nexo.failover_event SET status = 'fallido', finished_at = now(), steps = $1 WHERE id = $2", [JSON.stringify(steps), ev.id]).catch(() => undefined);
-    await ctx.audit("continuidad.conmutar", `conmutacion/${ev.id ?? SITE_ID}`, "error", { trigger, error: e instanceof Error ? e.message : String(e) });
+    if (ev.id)
+      await ctx.db
+        .query(
+          "UPDATE nexo.failover_event SET status = 'fallido', finished_at = now(), steps = $1 WHERE id = $2",
+          [JSON.stringify(steps), ev.id],
+        )
+        .catch(() => undefined);
+    await ctx.audit("continuidad.conmutar", `conmutacion/${ev.id ?? SITE_ID}`, "error", {
+      trigger,
+      error: e instanceof Error ? e.message : String(e),
+    });
     ctx.log("error", `falló la conmutación: ${e instanceof Error ? e.message : String(e)}`);
   } finally {
     switching = false;
@@ -136,12 +195,44 @@ async function failover(ctx: EngineContext, trigger: "automatico" | "manual", fr
 }
 
 /**
+ * RPO en segundos que se guarda en el evento. El agente solo mide el rezago de replicación en bytes de WAL, que
+ * no es un tiempo: un rezago 0 no prueba un RPO de 0 s. Hasta medirlo con un latido, se guarda NULL y la Consola
+ * lo informa como «no medido»; el rezago en bytes queda en los pasos y en la auditoría.
+ */
+export function rpoSegundosEstimado(_rezagoBytes: number): null {
+  return null;
+}
+
+/** Detalles de auditoría del retorno ejecutado: quién lo solicitó y quién lo aprobó (dos personas distintas). */
+export function detallesRetorno(
+  r: { to_site: unknown; requested_by?: unknown; approved_by?: unknown },
+  sitio: string,
+) {
+  return {
+    desde: sitio,
+    hacia: String(r.to_site),
+    solicitadoPor: r.requested_by == null ? null : String(r.requested_by),
+    aprobadoPor: r.approved_by == null ? null : String(r.approved_by),
+  };
+}
+
+/**
  * Paso «re-sincronizar la réplica» del retorno. Tras una conmutación la réplica del respaldo quedó promovida:
  * el agente no la reconstruye (eso se hace con el procedimiento del motor de base de datos, p. ej.
  * pg_basebackup o CloudNativePG), así que el paso solo se da por cumplido si la réplica volvió a estar en espera.
  */
-export function replicaResyncStep(inRecovery: boolean | undefined): { paso: string; ok: boolean; pendiente?: boolean; detalle: string } {
-  if (inRecovery === true) return { paso: "re-sincronizar la réplica", ok: true, detalle: "la réplica del respaldo está en espera y recibe los cambios del primario" };
+export function replicaResyncStep(inRecovery: boolean | undefined): {
+  paso: string;
+  ok: boolean;
+  pendiente?: boolean;
+  detalle: string;
+} {
+  if (inRecovery === true)
+    return {
+      paso: "re-sincronizar la réplica",
+      ok: true,
+      detalle: "la réplica del respaldo está en espera y recibe los cambios del primario",
+    };
   return {
     paso: "re-sincronizar la réplica",
     ok: false,
@@ -155,7 +246,13 @@ export function replicaResyncStep(inRecovery: boolean | undefined): { paso: stri
 
 /** Atiende operaciones pedidas desde la Consola para este sitio: retorno guiado y simulacro. */
 async function handleRequests(ctx: EngineContext, active: string): Promise<void> {
-  const pending = (await ctx.db.query("SELECT * FROM nexo.failover_event WHERE status = 'en_curso' AND kind IN ('retorno', 'simulacro') ORDER BY started_at").catch(() => ({ rows: [] as Row[] }))).rows;
+  const pending = (
+    await ctx.db
+      .query(
+        "SELECT * FROM nexo.failover_event WHERE status = 'en_curso' AND kind IN ('retorno', 'simulacro') ORDER BY started_at",
+      )
+      .catch(() => ({ rows: [] as Row[] }))
+  ).rows;
   for (const r of pending) {
     if (r.kind === "retorno") {
       // El retorno lo ejecuta el sitio que hoy sirve (el que debe ceder), reapuntando al primario original.
@@ -164,31 +261,64 @@ async function handleRequests(ctx: EngineContext, active: string): Promise<void>
       const ip = opt(`NEXO_SITE_IP_${to.toUpperCase()}`);
       if (ip) await dns.update({ name: DNS_NAME, ip, ttl: DNS_TTL });
       await setActiveSite(to);
-      await ctx.db.query("UPDATE nexo.failover_event SET status = 'completado', finished_at = now(), steps = $1 WHERE id = $2", [
-        JSON.stringify([
-          { paso: "reapuntar el DNS al sitio primario", ok: true, detalle: ip ? `${DNS_NAME} → ${ip}` : "sin IP configurada" },
-          replicaResyncStep(opt("NEXO_REPLICA_DB_URL") ? await isInRecovery(opt("NEXO_REPLICA_DB_URL")!).catch(() => undefined) : undefined),
-        ]),
-        r.id,
-      ]);
-      await ctx.audit("continuidad.retorno", `conmutacion/${r.id}`, "exito", { desde: SITE_ID, hacia: to, aprobadoPor: r.approved_by });
-      await ctx.alert({ name: "RetornoEjecutado", severity: "S2", summary: `Retorno guiado de ${SITE_NAME} a ${to.toUpperCase()}`, ttlMinutes: 30 });
+      await ctx.db.query(
+        "UPDATE nexo.failover_event SET status = 'completado', finished_at = now(), steps = $1 WHERE id = $2",
+        [
+          JSON.stringify([
+            {
+              paso: "reapuntar el DNS al sitio primario",
+              ok: true,
+              detalle: ip ? `${DNS_NAME} → ${ip}` : "sin IP configurada",
+            },
+            replicaResyncStep(
+              opt("NEXO_REPLICA_DB_URL")
+                ? await isInRecovery(opt("NEXO_REPLICA_DB_URL")!).catch(() => undefined)
+                : undefined,
+            ),
+          ]),
+          r.id,
+        ],
+      );
+      await ctx.audit("continuidad.retorno", `conmutacion/${r.id}`, "exito", detallesRetorno(r, SITE_ID));
+      await ctx.alert({
+        name: "RetornoEjecutado",
+        severity: "S2",
+        summary: `Retorno guiado de ${SITE_NAME} a ${to.toUpperCase()}`,
+        ttlMinutes: 30,
+      });
     } else if (r.kind === "simulacro" && SITE_ROLE === "respaldo") {
       // Simulacro no disruptivo: mide el rezago y confirma que la réplica es promovible, sin promover.
       const t0 = Date.now();
       const lag = await replicationLagBytes(env("NEXO_REPLICA_DB_URL")).catch(() => -1);
-      const reachable = SERVE_IP ? (await httpOk(`http://127.0.0.1:1`).then(() => true).catch(() => true)) : true;
+      const reachable = SERVE_IP
+        ? await httpOk(`http://127.0.0.1:1`)
+            .then(() => true)
+            .catch(() => true)
+        : true;
       const ok = lag >= 0;
-      await ctx.db.query("UPDATE nexo.failover_event SET status = $1, finished_at = now(), rpo_seconds_estimated = $2, steps = $3 WHERE id = $4", [
-        ok ? "completado" : "fallido",
-        lag === 0 ? 0 : null,
-        JSON.stringify([
-          { paso: "verificar réplica al día", ok, detalle: lag < 0 ? "la réplica no respondió" : `${lag} bytes de WAL sin aplicar` },
-          { paso: "estimar tiempo de preparación", ok: true, detalle: `comprobado en ${Date.now() - t0} ms (sin promover)` },
-        ]),
-        r.id,
-      ]);
-      await ctx.audit("continuidad.simulacro", `conmutacion/${r.id}`, ok ? "exito" : "error", { rpoBytes: lag });
+      await ctx.db.query(
+        "UPDATE nexo.failover_event SET status = $1, finished_at = now(), rpo_seconds_estimated = $2, steps = $3 WHERE id = $4",
+        [
+          ok ? "completado" : "fallido",
+          rpoSegundosEstimado(lag),
+          JSON.stringify([
+            {
+              paso: "verificar réplica al día",
+              ok,
+              detalle: lag < 0 ? "la réplica no respondió" : `${lag} bytes de WAL sin aplicar`,
+            },
+            {
+              paso: "estimar tiempo de preparación",
+              ok: true,
+              detalle: `comprobado en ${Date.now() - t0} ms (sin promover)`,
+            },
+          ]),
+          r.id,
+        ],
+      );
+      await ctx.audit("continuidad.simulacro", `conmutacion/${r.id}`, ok ? "exito" : "error", {
+        rpoBytes: lag,
+      });
       void reachable;
     }
   }
@@ -200,15 +330,30 @@ export const continuityEngine: Engine = {
   singleton: false, // un agente por sitio; todos votan
   intervalMs: num("NEXO_CONTINUITY_INTERVAL_MS", 5000),
   async init(ctx) {
-    votes = new EtcdVotes(env("NEXO_CONTINUITY_ETCD", "http://etcd:2379"), "/nexo/continuidad/voto", VOTE_MAX_AGE);
+    votes = new EtcdVotes(
+      env("NEXO_CONTINUITY_ETCD", "http://etcd:2379"),
+      "/nexo/continuidad/voto",
+      VOTE_MAX_AGE,
+    );
     dns = dnsProviderFromEnv(env);
-    gauge = new Gauge({ name: "nexo_continuidad_sitio", help: "Estado del sitio (1 = sano) por sitio y voto", labelNames: ["sitio", "estado"], registers: [ctx.registry] });
+    gauge = new Gauge({
+      name: "nexo_continuidad_sitio",
+      help: "Estado del sitio (1 = sano) por sitio y voto",
+      labelNames: ["sitio", "estado"],
+      registers: [ctx.registry],
+    });
     ctx.log("info", `agente de continuidad del sitio ${SITE_ID} (${SITE_ROLE})`, { automatico: AUTO });
   },
   async tick(ctx) {
     const checks = await probePrimary();
     health = aggregate(health, checks, DOWN_THRESHOLD);
-    const vote: StoredVote = { id: SITE_ID, role: SITE_ROLE, vote: health.vote, checks: health.checks, ts: new Date().toISOString() };
+    const vote: StoredVote = {
+      id: SITE_ID,
+      role: SITE_ROLE,
+      vote: health.vote,
+      checks: health.checks,
+      ts: new Date().toISOString(),
+    };
     await votes.cast(vote);
     gauge.set({ sitio: SITE_ID, estado: health.vote }, health.ok ? 1 : 0);
 
@@ -218,22 +363,45 @@ export const continuityEngine: Engine = {
     await handleRequests(ctx, active);
 
     const now = Date.now();
-    const siteVotes: SiteVote[] = all.map((v) => ({ id: v.id, role: v.role, vote: v.vote, ageSec: (now - new Date(v.ts).getTime()) / 1000 }));
+    const siteVotes: SiteVote[] = all.map((v) => ({
+      id: v.id,
+      role: v.role,
+      vote: v.vote,
+      ageSec: (now - new Date(v.ts).getTime()) / 1000,
+    }));
     // La salud del respaldo para tomar el control es la de SU PROPIO sitio (réplica disponible), no su
     // opinión sobre el primario: durante una caída del primario el respaldo igual debe poder promover.
     const backupHealthy = SITE_ROLE === "respaldo" ? await backupReady(env("NEXO_REPLICA_DB_URL")) : true;
-    const decision = decideFailover(siteVotes, { maxAgeSec: VOTE_MAX_AGE, backupHealthy, backupId: SITE_ID, expected: EXPECTED_AGENTS });
+    const decision = decideFailover(siteVotes, {
+      maxAgeSec: VOTE_MAX_AGE,
+      backupHealthy,
+      backupId: SITE_ID,
+      expected: EXPECTED_AGENTS,
+    });
 
     // El sitio activo mantiene publicado el registro DNS (así el nombre resuelve siempre y el retorno lo repone).
     if (active === SITE_ID && SERVE_IP && !switching) {
       const publicado = await dns.current(DNS_NAME).catch(() => undefined);
-      if (publicado !== SERVE_IP) await dns.update({ name: DNS_NAME, ip: SERVE_IP, ttl: DNS_TTL }).catch((e) => ctx.log("warn", "no se pudo publicar el DNS del sitio activo", { error: e instanceof Error ? e.message : String(e) }));
+      if (publicado !== SERVE_IP)
+        await dns.update({ name: DNS_NAME, ip: SERVE_IP, ttl: DNS_TTL }).catch((e) =>
+          ctx.log("warn", "no se pudo publicar el DNS del sitio activo", {
+            error: e instanceof Error ? e.message : String(e),
+          }),
+        );
     }
 
     // Solo el respaldo conmuta automáticamente, cuando el primario sigue siendo el activo.
     if (AUTO && SITE_ROLE === "respaldo" && active !== SITE_ID && decision.conmutar && !switching) {
       await failover(ctx, "automatico", active);
     }
-    return { sitio: SITE_ID, rol: SITE_ROLE, voto: health.vote, activo: active, automatico: AUTO, quorum: decision.motivo, votos: siteVotes.map((v) => `${v.id}:${v.vote}`) };
+    return {
+      sitio: SITE_ID,
+      rol: SITE_ROLE,
+      voto: health.vote,
+      activo: active,
+      automatico: AUTO,
+      quorum: decision.motivo,
+      votos: siteVotes.map((v) => `${v.id}:${v.vote}`),
+    };
   },
 };

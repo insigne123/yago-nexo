@@ -143,14 +143,14 @@ preguntas:
   - id: M0-11
     modulo: M0
     dificultad: alta
-    enunciado: "En la documentación de Nexo, ¿qué exige una capacidad para figurar como «Disponible»?"
+    enunciado: "En la documentación de Nexo, ¿qué exige una capacidad para figurar como «Incluida» en la versión publicada?"
     opciones:
-      a: "Estar en la hoja de ruta del año"
+      a: "Estar anunciada para el año"
       b: "Haber sido usada por un cliente en producción"
       c: "Declarar rutas de evidencia que existan en el repositorio; si falta la evidencia, el sitio no se genera"
       d: "Tener un video de demostración"
     correcta: c
-    justificacion: "check-capacidades.mjs rompe el build si una capacidad Disponible no declara evidencia o si la ruta no existe."
+    justificacion: "check-capacidades.mjs rompe el build si una capacidad Incluida no declara evidencia o si la ruta no existe; lo que no está incluido se entrega con el servicio de implementación."
     referencia: "apps/site/scripts/check-capacidades.mjs"
 
   - id: M0-12
@@ -503,7 +503,7 @@ preguntas:
       c: "Aprobar un bloqueo propuesto por el guardián"
       d: "Aprobar el retorno al sitio principal"
     correcta: b
-    justificacion: "Las acciones de cuatro ojos son rollout:approve, anomaly:block:approve, dlq:reprocess:approve y continuity:failback:approve."
+    justificacion: "Las acciones de cuatro ojos son rollout:approve, anomaly:block:approve y continuity:failback:approve. El reproceso de mensajes fallidos exige el rol aprobador y un motivo, pero no una segunda persona."
     referencia: "packages/shared/src/roles.ts"
 
   - id: M2-10
@@ -695,12 +695,12 @@ preguntas:
     enunciado: "¿Qué entrega `nexo-ctl api export`?"
     opciones:
       a: "Un PDF con la documentación de las APIs"
-      b: "Un zip por API en formato de proyecto de WSO2 y un manifiesto.json con la suma SHA-256 de cada archivo"
+      b: "Un zip por API en formato de proyecto de WSO2, la configuración de la plataforma (platform.yaml con sus flujos de aprobación y guías de estilo) y un manifiesto.json con la suma SHA-256 de cada archivo"
       c: "Solo los contratos OpenAPI"
       d: "Una copia de la base de datos de API Manager"
     correcta: b
-    justificacion: "El manifiesto permite comprobar después que cada archivo exportado no cambió."
-    referencia: "tools/nexo-ctl/src/commands/api.ts"
+    justificacion: "La configuración de la plataforma queda en plataforma/ y el manifiesto permite comprobar después que cada archivo exportado no cambió."
+    referencia: "tools/nexo-ctl/src/commands/exportacion.ts"
 
   - id: M3-10
     modulo: M3
@@ -862,27 +862,27 @@ preguntas:
   - id: M4-06
     modulo: M4
     dificultad: media
-    enunciado: "¿Cómo reintenta el consumidor de la cola cuando falla el sistema de destino?"
+    enunciado: "¿Cómo reintenta el consumidor de la cola cuando falla el sistema de destino (5xx, red o tiempo de espera)?"
     opciones:
       a: "Hasta 3 reintentos con espera de 2, 4 y 8 s, mediante colas con TTL que devuelven el mensaje a la cola principal"
       b: "En un bucle sin espera"
       c: "Cada hora durante un día"
       d: "No reintenta"
     correcta: a
-    justificacion: "Las colas solicitudes.reintento.1, .2 y .3 tienen TTL de 2, 4 y 8 s y su dead-letter apunta a nexo.solicitudes."
+    justificacion: "Las colas solicitudes.reintento.1, .2 y .3 tienen TTL de 2, 4 y 8 s y su dead-letter apunta a nexo.solicitudes. Un rechazo 4xx del destino no se reintenta: va directo a la cola de fallidos."
     referencia: "tools/lab-bootstrap/src/messaging.ts"
 
   - id: M4-07
     modulo: M4
     dificultad: media
-    enunciado: "Agotados los reintentos, ¿dónde queda el mensaje?"
+    enunciado: "Agotados los reintentos, o si el destino rechaza el mensaje con un 4xx, ¿dónde queda?"
     opciones:
       a: "Se descarta"
       b: "En el log de API Manager"
       c: "En la tabla nexo_idem"
       d: "En la cola solicitudes.dlq (exchange nexo.dlq), a la espera de un reproceso autorizado"
     correcta: d
-    justificacion: "La secuencia reintentar-solicitud envía el mensaje original a ColaFallidosEP cuando ya hubo 3 intentos."
+    justificacion: "La secuencia reintentar-solicitud envía el mensaje original a ColaFallidosEP cuando ya hubo 3 reintentos o el destino rechazó el mensaje con un 4xx."
     referencia: "wso2/mi/artifacts/sequences/reintentar-solicitud.xml"
 
   - id: M4-08
@@ -1287,7 +1287,7 @@ preguntas:
       c: "A un canal de chat"
       d: "Al webhook de la Consola (/api/v1/alerts/alertmanager)"
     correcta: d
-    justificacion: "El receptor mesa-soporte apunta a console-api; la Consola las muestra como alertas abiertas en el resumen."
+    justificacion: "El receptor «consola» apunta a console-api con un token (sin él responde 401); cada alerta queda en la auditoría, llega al SIEM por el reenvío de auditoría y la Consola la muestra como alerta abierta en el resumen."
     referencia: "deploy/compose/alertmanager/alertmanager.yml"
 
   - id: M6-06
@@ -1387,11 +1387,11 @@ preguntas:
     enunciado: "Después de conmutar a Google Cloud, ¿cómo se vuelve al CPD?"
     opciones:
       a: "Sola, apenas el CPD responde"
-      b: "Con un retorno guiado que aprueba una persona con el permiso continuity:failback:approve"
+      b: "Con un retorno que solicita una persona (continuity:failback:request) y aprueba otra distinta (continuity:failback:approve)"
       c: "Reinstalando el CPD"
       d: "No se puede volver"
     correcta: b
-    justificacion: "El retorno siempre es guiado y con aprobación, para no rebotar entre sitios."
+    justificacion: "El retorno nunca es automático, para no rebotar entre sitios: la solicitud vence (por omisión a los 30 minutos) y quien la pidió no puede aprobarla (cuatro ojos)."
     referencia: "apps/console-api/src/modules/continuity.ts"
 
   - id: M6-14
@@ -1404,7 +1404,7 @@ preguntas:
       c: "El costo de la nube"
       d: "Nada: solo queda en los logs"
     correcta: b
-    justificacion: "GET /continuity/events entrega el historial con pasos, RTO medido y RPO estimado cuando se puede calcular."
+    justificacion: "GET /continuity/events entrega el historial con pasos, sitios, disparador y RTO medido; el rezago de replicación queda en bytes de WAL en los pasos (el RPO no se mide)."
     referencia: "apps/console-api/src/modules/continuity.ts"
 
   - id: M6-15
@@ -1430,7 +1430,7 @@ preguntas:
       c: "Ninguna"
       d: "ColaConMensajesFallidos, S3"
     correcta: d
-    justificacion: "La regla suma rabbitmq_queue_messages_ready de las colas .dlq y alerta si es mayor que 0 por 5 minutos."
+    justificacion: "La regla suma rabbitmq_detailed_queue_messages_ready de las colas .dlq (trabajo rabbitmq-colas, /metrics/detailed) y alerta si es mayor que 0 por 5 minutos."
     referencia: "deploy/compose/prometheus/rules/nexo.yml"
 
   - id: M6-17

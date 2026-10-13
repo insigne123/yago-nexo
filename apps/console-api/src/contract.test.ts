@@ -20,9 +20,12 @@ let contract: Route[] = [];
 
 beforeAll(async () => {
   process.env.NEXO_DATABASE_URL ??= "postgres://contrato@localhost:1/contrato";
-  for (const k of ["NEXO_WSO2_PASSWORD", "NEXO_MI_PASSWORD", "NEXO_RABBITMQ_PASSWORD"]) process.env[k] ??= "prueba-de-contrato";
+  for (const k of ["NEXO_WSO2_PASSWORD", "NEXO_MI_PASSWORD", "NEXO_RABBITMQ_PASSWORD"])
+    process.env[k] ??= "prueba-de-contrato";
   const { AppModule } = await import("./app.module.js");
-  const controllers = (Reflect.getMetadata("controllers", AppModule) ?? []) as Array<new (...a: never[]) => object>;
+  const controllers = (Reflect.getMetadata("controllers", AppModule) ?? []) as Array<
+    new (...a: never[]) => object
+  >;
   for (const ctrl of controllers) {
     const base = String(Reflect.getMetadata("path", ctrl) ?? "/");
     for (const name of Object.getOwnPropertyNames(ctrl.prototype)) {
@@ -31,19 +34,27 @@ beforeAll(async () => {
       const method = Reflect.getMetadata("method", handler) as number | undefined;
       const sub = Reflect.getMetadata("path", handler) as string | undefined;
       if (method === undefined || sub === undefined) continue;
-      const path = `/${[base, sub].map((p) => p.replace(/^\/|\/$/g, "")).filter(Boolean).join("/")}`.replace(/:(\w+)/g, "{$1}");
+      const path = `/${[base, sub]
+        .map((p) => p.replace(/^\/|\/$/g, ""))
+        .filter(Boolean)
+        .join("/")}`.replace(/:(\w+)/g, "{$1}");
       const verb = METHOD_NAME[method]!;
-      const code = (Reflect.getMetadata("__httpCode__", handler) as number | undefined) ?? (verb === "post" ? 201 : 200);
+      const code =
+        (Reflect.getMetadata("__httpCode__", handler) as number | undefined) ?? (verb === "post" ? 201 : 200);
       routes.push({ method: verb, path, code });
     }
   }
   const here = dirname(fileURLToPath(import.meta.url));
-  const doc = parse(readFileSync(join(here, "..", "openapi.yaml"), "utf8")) as { paths: Record<string, Record<string, { responses: Record<string, unknown> }>> };
+  const doc = parse(readFileSync(join(here, "..", "openapi.yaml"), "utf8")) as {
+    paths: Record<string, Record<string, { responses: Record<string, unknown> }>>;
+  };
   for (const [path, ops] of Object.entries(doc.paths)) {
     for (const verb of HTTP) {
       const op = ops[verb];
       if (!op) continue;
-      const success = Object.keys(op.responses).map(Number).filter((c) => c >= 200 && c < 300);
+      const success = Object.keys(op.responses)
+        .map(Number)
+        .filter((c) => c >= 200 && c < 300);
       contract.push({ method: verb, path, code: success[0]! });
     }
   }
@@ -64,7 +75,9 @@ describe("contrato OpenAPI de la Consola", () => {
 
   it("los códigos de éxito coinciden", () => {
     const byKey = new Map(contract.map((c) => [`${c.method} ${c.path}`, c.code]));
-    const diff = routes.filter((r) => byKey.has(`${r.method} ${r.path}`) && byKey.get(`${r.method} ${r.path}`) !== r.code);
+    const diff = routes.filter(
+      (r) => byKey.has(`${r.method} ${r.path}`) && byKey.get(`${r.method} ${r.path}`) !== r.code,
+    );
     expect(diff).toEqual([]);
   });
 });

@@ -35,7 +35,12 @@ export interface EngineContext {
   registry: Registry;
   wso2: () => Wso2Client;
   os: () => OpenSearch;
-  audit: (action: string, resource: string, result: AuditResult, details?: Record<string, unknown>) => Promise<void>;
+  audit: (
+    action: string,
+    resource: string,
+    result: AuditResult,
+    details?: Record<string, unknown>,
+  ) => Promise<void>;
   alert: (a: Alert) => Promise<void>;
 }
 
@@ -73,14 +78,19 @@ class Leadership {
       if (!this.client) {
         const c = new pg.Client({
           connectionString: this.url,
-          ssl: process.env.NEXO_DATABASE_SSL === "true" ? { rejectUnauthorized: process.env.NEXO_DATABASE_SSL_INSECURE !== "true" } : undefined,
+          ssl:
+            process.env.NEXO_DATABASE_SSL === "true"
+              ? { rejectUnauthorized: process.env.NEXO_DATABASE_SSL_INSECURE !== "true" }
+              : undefined,
         });
         c.on("error", () => this.reset());
         await c.connect();
         this.client = c;
       }
       if (!this.leader) {
-        const r = await this.client.query<{ ok: boolean }>("SELECT pg_try_advisory_lock($1) AS ok", [this.key]);
+        const r = await this.client.query<{ ok: boolean }>("SELECT pg_try_advisory_lock($1) AS ok", [
+          this.key,
+        ]);
         this.leader = r.rows[0]?.ok === true;
       } else {
         await this.client.query("SELECT 1");
@@ -115,15 +125,36 @@ export function createContext(motor: string, registry: Registry): EngineContext 
     wso2: () =>
       (wso2 ??= new Wso2Client({
         baseUrl: env("NEXO_WSO2_URL", "https://apim:9443"),
-        auth: { type: "basic", username: env("NEXO_WSO2_USER", "admin"), password: env("NEXO_WSO2_PASSWORD") },
+        auth: {
+          type: "basic",
+          username: env("NEXO_WSO2_USER", "admin"),
+          password: env("NEXO_WSO2_PASSWORD"),
+        },
         tls: { rejectUnauthorized: !bool("NEXO_WSO2_INSECURE_TLS", false) },
       })),
-    os: () => (os ??= new OpenSearch(env("NEXO_OPENSEARCH_URL", "http://opensearch:9200"), opt("NEXO_OPENSEARCH_USER"), opt("NEXO_OPENSEARCH_PASSWORD"))),
+    os: () =>
+      (os ??= new OpenSearch(
+        env("NEXO_OPENSEARCH_URL", "http://opensearch:9200"),
+        opt("NEXO_OPENSEARCH_USER"),
+        opt("NEXO_OPENSEARCH_PASSWORD"),
+      )),
     audit: async (action, resource, result, details) => {
-      await store.append({ source: "motor", actor: `nexo-${motor}`, actorType: "tecnico", action, resource, result, details });
+      await store.append({
+        source: "motor",
+        actor: `nexo-${motor}`,
+        actorType: "tecnico",
+        action,
+        resource,
+        result,
+        details,
+      });
     },
     alert: async (a) => {
-      log(a.severity === "S1" || a.severity === "S2" ? "warn" : "info", `alerta: ${a.summary}`, { alerta: a.name, severidad: a.severity, ...a.labels });
+      log(a.severity === "S1" || a.severity === "S2" ? "warn" : "info", `alerta: ${a.summary}`, {
+        alerta: a.name,
+        severidad: a.severity,
+        ...a.labels,
+      });
       if (!alertmanager) return;
       const now = new Date();
       const body = [
@@ -134,8 +165,14 @@ export function createContext(motor: string, registry: Registry): EngineContext 
           endsAt: new Date(now.getTime() + (a.ttlMinutes ?? 30) * 60_000).toISOString(),
         },
       ];
-      await fetch(`${alertmanager}/api/v2/alerts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch((e: unknown) =>
-        log("warn", "no se pudo enviar la alerta a Alertmanager", { error: e instanceof Error ? e.message : String(e) }),
+      await fetch(`${alertmanager}/api/v2/alerts`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }).catch((e: unknown) =>
+        log("warn", "no se pudo enviar la alerta a Alertmanager", {
+          error: e instanceof Error ? e.message : String(e),
+        }),
       );
     },
   };
@@ -145,9 +182,24 @@ export function createContext(motor: string, registry: Registry): EngineContext 
 export async function runEngines(engines: Engine[]): Promise<void> {
   const registry = new Registry();
   collectDefaultMetrics({ register: registry, prefix: "nexo_motores_" });
-  const ticks = new Counter({ name: "nexo_motor_vueltas_total", help: "Vueltas de trabajo por motor y resultado", labelNames: ["motor", "resultado"], registers: [registry] });
-  const leaderGauge = new Gauge({ name: "nexo_motor_lider", help: "1 si esta instancia es la líder del motor", labelNames: ["motor"], registers: [registry] });
-  const lastRun = new Gauge({ name: "nexo_motor_ultima_vuelta_timestamp_segundos", help: "Momento de la última vuelta exitosa", labelNames: ["motor"], registers: [registry] });
+  const ticks = new Counter({
+    name: "nexo_motor_vueltas_total",
+    help: "Vueltas de trabajo por motor y resultado",
+    labelNames: ["motor", "resultado"],
+    registers: [registry],
+  });
+  const leaderGauge = new Gauge({
+    name: "nexo_motor_lider",
+    help: "1 si esta instancia es la líder del motor",
+    labelNames: ["motor"],
+    registers: [registry],
+  });
+  const lastRun = new Gauge({
+    name: "nexo_motor_ultima_vuelta_timestamp_segundos",
+    help: "Momento de la última vuelta exitosa",
+    labelNames: ["motor"],
+    registers: [registry],
+  });
   const duration = new Histogram({
     name: "nexo_motor_vuelta_duracion_segundos",
     help: "Duración de cada vuelta",
@@ -183,7 +235,12 @@ export async function runEngines(engines: Engine[]): Promise<void> {
         )
         .catch(() => undefined);
       // Olvida las instancias que ya no laten (réplicas o agentes retirados), para que la Consola no las muestre.
-      await ctx.db.query("DELETE FROM nexo.engine_heartbeat WHERE engine = $1 AND last_seen < now() - interval '3 minutes'", [engine.name]).catch(() => undefined);
+      await ctx.db
+        .query(
+          "DELETE FROM nexo.engine_heartbeat WHERE engine = $1 AND last_seen < now() - interval '3 minutes'",
+          [engine.name],
+        )
+        .catch(() => undefined);
     };
     const step = async () => {
       if (busy || stopping) return;
@@ -203,7 +260,9 @@ export async function runEngines(engines: Engine[]): Promise<void> {
           await beat({ estado: "activo", ...info });
         } catch (e) {
           ticks.inc({ motor: engine.name, resultado: "error" });
-          ctx.log("error", "falló una vuelta del motor", { error: e instanceof Error ? e.message : String(e) });
+          ctx.log("error", "falló una vuelta del motor", {
+            error: e instanceof Error ? e.message : String(e),
+          });
           await beat({ estado: "error", error: e instanceof Error ? e.message : String(e) });
         }
       })();
@@ -238,7 +297,12 @@ export async function runEngines(engines: Engine[]): Promise<void> {
     }
     if (req.url === "/health" || req.url === "/ready") {
       res.writeHead(stopping ? 503 : 200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ status: stopping ? "deteniendo" : "ok", motores: engines.map((e) => ({ motor: e.name, lider: leaders.get(e.name)!.leader })) }));
+      res.end(
+        JSON.stringify({
+          status: stopping ? "deteniendo" : "ok",
+          motores: engines.map((e) => ({ motor: e.name, lider: leaders.get(e.name)!.leader })),
+        }),
+      );
       return;
     }
     res.writeHead(404);
@@ -254,7 +318,10 @@ export async function runEngines(engines: Engine[]): Promise<void> {
       await Promise.allSettled([...running]);
       for (const [name, l] of leaders) {
         l.reset();
-        await contexts.get(name)!.db.end().catch(() => undefined);
+        await contexts
+          .get(name)!
+          .db.end()
+          .catch(() => undefined);
       }
       server.close();
       resolve();

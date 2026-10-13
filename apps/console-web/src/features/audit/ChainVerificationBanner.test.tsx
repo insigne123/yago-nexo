@@ -10,6 +10,10 @@ describe("banner de verificación de la cadena de auditoría", () => {
     expect(banner).toHaveAttribute("data-ok", "true");
     expect(banner).toHaveTextContent("Cadena de auditoría íntegra");
     expect(banner).toHaveTextContent("Se verificaron 42 eventos; el último es el número 42.");
+    // La cadena no prueba que no falten eventos después del último verificado.
+    expect(banner).toHaveTextContent(
+      "Hasta ese número, ningún evento fue alterado, reordenado ni eliminado.",
+    );
   });
 
   it("alerta una cadena rota e indica el evento y el motivo", () => {

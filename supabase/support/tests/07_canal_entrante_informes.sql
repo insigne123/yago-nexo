@@ -129,9 +129,9 @@ select nexo_test.ok(
           and body like 'Falló el aviso por email%'),
   'un aviso fallido queda en la línea de tiempo interna');
 select nexo_test.ok(
-  (select status = 'enviada' and sent_at is not null and result ->> 'simulado' = 'true'
-   from public.nexo_sd_complete_notification(:'n3', true, '{"simulado": true}'::jsonb, null)),
-  'un envío correcto (o simulado) queda como enviado');
+  (select status = 'enviada' and sent_at is not null and result ->> 'canal' = 'en_aplicacion'
+   from public.nexo_sd_complete_notification(:'n3', true, '{"canal": "en_aplicacion"}'::jsonb, null)),
+  'un envío correcto queda como enviado');
 select nexo_test.eq((select status from public.nexo_sd_complete_notification(:'n3', false, null, 'tarde')), 'enviada',
   'completar un aviso ya enviado no lo cambia');
 insert into public.nexo_sd_notifications (channel, recipient, ticket_id, template, dedup_key)

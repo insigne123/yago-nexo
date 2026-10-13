@@ -87,6 +87,8 @@ export interface NewTicketInput {
   isSecurityIncident: boolean;
   answers: SeverityAnswers;
   reporterId?: string | null;
+  /** Solo personal de Yago: ticket recibido por teléfono, con la hora real de la llamada (ISO). */
+  phoneCallAt?: string | null;
 }
 
 export async function createTicket(
@@ -104,6 +106,10 @@ export async function createTicket(
     classification_answers: input.answers,
   };
   if (input.reporterId) row["reporter_id"] = input.reporterId;
+  if (input.phoneCallAt) {
+    row["channel"] = "telefono";
+    row["call_received_at"] = input.phoneCallAt;
+  }
   return unwrap(await supabase.from("nexo_sd_tickets").insert(row).select("id, number").single()) as {
     id: string;
     number: string;

@@ -103,7 +103,7 @@ export default function ExportacionPage() {
       <PageHeader
         title="Exportación"
         reference="BT-049 · BT-060"
-        description="Genera un paquete con las APIs, contratos, políticas, flujos y metadatos de la plataforma, con un manifiesto de versiones y huellas SHA-256 para verificar su integridad. Es la base del plan de salida y de la reconstrucción automática."
+        description="Genera un paquete con las APIs (en el formato de proyecto de WSO2 que importa apictl, con su contrato y políticas), los flujos del Integrador, el catálogo, el grafo de dependencias y, si la instalación monta platform.yaml, la configuración de la plataforma (flujos de aprobación y guías de estilo), más un manifiesto con la huella SHA-256 de cada archivo para verificar su integridad. Es la base del plan de salida: cada parte se vuelve a cargar con su herramienta (apictl para las APIs y el despliegue de flujos del Integrador); la Consola no reconstruye la plataforma por sí sola."
         actions={
           <GuardedButton
             permission="export:create"

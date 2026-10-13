@@ -10,11 +10,11 @@
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.6;
-  white-space: nowrap;
+  white-space: normal;
   vertical-align: middle;
 }
 
-/* Forma distinta por estado: lleno, medio y vacío. */
+/* Forma distinta por estado: lleno (incluida) y medio (servicio de implementación). */
 .badge::before {
   content: "";
   flex: none;
@@ -24,32 +24,22 @@
   border-radius: 50%;
 }
 
-.disponible {
+.incluida {
   --nexo-badge-bg: var(--nexo-ok-bg);
   --nexo-badge-fg: var(--nexo-ok-fg);
   --nexo-badge-border: var(--nexo-ok-border);
 }
 
-.disponible::before {
+.incluida::before {
   background: currentColor;
 }
 
-.desarrollo {
+.servicio {
   --nexo-badge-bg: var(--nexo-dev-bg);
   --nexo-badge-fg: var(--nexo-dev-fg);
   --nexo-badge-border: var(--nexo-dev-border);
 }
 
-.desarrollo::before {
+.servicio::before {
   background: linear-gradient(90deg, currentColor 50%, transparent 50%);
-}
-
-.planificado {
-  --nexo-badge-bg: var(--nexo-plan-bg);
-  --nexo-badge-fg: var(--nexo-plan-fg);
-  --nexo-badge-border: var(--nexo-plan-border);
-}
-
-.planificado::before {
-  background: transparent;
 }

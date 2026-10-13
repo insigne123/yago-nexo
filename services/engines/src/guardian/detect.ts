@@ -65,7 +65,14 @@ export interface Detection {
  * Evalúa la ventana actual frente a su historia. Solo se marcan subidas (no caídas), con volumen suficiente
  * y un puntaje sobre el umbral de la sensibilidad de la regla.
  */
-export function detect(metric: Metric, current: WindowSample, history: readonly WindowSample[], sensitivity: number, minVolume: number, offHours = false): Detection {
+export function detect(
+  metric: Metric,
+  current: WindowSample,
+  history: readonly WindowSample[],
+  sensitivity: number,
+  minVolume: number,
+  offHours = false,
+): Detection {
   if (metric === "fuera_de_horario") {
     const score = current.calls / Math.max(minVolume, 1);
     return {
@@ -73,7 +80,9 @@ export function detect(metric: Metric, current: WindowSample, history: readonly 
       observed: current.calls,
       baseline: minVolume,
       score,
-      reason: offHours ? `${current.calls} llamadas fuera del horario hábil (mínimo para alertar: ${minVolume})` : "dentro del horario hábil",
+      reason: offHours
+        ? `${current.calls} llamadas fuera del horario hábil (mínimo para alertar: ${minVolume})`
+        : "dentro del horario hábil",
     };
   }
   const values = history.map((h) => h.value);
@@ -114,12 +123,34 @@ export function describe(metric: Metric, v: number): string {
 }
 
 /** ¿El instante cae dentro del horario hábil? Formato "1-5 08:00-20:00" (días ISO: 1 = lunes). */
-export function isBusinessHours(date: Date, spec = "1-5 08:00-20:00", timeZone = "America/Santiago"): boolean {
+export function isBusinessHours(
+  date: Date,
+  spec = "1-5 08:00-20:00",
+  timeZone = "America/Santiago",
+): boolean {
   const m = /^(\d)-(\d)\s+(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(spec.trim());
   if (!m) throw new Error(`Horario hábil inválido: ${spec}`);
-  const [, d1, d2, h1, m1, h2, m2] = m.map(Number) as [number, number, number, number, number, number, number];
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date);
-  const wd = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }[parts.find((p) => p.type === "weekday")!.value as "Mon"]!;
-  const minutes = Number(parts.find((p) => p.type === "hour")!.value) * 60 + Number(parts.find((p) => p.type === "minute")!.value);
+  const [, d1, d2, h1, m1, h2, m2] = m.map(Number) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const wd = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }[
+    parts.find((p) => p.type === "weekday")!.value as "Mon"
+  ]!;
+  const minutes =
+    Number(parts.find((p) => p.type === "hour")!.value) * 60 +
+    Number(parts.find((p) => p.type === "minute")!.value);
   return wd >= d1 && wd <= d2 && minutes >= h1 * 60 + m1 && minutes < h2 * 60 + m2;
 }

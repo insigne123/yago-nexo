@@ -82,7 +82,10 @@ export class EtcdDnsProvider implements DnsProvider {
     const res = await fetch(`${this.etcdUrl}/v3/kv/put`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ key: Buffer.from(this.key(t.name)).toString("base64"), value: Buffer.from(value).toString("base64") }),
+      body: JSON.stringify({
+        key: Buffer.from(this.key(t.name)).toString("base64"),
+        value: Buffer.from(value).toString("base64"),
+      }),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) throw new Error(`etcd respondió ${res.status} al escribir el registro DNS`);
@@ -108,7 +111,10 @@ async function gcpToken(key: ServiceAccountKey): Promise<string> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${unsigned}.${signature}` }).toString(),
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: `${unsigned}.${signature}`,
+    }).toString(),
   });
   if (!res.ok) throw new Error(`Google OAuth respondió ${res.status}`);
   return ((await res.json()) as { access_token: string }).access_token;
@@ -128,9 +134,17 @@ export class CloudDnsProvider implements DnsProvider {
   }
 
   private async records(token: string, name: string) {
-    const res = await fetch(`${this.base()}/rrsets?name=${encodeURIComponent(name)}&type=A`, { headers: { authorization: `Bearer ${token}` } });
+    const res = await fetch(`${this.base()}/rrsets?name=${encodeURIComponent(name)}&type=A`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
     if (!res.ok) throw new Error(`Cloud DNS respondió ${res.status} al leer el registro`);
-    return ((await res.json()) as { rrsets?: Array<{ name: string; type: string; ttl: number; rrdatas: string[] }> }).rrsets ?? [];
+    return (
+      (
+        (await res.json()) as {
+          rrsets?: Array<{ name: string; type: string; ttl: number; rrdatas: string[] }>;
+        }
+      ).rrsets ?? []
+    );
   }
 
   /** Un "change" reemplaza el registro de forma atómica (borra el anterior y agrega el nuevo). */
@@ -144,7 +158,10 @@ export class CloudDnsProvider implements DnsProvider {
       body: JSON.stringify({ deletions, additions: [{ name, type: "A", ttl: t.ttl, rrdatas: [t.ip] }] }),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!res.ok) throw new Error(`Cloud DNS respondió ${res.status} al cambiar el registro: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok)
+      throw new Error(
+        `Cloud DNS respondió ${res.status} al cambiar el registro: ${(await res.text()).slice(0, 200)}`,
+      );
   }
 
   async current(name: string): Promise<string | undefined> {
@@ -173,9 +190,20 @@ export class Rfc2136Provider implements DnsProvider {
   async update(t: DnsTarget): Promise<void> {
     const [host, port] = this.server.split(":");
     const name = t.name.endsWith(".") ? t.name : `${t.name}.`;
-    const script = [`server ${host} ${port ?? 53}`, `zone ${this.zone}`, `update delete ${name} A`, `update add ${name} ${t.ttl} A ${t.ip}`, "send", "answer", ""].join("\n");
+    const script = [
+      `server ${host} ${port ?? 53}`,
+      `zone ${this.zone}`,
+      `update delete ${name} A`,
+      `update add ${name} ${t.ttl} A ${t.ip}`,
+      "send",
+      "answer",
+      "",
+    ].join("\n");
     const out = await nsupdate(["-k", this.keyFile], script, 15_000);
-    if (/NXDOMAIN|SERVFAIL|REFUSED|NOTAUTH/.test(out)) throw new Error(`nsupdate falló: ${out.split("\n").find((l) => /status:/.test(l)) ?? out.slice(0, 200)}`);
+    if (/NXDOMAIN|SERVFAIL|REFUSED|NOTAUTH/.test(out))
+      throw new Error(
+        `nsupdate falló: ${out.split("\n").find((l) => /status:/.test(l)) ?? out.slice(0, 200)}`,
+      );
   }
 
   current(name: string): Promise<string | undefined> {
@@ -185,12 +213,20 @@ export class Rfc2136Provider implements DnsProvider {
 
 export function dnsProviderFromEnv(env: (k: string, d?: string) => string): DnsProvider {
   const kind = env("NEXO_DNS", "etcd");
-  if (kind === "etcd") return new EtcdDnsProvider(env("NEXO_DNS_ETCD_URL", "http://etcd:2379"), env("NEXO_DNS_ETCD_PREFIX", "/skydns"), env("NEXO_DNS_SERVER", "coredns:53"));
+  if (kind === "etcd")
+    return new EtcdDnsProvider(
+      env("NEXO_DNS_ETCD_URL", "http://etcd:2379"),
+      env("NEXO_DNS_ETCD_PREFIX", "/skydns"),
+      env("NEXO_DNS_SERVER", "coredns:53"),
+    );
   if (kind === "clouddns") {
     const raw = env("NEXO_DNS_GCP_SA_KEY");
-    const key = JSON.parse(raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8")) as ServiceAccountKey;
+    const key = JSON.parse(
+      raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"),
+    ) as ServiceAccountKey;
     return new CloudDnsProvider(key, env("NEXO_DNS_GCP_PROJECT"), env("NEXO_DNS_GCP_ZONE"));
   }
-  if (kind === "rfc2136") return new Rfc2136Provider(env("NEXO_DNS_SERVER"), env("NEXO_DNS_ZONE"), env("NEXO_DNS_TSIG_KEYFILE"));
+  if (kind === "rfc2136")
+    return new Rfc2136Provider(env("NEXO_DNS_SERVER"), env("NEXO_DNS_ZONE"), env("NEXO_DNS_TSIG_KEYFILE"));
   throw new Error(`Proveedor de DNS desconocido: ${kind} (use etcd, clouddns o rfc2136)`);
 }

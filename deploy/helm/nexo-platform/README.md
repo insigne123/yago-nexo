@@ -67,6 +67,7 @@ El chart nunca crea ni guarda contraseñas: solo referencia Secrets existentes (
 | `nexo-bd-nexo` | `password` (+ `username`) | Usuario `nexo` de la base `nexo` (Consola y motores) |
 | `nexo-rabbitmq` | `password` | Usuario `nexo` de RabbitMQ |
 | `nexo-keycloak-km` | `client-secret` | Cliente técnico `wso2-km` de Keycloak |
+| `nexo-alertas` | `token` | Token que exige el webhook de alertas de la Consola (mínimo 16 caracteres) |
 | `nexo-opensearch` (opcional) | `username`, `password` | OpenSearch con seguridad activa |
 | `nexo-continuidad` | `primary-db-url`, `replica-db-url`, `gcp-sa-key` o `tsig.key` | Agente de continuidad |
 | `nexo-ca-interna` | `ca.crt` | CA que firma los certificados internos de WSO2 |
@@ -88,6 +89,29 @@ helm upgrade --install nexo-platform deploy/helm/nexo-platform \
 
 En el CPD lo hace el playbook `deploy/ansible/rke2` (rol `nexo_plataforma`). La guía completa, con
 verificación y vuelta atrás, está en el sitio de Nexo: *Instalación*.
+
+## Alertas hacia la Consola
+
+Alertmanager no lo instala el chart. Para que sus alertas lleguen a la auditoría de la Consola (y, por el reenvío
+de auditoría, al SIEM), su receptor debe apuntar al webhook de la API con el token del Secret `nexo-alertas`
+montado como archivo; sin el token, la API responde 401 y la alerta no se registra:
+
+```yaml
+receivers:
+  - name: consola
+    webhook_configs:
+      - url: http://nexo-platform-console-api.nexo.svc:8090/api/v1/alerts/alertmanager
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /etc/alertmanager/secrets/nexo-alertas/token
+```
+
+Con kube-prometheus-stack, el Secret se copia al espacio de nombres `observabilidad` y se monta con
+`alertmanager.alertmanagerSpec.secrets: [nexo-alertas]`. La NetworkPolicy de la API ya admite el puerto 8090
+desde ese espacio de nombres. El laboratorio hace lo mismo con un secreto de Docker Compose
+(`deploy/compose/alertmanager/alertmanager.yml`).
 
 ## Decisiones de diseño
 

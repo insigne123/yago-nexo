@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { AuditChain, verifyChain } from "./audit.js";
-import { can, FOUR_EYES_ACTIONS, PERMISSIONS, permissionMatrix, REASON_REQUIRED_ACTIONS, ROLES } from "./roles.js";
+import {
+  can,
+  FOUR_EYES_ACTIONS,
+  PERMISSIONS,
+  permissionMatrix,
+  REASON_REQUIRED_ACTIONS,
+  ROLES,
+} from "./roles.js";
 import { classifySeverity } from "./severity.js";
 import { formatRut, isValidRut, rutDv, SyntheticData } from "./synthetic.js";
 
@@ -43,7 +50,9 @@ describe("matriz rol-permiso", () => {
   });
 
   it("el auditor es solo lectura", () => {
-    const writes = permissionMatrix().filter((r) => r.auditor && /write|approve|scan|create|drill|abort/.test(r.permission));
+    const writes = permissionMatrix().filter(
+      (r) => r.auditor && /write|approve|scan|create|drill|abort/.test(r.permission),
+    );
     expect(writes.map((r) => r.permission)).toEqual(["export:create"]);
   });
 

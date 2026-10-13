@@ -29,14 +29,22 @@ export class RegistryClient {
       body: envelope,
     });
     const text = await res.text();
-    if (!res.ok || text.includes("<soapenv:Fault>")) throw new Error(`Registro ${action}: ${res.status} ${text.slice(0, 400)}`);
+    if (!res.ok || text.includes("<soapenv:Fault>"))
+      throw new Error(`Registro ${action}: ${res.status} ${text.slice(0, 400)}`);
     return text;
   }
 
   async getText(path: string): Promise<string> {
-    const xml = await this.call("getTextContent", `<ser:getTextContent><ser:path>${path}</ser:path></ser:getTextContent>`);
+    const xml = await this.call(
+      "getTextContent",
+      `<ser:getTextContent><ser:path>${path}</ser:path></ser:getTextContent>`,
+    );
     const m = /<ns:return>([\s\S]*?)<\/ns:return>/.exec(xml);
-    return (m?.[1] ?? "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+    return (m?.[1] ?? "")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, "&");
   }
 
   async putText(path: string, content: string): Promise<void> {

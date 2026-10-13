@@ -1,12 +1,13 @@
-// Envío por canal. Si falta la configuración de un proveedor, el aviso se da por enviado en
-// modo simulado (simulado: true) y se registra en el log: la función nunca se cae por un
-// proveedor ausente.
+// Envío por canal. Si falta la configuración de un proveedor, el envío falla de forma
+// definitiva (notConfigured: true, sin llamar a la red ni reintentar): el aviso queda «fallida»,
+// nunca «enviada», y la función no se cae por un proveedor ausente.
 import { readSecret } from "./env.ts";
 import type { RenderedMessage } from "./templates.ts";
 
 export interface SendResult {
   ok: boolean;
-  simulated: boolean;
+  /** Falta la configuración del proveedor del canal: no se intentó el envío. */
+  notConfigured: boolean;
   /** Rechazo definitivo (no conviene reintentar), por ejemplo un destinatario inválido. */
   permanent?: boolean;
   providerId?: string;
@@ -22,8 +23,14 @@ export interface ProviderDeps {
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
-function simulated(provider: string, reason: string): SendResult {
-  return { ok: true, simulated: true, detail: { proveedor: provider, motivo: reason } };
+function notConfigured(provider: string, reason: string): SendResult {
+  return {
+    ok: false,
+    notConfigured: true,
+    permanent: true,
+    error: `${provider}: proveedor no configurado (${reason})`,
+    detail: { proveedor: provider, motivo: reason },
+  };
 }
 
 /** 4xx (salvo 408, 409, 425 y 429) es definitivo; 5xx y errores de red se reintentan. */
@@ -43,7 +50,7 @@ async function failure(provider: string, res: Response): Promise<SendResult> {
   const body = (await res.text().catch(() => "")).slice(0, 500);
   return {
     ok: false,
-    simulated: false,
+    notConfigured: false,
     permanent: isPermanentStatus(res.status),
     error: `${provider}: HTTP ${res.status} ${body}`.trim(),
     detail: { proveedor: provider, http: res.status },
@@ -53,7 +60,7 @@ async function failure(provider: string, res: Response): Promise<SendResult> {
 /** Correo con la API HTTP de Resend (https://resend.com/docs/api-reference/emails/send-email). */
 export async function sendEmail(to: string, msg: RenderedMessage, deps: ProviderDeps): Promise<SendResult> {
   const key = readSecret(deps.env, "RESEND_API_KEY");
-  if (!key) return simulated("resend", "falta RESEND_API_KEY");
+  if (!key) return notConfigured("resend", "falta NEXO_SD_RESEND_API_KEY");
   const res = await post(deps, "https://api.resend.com/emails", {
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -66,7 +73,7 @@ export async function sendEmail(to: string, msg: RenderedMessage, deps: Provider
   });
   if (!res.ok) return await failure("resend", res);
   const data = (await res.json().catch(() => ({}))) as { id?: string };
-  return { ok: true, simulated: false, providerId: data.id, detail: { proveedor: "resend" } };
+  return { ok: true, notConfigured: false, providerId: data.id, detail: { proveedor: "resend" } };
 }
 
 /**
@@ -81,7 +88,8 @@ export async function sendWhatsApp(
 ): Promise<SendResult> {
   const token = readSecret(deps.env, "WHATSAPP_TOKEN");
   const phoneId = readSecret(deps.env, "WHATSAPP_PHONE_ID");
-  if (!token || !phoneId) return simulated("whatsapp", "faltan WHATSAPP_TOKEN o WHATSAPP_PHONE_ID");
+  if (!token || !phoneId)
+    return notConfigured("whatsapp", "faltan NEXO_SD_WHATSAPP_TOKEN o NEXO_SD_WHATSAPP_PHONE_ID");
   const version = readSecret(deps.env, "WHATSAPP_API_VERSION") ?? "v23.0";
   const res = await post(deps, `https://graph.facebook.com/${version}/${phoneId}/messages`, {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -109,7 +117,7 @@ export async function sendWhatsApp(
   const data = (await res.json().catch(() => ({}))) as { messages?: Array<{ id?: string }> };
   return {
     ok: true,
-    simulated: false,
+    notConfigured: false,
     providerId: data.messages?.[0]?.id,
     detail: { proveedor: "whatsapp" },
   };
@@ -130,7 +138,10 @@ export async function sendVoice(to: string, msg: RenderedMessage, deps: Provider
   const token = readSecret(deps.env, "TWILIO_AUTH_TOKEN");
   const from = readSecret(deps.env, "TWILIO_FROM_NUMBER");
   if (!sid || !token || !from) {
-    return simulated("twilio", "faltan TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN o TWILIO_FROM_NUMBER");
+    return notConfigured(
+      "twilio",
+      "faltan NEXO_SD_TWILIO_ACCOUNT_SID, NEXO_SD_TWILIO_AUTH_TOKEN o NEXO_SD_TWILIO_FROM_NUMBER",
+    );
   }
   const voice = readSecret(deps.env, "TWILIO_VOICE") ?? "Polly.Mia";
   const say = `<Say language="es-MX" voice="${escapeXml(voice)}">${escapeXml(msg.voice)}</Say>`;
@@ -148,7 +159,7 @@ export async function sendVoice(to: string, msg: RenderedMessage, deps: Provider
   );
   if (!res.ok) return await failure("twilio", res);
   const data = (await res.json().catch(() => ({}))) as { sid?: string };
-  return { ok: true, simulated: false, providerId: data.sid, detail: { proveedor: "twilio" } };
+  return { ok: true, notConfigured: false, providerId: data.sid, detail: { proveedor: "twilio" } };
 }
 
 /**
@@ -156,5 +167,5 @@ export async function sendVoice(to: string, msg: RenderedMessage, deps: Provider
  * usuario (la RLS le deja ver solo las suyas). No hay proveedor externo que llamar.
  */
 export function sendPush(): SendResult {
-  return { ok: true, simulated: false, providerId: "en_aplicacion", detail: { canal: "en_aplicacion" } };
+  return { ok: true, notConfigured: false, providerId: "en_aplicacion", detail: { canal: "en_aplicacion" } };
 }

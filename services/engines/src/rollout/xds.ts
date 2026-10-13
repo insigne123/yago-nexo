@@ -63,7 +63,15 @@ export function renderCluster(name: string, url: string, tls: UpstreamTlsOptions
     dns_lookup_family: "V4_ONLY",
     load_assignment: {
       cluster_name: name,
-      endpoints: [{ lb_endpoints: [{ endpoint: { address: { socket_address: { address: host, port_value: port } }, hostname: host } }] }],
+      endpoints: [
+        {
+          lb_endpoints: [
+            {
+              endpoint: { address: { socket_address: { address: host, port_value: port } }, hostname: host },
+            },
+          ],
+        },
+      ],
     },
     ...(u.protocol === "https:"
       ? {
@@ -94,12 +102,17 @@ export function renderCluster(name: string, url: string, tls: UpstreamTlsOptions
 export function renderClusters(refs: readonly ClusterRef[], tls: UpstreamTlsOptions = {}) {
   const byName = new Map<string, ClusterRef>();
   for (const r of refs) byName.set(clusterName(r.prefix, r.url), r);
-  return [...byName.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, r]) => renderCluster(name, r.url, tls));
+  return [...byName.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, r]) => renderCluster(name, r.url, tls));
 }
 
 /** Clústeres que referencia el estado actual de las rutas. */
 export function referencedClusters(routes: readonly RouteState[]): ClusterRef[] {
-  return routes.flatMap((r) => [{ prefix: r.prefix, url: r.stableUrl }, ...(r.candidateUrl ? [{ prefix: r.prefix, url: r.candidateUrl }] : [])]);
+  return routes.flatMap((r) => [
+    { prefix: r.prefix, url: r.stableUrl },
+    ...(r.candidateUrl ? [{ prefix: r.prefix, url: r.candidateUrl }] : []),
+  ]);
 }
 
 /** Acción de ruta para el peso vigente: todo al estable, todo al candidato o un reparto ponderado. */
@@ -128,7 +141,12 @@ function routeAction(r: RouteState, withMirror: boolean, rewrite: string) {
           request_mirror_policies: [
             {
               cluster: candidate,
-              runtime_fraction: { default_value: { numerator: Math.min(100, Math.round(r.mirrorPercent)), denominator: "HUNDRED" } },
+              runtime_fraction: {
+                default_value: {
+                  numerator: Math.min(100, Math.round(r.mirrorPercent)),
+                  denominator: "HUNDRED",
+                },
+              },
               disable_shadow_host_suffix_append: true,
             },
           ],
@@ -157,13 +175,24 @@ export function renderRouteConfig(routes: readonly RouteState[]) {
               ? [
                   {
                     name: `${slugOf(r.prefix)}-lecturas-sombra`,
-                    match: { prefix: withSlash, headers: [{ name: ":method", string_match: { safe_regex: { regex: "GET|HEAD" } } }] },
+                    match: {
+                      prefix: withSlash,
+                      headers: [{ name: ":method", string_match: { safe_regex: { regex: "GET|HEAD" } } }],
+                    },
                     route: routeAction(r, true, `${base}/`),
                   },
                 ]
               : []),
-            { name: slugOf(r.prefix), match: { prefix: withSlash }, route: routeAction(r, false, `${base}/`) },
-            { name: `${slugOf(r.prefix)}-raiz`, match: { path: r.prefix }, route: routeAction(r, mirrorOn, base || "/") },
+            {
+              name: slugOf(r.prefix),
+              match: { prefix: withSlash },
+              route: routeAction(r, false, `${base}/`),
+            },
+            {
+              name: `${slugOf(r.prefix)}-raiz`,
+              match: { path: r.prefix },
+              route: routeAction(r, mirrorOn, base || "/"),
+            },
           ];
         }),
       },

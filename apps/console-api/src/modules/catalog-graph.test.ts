@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { completeness, flowDependencies, impactOf, pathOf, type GraphEdge, type GraphNode } from "./catalog-graph.js";
+import {
+  completeness,
+  flowDependencies,
+  impactOf,
+  pathOf,
+  type GraphEdge,
+  type GraphNode,
+} from "./catalog-graph.js";
 
 const FLOW = `<api xmlns="http://ws.apache.org/ns/synapse" name="SolicitudesConcesionAPI" context="/integracion/solicitudes">
   <resource methods="POST"><inSequence>
@@ -11,7 +18,10 @@ const FLOW = `<api xmlns="http://ws.apache.org/ns/synapse" name="SolicitudesConc
 
 describe("analizador de flujos del Integrador", () => {
   it("deriva sistemas, colas y base de datos sin duplicar", () => {
-    const deps = flowDependencies(FLOW, new Map([["RegistroOperadoresEP", "http://registro-soap:7001/soap/registro"]]));
+    const deps = flowDependencies(
+      FLOW,
+      new Map([["RegistroOperadoresEP", "http://registro-soap:7001/soap/registro"]]),
+    );
     expect(deps.map((d) => [d.id, d.relation])).toEqual([
       ["sistema:registro-soap:7001", "llama"],
       ["sistema:rabbitmq", "publica"],
@@ -69,7 +79,12 @@ describe("análisis de impacto", () => {
     expect(r.affected.flujos.map((n) => n.id)).toEqual(["flujo:solicitudes"]);
     expect(r.affected.apis.map((n) => n.id)).toEqual(["api:solicitudes"]);
     expect(r.affected.consumidores.map((n) => n.id)).toEqual(["consumidor:a"]);
-    expect(r.paths).toContainEqual(["sistema:registro", "flujo:solicitudes", "api:solicitudes", "consumidor:a"]);
+    expect(r.paths).toContainEqual([
+      "sistema:registro",
+      "flujo:solicitudes",
+      "api:solicitudes",
+      "consumidor:a",
+    ]);
     expect(r.severity).toBe("medio");
   });
 

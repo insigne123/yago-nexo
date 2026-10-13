@@ -30,7 +30,9 @@ export function secretFromEnv(k: string, minLength = 0): string | undefined {
 function alertsToken(): { token?: string; problem?: string } {
   try {
     const token = secretFromEnv("NEXO_ALERTS_TOKEN", 16);
-    return token ? { token } : { problem: "NEXO_ALERTS_TOKEN (o NEXO_ALERTS_TOKEN_FILE) no está configurado" };
+    return token
+      ? { token }
+      : { problem: "NEXO_ALERTS_TOKEN (o NEXO_ALERTS_TOKEN_FILE) no está configurado" };
   } catch (e) {
     return { problem: e instanceof Error ? e.message : String(e) };
   }
@@ -41,7 +43,9 @@ export const config = {
   version: env("NEXO_VERSION", versionNexo()),
   environmentLabel: env("NEXO_ENVIRONMENT_LABEL", "Laboratorio Yago"),
   databaseUrl: env("NEXO_DATABASE_URL"),
-  corsOrigins: env("NEXO_CORS_ORIGINS", "http://localhost:5173").split(",").map((s) => s.trim()),
+  corsOrigins: env("NEXO_CORS_ORIGINS", "http://localhost:5173")
+    .split(",")
+    .map((s) => s.trim()),
   auth: {
     /** JWKS del proveedor: Keycloak (institución) o Supabase Auth (demo). */
     jwksUrl: env("NEXO_AUTH_JWKS_URL", "http://keycloak:8080/realms/nexo/protocol/openid-connect/certs"),
@@ -55,10 +59,12 @@ export const config = {
     user: env("NEXO_WSO2_USER", "admin"),
     password: env("NEXO_WSO2_PASSWORD"),
     insecureTls: bool("NEXO_WSO2_INSECURE_TLS", true),
-    gateways: env("NEXO_WSO2_PROD_GATEWAYS", "Default:apim,Operadores:operadores.nexo.lab").split(",").map((g) => {
-      const [name, vhost] = g.split(":");
-      return { name: name!, vhost: vhost ?? "localhost" };
-    }),
+    gateways: env("NEXO_WSO2_PROD_GATEWAYS", "Default:apim,Operadores:operadores.nexo.lab")
+      .split(",")
+      .map((g) => {
+        const [name, vhost] = g.split(":");
+        return { name: name!, vhost: vhost ?? "localhost" };
+      }),
   },
   mi: {
     url: env("NEXO_MI_URL", "https://mi:9164"),
@@ -80,6 +86,11 @@ export const config = {
     reprocessRoutingKey: env("NEXO_RABBITMQ_REPROCESS_KEY", "nueva"),
   },
   exportDir: env("NEXO_EXPORT_DIR", "/tmp/nexo-exports"),
+  /**
+   * platform.yaml montado en el contenedor (opcional). Si está, el paquete de exportación incluye la configuración
+   * de la plataforma (con los archivos que referencia) en plataforma/; si no, el paquete no la trae.
+   */
+  platformSpec: opt("NEXO_PLATFORM_SPEC"),
   /**
    * Token que Alertmanager envía como «Authorization: Bearer …». Sin token válido el webhook rechaza todo (401) y
    * se informa el problema al arrancar; la API sigue en pie (las demás funciones no dependen de las alertas).

@@ -45,7 +45,11 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return lines;
 }
 
-export async function discoveryReportPdf(opts: { environment: string; generatedAt: string; findings: ReportFinding[] }): Promise<Uint8Array> {
+export async function discoveryReportPdf(opts: {
+  environment: string;
+  generatedAt: string;
+  findings: ReportFinding[];
+}): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle("Reporte de exposición de APIs");
   doc.setAuthor("Yago Nexo");
@@ -55,7 +59,8 @@ export async function discoveryReportPdf(opts: { environment: string; generatedA
   let page: PDFPage = doc.addPage(A4);
   let y = A4[1] - MARGIN;
   const width = A4[0] - MARGIN * 2;
-  const text = (t: string, x: number, size = 9, f = font, color = rgb(0.13, 0.15, 0.2)) => page.drawText(ansi(t), { x, y, size, font: f, color });
+  const text = (t: string, x: number, size = 9, f = font, color = rgb(0.13, 0.15, 0.2)) =>
+    page.drawText(ansi(t), { x, y, size, font: f, color });
   const newPageIfNeeded = (needed: number) => {
     if (y - needed < MARGIN) {
       page = doc.addPage(A4);
@@ -65,7 +70,13 @@ export async function discoveryReportPdf(opts: { environment: string; generatedA
 
   text("Reporte de exposición de APIs no gobernadas", MARGIN, 16, bold);
   y -= 20;
-  text(`${opts.environment} · generado el ${opts.generatedAt.replace("T", " ").slice(0, 19)} UTC`, MARGIN, 9, font, rgb(0.4, 0.42, 0.48));
+  text(
+    `${opts.environment} · generado el ${opts.generatedAt.replace("T", " ").slice(0, 19)} UTC`,
+    MARGIN,
+    9,
+    font,
+    rgb(0.4, 0.42, 0.48),
+  );
   y -= 24;
   const ungoverned = opts.findings.filter((f) => !f.matchedApiId).length;
   const high = opts.findings.filter((f) => f.exposureScore >= 70).length;
@@ -79,7 +90,12 @@ export async function discoveryReportPdf(opts: { environment: string; generatedA
     y -= 24;
   }
   y -= 6;
-  page.drawLine({ start: { x: MARGIN, y }, end: { x: A4[0] - MARGIN, y }, thickness: 0.6, color: rgb(0.8, 0.82, 0.86) });
+  page.drawLine({
+    start: { x: MARGIN, y },
+    end: { x: A4[0] - MARGIN, y },
+    thickness: 0.6,
+    color: rgb(0.8, 0.82, 0.86),
+  });
   y -= 18;
 
   for (const f of opts.findings) {
@@ -92,7 +108,12 @@ export async function discoveryReportPdf(opts: { environment: string; generatedA
       width - 40,
     );
     newPageIfNeeded(40 + (reasonLines.length + meta.length) * 11);
-    const color = f.exposureScore >= 70 ? rgb(0.75, 0.16, 0.16) : f.exposureScore >= 40 ? rgb(0.8, 0.5, 0.05) : rgb(0.2, 0.5, 0.25);
+    const color =
+      f.exposureScore >= 70
+        ? rgb(0.75, 0.16, 0.16)
+        : f.exposureScore >= 40
+          ? rgb(0.8, 0.5, 0.05)
+          : rgb(0.2, 0.5, 0.25);
     text(String(f.exposureScore), MARGIN, 14, bold, color);
     for (const line of wrap(target, bold, 10, width - 52).slice(0, 2)) {
       text(line, MARGIN + 40, 10, bold);
@@ -111,7 +132,13 @@ export async function discoveryReportPdf(opts: { environment: string; generatedA
   }
   const pages = doc.getPages();
   pages.forEach((p, i) =>
-    p.drawText(ansi(`Yago Nexo · Descubrimiento de APIs (D-01) · página ${i + 1} de ${pages.length}`), { x: MARGIN, y: 24, size: 7.5, font, color: rgb(0.55, 0.57, 0.62) }),
+    p.drawText(ansi(`Yago Nexo · Descubrimiento de APIs (D-01) · página ${i + 1} de ${pages.length}`), {
+      x: MARGIN,
+      y: 24,
+      size: 7.5,
+      font,
+      color: rgb(0.55, 0.57, 0.62),
+    }),
   );
   return doc.save();
 }

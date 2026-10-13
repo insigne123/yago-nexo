@@ -204,7 +204,7 @@ describe("token del webhook de alertas", () => {
     const dir = mkdtempSync(join(tmpdir(), "nexo-secreto-"));
     const file = join(dir, "token");
     writeFileSync(file, "desde-archivo-0123456789\n");
-    process.env.NEXO_PRUEBA_TOKEN = "desde-variable-0123456789";
+    process.env.NEXO_PRUEBA_TOKEN = "desde-variable-0123456789"; // gitleaks:allow (valor de prueba)
     expect(secretFromEnv("NEXO_PRUEBA_TOKEN", 16)).toBe("desde-variable-0123456789");
     process.env.NEXO_PRUEBA_TOKEN_FILE = file;
     expect(secretFromEnv("NEXO_PRUEBA_TOKEN", 16)).toBe("desde-archivo-0123456789");

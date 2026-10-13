@@ -21,7 +21,10 @@ type ApiDef = {
   additionalProperties?: Array<{ name: string; value: string }>;
 };
 
-export function declaredRoute(api: ApiDef, divisionUrl: string): { prefix: string; seedUrl: string } | undefined {
+export function declaredRoute(
+  api: ApiDef,
+  divisionUrl: string,
+): { prefix: string; seedUrl: string } | undefined {
   const p = api.endpointConfig?.production_endpoints;
   const url = Array.isArray(p) ? p[0]?.url : p?.url;
   const base = divisionUrl.replace(/\/+$/, "");
@@ -46,9 +49,20 @@ export async function discoverRoutes(
     const revs = (await wso2.publisher.listRevisions(a.id)).list;
     const deployed = revs.find((r) => (r.deploymentInfo ?? []).some((d) => d.name === gatewayName));
     if (!deployed) continue;
-    if (!cache.has(deployed.id)) cache.set(deployed.id, declaredRoute((await wso2.publisher.getApi(deployed.id)) as ApiDef, divisionUrl) ?? null);
+    if (!cache.has(deployed.id))
+      cache.set(
+        deployed.id,
+        declaredRoute((await wso2.publisher.getApi(deployed.id)) as ApiDef, divisionUrl) ?? null,
+      );
     const decl = cache.get(deployed.id);
-    if (decl) out.push({ apiId: a.id, apiName: `${a.name} ${a.version}`, prefix: decl.prefix, seedUrl: decl.seedUrl, revisionId: deployed.id });
+    if (decl)
+      out.push({
+        apiId: a.id,
+        apiName: `${a.name} ${a.version}`,
+        prefix: decl.prefix,
+        seedUrl: decl.seedUrl,
+        revisionId: deployed.id,
+      });
   }
   return out;
 }
@@ -57,7 +71,11 @@ export async function discoverRoutes(
  * Registra o actualiza las rutas. Si el proyecto versionado cambió el backend estable (seed distinto) y no hay
  * un despliegue en curso, la ruta adopta el nuevo estable; durante un despliegue no se toca.
  */
-export async function upsertRoutes(db: Db, environment: string, routes: readonly DeclaredRoute[]): Promise<number> {
+export async function upsertRoutes(
+  db: Db,
+  environment: string,
+  routes: readonly DeclaredRoute[],
+): Promise<number> {
   let changed = 0;
   for (const r of routes) {
     const res = await db.query(

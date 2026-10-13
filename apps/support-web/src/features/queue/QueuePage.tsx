@@ -139,7 +139,9 @@ export function QueuePage() {
                       {t.number}
                     </Link>
                     <div className="max-w-xs text-slate-800">{t.title}</div>
-                    <div className="text-xs text-slate-500">{formatDateTime(t.created_at)}</div>
+                    <div className="text-xs text-slate-500">
+                      {formatDateTime(t.call_received_at ?? t.created_at)}
+                    </div>
                     {t.is_security_incident ? <Tag tone="peligro">Seguridad</Tag> : null}
                     {t.escalation_level > 1 ? (
                       <Tag tone="alerta">{`Escalado a nivel ${t.escalation_level}`}</Tag>

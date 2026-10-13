@@ -32,7 +32,7 @@ La API todavía no está implementada. Esta referencia describe la interfaz prev
 - **Ruta base:** `/api/v1`.
 - **Autenticación:** todas las rutas exigen `Authorization: Bearer <JWT>`, emitido por el Keycloak de la institución. Los roles del usuario vienen en el token.
 - **Autorización:** cada operación exige un permiso de la [matriz rol-permiso](./seguridad.md#matriz-rol-permiso). Sin el permiso, la API responde `403` con un cuerpo [`Error`](/docs/referencia-api/esquemas#esquema-error).
-- **Cuatro ojos:** en las aprobaciones (bloqueos, despliegues a producción, reproceso de mensajes y retorno al sitio principal), quien aprueba debe ser distinto de quien inició la acción.
+- **Cuatro ojos:** en las aprobaciones de bloqueos, de despliegues a producción y del retorno al sitio principal, quien aprueba debe ser distinto de quien inició la acción; si es la misma persona, la API responde `403` con `"permission": "cuatro-ojos"`. El retorno lo solicita una persona (`POST /continuity/failback/requests`) y lo aprueba otra. El reproceso de mensajes fallidos lo decide una persona con el rol aprobador, con motivo obligatorio y auditado.
 - **Auditoría:** toda acción de escritura genera un [evento de auditoría encadenado](./seguridad.md#auditoria).
 - **Formatos:** JSON; algunas exportaciones también en CSV (consumo y reporte de descubrimiento).
 - **Errores:** `403` sin permiso y `404` recurso inexistente, ambos con el esquema `Error` (`statusCode`, `message` y, cuando corresponde, `permission`).

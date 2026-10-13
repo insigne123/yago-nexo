@@ -12,7 +12,8 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["vite/client"],
     "paths": {
-      "@nexo/shared/browser": ["../../packages/shared/src/browser.ts"]
+      "@nexo/shared/browser": ["../../packages/shared/src/browser.ts"],
+      "@nexo/console-api/impacto": ["../console-api/src/modules/catalog-graph.ts"]
     }
   },
   "include": ["src"]

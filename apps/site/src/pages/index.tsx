@@ -115,8 +115,8 @@ function Portada(): ReactNode {
           <Link className="button button--secondary button--lg" to="/docs/laboratorio">
             Probar el laboratorio
           </Link>
-          <Link className={clsx("button button--link button--lg", styles.enlaceRuta)} to="/docs/hoja-de-ruta">
-            Ver la hoja de ruta
+          <Link className={clsx("button button--link button--lg", styles.enlaceRuta)} to="/docs/capacidades">
+            Ver las capacidades
           </Link>
         </div>
       </div>
@@ -135,10 +135,10 @@ export default function Inicio(): ReactNode {
       <main>
         <section className={clsx("container", styles.seccion)}>
           <div className={styles.aviso} role="note">
-            <strong>Estado actual.</strong> Nexo está en desarrollo activo. La versión {release.version} es{" "}
-            {release.estado}: hoy están disponibles {conteo.Disponible} de {capacidades.length} capacidades.
-            El resto figura como <em>En desarrollo</em> o <em>Planificado</em> hasta que exista y se pueda
-            verificar en el repositorio.
+            <strong>Versión vigente.</strong> Yago Nexo {release.version} es la versión estable{" "}
+            {release.estado}: incluye {conteo.Incluida} de {capacidades.length} capacidades, cada una con su
+            evidencia en el repositorio. Las otras {conteo.Servicio} se entregan con el servicio de
+            implementación (desarrollo contratado, con prueba de aceptación).
           </div>
         </section>
 
@@ -213,15 +213,16 @@ export default function Inicio(): ReactNode {
             Capacidades y estado
           </Heading>
           <p className={styles.parrafo}>
-            Cada capacidad muestra su estado real en la versión {release.version}. Solo figura como{" "}
-            <em>Disponible</em> lo que existe y se puede verificar en el repositorio.
+            Cada capacidad dice si está incluida en la versión {release.version} o si se entrega con el
+            servicio de implementación. Solo figura como incluida lo que existe y se puede verificar en el
+            repositorio.
           </p>
           <ResumenEstados />
           <LeyendaEstados />
           <TablaCapacidades />
           <p className={styles.nota}>
-            La <Link to="/docs/hoja-de-ruta">hoja de ruta</Link> detalla cada capacidad y la evidencia de las
-            que están disponibles.
+            La página de <Link to="/docs/capacidades">capacidades</Link> detalla cada una y la evidencia de
+            las incluidas en la versión.
           </p>
         </section>
 

@@ -38,6 +38,7 @@ export const keys = {
   continuityAll: ["continuity"] as const,
   continuity: ["continuity", "state"] as const,
   failovers: ["continuity", "events"] as const,
+  failbackRequests: ["continuity", "failback-requests"] as const,
   usage: (params: UsageParams) => ["usage", params] as const,
   deadLetters: ["dead-letters"] as const,
   audit: (filters: AuditFilters) => ["audit", filters] as const,
@@ -471,13 +472,62 @@ export function useStartDrill() {
   });
 }
 
+/** Solicitudes de retorno al sitio principal (la más reciente primero). */
+export function useFailbackRequests(enabled = true) {
+  return useQuery({
+    queryKey: keys.failbackRequests,
+    queryFn: ({ signal }) => unwrap(api().GET("/continuity/failback/requests", { signal })),
+    refetchInterval: 15_000,
+    enabled,
+  });
+}
+
+/** Retorno con dos personas, paso 1: una persona lo solicita con un motivo (vence si nadie lo aprueba). */
+export function useRequestFailback() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (reason: string) => unwrap(api().POST("/continuity/failback/requests", { body: { reason } })),
+    onSuccess: async () => {
+      await invalidate(keys.continuityAll, keys.overview);
+      toast.info(
+        "Retorno solicitado",
+        "Otra persona con el rol aprobador debe aprobarlo antes de que venza.",
+      );
+    },
+  });
+}
+
+/** Paso 2: otra persona aprueba la solicitud y los agentes de continuidad ejecutan el retorno. */
 export function useApproveFailback() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: (reason?: string) => unwrap(api().POST("/continuity/failback", { body: { reason } })),
+    mutationFn: (vars: { id: string; reason?: string }) =>
+      unwrap(
+        api().POST("/continuity/failback/requests/{id}/approve", {
+          params: { path: { id: vars.id } },
+          body: vars.reason ? { reason: vars.reason } : {},
+        }),
+      ),
     onSuccess: async () => {
       await invalidate(keys.continuityAll, keys.overview);
-      toast.info("Retorno aprobado", "Se inició el retorno guiado al sitio principal.");
+      toast.info("Retorno aprobado", "Los agentes de continuidad reapuntan el tráfico al sitio principal.");
+    },
+  });
+}
+
+export function useRejectFailback() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (vars: { id: string; reason: string }) =>
+      unwrap(
+        api().POST("/continuity/failback/requests/{id}/reject", {
+          params: { path: { id: vars.id } },
+          body: { reason: vars.reason },
+        }),
+      ),
+    onSuccess: async () => {
+      await invalidate(keys.continuityAll);
+      toast.warning("Solicitud de retorno rechazada", "El rechazo quedó registrado en la auditoría.");
     },
   });
 }

@@ -4,6 +4,7 @@
  *   pnpm --filter @nexo/aceptacion start                       todos los casos (salvo los de perfiles extra)
  *   CASOS=PA-008,PA-020 pnpm --filter @nexo/aceptacion start   solo esos casos
  *   NEXO_HITO=H1 NEXO_EJECUTOR="Nombre Apellido" NEXO_AMBIENTE="QA (CPD)" …    datos del registro
+ *   NEXO_EJECUCION=PA-008=2,PA-009=1 …                         número de ejecución (LAB-PA-008-02); por omisión 1
  *
  * Deja en release/aceptacion/<fecha>/ un JSON, un Markdown y un HTML por registro, la salida completa de cada
  * verificación como evidencia (con su SHA-256), un índice y, si existe la imagen nexo-tools/libreoffice:1, el
@@ -15,7 +16,16 @@ import { cpus, hostname, totalmem } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CASOS, type Caso } from "./casos.js";
-import { construirRegistro, html, markdown, sha256, type Entorno, type Ejecucion, type Registro } from "./registro.js";
+import {
+  construirRegistro,
+  html,
+  markdown,
+  numeroEjecucion,
+  sha256,
+  type Entorno,
+  type Ejecucion,
+  type Registro,
+} from "./registro.js";
 
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -34,7 +44,8 @@ function huellaDirectorio(dir: string): string {
 }
 
 function entorno(): Entorno {
-  const version = (JSON.parse(readFileSync(join(raiz, "package.json"), "utf8")) as { version: string }).version;
+  const version = (JSON.parse(readFileSync(join(raiz, "package.json"), "utf8")) as { version: string })
+    .version;
   let commit = "desconocido";
   try {
     commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: raiz, encoding: "utf8" }).trim();
@@ -65,7 +76,11 @@ function entorno(): Entorno {
 function ejecutar(caso: Caso): Promise<Ejecucion> {
   const inicio = new Date();
   return new Promise((ok) => {
-    const p = spawn("bash", ["-lc", `set -a; [ -f deploy/compose/.env ] && . deploy/compose/.env; set +a; ${caso.comando}`], { cwd: raiz });
+    const p = spawn(
+      "bash",
+      ["-lc", `set -a; [ -f deploy/compose/.env ] && . deploy/compose/.env; set +a; ${caso.comando}`],
+      { cwd: raiz },
+    );
     let salida = "";
     const tomar = (b: Buffer) => {
       salida += b.toString();
@@ -83,6 +98,8 @@ async function main() {
   if (!casos.length) throw new Error("no hay casos que ejecutar");
   const hito = process.env.NEXO_HITO ?? "LAB";
   const ejecutor = process.env.NEXO_EJECUTOR ?? "Yago (ejecución automática)";
+  // Se valida antes de ejecutar nada: un número mal escrito no debe aparecer recién al final de la corrida.
+  const ejecuciones = new Map(casos.map((c) => [c.id, numeroEjecucion(process.env.NEXO_EJECUCION, c.id)]));
   const e = entorno();
   const dir = join(raiz, "release/aceptacion", new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-"));
   mkdirSync(join(dir, "evidencia"), { recursive: true });
@@ -92,7 +109,16 @@ async function main() {
     const x = await ejecutar(caso);
     const archivo = `evidencia/${caso.id}-salida.txt`;
     writeFileSync(join(dir, archivo), x.salida);
-    const r = construirRegistro({ caso, hito, ejecucionN: 1, correlativo: i + 1, entorno: e, ejecucion: x, evidencia: [{ archivo, sha256: sha256(x.salida) }], ejecutor });
+    const r = construirRegistro({
+      caso,
+      hito,
+      ejecucionN: ejecuciones.get(caso.id) ?? 1,
+      correlativo: i + 1,
+      entorno: e,
+      ejecucion: x,
+      evidencia: [{ archivo, sha256: sha256(x.salida) }],
+      ejecutor,
+    });
     registros.push(r);
     writeFileSync(join(dir, `${r.numero}.json`), JSON.stringify(r, null, 2) + "\n");
     writeFileSync(join(dir, `${r.numero}.md`), markdown(r));
@@ -106,7 +132,10 @@ async function main() {
     "",
     "| Registro | Requisitos | Caso | Estado | Duración (s) |",
     "| --- | --- | --- | --- | --- |",
-    ...registros.map((r) => `| ${r.numero} | ${r.requisitos.join(", ")} | ${r.titulo} | ${r.estado} | ${r.duracion.segundos} |`),
+    ...registros.map(
+      (r) =>
+        `| ${r.numero} | ${r.requisitos.join(", ")} | ${r.titulo} | ${r.estado} | ${r.duracion.segundos} |`,
+    ),
     "",
     `Aprobadas ${registros.filter((r) => r.estado === "Aprobada").length} de ${registros.length}.`,
     "",
@@ -114,7 +143,20 @@ async function main() {
   writeFileSync(join(dir, "INDICE.md"), indice);
   const imagen = "nexo-tools/libreoffice:1";
   if (spawnSync("docker", ["image", "inspect", imagen]).status === 0) {
-    spawnSync("docker", ["run", "--rm", "-v", `${dir}:/w`, imagen, "sh", "-c", "soffice --headless --convert-to pdf:writer_web_pdf_Export *.html >/dev/null 2>&1"], { stdio: "ignore" });
+    spawnSync(
+      "docker",
+      [
+        "run",
+        "--rm",
+        "-v",
+        `${dir}:/w`,
+        imagen,
+        "sh",
+        "-c",
+        "soffice --headless --convert-to pdf:writer_web_pdf_Export *.html >/dev/null 2>&1",
+      ],
+      { stdio: "ignore" },
+    );
   }
   console.log(`\n${indice}\n[aceptación] registros en ${relative(raiz, dir)}`);
   if (registros.some((r) => r.estado !== "Aprobada")) process.exitCode = 1;

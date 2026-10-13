@@ -70,7 +70,9 @@ export function PausesPanel({ ticket, ctx, now }: { ticket: TicketDetail; ctx: S
                 <strong>{PAUSE_REASON_LABEL[p.reason]}</strong>
                 {p.ended_at ? <Tag>Cerrada</Tag> : <Tag tone="alerta">En curso</Tag>}
                 {p.client_ack_status === "aceptada" ? <Tag tone="info">Acusada por el cliente</Tag> : null}
-                {p.client_ack_status === "objetada" ? <Tag tone="peligro">Objetada por el cliente</Tag> : null}
+                {p.client_ack_status === "objetada" ? (
+                  <Tag tone="peligro">Objetada por el cliente</Tag>
+                ) : null}
                 {!p.client_ack_status ? <Tag>Sin acuse del cliente</Tag> : null}
               </div>
               <p className="mt-1 text-slate-700">{p.justification}</p>

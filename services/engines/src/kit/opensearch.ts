@@ -13,11 +13,14 @@ export class OpenSearch {
   }
 
   async search<T>(index: string, body: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}/${index}/_search?ignore_unavailable=true&allow_no_indices=true`, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...(this.auth ? { authorization: this.auth } : {}) },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(
+      `${this.baseUrl}/${index}/_search?ignore_unavailable=true&allow_no_indices=true`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(this.auth ? { authorization: this.auth } : {}) },
+        body: JSON.stringify(body),
+      },
+    );
     if (!res.ok) throw new Error(`OpenSearch respondió ${res.status}: ${(await res.text()).slice(0, 300)}`);
     return (await res.json()) as T;
   }

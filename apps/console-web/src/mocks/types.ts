@@ -10,6 +10,7 @@ import type {
   DiscoveryFinding,
   DiscoveryScan,
   ExportJob,
+  FailbackRequest,
   FailoverEvent,
   Graph,
   Rollout,
@@ -61,6 +62,8 @@ export interface PlannedStep {
   offsetMs: number;
   name: string;
   detail: string;
+  /** Estado con que queda el paso (por omisión «ok»); «pendiente» = lo completa el operador. */
+  status?: "ok" | "pendiente";
 }
 
 export interface FailoverRecord extends FailoverEvent {
@@ -98,6 +101,8 @@ export interface MockState {
     Pick<ContinuityState, "mode" | "activeSite" | "quorum" | "sites" | "rtoObjetivoMin" | "rpoObjetivoMin">
   >;
   failovers: FailoverRecord[];
+  /** Solicitudes de retorno al sitio principal (una persona solicita y otra aprueba). */
+  failbackRequests: FailbackRequest[];
   deadLetters: DeadLetter[];
   audit: AuditEvent[];
   tamper: TamperState | null;

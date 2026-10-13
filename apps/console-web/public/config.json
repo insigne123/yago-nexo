@@ -1,7 +1,6 @@
 {
   "apiBaseUrl": "/api/v1",
   "environmentLabel": "Demostración Nexo",
-  "version": "1.0.0",
   "auth": {
     "provider": "mock",
     "oidc": {

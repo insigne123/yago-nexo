@@ -137,7 +137,10 @@ export class Wso2Client {
       this.request({ method: "DELETE", path: `${PUBLISHER}/apis/${apiId}` }),
 
     /** Importa un contrato OpenAPI y crea la API con las propiedades indicadas. */
-    importOpenApi: (definition: string, additionalProperties: Record<string, unknown>): Promise<ApiSummary> => {
+    importOpenApi: (
+      definition: string,
+      additionalProperties: Record<string, unknown>,
+    ): Promise<ApiSummary> => {
       const form = new FormData();
       form.set("file", new Blob([definition], { type: "application/yaml" }), "openapi.yaml");
       form.set("additionalProperties", JSON.stringify(additionalProperties));
@@ -152,7 +155,10 @@ export class Wso2Client {
       return this.request({ method: "POST", path: `${PUBLISHER}/apis/import-graphql-schema`, form });
     },
 
-    importAsyncApi: (definition: string, additionalProperties: Record<string, unknown>): Promise<ApiSummary> => {
+    importAsyncApi: (
+      definition: string,
+      additionalProperties: Record<string, unknown>,
+    ): Promise<ApiSummary> => {
       const form = new FormData();
       form.set("file", new Blob([definition], { type: "application/yaml" }), "asyncapi.yaml");
       form.set("additionalProperties", JSON.stringify(additionalProperties));
@@ -196,16 +202,33 @@ export class Wso2Client {
       this.request({ method: "DELETE", path: `${PUBLISHER}/apis/${apiId}/revisions/${revisionId}` }),
 
     restoreRevision: (apiId: string, revisionId: string) =>
-      this.request({ method: "POST", path: `${PUBLISHER}/apis/${apiId}/restore-revision?revisionId=${revisionId}` }),
+      this.request({
+        method: "POST",
+        path: `${PUBLISHER}/apis/${apiId}/restore-revision?revisionId=${revisionId}`,
+      }),
 
-    changeLifecycle: (apiId: string, action: "Publish" | "Deploy as a Prototype" | "Demote to Created" | "Block" | "Deprecate" | "Re-Publish" | "Retire") =>
+    changeLifecycle: (
+      apiId: string,
+      action:
+        | "Publish"
+        | "Deploy as a Prototype"
+        | "Demote to Created"
+        | "Block"
+        | "Deprecate"
+        | "Re-Publish"
+        | "Retire",
+    ) =>
       this.request({
         method: "POST",
         path: `${PUBLISHER}/apis/change-lifecycle?apiId=${apiId}&action=${encodeURIComponent(action)}`,
       }),
 
     exportApi: (apiId: string): Promise<Buffer> =>
-      this.request({ method: "GET", path: `${PUBLISHER}/apis/export?apiId=${apiId}&format=YAML`, binary: true }),
+      this.request({
+        method: "GET",
+        path: `${PUBLISHER}/apis/export?apiId=${apiId}&format=YAML`,
+        binary: true,
+      }),
 
     importApi: (zip: Buffer, overwrite = true): Promise<unknown> => {
       const form = new FormData();
@@ -216,7 +239,8 @@ export class Wso2Client {
     listSubscriptions: (apiId: string): Promise<{ count: number; list: Subscription[] }> =>
       this.request({ method: "GET", path: `${PUBLISHER}/subscriptions?apiId=${apiId}&limit=500` }),
 
-    settings: (): Promise<Record<string, unknown>> => this.request({ method: "GET", path: `${PUBLISHER}/settings` }),
+    settings: (): Promise<Record<string, unknown>> =>
+      this.request({ method: "GET", path: `${PUBLISHER}/settings` }),
   };
 
   // ---------------------------------------------------------------- Admin
@@ -275,7 +299,8 @@ export class Wso2Client {
     createEnvironment: (body: Record<string, unknown>): Promise<Record<string, unknown>> =>
       this.request({ method: "POST", path: `${ADMIN}/environments`, json: body }),
 
-    settings: (): Promise<Record<string, unknown>> => this.request({ method: "GET", path: `${ADMIN}/settings` }),
+    settings: (): Promise<Record<string, unknown>> =>
+      this.request({ method: "GET", path: `${ADMIN}/settings` }),
   };
 
   // ---------------------------------------------------------------- Dev Portal
@@ -287,7 +312,11 @@ export class Wso2Client {
     listApplications: (): Promise<{ count: number; list: Application[] }> =>
       this.request({ method: "GET", path: `${DEVPORTAL}/applications?limit=500` }),
 
-    createApplication: (name: string, description: string, throttlingPolicy = "Unlimited"): Promise<Application> =>
+    createApplication: (
+      name: string,
+      description: string,
+      throttlingPolicy = "Unlimited",
+    ): Promise<Application> =>
       this.request({
         method: "POST",
         path: `${DEVPORTAL}/applications`,
@@ -322,7 +351,11 @@ export class Wso2Client {
     listKeys: (applicationId: string): Promise<{ count: number; list: ApplicationKey[] }> =>
       this.request({ method: "GET", path: `${DEVPORTAL}/applications/${applicationId}/oauth-keys` }),
 
-    subscribe: (applicationId: string, apiId: string, throttlingPolicy = "Unlimited"): Promise<Subscription> =>
+    subscribe: (
+      applicationId: string,
+      apiId: string,
+      throttlingPolicy = "Unlimited",
+    ): Promise<Subscription> =>
       this.request({
         method: "POST",
         path: `${DEVPORTAL}/subscriptions`,
@@ -330,9 +363,13 @@ export class Wso2Client {
       }),
 
     listSubscriptions: (applicationId: string): Promise<{ count: number; list: Subscription[] }> =>
-      this.request({ method: "GET", path: `${DEVPORTAL}/subscriptions?applicationId=${applicationId}&limit=500` }),
+      this.request({
+        method: "GET",
+        path: `${DEVPORTAL}/subscriptions?applicationId=${applicationId}&limit=500`,
+      }),
 
-    sdkLanguages: (): Promise<string[]> => this.request({ method: "GET", path: `${DEVPORTAL}/sdk-gen/languages` }),
+    sdkLanguages: (): Promise<string[]> =>
+      this.request({ method: "GET", path: `${DEVPORTAL}/sdk-gen/languages` }),
 
     generateSdk: (apiId: string, language: string): Promise<Buffer> =>
       this.request({ method: "GET", path: `${DEVPORTAL}/apis/${apiId}/sdks/${language}`, binary: true }),

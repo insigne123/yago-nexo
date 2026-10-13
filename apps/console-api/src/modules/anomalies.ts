@@ -1,4 +1,16 @@
-import { Body, ConflictException, Controller, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { z } from "zod";
 import { createBlock, releaseBlock, type Db } from "@nexo/console-db";
 import type { Wso2Client } from "@nexo/wso2-client";
@@ -96,7 +108,18 @@ export class AnomaliesController {
     const res = await this.db.query(
       `INSERT INTO nexo.anomaly_rule (name, api_id, consumer_id, metric, sensitivity, min_volume, action, block_ttl_minutes, enabled, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [r.name, r.apiId ?? null, r.consumerId ?? null, r.metric, r.sensitivity, r.minVolume, r.action, r.blockTtlMinutes, r.enabled, user.username],
+      [
+        r.name,
+        r.apiId ?? null,
+        r.consumerId ?? null,
+        r.metric,
+        r.sensitivity,
+        r.minVolume,
+        r.action,
+        r.blockTtlMinutes,
+        r.enabled,
+        user.username,
+      ],
     );
     await this.audit.record(user, "anomalias.regla.crear", `regla/${res.rows[0].id}`, "exito", r);
     return ruleRow(res.rows[0]);
@@ -110,7 +133,18 @@ export class AnomaliesController {
     const res = await this.db.query(
       `UPDATE nexo.anomaly_rule SET name=$1, api_id=$2, consumer_id=$3, metric=$4, sensitivity=$5, min_volume=$6, action=$7, block_ttl_minutes=$8, enabled=$9, updated_at=now()
        WHERE id = $10 RETURNING *`,
-      [r.name, r.apiId ?? null, r.consumerId ?? null, r.metric, r.sensitivity, r.minVolume, r.action, r.blockTtlMinutes, r.enabled, id],
+      [
+        r.name,
+        r.apiId ?? null,
+        r.consumerId ?? null,
+        r.metric,
+        r.sensitivity,
+        r.minVolume,
+        r.action,
+        r.blockTtlMinutes,
+        r.enabled,
+        id,
+      ],
     );
     if (!res.rows[0]) throw new NotFoundException({ statusCode: 404, message: "La regla no existe" });
     await this.audit.record(user, "anomalias.regla.actualizar", `regla/${id}`, "exito", r);
@@ -133,11 +167,19 @@ export class AnomaliesController {
   @RequirePermission("anomaly:block:approve")
   @AuditAction("anomalias.bloqueo.aprobar")
   async approveBlock(@Param("id") id: string, @CurrentUser() user: AuthUser) {
-    const ev = (await this.db.query("SELECT e.*, r.block_ttl_minutes FROM nexo.anomaly_event e LEFT JOIN nexo.anomaly_rule r ON r.id = e.rule_id WHERE e.id = $1", [id])).rows[0];
+    const ev = (
+      await this.db.query(
+        "SELECT e.*, r.block_ttl_minutes FROM nexo.anomaly_event e LEFT JOIN nexo.anomaly_rule r ON r.id = e.rule_id WHERE e.id = $1",
+        [id],
+      )
+    ).rows[0];
     if (!ev) throw new NotFoundException({ statusCode: 404, message: "La anomalía no existe" });
-    if (ev.status !== "bloqueo_propuesto") throw new ConflictException({ statusCode: 409, message: `La anomalía está en estado ${ev.status}` });
+    if (ev.status !== "bloqueo_propuesto")
+      throw new ConflictException({ statusCode: 409, message: `La anomalía está en estado ${ev.status}` });
     assertFourEyes(user, ev.detected_by as string | undefined, "el bloqueo");
-    const target = ev.consumer ? { type: "APPLICATION" as const, value: String(ev.consumer) } : { type: "IP" as const, value: String(ev.source_ip) };
+    const target = ev.consumer
+      ? { type: "APPLICATION" as const, value: String(ev.consumer) }
+      : { type: "IP" as const, value: String(ev.source_ip) };
     const block = await createBlock(this.db, this.wso2.admin, {
       conditionType: target.type,
       conditionValue: target.value,
@@ -151,7 +193,11 @@ export class AnomaliesController {
         [block.id, user.username, id],
       )
     ).rows[0];
-    await this.audit.record(user, "anomalias.bloqueo.aprobar", `anomalia/${id}`, "exito", { bloqueo: block.id, objetivo: target.value, tipoObjetivo: target.type });
+    await this.audit.record(user, "anomalias.bloqueo.aprobar", `anomalia/${id}`, "exito", {
+      bloqueo: block.id,
+      objetivo: target.value,
+      tipoObjetivo: target.type,
+    });
     return eventRow(upd);
   }
 
@@ -161,11 +207,10 @@ export class AnomaliesController {
   @AuditAction("anomalias.descartar")
   async dismiss(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const { reason } = parse(ReasonSchema, body ?? {});
-    const res = await this.db.query("UPDATE nexo.anomaly_event SET status = 'descartada', dismissed_by = $1, reason = $2 WHERE id = $3 RETURNING *", [
-      user.username,
-      reason ?? null,
-      id,
-    ]);
+    const res = await this.db.query(
+      "UPDATE nexo.anomaly_event SET status = 'descartada', dismissed_by = $1, reason = $2 WHERE id = $3 RETURNING *",
+      [user.username, reason ?? null, id],
+    );
     if (!res.rows[0]) throw new NotFoundException({ statusCode: 404, message: "La anomalía no existe" });
     await this.audit.record(user, "anomalias.descartar", `anomalia/${id}`, "exito", { reason });
     return eventRow(res.rows[0]);
@@ -174,7 +219,9 @@ export class AnomaliesController {
   @Get("blocks")
   @RequirePermission("anomaly:read")
   async blocks() {
-    return (await this.db.query("SELECT * FROM nexo.block ORDER BY active DESC, created_at DESC LIMIT 200")).rows.map(blockRow);
+    return (
+      await this.db.query("SELECT * FROM nexo.block ORDER BY active DESC, created_at DESC LIMIT 200")
+    ).rows.map(blockRow);
   }
 
   @Post("blocks/:id/release")

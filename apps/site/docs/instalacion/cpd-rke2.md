@@ -28,7 +28,7 @@ El playbook `deploy/ansible/rke2/site.yml` prepara las máquinas virtuales, inst
 ### Red
 
 - Un nombre o VIP para los servidores (puertos 6443 de la API y 9345 de registro de nodos).
-- Un balanceador del CPD hacia los puertos 80 y 443 de los agentes, donde corre Traefik (el controlador de Ingress de RKE2 1.36). Esa es la IP de entrada del sitio.
+- Un balanceador del CPD hacia los puertos 80 y 443 de los agentes, donde corre Traefik (el controlador de Ingress de RKE2 v1.36.5+rke2r1). Esa es la IP de entrada del sitio.
 - Servidores NTP alcanzables.
 - Entre nodos, los puertos de RKE2 con Canal: el playbook los abre en firewalld o ufw (TCP 6443, 9345, 2379-2381, 10250, 30000-32767, 9099, 80 y 443; UDP 8472).
 - Sin Internet: un registro de imágenes (Harbor) con las imágenes de RKE2 y de Nexo, y los artefactos de RKE2 copiados en cada nodo (`rke2_ruta_artefactos`).

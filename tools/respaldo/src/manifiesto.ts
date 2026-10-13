@@ -118,6 +118,22 @@ export function construirManifiesto(datos: DatosManifiesto, clave: Buffer): Mani
 
 export class ErrorManifiesto extends Error {}
 
+/** El respaldo se cifró con una clave distinta de la configurada (la huella del manifiesto no coincide). */
+export class ErrorClaveDistinta extends ErrorManifiesto {}
+
+/**
+ * Compara la huella de la clave guardada en el manifiesto con la de la clave configurada. Es lo primero que se
+ * comprueba al restaurar: con otra clave se rechaza antes de crear el servidor temporal y de escribir nada.
+ */
+export function comprobarHuellaClave(datos: unknown, huellaEsperada: string): void {
+  const huella = (datos as Partial<Manifiesto> | null)?.cifrado?.huellaClave;
+  if (huella !== huellaEsperada) {
+    throw new ErrorClaveDistinta(
+      `el respaldo se cifró con otra clave (huella ${String(huella)}; la clave configurada tiene huella ${huellaEsperada})`,
+    );
+  }
+}
+
 /**
  * Valida la forma del manifiesto leído de disco y su firma. Lanza ErrorManifiesto si no es un
  * manifiesto de esta herramienta, si se cifró con otra clave o si fue modificado.
@@ -129,11 +145,7 @@ export function verificarManifiesto(datos: unknown, clave: Buffer, huellaEsperad
     throw new ErrorManifiesto(`formato de manifiesto desconocido: ${String(m.formato)}`);
   if (!Array.isArray(m.servidores) || typeof m.id !== "string")
     throw new ErrorManifiesto("manifiesto incompleto");
-  if (m.cifrado?.huellaClave !== huellaEsperada) {
-    throw new ErrorManifiesto(
-      `el respaldo se cifró con otra clave (huella ${String(m.cifrado?.huellaClave)}; la clave configurada tiene huella ${huellaEsperada})`,
-    );
-  }
+  comprobarHuellaClave(m, huellaEsperada);
   if (m.firma?.algoritmo !== "HMAC-SHA256" || typeof m.firma.valor !== "string")
     throw new ErrorManifiesto("el manifiesto no está firmado");
   if (!firmaValida(clave, jsonCanonico(sinFirma(m as Manifiesto)), m.firma.valor)) {

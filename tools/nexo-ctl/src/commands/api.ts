@@ -1,11 +1,17 @@
-import { createHash } from "node:crypto";
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { basename, join, relative, resolve, sep } from "node:path";
 import { parse } from "yaml";
 import { buildSchema, isObjectType } from "graphql";
-import { DEFAULT_MAX_REVISIONS, pruneRevisions, Wso2HttpError, type ApiSummary, type Wso2Client } from "@nexo/wso2-client";
+import {
+  DEFAULT_MAX_REVISIONS,
+  pruneRevisions,
+  Wso2HttpError,
+  type ApiSummary,
+  type Wso2Client,
+} from "@nexo/wso2-client";
 import { clientFor, type CtlConfig, type StageConfig } from "../config.js";
 import { formatIssues, lintContract } from "../lint.js";
+import { archivosPlataforma, escribirPaquete } from "./exportacion.js";
 
 /** Proyecto de API versionado en Git (wso2/apim/apis/<nombre>/api.yaml + contrato). */
 export interface ApiProject {
@@ -66,14 +72,19 @@ function endpointConfig(url: string, r: ApiProject["resiliency"] = {}) {
 
 /** Nombre de la ruta en nexo-division: el directorio del proyecto (p. ej. "concesiones"). */
 export function divisionRoute(p: { dir: string }): string {
-  return basename(p.dir).toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+  return basename(p.dir)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-");
 }
 
 function apiBody(p: ApiProject & { dir: string }, stageName: string, baseDir: string, s: StageConfig) {
   const backend = p.endpoints[stageName];
   if (!backend) throw new Error(`El proyecto ${p.name} no define endpoint para la etapa ${stageName}`);
   const viaDivision = p.division?.[stageName] === true;
-  if (viaDivision && !s.division) throw new Error(`La etapa ${stageName} no define la URL de nexo-division ("division") en nexo-ctl.config.yaml`);
+  if (viaDivision && !s.division)
+    throw new Error(
+      `La etapa ${stageName} no define la URL de nexo-division ("division") en nexo-ctl.config.yaml`,
+    );
   const url = viaDivision ? `${s.division!.replace(/\/+$/, "")}/rutas/${divisionRoute(p)}` : backend;
   const type = p.type ?? "HTTP";
   const isWs = type === "WS";
@@ -102,9 +113,7 @@ function apiBody(p: ApiProject & { dir: string }, stageName: string, baseDir: st
       contrato: relative(baseDir, join(p.dir, p.contract)).split(sep).join("/"),
       ...(viaDivision ? { division_estable: backend } : {}),
       ...p.metadata,
-    }).map(
-      ([name, value]) => ({ name, value, display: true }),
-    ),
+    }).map(([name, value]) => ({ name, value, display: true })),
   };
 }
 
@@ -128,7 +137,12 @@ function graphqlOperations(sdl: string) {
   ] as const) {
     if (root && isObjectType(root)) {
       for (const field of Object.keys(root.getFields())) {
-        ops.push({ target: field, verb, authType: "Application & Application User", throttlingPolicy: "Unlimited" });
+        ops.push({
+          target: field,
+          verb,
+          authType: "Application & Application User",
+          throttlingPolicy: "Unlimited",
+        });
       }
     }
   }
@@ -139,7 +153,9 @@ export function runLint(contract: string, opts: LintOptions): boolean {
   const res = lintContract(contract, opts.ruleset);
   console.log(`Validación del contrato ${contract} contra la guía de estilo:`);
   console.log(formatIssues(res));
-  console.log(`  Resultado: ${res.errors.length} errores, ${res.warnings.length} advertencias, ${res.infos.length} info.`);
+  console.log(
+    `  Resultado: ${res.errors.length} errores, ${res.warnings.length} advertencias, ${res.infos.length} info.`,
+  );
   return res.errors.length === 0;
 }
 
@@ -166,7 +182,11 @@ export function lintAll(apisDir: string, governanceDir: string): boolean {
     if (!runLint(join(dir, p.contract), { ruleset })) ok = false;
     n++;
   }
-  console.log(ok ? `Contratos: ${n} validados, todos cumplen la guía de estilo.` : "CONTRATOS RECHAZADOS: hay errores de la guía de estilo (D-03).");
+  console.log(
+    ok
+      ? `Contratos: ${n} validados, todos cumplen la guía de estilo.`
+      : "CONTRATOS RECHAZADOS: hay errores de la guía de estilo (D-03).",
+  );
   return ok;
 }
 
@@ -175,7 +195,13 @@ export function lintAll(apisDir: string, governanceDir: string): boolean {
  * API, crea una revisión versionada, la despliega en los gateways de la etapa y la publica.
  * Nunca edita producción a mano: todo sale del proyecto versionado (BT-017, BT-044, BT-057).
  */
-export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfig, dir: string, opts: LintOptions & { message: string }) {
+export async function deployApi(
+  cfg: CtlConfig,
+  stageName: string,
+  s: StageConfig,
+  dir: string,
+  opts: LintOptions & { message: string },
+) {
   const p = loadProject(dir);
   const contractPath = join(p.dir, p.contract);
   const type = p.type ?? "HTTP";
@@ -184,7 +210,10 @@ export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfi
     graphqlOperations(contract); // falla si el esquema no es válido
     console.log(`Esquema GraphQL ${p.contract} válido.`);
   } else {
-    const ruleset = type === "WS" || type === "WEBSUB" || type === "SSE" ? join(opts.ruleset, "..", "guia-asyncapi.yaml") : opts.ruleset;
+    const ruleset =
+      type === "WS" || type === "WEBSUB" || type === "SSE"
+        ? join(opts.ruleset, "..", "guia-asyncapi.yaml")
+        : opts.ruleset;
     if (!runLint(contractPath, { ruleset })) {
       console.error("PROMOCIÓN BLOQUEADA: el contrato tiene errores de la guía de estilo (D-03).");
       process.exitCode = 2;
@@ -195,8 +224,13 @@ export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfi
   const body = apiBody(p, stageName, cfg.baseDir, s);
   let api = await findApi(wso2, p.name, p.version);
   if (!api) {
-    if (type === "GRAPHQL") api = await wso2.publisher.importGraphQl(contract, { ...body, operations: graphqlOperations(contract) });
-    else if (type === "WS" || type === "WEBSUB" || type === "SSE") api = await wso2.publisher.importAsyncApi(contract, body);
+    if (type === "GRAPHQL")
+      api = await wso2.publisher.importGraphQl(contract, {
+        ...body,
+        operations: graphqlOperations(contract),
+      });
+    else if (type === "WS" || type === "WEBSUB" || type === "SSE")
+      api = await wso2.publisher.importAsyncApi(contract, body);
     else api = await wso2.publisher.importOpenApi(contract, body);
     console.log(`API ${p.name} ${p.version} (${type}) creada (${api.id}).`);
   } else {
@@ -210,7 +244,11 @@ export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfi
     if (!gw) throw new Error(`La etapa ${stageName} no tiene el gateway ${name} en nexo-ctl.config.yaml`);
     return gw;
   });
-  const pruned = await pruneRevisions(wso2, api.id, Number(process.env.NEXO_MAX_REVISIONS ?? DEFAULT_MAX_REVISIONS));
+  const pruned = await pruneRevisions(
+    wso2,
+    api.id,
+    Number(process.env.NEXO_MAX_REVISIONS ?? DEFAULT_MAX_REVISIONS),
+  );
   if (pruned.length) console.log(`Revisiones antiguas sin desplegar eliminadas: ${pruned.join(", ")}`);
   const revision = await wso2.publisher.createRevision(api.id, `${opts.message} · etapa ${stageName}`);
   try {
@@ -224,7 +262,9 @@ export async function deployApi(cfg: CtlConfig, stageName: string, s: StageConfi
     }
     throw e;
   }
-  console.log(`Revisión ${revision.id} desplegada en: ${gateways.map((g) => `${g.name} (${g.vhost})`).join(", ")}`);
+  console.log(
+    `Revisión ${revision.id} desplegada en: ${gateways.map((g) => `${g.name} (${g.vhost})`).join(", ")}`,
+  );
   if (s.publish !== false) {
     const fresh = await wso2.publisher.getApi(api.id);
     if (fresh.lifeCycleStatus !== "PUBLISHED") {
@@ -244,34 +284,42 @@ export async function rollbackApi(s: StageConfig, name: string, version: string)
   const deployed = revs.filter((r) => (r.deploymentInfo ?? []).length > 0);
   const current = deployed.sort((a, b) => (b.createdTime ?? 0) - (a.createdTime ?? 0))[0];
   if (!current) throw new Error("No hay revisiones desplegadas");
-  const older = revs.filter((r) => (r.createdTime ?? 0) < (current.createdTime ?? 0)).sort((a, b) => (b.createdTime ?? 0) - (a.createdTime ?? 0));
+  const older = revs
+    .filter((r) => (r.createdTime ?? 0) < (current.createdTime ?? 0))
+    .sort((a, b) => (b.createdTime ?? 0) - (a.createdTime ?? 0));
   const previous = older[0];
   if (!previous) throw new Error("No hay una revisión anterior a la que volver");
   const gateways = (current.deploymentInfo ?? []).map((d) => ({ name: d.name, vhost: d.vhost ?? "" }));
   await wso2.publisher.deployRevision(api.id, previous.id, gateways);
-  console.log(`Reversa: ${name} ${version} vuelve de la revisión ${current.displayName ?? current.id} a ${previous.displayName ?? previous.id} en ${gateways.map((g) => g.name).join(", ")}.`);
+  console.log(
+    `Reversa: ${name} ${version} vuelve de la revisión ${current.displayName ?? current.id} a ${previous.displayName ?? previous.id} en ${gateways.map((g) => g.name).join(", ")}.`,
+  );
 }
 
-/** Exporta APIs en el formato de proyecto de WSO2 (compatible con apictl) más un manifiesto con hashes (BT-049, BT-060). */
-export async function exportApis(s: StageConfig, outDir: string) {
+/**
+ * Exporta las APIs en el formato de proyecto de WSO2 (compatible con apictl) y la configuración de la plataforma
+ * (platform.yaml y los archivos que referencia), con un manifiesto de hashes (BT-049, BT-060).
+ */
+export async function exportApis(s: StageConfig, outDir: string, opciones: { plataforma: string }) {
+  // Se lee primero la plataforma: si falta o está mal, no se descarga nada.
+  const plataforma = archivosPlataforma(opciones.plataforma);
   const wso2 = clientFor(s);
-  mkdirSync(outDir, { recursive: true });
-  const apis = (await wso2.publisher.listApis(undefined, 500)).list;
-  const items: Array<{ tipo: string; nombre: string; archivo: string; sha256: string }> = [];
-  for (const a of apis) {
-    const zip = await wso2.publisher.exportApi(a.id);
-    const file = `${a.name}-${a.version}.zip`.replace(/[^\w.-]+/g, "_");
-    writeFileSync(join(outDir, file), zip);
-    items.push({ tipo: "api", nombre: `${a.name} ${a.version}`, archivo: file, sha256: createHash("sha256").update(zip).digest("hex") });
-    console.log(`  exportada ${a.name} ${a.version} → ${file}`);
+  const apis: Array<{ nombre: string; version: string; zip: Uint8Array }> = [];
+  for (const a of (await wso2.publisher.listApis(undefined, 500)).list) {
+    apis.push({ nombre: a.name, version: a.version, zip: await wso2.publisher.exportApi(a.id) });
+    console.log(`  exportada ${a.name} ${a.version}`);
   }
-  const manifest = { generadoEn: new Date().toISOString(), origen: s.apim, version: "1", items };
-  writeFileSync(join(outDir, "manifiesto.json"), JSON.stringify(manifest, null, 2));
-  console.log(`Manifiesto: ${join(outDir, "manifiesto.json")} (${items.length} APIs)`);
+  const manifiesto = escribirPaquete(outDir, apis, plataforma, s.apim);
+  for (const p of manifiesto.items.filter((i) => i.tipo === "plataforma"))
+    console.log(`  incluida ${p.archivo}`);
+  console.log(
+    `Manifiesto: ${join(outDir, "manifiesto.json")} (${apis.length} APIs y ${plataforma.length} archivos de plataforma)`,
+  );
 }
 
 export async function listApis(s: StageConfig) {
   const wso2 = clientFor(s);
   const apis = (await wso2.publisher.listApis(undefined, 500)).list;
-  for (const a of apis) console.log(`${a.id}  ${a.name} ${a.version}  ${a.context}  ${a.lifeCycleStatus ?? ""}`);
+  for (const a of apis)
+    console.log(`${a.id}  ${a.name} ${a.version}  ${a.context}  ${a.lifeCycleStatus ?? ""}`);
 }

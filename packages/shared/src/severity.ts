@@ -34,7 +34,8 @@ export function classifySeverity(a: SeverityAnswers): SeverityResult {
     return { severity: "S2", rule: "Servicio productivo caído con alternativa operativa" };
   if (a.degradacionOSeguridad)
     return { severity: "S2", rule: "Degradación medible en producción o riesgo de seguridad activo" };
-  if (a.soloNoProductivoOMenor) return { severity: "S3", rule: "Falla en no productivo o funcionalidad no crítica" };
+  if (a.soloNoProductivoOMenor)
+    return { severity: "S3", rule: "Falla en no productivo o funcionalidad no crítica" };
   return { severity: "S3", rule: "Falla sin impacto productivo declarado" };
 }
 
@@ -58,7 +59,10 @@ export const SEVERITY_EXAMPLES: Record<Severity, string[]> = {
 };
 
 /** Tiempos comprometidos (minutos corridos) para cobertura 24x7. Fuente: tabla SLA de la oferta. */
-export const SLA_TARGETS_MINUTES: Record<Severity, { acuse: number; diagnostico?: number; solucion?: number }> = {
+export const SLA_TARGETS_MINUTES: Record<
+  Severity,
+  { acuse: number; diagnostico?: number; solucion?: number }
+> = {
   S1: { acuse: 60, diagnostico: 120, solucion: 240 },
   S2: { acuse: 240, diagnostico: 480, solucion: 1440 },
   S3: { acuse: 480 },

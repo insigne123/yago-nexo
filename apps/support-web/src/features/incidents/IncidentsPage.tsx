@@ -241,7 +241,7 @@ function NewIncidentForm() {
           org_id: orgId || null,
           ticket_id: null,
         }),
-      "Incidente registrado: se avisó al nivel 3 y corren los plazos.",
+      "Incidente registrado: se avisó a supervisión (nivel 3) y corren los plazos.",
     );
     if (ok) {
       setTitle("");

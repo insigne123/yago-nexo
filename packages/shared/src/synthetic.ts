@@ -37,11 +37,55 @@ export function seededRandom(seed: number): () => number {
   };
 }
 
-const NOMBRES = ["Ana", "Luis", "Carla", "Pedro", "Valentina", "Diego", "Camila", "Matías", "Fernanda", "Tomás"];
-const APELLIDOS = ["Rojas", "Muñoz", "Soto", "Contreras", "Silva", "Pérez", "Vargas", "Fuentes", "Torres", "Reyes"];
-const EMPRESAS = ["Telecom Andina", "Red Austral", "Fibra Pacífico", "Enlace Norte", "Conecta Sur", "Satelital Chile"];
-const SERVICIOS = ["Telefonía fija", "Telefonía móvil", "Internet", "Televisión de pago", "Transmisión de datos"];
-const REGIONES = ["Arica y Parinacota", "Antofagasta", "Coquimbo", "Valparaíso", "Metropolitana", "Biobío", "Los Lagos", "Magallanes"];
+const NOMBRES = [
+  "Ana",
+  "Luis",
+  "Carla",
+  "Pedro",
+  "Valentina",
+  "Diego",
+  "Camila",
+  "Matías",
+  "Fernanda",
+  "Tomás",
+];
+const APELLIDOS = [
+  "Rojas",
+  "Muñoz",
+  "Soto",
+  "Contreras",
+  "Silva",
+  "Pérez",
+  "Vargas",
+  "Fuentes",
+  "Torres",
+  "Reyes",
+];
+const EMPRESAS = [
+  "Telecom Andina",
+  "Red Austral",
+  "Fibra Pacífico",
+  "Enlace Norte",
+  "Conecta Sur",
+  "Satelital Chile",
+];
+const SERVICIOS = [
+  "Telefonía fija",
+  "Telefonía móvil",
+  "Internet",
+  "Televisión de pago",
+  "Transmisión de datos",
+];
+const REGIONES = [
+  "Arica y Parinacota",
+  "Antofagasta",
+  "Coquimbo",
+  "Valparaíso",
+  "Metropolitana",
+  "Biobío",
+  "Los Lagos",
+  "Magallanes",
+];
 
 export interface SyntheticPerson {
   rut: string;

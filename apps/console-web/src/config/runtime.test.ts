@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { describe, expect, it, vi } from "vitest";
 import { ConfigError, loadRuntimeConfig, parseRuntimeConfig, resolveMockMode } from "./runtime";
 
@@ -55,10 +56,27 @@ describe("configuración en tiempo de ejecución", () => {
     expect(config).toEqual({
       apiBaseUrl: "/api/v1",
       environmentLabel: "Laboratorio Yago",
-      version: "1.0.0",
+      version: __APP_VERSION__,
       auth: { provider: "mock" },
       demoBanner: false,
     });
+  });
+
+  it("la versión por omisión es la de package.json (la que se publica)", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const pkg = JSON.parse(await readFile(`${process.cwd()}/package.json`, "utf8")) as {
+      version: string;
+    };
+    expect(__APP_VERSION__).toBe(pkg.version);
+    expect(parseRuntimeConfig({ auth: { provider: "mock" } }).version).toBe(pkg.version);
+  });
+
+  it("la configuración publicada de la demo no fija la versión a mano", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const demo = JSON.parse(await readFile(`${process.cwd()}/public/config.json`, "utf8")) as {
+      version?: string;
+    };
+    expect(demo.version).toBeUndefined();
   });
 
   it("valida solo el bloque del proveedor elegido", () => {

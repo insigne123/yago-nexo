@@ -289,10 +289,12 @@ function registrarUso(nombre, o) {
 
 const consola = readJson(fromSite("src/data/capacidades.json")).capacidades.find((c) => c.id === "consola");
 if (!consola) fail(SCRIPT, 'capacidades.json no tiene la capacidad "consola"');
-const avisoEstado =
-  consola.estado === "Disponible"
-    ? `:::info Implementación\n\nLa API de la Consola está en estado <EstadoCapacidad id="consola" />. Esta referencia se genera desde su contrato OpenAPI ${mdText(spec.info?.version ?? "")}.\n\n:::`
-    : `:::note Contrato de diseño\n\nLa API de la Consola está en estado <EstadoCapacidad id="consola" />. Esta referencia se genera desde su contrato OpenAPI ${mdText(spec.info?.version ?? "")} y describe la interfaz prevista; puede cambiar mientras se implementa.\n\n:::`;
+if (consola.estado !== "Incluida")
+  fail(
+    SCRIPT,
+    `la capacidad "consola" debe estar "Incluida" para publicar su referencia (actual: ${consola.estado})`,
+  );
+const avisoEstado = `:::info Implementación\n\nLa API de la Consola: <EstadoCapacidad id="consola" />. Esta referencia se genera desde su contrato OpenAPI ${mdText(spec.info?.version ?? "")}.\n\n:::`;
 
 function renderOperacion(o) {
   const { op } = o;

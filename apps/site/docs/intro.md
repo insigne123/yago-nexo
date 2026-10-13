@@ -35,13 +35,17 @@ Nexo está diseñado para instalarse en la infraestructura de la institución. N
 
 WSO2 se menciona solo para identificar el origen de los componentes de la base; Yago Nexo no está afiliado a WSO2 LLC (ver [Licencia y avisos](./licencia-y-avisos.md)). El detalle de cada componente y su licencia está en [Componentes y licencias](./componentes-y-licencias.md).
 
-## Qué existe hoy
+## Qué incluye la versión
 
-La versión <VersionActual formato="numero" /> es la versión estable vigente de Yago Nexo (la primera estable fue la 1.0.0). Cada capacidad marcada como *Disponible* está implementada y verificada en el laboratorio de referencia, con la ruta del repositorio donde comprobarla. Los instaladores para producción (CPD y Google Cloud) todavía figuran *En desarrollo*. Está disponible lo siguiente:
+La versión <VersionActual formato="numero" /> es la versión estable vigente de Yago Nexo (la primera estable fue la 1.0.0). Cada capacidad incluida en la versión está implementada y verificada en el laboratorio de referencia, con la ruta del repositorio donde comprobarla. La versión incluye lo siguiente:
 
-<ListaCapacidades estado="Disponible" />
+<ListaCapacidades estado="Incluida" />
 
-El resto de las capacidades figura como *En desarrollo* o *Planificado*; la [hoja de ruta](./hoja-de-ruta.md) las muestra todas. El contrato OpenAPI de la [API de la Consola](./api-consola.md) está publicado y corresponde a la API implementada.
+Lo siguiente se entrega con el servicio de implementación (desarrollo contratado, con prueba de aceptación). Entre ello está la instalación en producción en el CPD y en Google Cloud: la versión trae los instaladores validados sin clúster, y su ejecución y prueba en la infraestructura de la institución son parte del servicio.
+
+<ListaCapacidades estado="Servicio" />
+
+La página de [capacidades](./capacidades.md) las muestra todas. El contrato OpenAPI de la [API de la Consola](./api-consola.md) está publicado y corresponde a la API implementada.
 
 <ResumenEstados />
 
@@ -51,7 +55,7 @@ Cada capacidad de esta documentación lleva una insignia con su estado:
 
 <LeyendaEstados />
 
-Los estados provienen de un único archivo de datos del sitio, que se revisa en cada versión. Una capacidad solo puede marcarse como *Disponible* si indica dónde verificarla en el repositorio; si falta esa evidencia, el sitio no se genera.
+Los estados provienen de un único archivo de datos del sitio, que se revisa en cada versión. Una capacidad solo puede figurar como incluida en la versión si indica dónde verificarla en el repositorio; si falta esa evidencia, el sitio no se genera.
 
 ## Mapa de la documentación
 
@@ -63,5 +67,5 @@ Los estados provienen de un único archivo de datos del sitio, que se revisa en 
 - [Ciclo de vida y soporte](./ciclo-de-vida-y-soporte.md): versiones, política de soporte y niveles de servicio.
 - [Capacitación](./capacitacion/index.md): programa por rol, laboratorio por participante y certificación del fabricante.
 - [API de la Consola](./api-consola.md): contrato OpenAPI y referencia por sección.
-- [Hoja de ruta](./hoja-de-ruta.md): todas las capacidades con su estado.
+- [Capacidades](./capacidades.md): todas las capacidades, con lo que incluye la versión y lo que se entrega con el servicio de implementación.
 - [Licencia y avisos](./licencia-y-avisos.md): licencia de Nexo, avisos de terceros y marcas.

@@ -102,8 +102,19 @@ export function TicketDetailPage() {
               <dd>{t.category ?? "—"}</dd>
               <dt className="text-slate-600">Componente</dt>
               <dd>{t.component ?? "—"}</dd>
-              <dt className="text-slate-600">Recibido</dt>
-              <dd>{formatDateTime(t.created_at)}</dd>
+              {t.call_received_at ? (
+                <>
+                  <dt className="text-slate-600">Llamada</dt>
+                  <dd>{formatDateTime(t.call_received_at)}</dd>
+                  <dt className="text-slate-600">Registrado</dt>
+                  <dd>{formatDateTime(t.created_at)}</dd>
+                </>
+              ) : (
+                <>
+                  <dt className="text-slate-600">Recibido</dt>
+                  <dd>{formatDateTime(t.created_at)}</dd>
+                </>
+              )}
               <dt className="text-slate-600">Acuse</dt>
               <dd>{formatDateTime(t.acknowledged_at)}</dd>
               <dt className="text-slate-600">Resuelto</dt>

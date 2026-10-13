@@ -28,7 +28,18 @@ function spectralBin(): string {
 export function lintContract(contractPath: string, rulesetPath: string): LintResult {
   const res = spawnSync(
     process.execPath,
-    [spectralBin(), "lint", contractPath, "--ruleset", rulesetPath, "--format", "json", "--quiet", "--fail-severity", "error"],
+    [
+      spectralBin(),
+      "lint",
+      contractPath,
+      "--ruleset",
+      rulesetPath,
+      "--format",
+      "json",
+      "--quiet",
+      "--fail-severity",
+      "error",
+    ],
     { encoding: "utf8", maxBuffer: 20 * 1024 * 1024 },
   );
   const out = (res.stdout ?? "").trim();

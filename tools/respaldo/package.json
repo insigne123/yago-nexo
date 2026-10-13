@@ -14,7 +14,8 @@
     "test": "vitest run",
     "respaldar": "tsx src/cli.ts respaldar",
     "restaurar": "tsx src/cli.ts restaurar",
-    "listar": "tsx src/cli.ts listar"
+    "listar": "tsx src/cli.ts listar",
+    "probar-clave-ajena": "tsx src/cli.ts probar-clave-ajena"
   },
   "dependencies": {
     "@nexo/console-db": "workspace:*",

@@ -3,7 +3,12 @@ import { aggregate, type Check } from "./health.js";
 import { decideFailover, type SiteVote } from "./quorum.js";
 
 const C = (ok: boolean, essential = true): Check => ({ name: "x", essential, ok });
-const V = (id: string, role: SiteVote["role"], vote: SiteVote["vote"], ageSec = 1): SiteVote => ({ id, role, vote, ageSec });
+const V = (id: string, role: SiteVote["role"], vote: SiteVote["vote"], ageSec = 1): SiteVote => ({
+  id,
+  role,
+  vote,
+  ageSec,
+});
 
 describe("histéresis de salud", () => {
   it("vota caído solo tras varios ciclos seguidos y se recupera en uno", () => {
@@ -27,19 +32,40 @@ describe("quórum de conmutación (2 de 3)", () => {
   const backup = { maxAgeSec: 20, backupHealthy: true, backupId: "gcp" };
 
   it("conmuta cuando 2 de 3 ven el primario caído y el respaldo está sano", () => {
-    const d = decideFailover([V("cpd", "primario", "primario_caido"), V("gcp", "respaldo", "primario_caido"), V("testigo", "testigo", "primario_caido")], backup);
+    const d = decideFailover(
+      [
+        V("cpd", "primario", "primario_caido"),
+        V("gcp", "respaldo", "primario_caido"),
+        V("testigo", "testigo", "primario_caido"),
+      ],
+      backup,
+    );
     expect(d.conmutar).toBe(true);
     expect(d.votosCaido).toBe(3);
   });
 
   it("no conmuta con un solo voto de caído (posible partición de un agente)", () => {
-    const d = decideFailover([V("cpd", "primario", "primario_sano"), V("gcp", "respaldo", "primario_caido"), V("testigo", "testigo", "primario_sano")], backup);
+    const d = decideFailover(
+      [
+        V("cpd", "primario", "primario_sano"),
+        V("gcp", "respaldo", "primario_caido"),
+        V("testigo", "testigo", "primario_sano"),
+      ],
+      backup,
+    );
     expect(d.conmutar).toBe(false);
     expect(d.motivo).toMatch(/se requieren 2/);
   });
 
   it("no conmuta sin quórum de votos vigentes (votos viejos no cuentan)", () => {
-    const d = decideFailover([V("gcp", "respaldo", "primario_caido", 1), V("cpd", "primario", "primario_caido", 99), V("testigo", "testigo", "primario_caido", 99)], backup);
+    const d = decideFailover(
+      [
+        V("gcp", "respaldo", "primario_caido", 1),
+        V("cpd", "primario", "primario_caido", 99),
+        V("testigo", "testigo", "primario_caido", 99),
+      ],
+      backup,
+    );
     expect(d.conmutar).toBe(false);
     expect(d.motivo).toMatch(/sin quórum/);
   });
@@ -54,14 +80,25 @@ describe("quórum de conmutación (2 de 3)", () => {
   });
 
   it("con los tres agentes de vuelta y dos votos de caído, conmuta", () => {
-    const d = decideFailover([V("gcp", "respaldo", "primario_caido"), V("testigo", "testigo", "primario_caido")], backup);
+    const d = decideFailover(
+      [V("gcp", "respaldo", "primario_caido"), V("testigo", "testigo", "primario_caido")],
+      backup,
+    );
     expect(d.conmutar).toBe(true);
   });
 
   it("no se autopromueve un respaldo degradado o aislado", () => {
-    const allDown = [V("cpd", "primario", "primario_caido"), V("gcp", "respaldo", "primario_caido"), V("testigo", "testigo", "primario_caido")];
+    const allDown = [
+      V("cpd", "primario", "primario_caido"),
+      V("gcp", "respaldo", "primario_caido"),
+      V("testigo", "testigo", "primario_caido"),
+    ];
     expect(decideFailover(allDown, { ...backup, backupHealthy: false }).conmutar).toBe(false);
-    const isolatedBackup = [V("cpd", "primario", "primario_caido"), V("gcp", "respaldo", "primario_caido", 99), V("testigo", "testigo", "primario_caido")];
+    const isolatedBackup = [
+      V("cpd", "primario", "primario_caido"),
+      V("gcp", "respaldo", "primario_caido", 99),
+      V("testigo", "testigo", "primario_caido"),
+    ];
     expect(decideFailover(isolatedBackup, backup).conmutar).toBe(false);
   });
 });
@@ -72,5 +109,31 @@ describe("retorno: re-sincronización de la réplica", async () => {
     expect(replicaResyncStep(true)).toMatchObject({ ok: true });
     expect(replicaResyncStep(false)).toMatchObject({ ok: false, pendiente: true });
     expect(replicaResyncStep(undefined)).toMatchObject({ ok: false, pendiente: true });
+  });
+});
+
+describe("evento de conmutación: RPO y retorno con dos personas", async () => {
+  const { rpoSegundosEstimado, detallesRetorno } = await import("./engine.js");
+  it("no registra un RPO en segundos a partir del rezago en bytes (ni siquiera con rezago 0)", () => {
+    expect(rpoSegundosEstimado(0)).toBeNull();
+    expect(rpoSegundosEstimado(16_384)).toBeNull();
+    expect(rpoSegundosEstimado(-1)).toBeNull();
+  });
+  it("la auditoría del retorno nombra a quien lo solicitó y a quien lo aprobó", () => {
+    expect(
+      detallesRetorno(
+        { to_site: "cpd", requested_by: "carla.operacion", approved_by: "luis.aprobador" },
+        "gcp",
+      ),
+    ).toEqual({
+      desde: "gcp",
+      hacia: "cpd",
+      solicitadoPor: "carla.operacion",
+      aprobadoPor: "luis.aprobador",
+    });
+    expect(detallesRetorno({ to_site: "cpd" }, "gcp")).toMatchObject({
+      solicitadoPor: null,
+      aprobadoPor: null,
+    });
   });
 });

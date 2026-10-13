@@ -21,7 +21,7 @@ const KINDS = Object.keys(CHANGE_KIND_LABELS) as ImpactChangeKind[];
 const PLACEHOLDER: Record<ImpactChangeKind, string> = {
   contrato: "Por ejemplo: la versión 2 elimina el recurso /concesiones/{id}/historial",
   campo: "Por ejemplo: el campo region pasa de texto a código numérico",
-  fuente: "Por ejemplo: la tabla CONCESION se migra de Oracle a Cloud SQL",
+  fuente: "Por ejemplo: la tabla CONCESION se migra a Cloud SQL",
   retiro: "Por ejemplo: se retira la versión 1.0 el 31-12-2026",
 };
 

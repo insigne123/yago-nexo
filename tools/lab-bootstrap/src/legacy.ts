@@ -10,12 +10,19 @@ const KEY = process.env.APISIX_ADMIN_KEY ?? "nexo-lab-apisix-admin-key";
 const NGINX = process.env.NGINX_LEGACY_URL ?? "http://localhost:8088";
 
 async function put(path: string, body: unknown) {
-  const res = await fetch(`${ADMIN}/apisix/admin/${path}`, { method: "PUT", headers: { "x-api-key": KEY, "content-type": "application/json" }, body: JSON.stringify(body) });
+  const res = await fetch(`${ADMIN}/apisix/admin/${path}`, {
+    method: "PUT",
+    headers: { "x-api-key": KEY, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) throw new Error(`APISIX ${path}: ${res.status} ${await res.text()}`);
 }
 
 async function main() {
-  await put("consumers", { username: "sistema_fiscalizacion", plugins: { "key-auth": { key: "llave-fiscalizacion-lab" } } });
+  await put("consumers", {
+    username: "sistema_fiscalizacion",
+    plugins: { "key-auth": { key: "llave-fiscalizacion-lab" } },
+  });
   await put("routes/fiscalizacion", {
     name: "fiscalizacion",
     uri: "/fiscalizacion/*",

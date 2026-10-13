@@ -8,13 +8,26 @@ import { AuditService } from "./common/audit.service.js";
 import { UnauthorizedAudit } from "./common/unauthorized-audit.js";
 import { DB, MI, WSO2 } from "./common/tokens.js";
 import { config } from "./config.js";
-import { OpenSearchService, PrometheusService, RabbitService, TlsProbeService } from "./integrations/integrations.js";
+import {
+  OpenSearchService,
+  PrometheusService,
+  RabbitService,
+  TlsProbeService,
+} from "./integrations/integrations.js";
 import { AnomaliesController } from "./modules/anomalies.js";
 import { CatalogController, CatalogService } from "./modules/catalog.js";
 import { ContinuityController } from "./modules/continuity.js";
 import { DeadLettersController } from "./modules/dead-letters.js";
 import { DiscoveryController } from "./modules/discovery.js";
-import { AlertsController, AuditController, ComplianceController, EnginesController, ExportsController, HealthController, SessionController } from "./modules/platform.js";
+import {
+  AlertsController,
+  AuditController,
+  ComplianceController,
+  EnginesController,
+  ExportsController,
+  HealthController,
+  SessionController,
+} from "./modules/platform.js";
 import { RolloutsController, TrafficRoutesController } from "./modules/rollouts.js";
 import { UsageController, UsageService } from "./modules/usage.js";
 
@@ -51,7 +64,10 @@ import { UsageController, UsageService } from "./modules/usage.js";
     },
     {
       provide: MI,
-      useFactory: () => new MiManagementClient(config.mi.url, config.mi.user, config.mi.password, { rejectUnauthorized: !config.wso2.insecureTls }),
+      useFactory: () =>
+        new MiManagementClient(config.mi.url, config.mi.user, config.mi.password, {
+          rejectUnauthorized: !config.wso2.insecureTls,
+        }),
     },
     AuditService,
     UnauthorizedAudit,

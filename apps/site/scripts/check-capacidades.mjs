@@ -1,13 +1,17 @@
 // Valida src/data/capacidades.json y src/data/release.json antes de cada build.
 //
-// Regla de veracidad: una capacidad solo puede estar "Disponible" si declara evidencia y cada
-// ruta de evidencia existe en el repositorio. Así, cambiar un estado a mano sin respaldo
-// rompe el build en vez de publicar algo que no existe.
+// Regla de veracidad: una capacidad solo puede estar "Incluida" (en la versión de release.json) si declara
+// evidencia y cada ruta de evidencia existe en el repositorio. Lo demás se entrega con el servicio de
+// implementación ("Servicio"). Cambiar un estado a mano sin respaldo rompe el build en vez de publicar algo que no
+// existe. La versión ofertada debe ser estable: no se admiten estados ni textos de beta o de futuro.
 import { existsSync } from "node:fs";
 import { fail, fromRepo, fromSite, readJson } from "./lib.mjs";
 
 const SCRIPT = "check-capacidades.mjs";
-const ESTADOS = ["Disponible", "En desarrollo", "Planificado"];
+const ESTADOS = ["Incluida", "Servicio"];
+// Textos de beta o de futuro que no acreditan una capacidad (en nombres y descripciones).
+const NO_ESTABLE =
+  /en desarrollo|planificad|hoja de ruta|vista previa|qu[eé] sigue|pr[oó]xima versi[oó]n|versi[oó]n futura|\bbeta\b/i;
 
 const data = readJson(fromSite("src/data/capacidades.json"));
 const release = readJson(fromSite("src/data/release.json"));
@@ -20,8 +24,14 @@ if (!/^\d{4}-\d{2}-\d{2}$/.test(release.fecha ?? "") || Number.isNaN(Date.parse(
   errores.push(
     `release.json: "fecha" debe tener formato AAAA-MM-DD (actual: ${JSON.stringify(release.fecha)})`,
   );
-if (typeof release.estado !== "string" || release.estado.trim() === "")
-  errores.push('release.json: "estado" es obligatorio (por ejemplo "preliminar")');
+if (release.estado !== "publicada")
+  errores.push(
+    `release.json: "estado" debe ser "publicada": solo se ofrece una versión estable (actual: ${JSON.stringify(release.estado)})`,
+  );
+if (/-/.test(release.version ?? ""))
+  errores.push(
+    `release.json: la versión ${release.version} es preliminar; el sitio solo presenta versiones estables`,
+  );
 
 // capacidades.json
 const grupos = new Set();
@@ -43,10 +53,14 @@ for (const c of data.capacidades ?? []) {
     errores.push(`${where}: estado "${c.estado}" no es uno de ${ESTADOS.join(", ")}`);
   if (c.evidencia !== undefined && !Array.isArray(c.evidencia))
     errores.push(`${where}: evidencia debe ser una lista`);
-  if (c.estado === "Disponible") {
+  if (c.estado === "Incluida") {
     if (!Array.isArray(c.evidencia) || c.evidencia.length === 0) {
-      errores.push(`${where}: "Disponible" exige al menos una ruta de evidencia en el repositorio`);
+      errores.push(`${where}: "Incluida" exige al menos una ruta de evidencia en el repositorio`);
     }
+  }
+  for (const campo of ["nombre", "descripcion"]) {
+    const m = NO_ESTABLE.exec(c[campo] ?? "");
+    if (m) errores.push(`${where}: ${campo} usa «${m[0]}» (lo beta o futuro no acredita una capacidad)`);
   }
   for (const ruta of c.evidencia ?? []) {
     if (!existsSync(fromRepo(ruta)))

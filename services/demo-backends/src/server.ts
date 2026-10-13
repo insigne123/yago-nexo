@@ -4,6 +4,8 @@
  * Modos (variable MODE):
  *  - "concesiones": API REST de concesiones de telecomunicaciones. VERSION y FAIL_RATE permiten
  *    simular una versión estable y una versión defectuosa para la demo de despliegue canary (D-04).
+ *    POST /_chaos con failNext (y failStatus) programa una falla acotada de las próximas solicitudes de registro,
+ *    y GET /_recepciones?correlacion=a,b&desde=ISO lista cada solicitud recibida, sin deduplicar.
  *  - "registro": servicio SOAP 1.2 estilo PISEE (consulta de operadores por RUT) con su WSDL (BT-010/011).
  *  - "ocultas": APIs no gobernadas, expuestas por NGINX o APISIX "actuales", para la demo de descubrimiento (D-01).
  *  - "graphql": API GraphQL de concesiones (D-06).
@@ -13,6 +15,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { buildSchema, graphql } from "graphql";
 import { WebSocketServer, WebSocket } from "ws";
 import { SyntheticData, isValidRut } from "@nexo/shared";
+import { FallaProgramada, Recepciones, type Resultado } from "./recepciones.js";
 
 const MODE = process.env.MODE ?? "concesiones";
 const PORT = Number(process.env.PORT ?? 7001);
@@ -25,7 +28,13 @@ const data = new SyntheticData(2026);
 const concesiones = data.concessions(250);
 const operadores = Array.from({ length: 40 }, () => {
   const c = data.concession(0);
-  return { rut: c.rutEmpresa, razonSocial: c.empresa, servicio: c.servicio, region: c.region, estado: c.estado };
+  return {
+    rut: c.rutEmpresa,
+    razonSocial: c.empresa,
+    servicio: c.servicio,
+    region: c.region,
+    estado: c.estado,
+  };
 });
 
 const counters = new Map<string, number>();
@@ -60,18 +69,29 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const OPENAPI = {
   openapi: "3.0.3",
-  info: { title: "Concesiones de Telecomunicaciones", version: VERSION, description: "API de ejemplo con datos sintéticos" },
+  info: {
+    title: "Concesiones de Telecomunicaciones",
+    version: VERSION,
+    description: "API de ejemplo con datos sintéticos",
+  },
   paths: {
     "/concesiones": {
       get: {
         summary: "Lista concesiones",
         parameters: [
           { name: "region", in: "query", schema: { type: "string" } },
-          { name: "estado", in: "query", schema: { type: "string", enum: ["vigente", "en_tramite", "caducada"] } },
+          {
+            name: "estado",
+            in: "query",
+            schema: { type: "string", enum: ["vigente", "en_tramite", "caducada"] },
+          },
         ],
         responses: { "200": { description: "Lista de concesiones" } },
       },
-      post: { summary: "Registra una solicitud de concesión", responses: { "201": { description: "Creada" } } },
+      post: {
+        summary: "Registra una solicitud de concesión",
+        responses: { "201": { description: "Creada" } },
+      },
     },
     "/concesiones/{id}": {
       get: {
@@ -86,37 +106,73 @@ const OPENAPI = {
 /** Respuestas ya entregadas por Idempotency-Key: un reintento no duplica el registro (BT-051). */
 const idempotentes = new Map<string, { status: number; body: unknown }>();
 let registrosCreados = 0;
+/** Cada POST /concesiones recibido, sin deduplicar, para conciliar por correlación (GET /_recepciones). */
+const recepciones = new Recepciones();
+const fallaProgramada = new FallaProgramada();
+const esRegistro = (req: IncomingMessage, url: URL) =>
+  MODE === "concesiones" && req.method === "POST" && url.pathname === "/concesiones";
+function recibir(req: IncomingMessage, status: number, resultado: Resultado): void {
+  recepciones.registrar({
+    correlacion: String(req.headers["x-correlation-id"] ?? ""),
+    idempotencyKey: String(req.headers["idempotency-key"] ?? ""),
+    status,
+    resultado,
+  });
+}
 
 async function concesionesHandler(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   if (url.pathname === "/openapi.json") return send(res, 200, OPENAPI);
   if (url.pathname === "/concesiones" && req.method === "GET") {
     const region = url.searchParams.get("region");
     const estado = url.searchParams.get("estado");
-    const items = concesiones.filter((c) => (!region || c.region === region) && (!estado || c.estado === estado));
+    const items = concesiones.filter(
+      (c) => (!region || c.region === region) && (!estado || c.estado === estado),
+    );
     return send(res, 200, { total: items.length, items: items.slice(0, 50), version: VERSION });
   }
-  if (url.pathname === "/_estadisticas") return send(res, 200, { registrosCreados, clavesIdempotencia: idempotentes.size });
+  if (url.pathname === "/_estadisticas")
+    return send(res, 200, { registrosCreados, clavesIdempotencia: idempotentes.size });
+  if (url.pathname === "/_recepciones" && req.method === "GET") {
+    const correlaciones = url.searchParams.get("correlacion")?.split(",").filter(Boolean);
+    try {
+      const filas = recepciones.consultar({
+        correlaciones,
+        desde: url.searchParams.get("desde") ?? undefined,
+      });
+      return send(res, 200, { total: filas.length, recepciones: filas });
+    } catch (e) {
+      return send(res, 400, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
   if (url.pathname === "/concesiones" && req.method === "POST") {
     const idemKey = String(req.headers["idempotency-key"] ?? "");
     const previa = idemKey ? idempotentes.get(idemKey) : undefined;
     if (previa) {
       res.setHeader("x-idempotent-replay", "true");
+      recibir(req, previa.status, "repeticion");
       return send(res, previa.status, previa.body);
     }
     let body: Record<string, unknown>;
     try {
       body = JSON.parse(await readBody(req)) as Record<string, unknown>;
     } catch {
+      recibir(req, 400, "rechazado");
       return send(res, 400, { error: "JSON inválido" });
     }
     const rut = String(body.rutEmpresa ?? "");
-    if (!isValidRut(rut)) return send(res, 422, { error: "rutEmpresa inválido", campo: "rutEmpresa" });
-    if (typeof body.servicio !== "string" || typeof body.region !== "string")
+    if (!isValidRut(rut)) {
+      recibir(req, 422, "rechazado");
+      return send(res, 422, { error: "rutEmpresa inválido", campo: "rutEmpresa" });
+    }
+    if (typeof body.servicio !== "string" || typeof body.region !== "string") {
+      recibir(req, 422, "rechazado");
       return send(res, 422, { error: "servicio y region son obligatorios" });
+    }
     const id = `REG-${Date.now().toString(36).toUpperCase()}`;
     const respuesta = { id, estado: "en_tramite", recibidoEn: new Date().toISOString(), version: VERSION };
     registrosCreados++;
     if (idemKey) idempotentes.set(idemKey, { status: 201, body: respuesta });
+    recibir(req, 201, "creado");
     return send(res, 201, respuesta);
   }
   const m = /^\/concesiones\/([A-Z0-9-]+)$/.exec(url.pathname);
@@ -184,10 +240,12 @@ async function registroHandler(req: IncomingMessage, res: ServerResponse, url: U
   if (req.method === "GET" && url.searchParams.has("wsdl")) {
     return send(res, 200, wsdl(`http://${req.headers.host ?? "localhost"}`), "text/xml");
   }
-  if (req.method !== "POST") return send(res, 405, soapFault("soap:Sender", "Método no permitido"), "application/soap+xml");
+  if (req.method !== "POST")
+    return send(res, 405, soapFault("soap:Sender", "Método no permitido"), "application/soap+xml");
   const body = await readBody(req);
   const rut = /<(?:\w+:)?rut>([^<]+)<\/(?:\w+:)?rut>/.exec(body)?.[1]?.trim();
-  if (!rut || !isValidRut(rut)) return send(res, 400, soapFault("soap:Sender", "RUT inválido"), "application/soap+xml");
+  if (!rut || !isValidRut(rut))
+    return send(res, 400, soapFault("soap:Sender", "RUT inválido"), "application/soap+xml");
   const op = operadores.find((o) => o.rut === rut) ?? operadores[0]!;
   const xml = soapEnvelope(
     `<tns:ConsultarOperadorResponse xmlns:tns="${NS}"><tns:rut>${rut}</tns:rut><tns:razonSocial>${op.razonSocial}</tns:razonSocial><tns:servicio>${op.servicio}</tns:servicio><tns:region>${op.region}</tns:region><tns:estado>${op.estado}</tns:estado></tns:ConsultarOperadorResponse>`,
@@ -205,11 +263,19 @@ const ESPECTRO_OPENAPI = {
     "/espectro/asignaciones": {
       get: {
         summary: "Asignaciones vigentes con su titular",
-        responses: { "200": { description: "ok", content: { "application/json": { schema: { $ref: "#/components/schemas/Asignaciones" } } } } },
+        responses: {
+          "200": {
+            description: "ok",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Asignaciones" } } },
+          },
+        },
       },
     },
     "/espectro/asignaciones/{id}": {
-      get: { parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "ok" } } },
+      get: {
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "ok" } },
+      },
     },
   },
   components: {
@@ -224,7 +290,14 @@ const ESPECTRO_OPENAPI = {
               properties: {
                 banda: { type: "string" },
                 region: { type: "string" },
-                titular: { type: "object", properties: { nombre: { type: "string" }, rut: { type: "string" }, email: { type: "string" } } },
+                titular: {
+                  type: "object",
+                  properties: {
+                    nombre: { type: "string" },
+                    rut: { type: "string" },
+                    email: { type: "string" },
+                  },
+                },
               },
             },
           },
@@ -242,11 +315,20 @@ async function ocultasHandler(req: IncomingMessage, res: ServerResponse, url: UR
   // API "directa" (sin gateway): publica su contrato y entrega titulares con RUT y correo.
   if (url.pathname === "/openapi.json") return send(res, 200, ESPECTRO_OPENAPI);
   if (url.pathname === "/espectro/asignaciones") {
-    return send(res, 200, { items: Array.from({ length: 3 }, (_, i) => ({ banda: ["700 MHz", "3,5 GHz", "26 GHz"][i], region: "Biobío", titular: data.person() })) });
+    return send(res, 200, {
+      items: Array.from({ length: 3 }, (_, i) => ({
+        banda: ["700 MHz", "3,5 GHz", "26 GHz"][i],
+        region: "Biobío",
+        titular: data.person(),
+      })),
+    });
   }
   // Detrás de APISIX con key-auth (la verificación de la llave la hace APISIX).
   if (url.pathname === "/fiscalizacion/inspecciones") {
-    return send(res, 200, { items: [{ id: "INS-2026-0041", operador: "Red Austral", resultado: "observada" }], via: req.headers["x-forwarded-for"] ? "apisix" : "directo" });
+    return send(res, 200, {
+      items: [{ id: "INS-2026-0041", operador: "Red Austral", resultado: "observada" }],
+      via: req.headers["x-forwarded-for"] ? "apisix" : "directo",
+    });
   }
   if (url.pathname === "/legacy/tarifas") return send(res, 200, { tarifas: [{ plan: "base", valor: 9990 }] });
   if (url.pathname === "/legacy/v2/api-docs") {
@@ -290,10 +372,15 @@ type ConteoEstado {
 const schema = buildSchema(SDL);
 const rootValue = {
   concesiones: ({ region, estado, limite }: { region?: string; estado?: string; limite?: number }) =>
-    concesiones.filter((c) => (!region || c.region === region) && (!estado || c.estado === estado)).slice(0, limite ?? 20),
+    concesiones
+      .filter((c) => (!region || c.region === region) && (!estado || c.estado === estado))
+      .slice(0, limite ?? 20),
   concesion: ({ id }: { id: string }) => concesiones.find((c) => c.id === id) ?? null,
   totalPorEstado: () =>
-    ["vigente", "en_tramite", "caducada"].map((estado) => ({ estado, total: concesiones.filter((c) => c.estado === estado).length })),
+    ["vigente", "en_tramite", "caducada"].map((estado) => ({
+      estado,
+      total: concesiones.filter((c) => c.estado === estado).length,
+    })),
 };
 
 async function graphqlHandler(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
@@ -302,7 +389,10 @@ async function graphqlHandler(req: IncomingMessage, res: ServerResponse, url: UR
   let query = url.searchParams.get("query") ?? "";
   let variables: Record<string, unknown> | undefined;
   if (req.method === "POST") {
-    const body = JSON.parse((await readBody(req)) || "{}") as { query?: string; variables?: Record<string, unknown> };
+    const body = JSON.parse((await readBody(req)) || "{}") as {
+      query?: string;
+      variables?: Record<string, unknown>;
+    };
     query = body.query ?? "";
     variables = body.variables;
   }
@@ -366,14 +456,41 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === "/_chaos" && req.method === "POST") {
       if (req.headers["x-chaos-token"] !== CHAOS_TOKEN) return send(res, 403, { error: "prohibido" });
-      const cfg = JSON.parse((await readBody(req)) || "{}") as { failRate?: number; latencyMs?: number };
+      const cfg = JSON.parse((await readBody(req)) || "{}") as {
+        failRate?: number;
+        latencyMs?: number;
+        failNext?: number;
+        failStatus?: number;
+      };
+      try {
+        if (cfg.failNext !== undefined)
+          fallaProgramada.programar(
+            Number(cfg.failNext),
+            cfg.failStatus === undefined ? undefined : Number(cfg.failStatus),
+          );
+      } catch (e) {
+        return send(res, 400, { error: e instanceof Error ? e.message : String(e) });
+      }
       failRate = Math.min(1, Math.max(0, Number(cfg.failRate ?? failRate)));
       latencyMs = Math.max(0, Number(cfg.latencyMs ?? latencyMs));
-      return send(res, 200, { failRate, latencyMs, version: VERSION });
+      return send(res, 200, {
+        failRate,
+        latencyMs,
+        failNext: fallaProgramada.estado.restantes,
+        failStatus: fallaProgramada.estado.status,
+        version: VERSION,
+      });
     }
     if (latencyMs > 0) await sleep(latencyMs);
+    const programada = esRegistro(req, url) ? fallaProgramada.tomar() : undefined;
+    if (programada !== undefined) {
+      count(`mode="${MODE}",version="${VERSION}",status="${programada}"`);
+      recibir(req, programada, "falla-simulada");
+      return send(res, programada, { error: "falla programada", version: VERSION });
+    }
     if (failRate > 0 && Math.random() < failRate) {
       count(`mode="${MODE}",version="${VERSION}",status="500"`);
+      if (esRegistro(req, url)) recibir(req, 500, "falla-simulada");
       return send(res, 500, { error: "falla simulada", version: VERSION });
     }
     await handler(req, res, url);
@@ -387,12 +504,23 @@ const server = createServer(async (req, res) => {
 if (MODE === "eventos") {
   // Acepta cualquier ruta: el gateway puede agregar el canal (topic) definido en el contrato AsyncAPI.
   wss = new WebSocketServer({ server });
-  wss.on("connection", (socket) => socket.send(JSON.stringify({ tipo: "bienvenida", ocurridoEn: new Date().toISOString() })));
+  wss.on("connection", (socket) =>
+    socket.send(JSON.stringify({ tipo: "bienvenida", ocurridoEn: new Date().toISOString() })),
+  );
   setInterval(() => broadcast(nuevoEvento()), Number(process.env.EVENT_INTERVAL_MS ?? 5000));
 }
 
 server.listen(PORT, () => {
-  console.log(JSON.stringify({ msg: "demo-backend iniciado", mode: MODE, version: VERSION, port: PORT, failRate, latencyMs }));
+  console.log(
+    JSON.stringify({
+      msg: "demo-backend iniciado",
+      mode: MODE,
+      version: VERSION,
+      port: PORT,
+      failRate,
+      latencyMs,
+    }),
+  );
 });
 
 const shutdown = () => server.close(() => process.exit(0));

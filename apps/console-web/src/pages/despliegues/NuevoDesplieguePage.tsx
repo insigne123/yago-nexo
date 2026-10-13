@@ -123,6 +123,8 @@ export default function NuevoDesplieguePage() {
       stepDurationSec: v.stepDurationSec,
       thresholds: { maxErrorRate: v.maxErrorRatePct / 100, maxP99Ms: v.maxP99Ms, minRequests: v.minRequests },
       environment: v.environment,
+      // Sin tráfico sombra desde este formulario (la API acepta shadowSeconds; la Consola no lo ofrece aún).
+      shadowSeconds: 0,
     };
     create.mutate(input, {
       onSuccess: (rollout) => void navigate(`/despliegues/${encodeURIComponent(rollout.id)}`),

@@ -25,7 +25,8 @@ export function personalFieldsInSpec(spec: unknown): string[] {
     if (!node || typeof node !== "object" || depth > 30) return;
     const props = (node as { properties?: Record<string, unknown> }).properties;
     if (props && typeof props === "object") {
-      for (const name of Object.keys(props)) for (const [re, label] of PERSONAL_FIELDS) if (re.test(name)) found.add(label);
+      for (const name of Object.keys(props))
+        for (const [re, label] of PERSONAL_FIELDS) if (re.test(name)) found.add(label);
     }
     for (const v of Object.values(node as Record<string, unknown>)) walk(v, depth + 1);
   };
@@ -62,11 +63,18 @@ export function parseSpec(body: string, contentType = ""): ParsedSpec | undefine
   const text = body.trim();
   if (/<(wsdl:)?definitions\b/i.test(text) || /<(wsdl2?:)?description\b[^>]*wsdl/i.test(text)) {
     const ops = [...text.matchAll(/<(?:wsdl:)?operation\s+name="([^"]+)"/gi)].map((m) => m[1]!);
-    return { kind: "wsdl", paths: [...new Set(ops)].map((o) => `#${o}`), securityDeclared: /wsse:|wsp:Policy/i.test(text), personalFields: [] };
+    return {
+      kind: "wsdl",
+      paths: [...new Set(ops)].map((o) => `#${o}`),
+      securityDeclared: /wsse:|wsp:Policy/i.test(text),
+      personalFields: [],
+    };
   }
   let doc: Record<string, unknown> | undefined;
   try {
-    doc = (text.startsWith("{") || contentType.includes("json") ? JSON.parse(text) : parseYaml(text)) as Record<string, unknown>;
+    doc = (
+      text.startsWith("{") || contentType.includes("json") ? JSON.parse(text) : parseYaml(text)
+    ) as Record<string, unknown>;
   } catch {
     return undefined;
   }
@@ -85,13 +93,30 @@ export function parseSpec(body: string, contentType = ""): ParsedSpec | undefine
     const paths = Object.keys((doc.paths ?? {}) as Record<string, unknown>).map((p) => `${prefix}${p}`);
     const components = (doc.components ?? {}) as { securitySchemes?: object };
     const securityDeclared = !!(doc.security || doc.securityDefinitions || components.securitySchemes);
-    return { kind: isV3 ? "openapi3" : "swagger2", title: info.title, version: info.version, paths, securityDeclared, personalFields: personalFieldsInSpec(doc) };
+    return {
+      kind: isV3 ? "openapi3" : "swagger2",
+      title: info.title,
+      version: info.version,
+      paths,
+      securityDeclared,
+      personalFields: personalFieldsInSpec(doc),
+    };
   }
-  const data = (doc.data ?? doc) as { __schema?: { queryType?: { name?: string }; types?: Array<{ name: string; fields?: Array<{ name: string }> | null }> } };
+  const data = (doc.data ?? doc) as {
+    __schema?: {
+      queryType?: { name?: string };
+      types?: Array<{ name: string; fields?: Array<{ name: string }> | null }>;
+    };
+  };
   if (data.__schema) {
     const fields = (data.__schema.types ?? []).flatMap((t) => (t.fields ?? []).map((f) => f.name));
     const asProps = { properties: Object.fromEntries(fields.map((f) => [f, {}])) };
-    return { kind: "graphql", paths: ["/graphql"], securityDeclared: false, personalFields: personalFieldsInSpec(asProps) };
+    return {
+      kind: "graphql",
+      paths: ["/graphql"],
+      securityDeclared: false,
+      personalFields: personalFieldsInSpec(asProps),
+    };
   }
   return undefined;
 }
@@ -145,14 +170,18 @@ export function parseNginxConfig(conf: string): NginxLocation[] {
     const listenArgs = srv.directives.filter(([d]) => d === "listen").map(([, a]) => a);
     const first = listenArgs[0] ?? ["80"];
     const port = Number((first[0] ?? "80").split(":").pop()) || 80;
-    const tls = listenArgs.some((a) => a.includes("ssl")) || srv.directives.some(([d, a]) => d === "ssl" && a[0] === "on");
+    const tls =
+      listenArgs.some((a) => a.includes("ssl")) ||
+      srv.directives.some(([d, a]) => d === "ssl" && a[0] === "on");
     const serverNames = srv.directives.filter(([d]) => d === "server_name").flatMap(([, a]) => a);
     const serverAuth = authOf(srv.directives);
     for (const loc of srv.children.filter((c) => c.kind === "location")) {
       const exact = loc.args[0] === "=";
       const path = exact ? (loc.args[1] ?? "/") : (loc.args.at(-1) ?? "/");
       if (path.startsWith("@") || loc.args[0] === "~" || loc.args[0] === "~*") continue;
-      const proxy = loc.directives.find(([d]) => d === "proxy_pass" || d === "fastcgi_pass" || d === "grpc_pass" || d === "uwsgi_pass");
+      const proxy = loc.directives.find(
+        ([d]) => d === "proxy_pass" || d === "fastcgi_pass" || d === "grpc_pass" || d === "uwsgi_pass",
+      );
       out.push({
         serverNames,
         listen: port,
@@ -185,11 +214,15 @@ export const SCANNER_AGENT = "nexo-descubrimiento/0.1 (+inventario de APIs autor
  * Registro de accesos (formato combined): llamadas por ruta, sin parámetros de consulta. Se ignoran los sondeos
  * del propio motor y las rutas que nunca respondieron algo distinto de 404 (no existen).
  */
-export function parseAccessLog(text: string, maxLines = 200_000): Map<string, { calls: number; statuses: Record<string, number> }> {
+export function parseAccessLog(
+  text: string,
+  maxLines = 200_000,
+): Map<string, { calls: number; statuses: Record<string, number> }> {
   const out = new Map<string, { calls: number; statuses: Record<string, number> }>();
   const lines = text.split("\n");
   for (const line of lines.slice(-maxLines)) {
-    const m = /"(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) ([^ ?"]+)[^"]*" (\d{3}) \S+ "[^"]*" "([^"]*)"/.exec(line);
+    const m =
+      /"(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) ([^ ?"]+)[^"]*" (\d{3}) \S+ "[^"]*" "([^"]*)"/.exec(line);
     if (!m || m[3]!.startsWith("nexo-descubrimiento/")) continue;
     const e = out.get(m[1]!) ?? { calls: 0, statuses: {} };
     e.calls++;

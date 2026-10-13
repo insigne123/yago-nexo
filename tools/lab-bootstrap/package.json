@@ -8,6 +8,7 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
+    "test": "vitest run",
     "check:d06": "tsx src/check-d06.ts",
     "check:d07": "tsx src/check-d07.ts",
     "check:integracion": "tsx src/check-integracion.ts",

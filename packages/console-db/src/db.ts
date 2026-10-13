@@ -11,7 +11,10 @@ export function createPool(connectionString = process.env.NEXO_DATABASE_URL): Db
   const pool = new pg.Pool({
     connectionString,
     max: Number(process.env.NEXO_DATABASE_POOL ?? 10),
-    ssl: process.env.NEXO_DATABASE_SSL === "true" ? { rejectUnauthorized: process.env.NEXO_DATABASE_SSL_INSECURE !== "true" } : undefined,
+    ssl:
+      process.env.NEXO_DATABASE_SSL === "true"
+        ? { rejectUnauthorized: process.env.NEXO_DATABASE_SSL_INSECURE !== "true" }
+        : undefined,
   });
   // Los timestamps se devuelven como string ISO para no perder la zona horaria en JSON.
   pg.types.setTypeParser(1184, (v) => new Date(v).toISOString());
@@ -47,8 +50,14 @@ export async function migrate(db: Db, log: (msg: string) => void = console.log):
     await client.query(
       "CREATE TABLE IF NOT EXISTS nexo.schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())",
     );
-    const done = new Set((await client.query<{ name: string }>("SELECT name FROM nexo.schema_migrations")).rows.map((r) => r.name));
-    const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
+    const done = new Set(
+      (await client.query<{ name: string }>("SELECT name FROM nexo.schema_migrations")).rows.map(
+        (r) => r.name,
+      ),
+    );
+    const files = readdirSync(MIGRATIONS_DIR)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
     for (const file of files) {
       if (done.has(file)) continue;
       const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");

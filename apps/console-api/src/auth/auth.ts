@@ -43,10 +43,18 @@ export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionC
 });
 
 function readPath(obj: unknown, path: string): unknown {
-  return path.split(".").reduce<unknown>((acc, key) => (acc && typeof acc === "object" ? (acc as Record<string, unknown>)[key] : undefined), obj);
+  return path
+    .split(".")
+    .reduce<unknown>(
+      (acc, key) => (acc && typeof acc === "object" ? (acc as Record<string, unknown>)[key] : undefined),
+      obj,
+    );
 }
 
-const jwks = createRemoteJWKSet(new URL(config.auth.jwksUrl), { cooldownDuration: 30_000, cacheMaxAge: 600_000 });
+const jwks = createRemoteJWKSet(new URL(config.auth.jwksUrl), {
+  cooldownDuration: 30_000,
+  cacheMaxAge: 600_000,
+});
 
 export async function verifyToken(token: string): Promise<JWTPayload> {
   const { payload } = await jwtVerify(token, jwks, {
@@ -107,7 +115,10 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException(`Token inválido: ${detail}`);
     }
     req.user = userFromClaims(payload, req.ip);
-    const required = this.reflector.getAllAndOverride<Permission | undefined>(PERMISSION_KEY, [handler, klass]);
+    const required = this.reflector.getAllAndOverride<Permission | undefined>(PERMISSION_KEY, [
+      handler,
+      klass,
+    ]);
     if (required && !req.user.permissions.includes(required)) {
       await this.audit.append({
         actor: req.user.username.slice(0, 256),
@@ -118,7 +129,11 @@ export class AuthGuard implements CanActivate {
         sourceIp: req.ip?.slice(0, 64),
         details: { permiso: required, roles: req.user.roles, estado: 403 },
       });
-      throw new ForbiddenException({ statusCode: 403, message: `Se requiere el permiso ${required}`, permission: required });
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: `Se requiere el permiso ${required}`,
+        permission: required,
+      });
     }
     return true;
   }
@@ -134,7 +149,11 @@ export function fourEyesError(what: string): ForbiddenException {
 }
 
 /** Regla de cuatro ojos: quien inició la acción (por nombre de usuario o sujeto del token) no puede aprobarla. */
-export function assertFourEyes(user: AuthUser, initiatedBy: string | null | undefined | ReadonlyArray<string | null | undefined>, what: string): void {
+export function assertFourEyes(
+  user: AuthUser,
+  initiatedBy: string | null | undefined | ReadonlyArray<string | null | undefined>,
+  what: string,
+): void {
   const ids = (Array.isArray(initiatedBy) ? initiatedBy : [initiatedBy]).filter((x): x is string => !!x);
   if (ids.some((id) => id === user.username || (!!user.sub && id === user.sub))) throw fourEyesError(what);
 }

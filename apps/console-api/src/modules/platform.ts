@@ -1,7 +1,22 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Body, Controller, Get, Header, HttpCode, Inject, Logger, NotFoundException, Param, Post, Query, Req, Res, UnauthorizedException } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Inject,
+  Logger,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
+} from "@nestjs/common";
 import type { Response } from "express";
 import { zipSync, strToU8 } from "fflate";
 import { collectDefaultMetrics, register } from "@prometheus-io/client";
@@ -13,6 +28,7 @@ import { CurrentUser, Public, RequirePermission, type AuthedRequest, type AuthUs
 import { AuditAction, routeOf } from "../common/audit-failures.js";
 import { AuditService } from "../common/audit.service.js";
 import { bearerToken, tokenMatches } from "../common/secret.js";
+import { archivosPlataforma, CARPETA_PLATAFORMA } from "./platform-spec.js";
 import { UnauthorizedAudit } from "../common/unauthorized-audit.js";
 import { parse } from "../common/validation.js";
 import { DB, MI, WSO2 } from "../common/tokens.js";
@@ -33,21 +49,41 @@ export class SessionController {
 
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
-    return { sub: user.sub, name: user.name, email: user.email, username: user.username, roles: user.roles, permissions: user.permissions };
+    return {
+      sub: user.sub,
+      name: user.name,
+      email: user.email,
+      username: user.username,
+      roles: user.roles,
+      permissions: user.permissions,
+    };
   }
 
   @Get("overview")
   async overview() {
     const q = async (sql: string) => (await this.db.query(sql)).rows[0] ?? {};
     const settings = await q("SELECT active_site FROM nexo.continuity_settings WHERE id = 1");
-    const sites = (await this.db.query("SELECT id, name, role, checks, last_seen FROM nexo.site_status")).rows;
-    const apis = await q(`SELECT count(*)::int AS total, count(*) FILTER (WHERE state = 'PUBLISHED')::int AS publicadas,
+    const sites = (await this.db.query("SELECT id, name, role, checks, last_seen FROM nexo.site_status"))
+      .rows;
+    const apis =
+      await q(`SELECT count(*)::int AS total, count(*) FILTER (WHERE state = 'PUBLISHED')::int AS publicadas,
       count(*) FILTER (WHERE state = 'DEPRECATED')::int AS deprecadas FROM nexo.api_asset`);
-    const comp = (await this.db.query("SELECT purpose, owner_team, contract_ref, version, auth_type, consumers_count, dependencies_count, state FROM nexo.api_asset")).rows;
+    const comp = (
+      await this.db.query(
+        "SELECT purpose, owner_team, contract_ref, version, auth_type, consumers_count, dependencies_count, state FROM nexo.api_asset",
+      )
+    ).rows;
     const pct = comp.length
       ? Math.round(
-          comp.reduce((acc, r) => acc + Object.values(r).filter((v) => (typeof v === "number" ? v > 0 : v != null && String(v) !== "")).length / 8, 0) /
-            comp.length *
+          (comp.reduce(
+            (acc, r) =>
+              acc +
+              Object.values(r).filter((v) => (typeof v === "number" ? v > 0 : v != null && String(v) !== ""))
+                .length /
+                8,
+            0,
+          ) /
+            comp.length) *
             100,
         )
       : 0;
@@ -88,7 +124,13 @@ export class SessionController {
       sites: sites.map((s) => {
         const checks = Object.values((s.checks ?? {}) as Record<string, string>);
         const stale = !s.last_seen || Date.now() - new Date(String(s.last_seen)).getTime() > 60_000;
-        const status = stale ? "desconocido" : checks.every((c) => c === "ok") ? "ok" : checks.some((c) => c === "ok") ? "degradado" : "caido";
+        const status = stale
+          ? "desconocido"
+          : checks.every((c) => c === "ok")
+            ? "ok"
+            : checks.some((c) => c === "ok")
+              ? "degradado"
+              : "caido";
         return { id: s.id, name: s.name, status, active: s.id === active };
       }),
       apis: { ...apis, completitudPromedio: pct },
@@ -107,7 +149,13 @@ export class AuditController {
 
   @Get()
   @RequirePermission("audit:read")
-  list(@Query("from") from?: string, @Query("to") to?: string, @Query("actor") actor?: string, @Query("action") action?: string, @Query("limit") limit?: string) {
+  list(
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("actor") actor?: string,
+    @Query("action") action?: string,
+    @Query("limit") limit?: string,
+  ) {
     return this.audit.store.list({ from, to, actor, action, limit: limit ? Number(limit) : undefined });
   }
 
@@ -115,7 +163,9 @@ export class AuditController {
   @RequirePermission("audit:verify")
   async verify(@CurrentUser() user: AuthUser) {
     const result = await this.audit.store.verify();
-    await this.audit.record(user, "auditoria.verificar", "cadena", result.ok ? "exito" : "error", { ...result });
+    await this.audit.record(user, "auditoria.verificar", "cadena", result.ok ? "exito" : "error", {
+      ...result,
+    });
     return result;
   }
 }
@@ -155,12 +205,17 @@ export class ExportsController {
   @RequirePermission("export:create")
   @AuditAction("exportacion.generar")
   async create(@CurrentUser() user: AuthUser) {
-    const job = (await this.db.query("INSERT INTO nexo.export_job (created_by) VALUES ($1) RETURNING *", [user.username])).rows[0];
+    const job = (
+      await this.db.query("INSERT INTO nexo.export_job (created_by) VALUES ($1) RETURNING *", [user.username])
+    ).rows[0];
     void this.run(String(job.id), user);
     return { id: job.id, status: job.status, createdAt: job.created_at };
   }
 
-  /** Paquete con APIs (formato de proyecto WSO2, compatible con apictl), flujos MI, catálogo y grafo, más manifiesto con hashes. */
+  /**
+   * Paquete con APIs (formato de proyecto WSO2, compatible con apictl), flujos MI, catálogo y grafo, la configuración
+   * de la plataforma si NEXO_PLATFORM_SPEC la monta, más manifiesto con hashes.
+   */
   private async run(id: string, user: AuthUser) {
     try {
       const files: Record<string, Uint8Array> = {};
@@ -169,28 +224,59 @@ export class ExportsController {
         files[archivo] = data;
         items.push({ tipo, nombre, archivo, sha256: createHash("sha256").update(data).digest("hex") });
       };
+      // Se lee primero: si está configurada y no se puede leer, la exportación falla sin descargar nada.
+      const plataforma = config.platformSpec ? archivosPlataforma(config.platformSpec) : [];
       for (const a of (await this.wso2.publisher.listApis(undefined, 500)).list) {
-        add("api", `${a.name} ${a.version}`, `apis/${a.name}-${a.version}.zip`, new Uint8Array(await this.wso2.publisher.exportApi(a.id)));
+        add(
+          "api",
+          `${a.name} ${a.version}`,
+          `apis/${a.name}-${a.version}.zip`,
+          new Uint8Array(await this.wso2.publisher.exportApi(a.id)),
+        );
       }
       for (const f of (await this.mi.apis().catch(() => ({ list: [] }))).list) {
         const d = await this.mi.api(f.name).catch(() => undefined);
         if (d?.configuration) add("flujo", f.name, `flujos/${f.name}.xml`, strToU8(d.configuration));
       }
       const catalog = (await this.db.query("SELECT * FROM nexo.api_asset ORDER BY name")).rows;
-      add("metadatos", "catálogo de APIs", "metadatos/catalogo.json", strToU8(JSON.stringify(catalog, null, 2)));
+      add(
+        "metadatos",
+        "catálogo de APIs",
+        "metadatos/catalogo.json",
+        strToU8(JSON.stringify(catalog, null, 2)),
+      );
       const nodes = (await this.db.query("SELECT * FROM nexo.graph_node")).rows;
       const edges = (await this.db.query("SELECT * FROM nexo.graph_edge")).rows;
-      add("metadatos", "grafo de dependencias", "metadatos/grafo.json", strToU8(JSON.stringify({ nodes, edges }, null, 2)));
-      const manifest = { version: config.version, generadoEn: new Date().toISOString(), origen: config.wso2.url, items };
+      add(
+        "metadatos",
+        "grafo de dependencias",
+        "metadatos/grafo.json",
+        strToU8(JSON.stringify({ nodes, edges }, null, 2)),
+      );
+      for (const p of plataforma) add("plataforma", p.nombre, `${CARPETA_PLATAFORMA}/${p.ruta}`, p.datos);
+      const manifest = {
+        version: config.version,
+        generadoEn: new Date().toISOString(),
+        origen: config.wso2.url,
+        items,
+      };
       files["manifiesto.json"] = strToU8(JSON.stringify(manifest, null, 2));
       mkdirSync(config.exportDir, { recursive: true });
       const path = join(config.exportDir, `nexo-export-${id}.zip`);
       writeFileSync(path, zipSync(files));
-      await this.db.query("UPDATE nexo.export_job SET status = 'listo', manifest = $1, file_path = $2 WHERE id = $3", [JSON.stringify(manifest), path, id]);
+      await this.db.query(
+        "UPDATE nexo.export_job SET status = 'listo', manifest = $1, file_path = $2 WHERE id = $3",
+        [JSON.stringify(manifest), path, id],
+      );
       await this.audit.record(user, "exportacion.generar", `export/${id}`, "exito", { items: items.length });
     } catch (e) {
-      await this.db.query("UPDATE nexo.export_job SET status = 'fallido', error = $1 WHERE id = $2", [e instanceof Error ? e.message : String(e), id]);
-      await this.audit.record(user, "exportacion.generar", `export/${id}`, "error", { error: e instanceof Error ? e.message : String(e) });
+      await this.db.query("UPDATE nexo.export_job SET status = 'fallido', error = $1 WHERE id = $2", [
+        e instanceof Error ? e.message : String(e),
+        id,
+      ]);
+      await this.audit.record(user, "exportacion.generar", `export/${id}`, "error", {
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
@@ -212,7 +298,9 @@ export class ExportsController {
   @Get(":id/download")
   @RequirePermission("export:create")
   async download(@Param("id") id: string, @Res() res: Response) {
-    const j = (await this.db.query("SELECT file_path FROM nexo.export_job WHERE id = $1 AND status = 'listo'", [id])).rows[0];
+    const j = (
+      await this.db.query("SELECT file_path FROM nexo.export_job WHERE id = $1 AND status = 'listo'", [id])
+    ).rows[0];
     if (!j) throw new NotFoundException({ statusCode: 404, message: "La exportación no está lista" });
     res.download(String(j.file_path), `nexo-export-${id}.zip`);
   }
@@ -246,7 +334,10 @@ export class AlertsController {
     private readonly audit: AuditService,
     private readonly unauthorized: UnauthorizedAudit,
   ) {
-    if (!config.alerts.token) this.log.error(`Webhook de alertas sin token válido (${config.alerts.problem}): rechazará todas las entregas (401)`);
+    if (!config.alerts.token)
+      this.log.error(
+        `Webhook de alertas sin token válido (${config.alerts.problem}): rechazará todas las entregas (401)`,
+      );
   }
 
   @Public()
@@ -256,15 +347,29 @@ export class AlertsController {
   async alertmanager(@Body() body: unknown, @Req() req: AuthedRequest) {
     const provided = bearerToken(req.headers.authorization);
     if (!tokenMatches(provided, config.alerts.token)) {
-      await this.unauthorized.hit(req.ip, provided ? "token del webhook de alertas inválido" : "webhook de alertas sin token", routeOf(req));
-      throw new UnauthorizedException({ statusCode: 401, message: "Token del webhook de alertas ausente o inválido" });
+      await this.unauthorized.hit(
+        req.ip,
+        provided ? "token del webhook de alertas inválido" : "webhook de alertas sin token",
+        routeOf(req),
+      );
+      throw new UnauthorizedException({
+        statusCode: 401,
+        message: "Token del webhook de alertas ausente o inválido",
+      });
     }
     const { alerts } = parse(AlertWebhookSchema, body);
     for (const a of alerts) {
       const name = (a.labels.alertname ?? "alerta").slice(0, 120);
       const res = await this.db.query(
         "INSERT INTO nexo.alert (status, name, severity, summary, labels, fingerprint) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
-        [a.status, name, a.labels.severidad ?? null, a.annotations?.resumen ?? null, JSON.stringify(a.labels), a.fingerprint ?? null],
+        [
+          a.status,
+          name,
+          a.labels.severidad ?? null,
+          a.annotations?.resumen ?? null,
+          JSON.stringify(a.labels),
+          a.fingerprint ?? null,
+        ],
       );
       await this.audit.store.append({
         source: "consola",
@@ -300,7 +405,9 @@ export class EnginesController {
   @Get()
   @RequirePermission("rollout:read")
   async list() {
-    const rows = (await this.db.query("SELECT * FROM nexo.engine_heartbeat ORDER BY engine, leader DESC, last_seen DESC")).rows;
+    const rows = (
+      await this.db.query("SELECT * FROM nexo.engine_heartbeat ORDER BY engine, leader DESC, last_seen DESC")
+    ).rows;
     return rows.map((r) => {
       const ageSec = (Date.now() - new Date(String(r.last_seen)).getTime()) / 1000;
       return {

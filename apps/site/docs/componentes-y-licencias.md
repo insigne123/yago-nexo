@@ -15,7 +15,7 @@ Nexo combina componentes de terceros de código abierto con código propio de Ya
 
 ## Componentes de la plataforma
 
-La columna *En el laboratorio* no se escribe a mano: se calcula al generar este sitio desde `deploy/compose` (la imagen de cada servicio o la imagen base de su Dockerfile). *No incluido todavía* indica un componente previsto en la [arquitectura](./arquitectura.md) que aún no se integra.
+La columna *En el laboratorio* no se escribe a mano: se calcula al generar este sitio desde `deploy/compose` (la imagen de cada servicio o la imagen base de su Dockerfile). *No corre en el laboratorio* indica un componente de la [arquitectura](./arquitectura.md) que no forma parte de los servicios del laboratorio.
 
 <Componentes />
 
@@ -33,7 +33,7 @@ No se entregan ni se instalan en la institución.
 | --- | --- | --- | --- |
 | Gitleaks | Detección de secretos en el código | MIT | Sí, en el CI (`.github/workflows/ci.yml`) |
 | Trivy | Vulnerabilidades, secretos y configuración | Apache 2.0 | Sí, en el CI: falla ante hallazgos altos o críticos con corrección disponible |
-| Syft y Grype | SBOM y vulnerabilidades de cada versión | Apache 2.0 | No: el SBOM CycloneDX lo genera `tools/release/generar-sbom.mjs` y las vulnerabilidades las revisa Trivy |
+| Syft y Grype | SBOM y vulnerabilidades de cada versión | Apache 2.0 | Sí, en el workflow de versión (`.github/workflows/release.yml`): Syft genera el SBOM CycloneDX de cada imagen y Grype produce la tabla de vulnerabilidades (Markdown y JSON) y el documento OpenVEX de las críticas (`tools/release/vulnerabilidades.mjs`). El SBOM del producto lo genera `tools/release/generar-sbom.mjs` |
 | Semgrep CE | Análisis estático de código | LGPL 2.1 | Todavía no |
 | cosign (Sigstore) | Firma de artefactos e imágenes de cada versión | Apache 2.0 | Sí, en el workflow de versión (`.github/workflows/release.yml`) |
 | OWASP ZAP | Pruebas de seguridad dinámicas | Apache 2.0 | Todavía no |
@@ -57,6 +57,6 @@ Cada versión de Nexo acompañará su inventario completo de componentes en form
 
 <SiNoDisponible id="sbom">
 
-La versión actual (<VersionActual formato="numero" />) todavía no incluye SBOM, porque la herramienta que lo genera en cada versión está en desarrollo. Mientras tanto, la referencia es esta página junto con el archivo `NOTICE` del repositorio (ver [Licencia y avisos](./licencia-y-avisos.md)).
+La versión <VersionActual formato="numero" /> no trae SBOM; la referencia es esta página junto con el archivo `NOTICE` del repositorio (ver [Licencia y avisos](./licencia-y-avisos.md)).
 
 </SiNoDisponible>

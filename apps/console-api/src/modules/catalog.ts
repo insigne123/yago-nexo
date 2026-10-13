@@ -1,4 +1,16 @@
-import { Body, Controller, Get, HttpCode, Inject, Injectable, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
 import { z } from "zod";
 import { withTx, type Db } from "@nexo/console-db";
 import type { MiManagementClient, Subscription, Wso2Client } from "@nexo/wso2-client";
@@ -7,7 +19,16 @@ import { AuditAction } from "../common/audit-failures.js";
 import { AuditService } from "../common/audit.service.js";
 import { DB, MI, WSO2 } from "../common/tokens.js";
 import { parse } from "../common/validation.js";
-import { completeness, flowDependencies, hostOf, impactOf, pathOf, type GraphEdge, type GraphNode, type Row } from "./catalog-graph.js";
+import {
+  completeness,
+  flowDependencies,
+  hostOf,
+  impactOf,
+  pathOf,
+  type GraphEdge,
+  type GraphNode,
+  type Row,
+} from "./catalog-graph.js";
 
 export function toApiAsset(r: Row) {
   const c = completeness(r);
@@ -55,7 +76,14 @@ const COLUMN: Record<string, string> = {
 };
 
 /** Recurso de la Publisher API con la definición de cada tipo de API. */
-const DEFINITION: Record<string, string> = { HTTP: "swagger", SOAP: "swagger", GRAPHQL: "graphql-schema", WS: "asyncapi", WEBSUB: "asyncapi", SSE: "asyncapi" };
+const DEFINITION: Record<string, string> = {
+  HTTP: "swagger",
+  SOAP: "swagger",
+  GRAPHQL: "graphql-schema",
+  WS: "asyncapi",
+  WEBSUB: "asyncapi",
+  SSE: "asyncapi",
+};
 
 interface WsoApiDetail {
   name: string;
@@ -79,23 +107,35 @@ export class CatalogService {
   ) {}
 
   /** Sincroniza APIs, consumidores y suscripciones desde WSO2, y deriva dependencias de los endpoints y flujos MI. */
-  async sync(): Promise<{ apis: number; consumers: number; subscriptions: number; retiradas: number; durationMs: number }> {
+  async sync(): Promise<{
+    apis: number;
+    consumers: number;
+    subscriptions: number;
+    retiradas: number;
+    durationMs: number;
+  }> {
     const t0 = Date.now();
     // 1) Lectura completa (fuera de la transacción): WSO2 y el Integrador.
     const summaries = (await this.wso2.publisher.listApis(undefined, 500)).list;
     const apis: Array<{ id: string; detail: WsoApiDetail; subs: Subscription[] }> = [];
     for (const summary of summaries) {
       const detail = (await this.wso2.publisher.getApi(summary.id)) as unknown as WsoApiDetail;
-      const subs = await this.wso2.publisher.listSubscriptions(summary.id).catch(() => ({ count: 0, list: [] as Subscription[] }));
+      const subs = await this.wso2.publisher
+        .listSubscriptions(summary.id)
+        .catch(() => ({ count: 0, list: [] as Subscription[] }));
       apis.push({ id: summary.id, detail, subs: subs.list });
     }
     const miApis = await this.mi.apis().catch(() => ({ list: [] as Array<{ name: string; url: string }> }));
     // La Management API del Integrador entrega la URL de cada API; su ruta identifica el flujo que la atiende.
-    const miPaths = miApis.list.map((m) => ({ name: m.name, path: pathOf(m.url) })).filter((m) => m.path && m.path !== "/");
+    const miPaths = miApis.list
+      .map((m) => ({ name: m.name, path: pathOf(m.url) }))
+      .filter((m) => m.path && m.path !== "/");
     const flows = new Map<string, string>();
-    for (const m of miPaths) flows.set(m.name, (await this.mi.api(m.name).catch(() => undefined))?.configuration ?? "");
+    for (const m of miPaths)
+      flows.set(m.name, (await this.mi.api(m.name).catch(() => undefined))?.configuration ?? "");
     const addresses = new Map<string, string>();
-    for (const ep of (await this.mi.endpoints().catch(() => ({ list: [] as Array<{ name: string }> }))).list) {
+    for (const ep of (await this.mi.endpoints().catch(() => ({ list: [] as Array<{ name: string }> })))
+      .list) {
       const d = await this.mi.endpoint(ep.name).catch(() => undefined);
       const uri = d?.address ?? d?.configuration?.match(/uri(?:-template)?="([^"]+)"/)?.[1];
       if (uri) addresses.set(ep.name, uri);
@@ -110,7 +150,10 @@ export class CatalogService {
           [id, type, label, JSON.stringify(meta)],
         );
       const edge = (from: string, to: string, relation: string, source: "configuracion" | "analizador_mi") =>
-        tx.query(`INSERT INTO nexo.graph_edge (from_id, to_id, relation, source) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [from, to, relation, source]);
+        tx.query(
+          `INSERT INTO nexo.graph_edge (from_id, to_id, relation, source) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+          [from, to, relation, source],
+        );
 
       // Lo derivado se recalcula entero; lo cargado a mano o desde OpenMetadata se conserva.
       await tx.query(`DELETE FROM nexo.graph_edge WHERE source IN ('configuracion', 'analizador_mi')`);
@@ -142,10 +185,14 @@ export class CatalogService {
             props.get("proposito") ?? a.description ?? null,
             a.businessInformation?.businessOwner ?? null,
             a.businessInformation?.businessOwnerEmail ?? null,
-            ["interna", "operadores", "publica"].includes(props.get("audiencia") ?? "") ? props.get("audiencia") : null,
+            ["interna", "operadores", "publica"].includes(props.get("audiencia") ?? "")
+              ? props.get("audiencia")
+              : null,
             a.lifeCycleStatus ?? "CREATED",
             auth,
-            ["publica", "interna", "reservada", "datos_personales"].includes(props.get("clasificacion") ?? "") ? props.get("clasificacion") : null,
+            ["publica", "interna", "reservada", "datos_personales"].includes(props.get("clasificacion") ?? "")
+              ? props.get("clasificacion")
+              : null,
             // Contrato versionado (lo registra nexo-ctl); si no, la definición publicada en el gateway.
             props.get("contrato") ?? `wso2:/apis/${wso2Id}/${DEFINITION[a.type ?? "HTTP"] ?? "swagger"}`,
           ],
@@ -200,9 +247,14 @@ export class CatalogService {
         [apis.map((x) => x.id)],
       );
       for (const r of gone.rows) {
-        await tx.query(`INSERT INTO nexo.api_history (api_id, actor, action, detail) VALUES ($1, 'nexo-sync', 'api.retirada', 'La API ya no existe en el gateway')`, [r.id]);
+        await tx.query(
+          `INSERT INTO nexo.api_history (api_id, actor, action, detail) VALUES ($1, 'nexo-sync', 'api.retirada', 'La API ya no existe en el gateway')`,
+          [r.id],
+        );
       }
-      await tx.query("DELETE FROM nexo.subscription WHERE NOT (api_id = ANY($1::text[]))", [apis.map((x) => `api:${x.id}`)]);
+      await tx.query("DELETE FROM nexo.subscription WHERE NOT (api_id = ANY($1::text[]))", [
+        apis.map((x) => `api:${x.id}`),
+      ]);
       // Nodos derivados que quedaron sin aristas (sistemas, flujos o consumidores que ya no participan).
       await tx.query(`DELETE FROM nexo.graph_node n WHERE n.type IN ('sistema', 'flujo', 'consumidor')
         AND NOT coalesce((n.meta->>'manual')::boolean, false)
@@ -210,17 +262,29 @@ export class CatalogService {
       await tx.query(`UPDATE nexo.api_asset a SET
         consumers_count = (SELECT count(*) FROM nexo.subscription s WHERE s.api_id = a.id),
         dependencies_count = (SELECT count(*) FROM nexo.graph_edge e WHERE e.from_id = a.id)`);
-      return { apis: apis.length, consumers: consumers.size, subscriptions, retiradas: gone.rowCount ?? 0, durationMs: Date.now() - t0 };
+      return {
+        apis: apis.length,
+        consumers: consumers.size,
+        subscriptions,
+        retiradas: gone.rowCount ?? 0,
+        durationMs: Date.now() - t0,
+      };
     });
   }
 
   async list(q?: string, audience?: string, state?: string) {
     const where: string[] = [];
     const params: unknown[] = [];
-    if (q) where.push(`(name ILIKE $${params.push(`%${q}%`)} OR context ILIKE $${params.length} OR purpose ILIKE $${params.length})`);
+    if (q)
+      where.push(
+        `(name ILIKE $${params.push(`%${q}%`)} OR context ILIKE $${params.length} OR purpose ILIKE $${params.length})`,
+      );
     if (audience) where.push(`audience = $${params.push(audience)}`);
     if (state) where.push(`state = $${params.push(state)}`);
-    const res = await this.db.query(`SELECT * FROM nexo.api_asset ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY name`, params);
+    const res = await this.db.query(
+      `SELECT * FROM nexo.api_asset ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY name`,
+      params,
+    );
     return res.rows.map((r) => {
       const { _missing, ...rest } = toApiAsset(r);
       void _missing;
@@ -237,9 +301,21 @@ export class CatalogService {
       `SELECT c.id, c.name, c.organization, s.plan, s.status FROM nexo.subscription s JOIN nexo.consumer c ON c.id = s.consumer_id WHERE s.api_id = $1 ORDER BY c.name`,
       [row.id],
     );
-    const deps = await this.db.query(`SELECT from_id AS "from", to_id AS "to", relation, source FROM nexo.graph_edge WHERE from_id = $1 OR to_id = $1`, [row.id]);
-    const history = await this.db.query(`SELECT ts, actor, action, detail FROM nexo.api_history WHERE api_id = $1 ORDER BY ts DESC LIMIT 50`, [row.id]);
-    return { ...asset, consumers: consumers.rows, dependencies: deps.rows, missingFields: _missing, history: history.rows };
+    const deps = await this.db.query(
+      `SELECT from_id AS "from", to_id AS "to", relation, source FROM nexo.graph_edge WHERE from_id = $1 OR to_id = $1`,
+      [row.id],
+    );
+    const history = await this.db.query(
+      `SELECT ts, actor, action, detail FROM nexo.api_history WHERE api_id = $1 ORDER BY ts DESC LIMIT 50`,
+      [row.id],
+    );
+    return {
+      ...asset,
+      consumers: consumers.rows,
+      dependencies: deps.rows,
+      missingFields: _missing,
+      history: history.rows,
+    };
   }
 
   async patch(id: string, body: unknown, user: AuthUser) {
@@ -253,19 +329,25 @@ export class CatalogService {
     }
     if (sets.length) {
       params.push(current.id);
-      await this.db.query(`UPDATE nexo.api_asset SET ${sets.join(", ")}, updated_at = now() WHERE id = $${params.length}`, params);
-      await this.db.query(`INSERT INTO nexo.api_history (api_id, actor, action, detail) VALUES ($1,$2,'metadatos.actualizados',$3)`, [
-        current.id,
-        user.username,
-        Object.keys(data).join(", "),
-      ]);
+      await this.db.query(
+        `UPDATE nexo.api_asset SET ${sets.join(", ")}, updated_at = now() WHERE id = $${params.length}`,
+        params,
+      );
+      await this.db.query(
+        `INSERT INTO nexo.api_history (api_id, actor, action, detail) VALUES ($1,$2,'metadatos.actualizados',$3)`,
+        [current.id, user.username, Object.keys(data).join(", ")],
+      );
     }
     return this.get(String(current.id));
   }
 
   async graph() {
-    const nodes = await this.db.query(`SELECT id, type, label, meta FROM nexo.graph_node ORDER BY type, label`);
-    const edges = await this.db.query(`SELECT from_id AS "from", to_id AS "to", relation, source FROM nexo.graph_edge`);
+    const nodes = await this.db.query(
+      `SELECT id, type, label, meta FROM nexo.graph_node ORDER BY type, label`,
+    );
+    const edges = await this.db.query(
+      `SELECT from_id AS "from", to_id AS "to", relation, source FROM nexo.graph_edge`,
+    );
     return { nodes: nodes.rows, edges: edges.rows };
   }
 
@@ -275,14 +357,22 @@ export class CatalogService {
    */
   async impact(nodeId: string, kind: string, detail?: string) {
     const { nodes, edges } = await this.graph();
-    if (!nodes.some((n) => n.id === nodeId)) throw new NotFoundException({ statusCode: 404, message: "El nodo no existe en el grafo" });
-    return { nodeId, change: { kind, detail }, ...impactOf(nodes as GraphNode[], edges as GraphEdge[], nodeId, kind) };
+    if (!nodes.some((n) => n.id === nodeId))
+      throw new NotFoundException({ statusCode: 404, message: "El nodo no existe en el grafo" });
+    return {
+      nodeId,
+      change: { kind, detail },
+      ...impactOf(nodes as GraphNode[], edges as GraphEdge[], nodeId, kind),
+    };
   }
 }
 
 const ImpactSchema = z.object({
   nodeId: z.string().min(1),
-  change: z.object({ kind: z.enum(["contrato", "campo", "fuente", "retiro"]), detail: z.string().max(500).optional() }),
+  change: z.object({
+    kind: z.enum(["contrato", "campo", "fuente", "retiro"]),
+    detail: z.string().max(500).optional(),
+  }),
 });
 
 @Controller()
@@ -309,7 +399,9 @@ export class CatalogController {
   @AuditAction("catalogo.actualizar")
   async patch(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const res = await this.catalog.patch(id, body, user);
-    await this.audit.record(user, "catalogo.actualizar", `api/${res.id}`, "exito", { campos: Object.keys(body as object) });
+    await this.audit.record(user, "catalogo.actualizar", `api/${res.id}`, "exito", {
+      campos: Object.keys(body as object),
+    });
     return res;
   }
 
@@ -336,7 +428,10 @@ export class CatalogController {
   async impact(@Body() body: unknown, @CurrentUser() user: AuthUser) {
     const req = parse(ImpactSchema, body);
     const res = await this.catalog.impact(req.nodeId, req.change.kind, req.change.detail);
-    await this.audit.record(user, "impacto.simular", req.nodeId, "exito", { tipo: req.change.kind, severidad: res.severity });
+    await this.audit.record(user, "impacto.simular", req.nodeId, "exito", {
+      tipo: req.change.kind,
+      severidad: res.severity,
+    });
     return res;
   }
 }

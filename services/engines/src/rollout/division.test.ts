@@ -1,9 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { delta, mergeSnapshots, parseEnvoyStats, quantileMs, toVersionMetrics } from "./envoy-stats.js";
 import { declaredRoute } from "./routes.js";
-import { clusterName, discoveryResponse, referencedClusters, renderClusters, renderRouteConfig, type RouteState } from "./xds.js";
+import {
+  clusterName,
+  discoveryResponse,
+  referencedClusters,
+  renderClusters,
+  renderRouteConfig,
+  type RouteState,
+} from "./xds.js";
 
-const base: RouteState = { apiName: "Concesiones 1.0.0", prefix: "/rutas/concesiones", stableUrl: "http://concesiones-v1:7001", weight: 0, mirrorPercent: 0 };
+const base: RouteState = {
+  apiName: "Concesiones 1.0.0",
+  prefix: "/rutas/concesiones",
+  stableUrl: "http://concesiones-v1:7001",
+  weight: 0,
+  mirrorPercent: 0,
+};
 const V1 = clusterName("/rutas/concesiones", "http://concesiones-v1:7001");
 const V2 = clusterName("/rutas/concesiones", "http://concesiones-v2:7001");
 const clusters = (routes: RouteState[]) => renderClusters(referencedClusters(routes));
@@ -13,13 +26,21 @@ describe("configuración xDS de nexo-division", () => {
     const rc = renderRouteConfig([base]);
     const routes = rc.virtual_hosts[0]!.routes;
     expect(routes.map((r) => r.name)).toEqual(["concesiones", "concesiones-raiz"]);
-    expect(routes[0]!.route).toMatchObject({ cluster: V1, host_rewrite_literal: "concesiones-v1:7001", prefix_rewrite: "/" });
+    expect(routes[0]!.route).toMatchObject({
+      cluster: V1,
+      host_rewrite_literal: "concesiones-v1:7001",
+      prefix_rewrite: "/",
+    });
     expect(clusters([base]).map((c) => c.name)).toEqual([V1]);
   });
 
   it("en canary reparte por peso entre estable y candidato", () => {
     const rc = renderRouteConfig([{ ...base, candidateUrl: "http://concesiones-v2:7001", weight: 5 }]);
-    const wc = (rc.virtual_hosts[0]!.routes[0]!.route as { weighted_clusters: { clusters: Array<{ name: string; weight: number }> } }).weighted_clusters;
+    const wc = (
+      rc.virtual_hosts[0]!.routes[0]!.route as {
+        weighted_clusters: { clusters: Array<{ name: string; weight: number }> };
+      }
+    ).weighted_clusters;
     expect(wc.clusters.map((c) => [c.name, c.weight])).toEqual([
       [V1, 95],
       [V2, 5],
@@ -27,33 +48,56 @@ describe("configuración xDS de nexo-division", () => {
   });
 
   it("en sombra copia solo las lecturas al candidato y los consumidores siguen en el estable", () => {
-    const rc = renderRouteConfig([{ ...base, candidateUrl: "http://concesiones-v2:7001", mirrorPercent: 100 }]);
+    const rc = renderRouteConfig([
+      { ...base, candidateUrl: "http://concesiones-v2:7001", mirrorPercent: 100 },
+    ]);
     const [lecturas, resto] = rc.virtual_hosts[0]!.routes;
-    expect(lecturas!.match).toMatchObject({ headers: [{ name: ":method", string_match: { safe_regex: { regex: "GET|HEAD" } } }] });
+    expect(lecturas!.match).toMatchObject({
+      headers: [{ name: ":method", string_match: { safe_regex: { regex: "GET|HEAD" } } }],
+    });
     expect(lecturas!.route).toMatchObject({ cluster: V1, request_mirror_policies: [{ cluster: V2 }] });
     expect(resto!.route).not.toHaveProperty("request_mirror_policies");
   });
 
   it("al 100 % todo va al candidato", () => {
     const rc = renderRouteConfig([{ ...base, candidateUrl: "http://concesiones-v2:7001", weight: 100 }]);
-    expect(rc.virtual_hosts[0]!.routes[0]!.route).toMatchObject({ cluster: V2, host_rewrite_literal: "concesiones-v2:7001" });
+    expect(rc.virtual_hosts[0]!.routes[0]!.route).toMatchObject({
+      cluster: V2,
+      host_rewrite_literal: "concesiones-v2:7001",
+    });
   });
 
   it("al promover, el candidato conserva su clúster: la ruta no apunta a un clúster nuevo", () => {
-    const at100 = renderRouteConfig([{ ...base, candidateUrl: "http://concesiones-v2:7001", weight: 100 }]).virtual_hosts[0]!.routes[0]!.route;
-    const promoted = renderRouteConfig([{ ...base, stableUrl: "http://concesiones-v2:7001" }]).virtual_hosts[0]!.routes[0]!.route;
+    const at100 = renderRouteConfig([{ ...base, candidateUrl: "http://concesiones-v2:7001", weight: 100 }])
+      .virtual_hosts[0]!.routes[0]!.route;
+    const promoted = renderRouteConfig([{ ...base, stableUrl: "http://concesiones-v2:7001" }])
+      .virtual_hosts[0]!.routes[0]!.route;
     expect((at100 as { cluster: string }).cluster).toBe((promoted as { cluster: string }).cluster);
   });
 
   it("entrega también los clústeres en período de gracia, sin duplicados", () => {
-    const refs = [...referencedClusters([base]), { prefix: base.prefix, url: "http://concesiones-v2:7001" }, { prefix: base.prefix, url: "http://concesiones-v1:7001/" }];
-    expect(renderClusters(refs).map((c) => c.name).sort()).toEqual([V1, V2].sort());
+    const refs = [
+      ...referencedClusters([base]),
+      { prefix: base.prefix, url: "http://concesiones-v2:7001" },
+      { prefix: base.prefix, url: "http://concesiones-v1:7001/" },
+    ];
+    expect(
+      renderClusters(refs)
+        .map((c) => c.name)
+        .sort(),
+    ).toEqual([V1, V2].sort());
   });
 
   it("conserva la ruta base del backend y valida TLS hacia backends HTTPS", () => {
     const r = { ...base, prefix: "/rutas/registro", stableUrl: "https://registro.cliente.invalid/api/v2" };
-    expect(renderRouteConfig([r]).virtual_hosts[0]!.routes[0]!.route).toMatchObject({ prefix_rewrite: "/api/v2/" });
-    const c = clusters([r])[0] as { transport_socket: { typed_config: { sni: string; common_tls_context: { validation_context: unknown } } } };
+    expect(renderRouteConfig([r]).virtual_hosts[0]!.routes[0]!.route).toMatchObject({
+      prefix_rewrite: "/api/v2/",
+    });
+    const c = clusters([r])[0] as {
+      transport_socket: {
+        typed_config: { sni: string; common_tls_context: { validation_context: unknown } };
+      };
+    };
     expect(c.transport_socket.typed_config.sni).toBe("registro.cliente.invalid");
     expect(c.transport_socket.typed_config.common_tls_context.validation_context).toBeDefined();
   });
@@ -61,7 +105,9 @@ describe("configuración xDS de nexo-division", () => {
   it("la versión cambia solo si cambia el contenido", () => {
     const a = discoveryResponse("t", clusters([base]));
     expect(discoveryResponse("t", clusters([base])).version_info).toBe(a.version_info);
-    expect(discoveryResponse("t", clusters([{ ...base, candidateUrl: "http://x:1" }])).version_info).not.toBe(a.version_info);
+    expect(discoveryResponse("t", clusters([{ ...base, candidateUrl: "http://x:1" }])).version_info).not.toBe(
+      a.version_info,
+    );
   });
 });
 
@@ -69,11 +115,19 @@ describe("rutas declaradas por las APIs", () => {
   it("reconoce el endpoint de nexo-division y el backend estable declarado", () => {
     expect(
       declaredRoute(
-        { endpointConfig: { production_endpoints: { url: "http://nexo-division:10000/rutas/concesiones" } }, additionalProperties: [{ name: "division_estable", value: "http://concesiones-v1:7001" }] },
+        {
+          endpointConfig: { production_endpoints: { url: "http://nexo-division:10000/rutas/concesiones" } },
+          additionalProperties: [{ name: "division_estable", value: "http://concesiones-v1:7001" }],
+        },
         "http://nexo-division:10000",
       ),
     ).toEqual({ prefix: "/rutas/concesiones", seedUrl: "http://concesiones-v1:7001" });
-    expect(declaredRoute({ endpointConfig: { production_endpoints: { url: "http://concesiones-v1:7001" } } }, "http://nexo-division:10000")).toBeUndefined();
+    expect(
+      declaredRoute(
+        { endpointConfig: { production_endpoints: { url: "http://concesiones-v1:7001" } } },
+        "http://nexo-division:10000",
+      ),
+    ).toBeUndefined();
   });
 });
 
@@ -115,7 +169,10 @@ describe("métricas por versión desde Envoy", () => {
   });
 
   it("si Envoy se reinició, cuenta desde cero en vez de dar negativos", () => {
-    const d = delta({ completed: 5, errors5xx: 1, connectFail: 0, timeouts: 0, buckets: {}, members: 1 }, { completed: 50, errors5xx: 9, connectFail: 0, timeouts: 0, buckets: {}, members: 1 });
+    const d = delta(
+      { completed: 5, errors5xx: 1, connectFail: 0, timeouts: 0, buckets: {}, members: 1 },
+      { completed: 50, errors5xx: 9, connectFail: 0, timeouts: 0, buckets: {}, members: 1 },
+    );
     expect(d).toMatchObject({ completed: 5, errors5xx: 1 });
   });
 

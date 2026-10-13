@@ -118,7 +118,7 @@ function columnOption(
     series: [
       {
         type: "bar",
-        name: metric === "llamadas" ? "Llamadas" : "Errores",
+        name: metric === "llamadas" ? "Llamadas" : "Errores 5xx",
         data: points.map((p) => p[metric]),
         itemStyle: barItemStyle(color),
         barMaxWidth: BAR_MAX_WIDTH,
@@ -285,7 +285,7 @@ export default function InicioPage() {
               icon={<Activity className="size-4" />}
               loading={overview.isLoading}
               value={formatCompact(llamadas)}
-              detail={`${plural(errores, "error", "errores")} (${formatPercent(llamadas ? (errores ?? 0) / llamadas : null, 2)})`}
+              detail={`${plural(errores, "error 5xx", "errores 5xx")} (${formatPercent(llamadas ? (errores ?? 0) / llamadas : null, 2)})`}
               testId="kpi-consumo"
             />
             <StatTile
@@ -321,7 +321,10 @@ export default function InicioPage() {
             </>
           )}
         </Card>
-        <Card title="Errores por día" description="Respuestas con error (4xx y 5xx) en los últimos 7 días.">
+        <Card
+          title="Errores 5xx por día"
+          description="Respuestas del gateway con código 5xx en los últimos 7 días."
+        >
           {!canUsage ? (
             <EmptyState compact title="Sin permiso para ver el consumo" />
           ) : usage.isError ? (
@@ -329,7 +332,7 @@ export default function InicioPage() {
           ) : (
             <Chart
               option={errorsOption}
-              label={`Gráfico de columnas: ${formatNumber(points.reduce((s, p) => s + p.errores, 0))} errores en los últimos 7 días.`}
+              label={`Gráfico de columnas: ${formatNumber(points.reduce((s, p) => s + p.errores, 0))} errores 5xx en los últimos 7 días.`}
               height={200}
               testId="chart-errors"
             />
@@ -381,7 +384,7 @@ function DataDetails({ points }: { points: DailyPoint[] }) {
     <details className="mt-2 text-sm">
       <summary className="cursor-pointer text-xs text-fg-muted hover:text-fg">Ver datos en tabla</summary>
       <table className="mt-2 w-full text-left text-xs">
-        <caption className="sr-only">Llamadas y errores por día</caption>
+        <caption className="sr-only">Llamadas y errores 5xx por día</caption>
         <thead className="text-fg-muted">
           <tr>
             <th scope="col" className="py-1 font-medium">
@@ -391,7 +394,7 @@ function DataDetails({ points }: { points: DailyPoint[] }) {
               Llamadas
             </th>
             <th scope="col" className="py-1 text-right font-medium">
-              Errores
+              Errores 5xx
             </th>
           </tr>
         </thead>

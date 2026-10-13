@@ -26,7 +26,12 @@ export interface QuorumDecision {
 
 export function decideFailover(
   votes: readonly SiteVote[],
-  opts: { maxAgeSec: number; backupHealthy: boolean; backupId: string; /** Agentes configurados (3: CPD, GCP y testigo). */ expected?: number },
+  opts: {
+    maxAgeSec: number;
+    backupHealthy: boolean;
+    backupId: string;
+    /** Agentes configurados (3: CPD, GCP y testigo). */ expected?: number;
+  },
 ): QuorumDecision {
   // El quórum se calcula sobre los agentes configurados, no sobre los votos presentes: el voto de un agente
   // caído o aislado expira en etcd y desaparece, y un agente solo no puede formar mayoría consigo mismo.
@@ -37,18 +42,38 @@ export function decideFailover(
   const votosSano = fresh.filter((v) => v.vote === "primario_sano").length;
   const base = { votosCaido, votosSano, votosValidos: fresh.length, quorum };
   if (fresh.length < quorum) {
-    return { ...base, conmutar: false, motivo: `sin quórum: solo ${fresh.length} de ${total} agentes votaron a tiempo (se requieren ${quorum})` };
+    return {
+      ...base,
+      conmutar: false,
+      motivo: `sin quórum: solo ${fresh.length} de ${total} agentes votaron a tiempo (se requieren ${quorum})`,
+    };
   }
   if (votosCaido < quorum) {
-    return { ...base, conmutar: false, motivo: `${votosCaido} de ${total} ven el primario caído; se requieren ${quorum}` };
+    return {
+      ...base,
+      conmutar: false,
+      motivo: `${votosCaido} de ${total} ven el primario caído; se requieren ${quorum}`,
+    };
   }
   // El respaldo debe estar sano y participar del quórum: no se promueve un sitio que está aislado.
   const backup = votes.find((v) => v.id === opts.backupId);
   if (!opts.backupHealthy) {
-    return { ...base, conmutar: false, motivo: "el sitio de respaldo no está sano: no se conmuta hacia un sitio degradado" };
+    return {
+      ...base,
+      conmutar: false,
+      motivo: "el sitio de respaldo no está sano: no se conmuta hacia un sitio degradado",
+    };
   }
   if (backup && (backup.ageSec > opts.maxAgeSec || backup.vote === "sin_voto")) {
-    return { ...base, conmutar: false, motivo: "el sitio de respaldo no tiene voto vigente (posible aislamiento): no se autopromueve" };
+    return {
+      ...base,
+      conmutar: false,
+      motivo: "el sitio de respaldo no tiene voto vigente (posible aislamiento): no se autopromueve",
+    };
   }
-  return { ...base, conmutar: true, motivo: `quórum de conmutación: ${votosCaido} de ${total} agentes ven el primario caído y el respaldo está sano` };
+  return {
+    ...base,
+    conmutar: true,
+    motivo: `quórum de conmutación: ${votosCaido} de ${total} agentes ven el primario caído y el respaldo está sano`,
+  };
 }
