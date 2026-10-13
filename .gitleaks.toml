@@ -6,6 +6,9 @@ useDefault = true
 description = "Valores de laboratorio en archivos de ejemplo"
 paths = [
   '''deploy/compose/\.env\.example''',
+  # Evidencia de la prueba de rendimiento (SHA-256 citado en la oferta; no se edita): los JWT son del Keycloak
+  # local del laboratorio, de corta vida y ya vencidos; no dan acceso a nada fuera del laboratorio.
+  '''release/rendimiento/[^/]+/k6-[a-z0-9-]+\.json''',
   '''deploy/compose/keycloak/realm-nexo\.json''',
 ]
 # Falsos positivos revisados uno a uno:
