@@ -8,7 +8,7 @@ nexo.lab:53 {
     log
     errors
 }
-. :53 {
+.:53 {
     forward . 1.1.1.1 8.8.8.8
     cache 30
 }
