@@ -1,23 +1,89 @@
 {
+  "$schema": "./evidencias.schema.json",
   "$comment": "Índice de las demostraciones registradas de Yago Nexo. Lo genera tools/evidencias (pnpm --filter @nexo/evidencias grabar). Los videos se publican junto al sitio en /evidencias/<archivo>.",
-  "generado": "2026-10-04T18:25:34.958Z",
+  "generado": "2026-10-13T06:12:11.729Z",
   "evidencias": [
     {
       "id": "D-01",
       "title": "Descubrimiento automático de APIs no gobernadas",
-      "claim": "El motor de descubrimiento recorre el perímetro (gateway APISIX y NGINX heredados, y servicios de la red autorizada), detecta las APIs que no están en el catálogo gobernado de WSO2, calcula su exposición y entrega el reporte en CSV y PDF.",
-      "file": "D-01_descubrimiento.webm",
+      "claim": "El motor de descubrimiento recorre el perímetro (gateway APISIX y NGINX heredados, y servicios de la red autorizada), detecta las APIs que no están en el catálogo gobernado, calcula su exposición y entrega el reporte en CSV y PDF.",
+      "file": "D-01_descubrimiento.mp4",
+      "sha256": "93293923249d39cd99e3ce92d94cb49505b6df6e4c6e53a91b28ddb0a286a03c",
+      "size_bytes": 16120776,
+      "duration_seconds": 79.3,
+      "frames": 2379,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "D-01_descubrimiento.jpg",
-      "duration_seconds": 65,
-      "frames": 975,
-      "sha256": "c3eaa330609702fcc5b75f0d688adefe4d9245fbdf8c129170d8a0f75d65b1f0",
-      "size_bytes": 1705240,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T14:51:41-03:00",
+      "steps_file": "D-01_descubrimiento.pasos.json",
+      "subtitles": "D-01_descubrimiento.vtt",
+      "chapters_file": "D-01_descubrimiento.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "El perímetro que revisa el motor de descubrimiento",
+          "start_s": 4.34,
+          "end_s": 11.34
+        },
+        {
+          "n": 2,
+          "title": "La operadora inicia un escaneo desde la Consola",
+          "start_s": 11.34,
+          "end_s": 36.51
+        },
+        {
+          "n": 3,
+          "title": "Hallazgos ordenados por exposición",
+          "start_s": 36.52,
+          "end_s": 47.34
+        },
+        {
+          "n": 4,
+          "title": "Reporte de exposición en CSV y PDF",
+          "start_s": 47.34,
+          "end_s": 57.69
+        },
+        {
+          "n": 5,
+          "title": "Verificación automática del escenario (check-d01)",
+          "start_s": 57.7,
+          "end_s": 76.28
+        }
+      ],
+      "video_stream_md5": "576160af16bbf7c0fdfea688bda00c44",
+      "without_music": {
+        "file": "D-01_descubrimiento.sin-musica.mp4",
+        "sha256": "8bef48e5ce9436b80049ba6a7e8bda835b4b1a722eb81ab2107498de749569a6",
+        "size_bytes": 14461775
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 2,
+        "seed": 215139879,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.2 s (≈ 67 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 11 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "327790cc5914fa6bcd0db967ba8ddb69c034f1b4eb85e24ea57d0e2460507f17",
+        "integrated_lufs": -17.9,
+        "true_peak_dbtp": -4.8,
+        "lra_lu": 5.1,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "838f39d",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T03:05:28-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "9 endpoints detectados en 7 s: 5 no gobernados y 6 de riesgo alto, con reporte CSV y PDF",
+      "result": "9 endpoints detectados en 10 s: 5 no gobernados y 6 de riesgo alto, con reporte CSV y PDF",
       "checks": [
+        {
+          "texto": "fuentes del motor configuradas",
+          "ok": true,
+          "detalle": "6 variables NEXO_DISCOVERY_*"
+        },
         {
           "texto": "inventario vacío antes del escaneo",
           "ok": true,
@@ -26,100 +92,205 @@
         {
           "texto": "escaneo terminado",
           "ok": true,
-          "detalle": "terminado en 6.9 s"
+          "detalle": "terminado en 10,2 s"
         },
         {
-          "texto": "NGINX: reporte con datos personales sin autenticación",
+          "texto": "NGINX: datos personales sin autenticación",
           "ok": true,
-          "detalle": "puntaje 100"
+          "detalle": "/interno/reportes/titulares · puntaje 100"
         },
         {
-          "texto": "APISIX: ruta con key-auth fuera del catálogo",
+          "texto": "APISIX: ruta fuera del catálogo",
           "ok": true,
-          "detalle": "requerida · APISIX (key-auth)"
+          "detalle": "/fiscalizacion · clave requerida · APISIX (key-auth)"
         },
         {
-          "texto": "red: servicio directo con contrato OpenAPI publicado",
+          "texto": "servicio directo con contrato publicado",
           "ok": true,
-          "detalle": "puntaje 85"
+          "detalle": "ocultas/espectro/asignaciones · puntaje 85"
         },
         {
-          "texto": "backend de una API gobernada accesible sin el gateway",
+          "texto": "backend accesible sin pasar por el gateway",
           "ok": true,
           "detalle": "concesiones-v1:7001/concesiones"
         },
         {
           "texto": "ordenados por puntaje de exposición",
-          "ok": true
-        },
-        {
-          "texto": "reporte CSV con todos los hallazgos",
           "ok": true,
-          "detalle": "9 filas"
+          "detalle": "100 → 40 en 9 hallazgos"
         },
         {
-          "texto": "reporte PDF generado",
+          "texto": "CSV con todos los hallazgos",
+          "ok": true,
+          "detalle": "9 filas de 9 hallazgos"
+        },
+        {
+          "texto": "PDF generado por la Consola",
           "ok": true,
           "detalle": "4 KB"
         },
         {
-          "texto": "check-d01: escaneo, clasificación sin duplicados y reportes",
-          "ok": true
+          "texto": "check-d01 aprobado",
+          "ok": true,
+          "detalle": "código 0 · 12 pruebas"
         }
       ],
       "data": {
-        "segundosEscaneo": 6.92,
+        "segundosEscaneo": 10.2,
         "endpoints": 9,
         "noGobernados": 5,
         "riesgoAlto": 6,
         "maxPuntaje": 100
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 37.936,
+          "fin_s": 42.339,
+          "factor": 1.5
+        }
+      ],
+      "zoom_fraction": 0.056,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 79.3,
+        "cuadros_recibidos": 2963,
+        "cuadros_video": 2379,
+        "cuadros_unicos": 1989,
+        "cuadros_descartados": 974,
+        "cps_efectivos": 25.1,
+        "cps_movimiento_p50": 28,
+        "cps_movimiento_p10": 22,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.754,
+        "hueco_p95_s": 0.054,
+        "disco_mb": 943.9,
+        "codificacion_s": 42.1,
+        "cpu_node_pct": 27
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 1.76,
+        "load_end": 4.3
       }
     },
     {
       "id": "D-02",
       "title": "Detección de anomalías de consumo con alerta y bloqueo configurable",
-      "claim": "El guardián compara el consumo de cada consumidor con su línea base; ante una ráfaga anómala alerta y, según la regla configurada, bloquea al consumidor en el gateway de WSO2 hasta que un aprobador lo libere o venza el bloqueo.",
-      "file": "D-02_anomalias.webm",
+      "claim": "El guardián compara el consumo de cada consumidor con su propia línea base (61 ventanas de 30 s, unos 31 min de tráfico normal); ante una ráfaga anómala alerta y, según la regla, lo bloquea en el gateway hasta que un aprobador lo libere o venza el bloqueo, sin afectar a los consumidores que se comportan como siempre.",
+      "file": "D-02_anomalias.mp4",
+      "sha256": "da2a062150a3fad96adc5fedb15e739dc4c7761a207206a1df8e3d6f45673550",
+      "size_bytes": 25197404,
+      "duration_seconds": 135.9,
+      "frames": 4076,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "D-02_anomalias.jpg",
-      "duration_seconds": 112.5,
-      "frames": 1687,
-      "sha256": "9e781232adca7478e8db5d37ae08fd0b38f0631ad18025f831f1bbf281109096",
-      "size_bytes": 2002349,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T14:53:46-03:00",
+      "steps_file": "D-02_anomalias.pasos.json",
+      "subtitles": "D-02_anomalias.vtt",
+      "chapters_file": "D-02_anomalias.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "Parte 1 · La línea base: 31 min de tráfico normal",
+          "start_s": 4.55,
+          "end_s": 11.55
+        },
+        {
+          "n": 2,
+          "title": "Parte 2 · El administrador configura la regla",
+          "start_s": 11.55,
+          "end_s": 42.15
+        },
+        {
+          "n": 3,
+          "title": "Parte 3 · Ráfaga de A: alerta y bloqueo en el gateway",
+          "start_s": 42.15,
+          "end_s": 105.91
+        },
+        {
+          "n": 4,
+          "title": "Parte 4 · Un aprobador libera el bloqueo",
+          "start_s": 105.91,
+          "end_s": 132.86
+        }
+      ],
+      "video_stream_md5": "38d4da124960d824a7aa33978c7f127d",
+      "without_music": {
+        "file": "D-02_anomalias.sin-musica.mp4",
+        "sha256": "a40578aad0012d5b290cdd917034e5b950e07bdef65ae4f7c51678e5b55be109",
+        "size_bytes": 22351375
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 3,
+        "seed": 198362260,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.8 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 24 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "54b5c91b069218c737a7be6984bf76552ca4251da8ce1bda1704de59bb44610b",
+        "integrated_lufs": -18,
+        "true_peak_dbtp": -4.9,
+        "lra_lu": 5.5,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:29:51-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "ráfaga bloqueada en el gateway a los 42 s, con alerta; acceso restablecido 1 s después de la liberación",
+      "result": "ráfaga de A bloqueada en el gateway a los 42 s frente a su línea base de 31 min, con alerta; B (25 llamadas/s) no fue afectado; acceso restablecido 2 s después de la liberación",
       "checks": [
+        {
+          "texto": "consumidor A: 60 de 60 ventanas previas con tráfico",
+          "ok": true,
+          "detalle": "60 de 60 · ≈ 60 llamadas por ventana"
+        },
+        {
+          "texto": "consumidor B: 60 de 60 ventanas previas con tráfico",
+          "ok": true,
+          "detalle": "60 de 60 · ≈ 747 llamadas por ventana"
+        },
         {
           "texto": "regla creada y activa",
           "ok": true,
-          "detalle": "sensibilidad 6 · mínimo 30 · bloquear_automatico · 2 min"
+          "detalle": "volumen · sensibilidad 6 · mínimo 30 · bloqueo de 2 min"
         },
         {
-          "texto": "tráfico normal atendido",
+          "texto": "A bloqueado en el gateway (HTTP 403)",
           "ok": true,
-          "detalle": "32 de 32 con 200"
+          "detalle": "HTTP 403 a los 42 s de empezar la ráfaga"
         },
         {
-          "texto": "ráfaga bloqueada en el gateway (HTTP 403)",
+          "texto": "B sigue atendido sin rechazos",
           "ok": true,
-          "detalle": "a los 42 s de iniciada"
+          "detalle": "1.150 respuestas a B durante la ráfaga · 0 rechazos"
         },
         {
-          "texto": "evento registrado como bloqueado",
+          "texto": "política de denegación activa en WSO2",
           "ok": true,
-          "detalle": "161 llamadas en la ventana frente a línea base 0 · puntaje 10.73"
+          "detalle": "APPLICATION · admin:OperadorDemo"
         },
         {
-          "texto": "alerta enviada a Alertmanager",
+          "texto": "evento con lo observado y su línea base",
           "ok": true,
-          "detalle": "admin:OperadorDemo"
+          "detalle": "336 llamadas en la ventana frente a una línea base de 60 · puntaje 18.4"
         },
         {
-          "texto": "política de denegación activa en WSO2 (Admin Portal)",
+          "texto": "alerta enviada",
           "ok": true,
-          "detalle": "condición APPLICATION sobre OperadorDemo"
+          "detalle": "ConsumidorBloqueado · admin:OperadorDemo"
         },
         {
           "texto": "bloqueo liberado por el aprobador",
@@ -127,110 +298,351 @@
           "detalle": "luis.aprobador"
         },
         {
-          "texto": "acceso restablecido en el gateway",
+          "texto": "acceso restablecido (HTTP 200)",
           "ok": true,
-          "detalle": "200 a los 1 s"
+          "detalle": "HTTP 200 a los 2 s de liberar"
         },
         {
-          "texto": "bloqueo y liberación en la auditoría encadenada",
+          "texto": "bloqueo y liberación en la auditoría",
           "ok": true,
           "detalle": "anomalias.bloqueo.automatico · anomalias.bloqueo.liberar"
         }
       ],
       "data": {
-        "segundosHastaBloqueo": 42,
-        "respuestas403": 87,
-        "segundosHastaAcceso": 1.115,
-        "observado": 161,
-        "lineaBase": 0
+        "segundosHastaBloqueo": 41.593,
+        "respuestas403": 100,
+        "segundosHastaAcceso": 1.612,
+        "observado": 336,
+        "lineaBase": 60,
+        "ventanasLineaBase": {
+          "OperadorDemo": 60,
+          "ConsumidorAltoVolumen": 60
+        },
+        "rechazosB": 0
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 90.199,
+          "fin_s": 94.6,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 102.096,
+          "fin_s": 105.903,
+          "factor": 1.8
+        }
+      ],
+      "zoom_fraction": 0.06,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 135.867,
+        "cuadros_recibidos": 4655,
+        "cuadros_video": 4076,
+        "cuadros_unicos": 3255,
+        "cuadros_descartados": 1400,
+        "cps_efectivos": 24,
+        "cps_movimiento_p50": 26,
+        "cps_movimiento_p10": 20,
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 1.001,
+        "hueco_p95_s": 0.066,
+        "disco_mb": 1473.3,
+        "codificacion_s": 77.7,
+        "cpu_node_pct": 30
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 1.29,
+        "load_end": 4.95
       }
     },
     {
       "id": "D-03",
       "title": "Validación de contratos OpenAPI contra la guía de estilo, bloqueante en el pipeline",
       "claim": "Cada contrato OpenAPI se valida automáticamente contra la guía de estilo institucional, configurable por la institución: el pipeline bloquea la promoción si no cumple y la política de gobierno de WSO2 bloquea su despliegue aunque se cargue a mano.",
-      "file": "D-03_contratos_pipeline.webm",
+      "file": "D-03_contratos_pipeline.mp4",
+      "sha256": "1c34c63b00097134c74a855a6042eb7819fd700e453a53e3ec876fda6d5efea3",
+      "size_bytes": 11301733,
+      "duration_seconds": 52.9,
+      "frames": 1586,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "D-03_contratos_pipeline.jpg",
-      "duration_seconds": 56.1,
-      "frames": 841,
-      "sha256": "65cfdcd28cb5521218659084fa2059dac0a80f3ea3e50283a77a6672f3a10c82",
-      "size_bytes": 1418878,
-      "version": "1.0.0",
-      "commit": "2065c2c",
-      "recorded_at": "2026-10-04T15:20:58-03:00",
+      "steps_file": "D-03_contratos_pipeline.pasos.json",
+      "subtitles": "D-03_contratos_pipeline.vtt",
+      "chapters_file": "D-03_contratos_pipeline.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "La guía de estilo y el paso del pipeline que la aplica",
+          "start_s": 4.25,
+          "end_s": 14.99
+        },
+        {
+          "n": 2,
+          "title": "Contrato que no cumple: el pipeline bloquea la promoción",
+          "start_s": 14.99,
+          "end_s": 21.99
+        },
+        {
+          "n": 3,
+          "title": "Carga manual: la política de gobierno de WSO2 también bloquea",
+          "start_s": 21.99,
+          "end_s": 31.43
+        },
+        {
+          "n": 4,
+          "title": "Contrato corregido: validado, versionado y publicado",
+          "start_s": 31.43,
+          "end_s": 42.83
+        },
+        {
+          "n": 5,
+          "title": "La guía es configurable: una regla más estricta vuelve a bloquear",
+          "start_s": 42.83,
+          "end_s": 49.83
+        }
+      ],
+      "video_stream_md5": "339885bb653003b85920d5c45e7855c7",
+      "without_music": {
+        "file": "D-03_contratos_pipeline.sin-musica.mp4",
+        "sha256": "07acbb9cdf48cd202fad5d791a6132ca5dddd659ff73e024a66ab1167e10dd65",
+        "size_bytes": 10197686
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 2,
+        "seed": 215139879,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.6 s (≈ 64 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 6 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "a8fdf09c7d640c0fce1d2559fe23bbd4dcaae0d0718ee63b64404a87b1c50baf",
+        "integrated_lufs": -17.9,
+        "true_peak_dbtp": -4.7,
+        "lra_lu": 5.6,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:39:18-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "contrato no conforme bloqueado por el pipeline (código 2, nada llegó a WSO2) y por la política de gobierno de WSO2 (8 violaciones); corregido, se publicó; con la guía endurecida, se rechazó",
       "checks": [
         {
-          "texto": "el paso de CI valida los contratos versionados",
+          "texto": "los contratos versionados cumplen la guía",
           "ok": true,
-          "detalle": "5 contratos cumplen"
+          "detalle": "código 0 · 4 contratos sin errores"
         },
         {
           "texto": "pipeline bloqueado (código de salida 2)",
           "ok": true,
-          "detalle": "código 2"
+          "detalle": "código 2 · 8 errores de la guía"
         },
         {
           "texto": "nada llegó a WSO2",
           "ok": true,
-          "detalle": "0 APIs ReportesInternos"
+          "detalle": "0 APIs ReportesInternos en el Publisher"
         },
         {
-          "texto": "WSO2 API Governance bloquea el despliegue del contrato no conforme",
+          "texto": "WSO2 bloquea el despliegue del contrato no conforme",
           "ok": true,
           "detalle": "8 violaciones bloqueantes"
         },
         {
-          "texto": "contrato corregido: promovido y publicado",
+          "texto": "contrato corregido promovido y publicado",
           "ok": true,
           "detalle": "PUBLISHED en Desarrollo"
         },
         {
-          "texto": "con la regla endurecida el mismo contrato se rechaza",
+          "texto": "con la regla endurecida el contrato se rechaza",
           "ok": true,
-          "detalle": "código 2"
+          "detalle": "código 2 · 2 operaciones sin etiquetas"
         }
       ],
       "data": {
-        "violacionesWso2": 8
+        "violacionesWso2": 8,
+        "codigoBloqueo": 2,
+        "codigoEndurecida": 2,
+        "comandoDeploy": "pnpm --silent --filter @nexo/nexo-ctl ctl -c ../../nexo-ctl.config.yaml api deploy \"<proyecto>\" -s dev"
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 39.029,
+          "fin_s": 42.83,
+          "factor": 1.8
+        }
+      ],
+      "zoom_fraction": 0.072,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 52.867,
+        "cuadros_recibidos": 1661,
+        "cuadros_video": 1586,
+        "cuadros_unicos": 1099,
+        "cuadros_descartados": 562,
+        "cps_efectivos": 20.8,
+        "cps_movimiento_p50": 23,
+        "cps_movimiento_p10": 15,
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 0.539,
+        "hueco_p95_s": 0.089,
+        "disco_mb": 507.2,
+        "codificacion_s": 28.6,
+        "cpu_node_pct": 23
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 5.37,
+        "load_end": 5.62
       }
     },
     {
       "id": "D-04",
       "title": "Despliegue canary y blue-green con reversión automática y sin corte",
-      "claim": "Con consumidores llamando sin pausa por el gateway, una versión defectuosa se revierte sola durante su fase sombra, la versión corregida avanza en canary 5 → 25 → 50 → 100 % y un blue-green devuelve el tráfico de una vez, sin que ningún consumidor reciba un error.",
-      "file": "D-04_canary_blue_green.webm",
+      "claim": "Con un consumidor llamando sin pausa por el gateway, una versión que falla con el 25 % del tráfico real se revierte sola, la versión corregida avanza en canary 5 → 25 → 50 → 100 % y un blue-green devuelve el tráfico de una vez; cada cambio lo aprueba una persona distinta de quien lo pide.",
+      "file": "D-04_canary_blue_green.mp4",
+      "sha256": "eccf4aca9e4f27eace180858fd0c7d9b33e11bdfe18425c16dc03e91fac4c79a",
+      "size_bytes": 29459439,
+      "duration_seconds": 149.4,
+      "frames": 4483,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "D-04_canary_blue_green.jpg",
-      "duration_seconds": 126.9,
-      "frames": 1903,
-      "sha256": "ca31fb1a3d345e5107aa6637203ecff6cfa75aaec3c610cb165ca29a3d1366cd",
-      "size_bytes": 1969677,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T14:58:20-03:00",
+      "steps_file": "D-04_canary_blue_green.pasos.json",
+      "subtitles": "D-04_canary_blue_green.vtt",
+      "chapters_file": "D-04_canary_blue_green.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "Producción estable: el consumidor llama sin pausa",
+          "start_s": 4.43,
+          "end_s": 12.13
+        },
+        {
+          "n": 2,
+          "title": "Una persona pide el cambio y otra lo aprueba",
+          "start_s": 12.13,
+          "end_s": 20.94
+        },
+        {
+          "n": 3,
+          "title": "Falla real con el 25 % del tráfico: se revierte solo",
+          "start_s": 20.94,
+          "end_s": 49.4
+        },
+        {
+          "n": 4,
+          "title": "Versión corregida: avanza 5 → 25 → 50 → 100 %",
+          "start_s": 49.4,
+          "end_s": 122.6
+        },
+        {
+          "n": 5,
+          "title": "Blue-green: vuelta a concesiones-v1 de una vez",
+          "start_s": 122.6,
+          "end_s": 146.42
+        }
+      ],
+      "video_stream_md5": "3950537f3d2de2b51b3a6ab69028cdc9",
+      "without_music": {
+        "file": "D-04_canary_blue_green.sin-musica.mp4",
+        "sha256": "7c85a418c3123cec7954ff834e55c2ea291fa3e7ba06d15a4da1fe1d02b8c93e",
+        "size_bytes": 26321858
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 2,
+        "seed": 215139879,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.9 s (≈ 61 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 21 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "c424c5c17ce9601a28468375ed4c703486c8bbc9e9398fc7e16814bd31991a4c",
+        "integrated_lufs": -18,
+        "true_peak_dbtp": -4.8,
+        "lra_lu": 4.9,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:54:55-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "2180 llamadas de consumidores, 0 errores: reversión automática en 4 s, canary completo en 60 s y blue-green en 16 s",
+      "result": "2.780 llamadas del consumidor: la falla con el 25 % del tráfico se revirtió sola en 2,1 s (6 errores, solo en ese tramo); el canary corregido llegó al 100 % en 58 s y el blue-green volvió en 16 s sin errores",
       "checks": [
         {
-          "texto": "versión defectuosa revertida automáticamente en la sombra",
+          "texto": "endpoint estable: concesiones-v1",
           "ok": true,
-          "detalle": "revertido a los 4 s"
+          "detalle": "http://concesiones-v1:7001"
         },
         {
-          "texto": "ningún error para los consumidores durante la reversión",
+          "texto": "el consumidor recibe respuestas sin errores",
+          "ok": true,
+          "detalle": "80 respuestas de concesiones-v1 · 0 errores"
+        },
+        {
+          "texto": "quien solicita no puede aprobar (HTTP 403)",
+          "ok": true,
+          "detalle": "HTTP 403"
+        },
+        {
+          "texto": "aprobado por otra persona",
+          "ok": true,
+          "detalle": "luis.aprobador"
+        },
+        {
+          "texto": "reversión automática en el paso de 25 %",
+          "ok": true,
+          "detalle": "revertido a los 2,1 s de empezar la falla"
+        },
+        {
+          "texto": "errores solo mientras duró la falla",
+          "ok": true,
+          "detalle": "6 errores en 2,1 s · después, 0"
+        },
+        {
+          "texto": "el tráfico vuelve entero a concesiones-v1",
+          "ok": true,
+          "detalle": "estable concesiones-v1 · últimos 3 s sin concesiones-v2"
+        },
+        {
+          "texto": "canary completado al 100 %",
+          "ok": true,
+          "detalle": "sombra → 5 % → 25 % → 50 % → 100 % en 58 s"
+        },
+        {
+          "texto": "sin errores nuevos para el consumidor en este paso",
           "ok": true,
           "detalle": "0 errores"
         },
         {
-          "texto": "canary completado: la versión nueva recibe el 100 %",
+          "texto": "endpoint estable ahora: concesiones-v2",
           "ok": true,
-          "detalle": "sombra → 5% → 25% → 50% → 100% en 60 s"
-        },
-        {
-          "texto": "sin errores para los consumidores durante el canary",
-          "ok": true,
-          "detalle": "0 errores"
+          "detalle": "http://concesiones-v2:7001"
         },
         {
           "texto": "blue-green completado",
@@ -238,205 +650,794 @@
           "detalle": "en 16 s"
         },
         {
-          "texto": "sin errores durante el blue-green",
+          "texto": "sin errores durante el cambio",
           "ok": true,
           "detalle": "0 errores"
         },
         {
-          "texto": "ambas versiones atendieron y el servicio no se cortó",
+          "texto": "ambos backends atendieron tráfico real",
           "ok": true,
-          "detalle": "2180 llamadas, 0 errores"
+          "detalle": "2.780 llamadas · 6 errores, solo durante la falla"
         }
       ],
       "data": {
-        "llamadas": 2180,
-        "errores": 0,
-        "porVersion": {
-          "1.0.0": 1575,
-          "1.1.0": 605
+        "llamadas": 2780,
+        "errores": 6,
+        "porBackend": {
+          "concesiones-v1": 1887,
+          "concesiones-v2": 887
         },
-        "segReversion": 4,
-        "segCanary": 60,
+        "segReversionDesdeFalla": 2.1,
+        "segCanary": 58,
         "segBlueGreen": 16,
-        "motivoReversion": "tasa de error del candidato 100.0 % supera el umbral de 2.0 % (estable: 0.0 %), en tráfico sombra (ningún consumidor recibió sus respuestas)"
+        "motivoReversion": "tasa de error del candidato 30.8 % supera el umbral de 2.0 % (estable: 0.0 %), con 25 % del tráfico"
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 12.462,
+          "fin_s": 16.264,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 39.679,
+          "fin_s": 43.882,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 84.57,
+          "fin_s": 88.172,
+          "factor": 1.6
+        },
+        {
+          "inicio_s": 110.646,
+          "fin_s": 114.647,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 116.295,
+          "fin_s": 120.097,
+          "factor": 1.8
+        }
+      ],
+      "zoom_fraction": 0.13,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 149.433,
+        "cuadros_recibidos": 4467,
+        "cuadros_video": 4483,
+        "cuadros_unicos": 3409,
+        "cuadros_descartados": 1058,
+        "cps_efectivos": 22.8,
+        "cps_movimiento_p50": 25,
+        "cps_movimiento_p10": 17,
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 0.754,
+        "hueco_p95_s": 0.076,
+        "disco_mb": 1404.1,
+        "codificacion_s": 77.2,
+        "cpu_node_pct": 28
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 5.55,
+        "load_end": 3.55
       }
     },
     {
       "id": "D-05",
       "title": "Conmutación automática CPD ↔ Google Cloud sin intervención manual",
-      "claim": "Cuando el sitio principal cae, los agentes de continuidad conmutan solos al sitio de respaldo si 2 de 3 votos coinciden: promueven la réplica, reapuntan el DNS y registran el RTO; sin quórum no conmutan (evita dos sitios activos) y el retorno lo aprueba una persona.",
-      "file": "D-05_conmutacion.webm",
+      "claim": "Los agentes de continuidad conmutan solos al sitio de respaldo cuando al menos 2 de 3 votos ven caído el sitio principal: promueven la réplica, reapuntan el DNS y registran el RTO, medido desde la falla. Con 1 de 3 votos (una partición) no conmutan, y el retorno lo pide una persona y lo aprueba otra.",
+      "file": "D-05_conmutacion.mp4",
+      "sha256": "d641a95c110e83a7131b7711b5c12204d0a8b8d32c92caac1c7eedfbaf8b52c2",
+      "size_bytes": 25439761,
+      "duration_seconds": 118.7,
+      "frames": 3562,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "D-05_conmutacion.jpg",
-      "duration_seconds": 85.3,
-      "frames": 1279,
-      "sha256": "541a9acb605d560ae06112b581cd6d44d82cc398631fd386e12df55564cb2bf3",
-      "size_bytes": 1537953,
-      "version": "1.0.0",
-      "commit": "2065c2c",
-      "recorded_at": "2026-10-04T15:22:48-03:00",
+      "steps_file": "D-05_conmutacion.pasos.json",
+      "subtitles": "D-05_conmutacion.vtt",
+      "chapters_file": "D-05_conmutacion.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "Estado sano: tres agentes votan y el CPD atiende",
+          "start_s": 4.37,
+          "end_s": 11.37
+        },
+        {
+          "n": 2,
+          "title": "Acto 1 · Partición: un solo agente ve caído el CPD",
+          "start_s": 11.37,
+          "end_s": 42.81
+        },
+        {
+          "n": 3,
+          "title": "Acto 2 · Cae el CPD y se conmuta solo",
+          "start_s": 42.81,
+          "end_s": 61.9
+        },
+        {
+          "n": 4,
+          "title": "Acto 3 · RTO medido desde la falla",
+          "start_s": 61.9,
+          "end_s": 69.91
+        },
+        {
+          "n": 5,
+          "title": "Retorno al CPD: lo pide una persona y lo aprueba otra",
+          "start_s": 69.91,
+          "end_s": 115.73
+        }
+      ],
+      "video_stream_md5": "b4f8b7bb303b829022e888913e8e7568",
+      "without_music": {
+        "file": "D-05_conmutacion.sin-musica.mp4",
+        "sha256": "59ed68550c5e2ce8177b9380b7ddbab51dda673a07d8398aab21b1cc1843c97c",
+        "size_bytes": 22960327
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 1,
+        "seed": 231917498,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 7.0 s (≈ 69 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 29 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "cd4c1bc60056ed36111504b0cddb23a9a6fde1d5746cff8b1fd9c97fd98c4ac3",
+        "integrated_lufs": -17.9,
+        "true_peak_dbtp": -4.9,
+        "lra_lu": 5.6,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "838f39d",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T03:08:44-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "conmutación automática 7,0 s después de formarse el quórum (2 de 3 votos), sin pérdida del dato confirmado; con un solo voto vigente no conmutó en 30 s",
+      "result": "RTO 6,4 s desde la caída del CPD hasta el respaldo activo (conmutación automática con 3 de 3 votos «primario caído», sin pérdida del dato confirmado); con 1 de 3 no conmutó; retorno pedido y aprobado por dos personas en 33 s",
       "checks": [
         {
-          "texto": "CPD activo con tres votos sanos y DNS en 10.80.0.1",
-          "ok": true
+          "texto": "3 de 3 votos «primario sano» · modo automático",
+          "ok": true,
+          "detalle": "3 de 3 sanos · automatico"
         },
         {
-          "texto": "sin quórum no hay conmutación (anti split brain)",
+          "texto": "el DNS apunta al CPD (10.80.0.1)",
           "ok": true,
-          "detalle": "30 s con un solo voto vigente · activo cpd · réplica en espera"
+          "detalle": "10.80.0.1"
         },
         {
-          "texto": "conmutación automática a GCP con quórum",
+          "texto": "dato de control escrito en el CPD y replicado",
           "ok": true,
-          "detalle": "7.0 s desde que volvieron los agentes · réplica promovida · DNS 10.80.0.2"
+          "detalle": "marca-1791871732105 ya está en Google Cloud"
         },
         {
-          "texto": "el dato confirmado sigue en el respaldo (sin pérdida)",
+          "texto": "1 de 3 votos «primario caído»",
           "ok": true,
-          "detalle": "marca-1791138180643"
+          "detalle": "1 de 3 votos «primario caído» (máximo visto)"
         },
         {
-          "texto": "evento automático con RTO medido",
+          "texto": "el CPD sigue activo 20 s después",
           "ok": true,
-          "detalle": "RTO del motor 0.21 s · RPO estimado 0 s"
+          "detalle": "activo CPD tras 28 s de partición"
         },
         {
-          "texto": "retorno al CPD aprobado por una persona",
+          "texto": "la réplica de Google Cloud no se promueve",
           "ok": true,
-          "detalle": "8 s · DNS 10.80.0.1"
+          "detalle": "sigue en espera (pg_is_in_recovery = t)"
         },
         {
-          "texto": "réplica del respaldo reconstruida y en espera",
+          "texto": "conmutación automática a Google Cloud",
           "ok": true,
-          "detalle": "3 s"
+          "detalle": "activo GCP · réplica promovida (lectura y escritura)"
+        },
+        {
+          "texto": "el DNS apunta al respaldo (10.80.0.2)",
+          "ok": true,
+          "detalle": "10.80.0.2"
+        },
+        {
+          "texto": "el dato de control sigue en el respaldo",
+          "ok": true,
+          "detalle": "marca-1791871732105 presente (sin pérdida del dato confirmado)"
+        },
+        {
+          "texto": "RTO desde la falla dentro del objetivo",
+          "ok": true,
+          "detalle": "6,4 s (objetivo 15 min)"
+        },
+        {
+          "texto": "evento automático con el RTO del motor",
+          "ok": true,
+          "detalle": "conmutación misma 0,18 s · RPO no medido (se registra el rezago de WAL)"
+        },
+        {
+          "texto": "conmutación registrada en la auditoría",
+          "ok": true,
+          "detalle": "continuidad.conmutar · conmutacion/f68f3dfd-d1f7-4a0a-a840-14a95ce5bb15"
+        },
+        {
+          "texto": "quien solicita no puede aprobar (HTTP 403)",
+          "ok": true,
+          "detalle": "HTTP 403"
+        },
+        {
+          "texto": "retorno aprobado por otra persona",
+          "ok": true,
+          "detalle": "pidió carla.operacion · aprobó luis.aprobador"
+        },
+        {
+          "texto": "CPD activo de nuevo y DNS en 10.80.0.1",
+          "ok": true,
+          "detalle": "33 s desde la solicitud · DNS 10.80.0.1"
         }
       ],
       "data": {
-        "segundosConmutacion": 7,
-        "rtoMotorSeg": 0.21,
-        "rpoEstimadoSeg": 0,
-        "segundosRetorno": 8
+        "rtoDesdeFallaSeg": 6.4,
+        "rtoMotorSeg": 0.183,
+        "rpoEstimadoSeg": null,
+        "votosEnParticion": 1,
+        "votosAlConmutar": 3,
+        "segundosRetorno": 33,
+        "particion": "hosts"
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 23.663,
+          "fin_s": 27.464,
+          "factor": 1.8
+        },
+        {
+          "inicio_s": 54.906,
+          "fin_s": 58.71,
+          "factor": 1.8
+        },
+        {
+          "inicio_s": 63.251,
+          "fin_s": 67.253,
+          "factor": 1.8
+        },
+        {
+          "inicio_s": 109.629,
+          "fin_s": 113.229,
+          "factor": 1.8
+        }
+      ],
+      "zoom_fraction": 0.128,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 118.733,
+        "cuadros_recibidos": 4610,
+        "cuadros_video": 3562,
+        "cuadros_unicos": 3004,
+        "cuadros_descartados": 1606,
+        "cps_efectivos": 25.3,
+        "cps_movimiento_p50": 28,
+        "cps_movimiento_p10": 22,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.752,
+        "hueco_p95_s": 0.05,
+        "disco_mb": 1494.2,
+        "codificacion_s": 67.5,
+        "cpu_node_pct": 24
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 2.08,
+        "load_end": 5.45
       }
     },
     {
       "id": "D-06",
-      "title": "GraphQL y APIs de eventos con contratos AsyncAPI",
-      "claim": "La plataforma publica y protege APIs GraphQL y APIs dirigidas por eventos descritas con AsyncAPI (WebSocket), en el mismo gateway, portal y control de acceso que las APIs REST y SOAP.",
-      "file": "D-06_graphql_asyncapi.webm",
+      "title": "GraphQL nativo y APIs de eventos con contratos AsyncAPI",
+      "claim": "La plataforma publica y protege APIs GraphQL nativas (con su esquema, su publicación y sus políticas) y APIs dirigidas por eventos descritas con AsyncAPI y entregadas por WebSocket, en el mismo gateway, portal y control de acceso que las APIs REST.",
+      "file": "D-06_graphql_asyncapi.mp4",
+      "sha256": "592a58931881aefd47eba54d5075e1a22e4b9715c21d1ba249ab1790c859a822",
+      "size_bytes": 11527622,
+      "duration_seconds": 59.3,
+      "frames": 1779,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "D-06_graphql_asyncapi.jpg",
-      "duration_seconds": 48.8,
-      "frames": 732,
-      "sha256": "e6ed033695257169a5da89b7f574deedaf4ab22d26cdae06444058b15600766b",
-      "size_bytes": 1138971,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T15:03:29-03:00",
-      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "consulta GraphQL respondida por el gateway en 74 ms y 3 eventos AsyncAPI recibidos por WebSocket, ambos con token OAuth",
-      "checks": [
+      "steps_file": "D-06_graphql_asyncapi.pasos.json",
+      "subtitles": "D-06_graphql_asyncapi.vtt",
+      "chapters_file": "D-06_graphql_asyncapi.capitulos.vtt",
+      "chapters": [
         {
-          "texto": "consulta GraphQL respondida por el gateway",
-          "ok": true,
-          "detalle": "3 estados · 2 concesiones"
+          "n": 1,
+          "title": "Un mismo portal para APIs REST, GraphQL y de eventos",
+          "start_s": 4.43,
+          "end_s": 15.08
         },
         {
-          "texto": "sin token el gateway la rechaza",
+          "n": 2,
+          "title": "GraphQL nativo: tipo, publicación y esquema",
+          "start_s": 15.08,
+          "end_s": 25.49
+        },
+        {
+          "n": 3,
+          "title": "Políticas sobre GraphQL en el gateway",
+          "start_s": 25.49,
+          "end_s": 32.49
+        },
+        {
+          "n": 4,
+          "title": "AsyncAPI: el contrato de la API de eventos",
+          "start_s": 32.49,
+          "end_s": 42.5
+        },
+        {
+          "n": 5,
+          "title": "Eventos en vivo por WebSocket con token OAuth",
+          "start_s": 42.5,
+          "end_s": 56.28
+        }
+      ],
+      "video_stream_md5": "8ad108f1da433987c293748cc5011a47",
+      "without_music": {
+        "file": "D-06_graphql_asyncapi.sin-musica.mp4",
+        "sha256": "ac9d700684eb8ac2777967aa546037b8223eab8ddc392c7b056b8384c8403f6c",
+        "size_bytes": 10296725
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 1,
+        "seed": 231917498,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.6 s (≈ 73 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "ff4966dbe5cefcfda1f76df08daa922969327ae400d1ea046f9bc0598dc50145",
+        "integrated_lufs": -17.9,
+        "true_peak_dbtp": -4.9,
+        "lra_lu": 5.3,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:40:52-03:00",
+      "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
+      "result": "API GraphQL nativa publicada con su esquema (3 consultas) y protegida (con token 200, sin token 401, fuera del esquema 422); contrato AsyncAPI 2.6.0 y 3 eventos recibidos por WebSocket con token OAuth",
+      "checks": [
+        {
+          "texto": "el portal publica una API GraphQL",
+          "ok": true,
+          "detalle": "ConcesionesGraphQL · tipo GRAPHQL"
+        },
+        {
+          "texto": "el portal publica una API de eventos (WebSocket)",
+          "ok": true,
+          "detalle": "EventosRed · tipo WS"
+        },
+        {
+          "texto": "la API es de tipo GRAPHQL y está publicada",
+          "ok": true,
+          "detalle": "GRAPHQL · PUBLISHED"
+        },
+        {
+          "texto": "el esquema publicado define las consultas",
+          "ok": true,
+          "detalle": "Query: concesiones, concesion, totalPorEstado"
+        },
+        {
+          "texto": "planes de uso y OAuth2 aplicados a la API",
+          "ok": true,
+          "detalle": "Interno, Unlimited · oauth2"
+        },
+        {
+          "texto": "consulta con token: respondida por el gateway",
+          "ok": true,
+          "detalle": "HTTP 200 · 3 estados · 2 concesiones"
+        },
+        {
+          "texto": "sin token: rechazada",
           "ok": true,
           "detalle": "HTTP 401"
         },
         {
-          "texto": "eventos recibidos por WebSocket con token OAuth",
+          "texto": "campo fuera del esquema: rechazado",
+          "ok": true,
+          "detalle": "HTTP 422 · {\"code\":\"900422\",\"message\":\"INVALID QUERY\",\"description\":\"Va"
+        },
+        {
+          "texto": "el contrato AsyncAPI publicado describe sus canales",
+          "ok": true,
+          "detalle": "AsyncAPI 2.6.0 · 1 canal(es)"
+        },
+        {
+          "texto": "el contrato cumple la guía de estilo AsyncAPI",
+          "ok": true,
+          "detalle": "código de salida 0"
+        },
+        {
+          "texto": "con token: llegan eventos por WebSocket",
           "ok": true,
           "detalle": "3 eventos"
         },
         {
-          "texto": "check-d06: GraphQL y eventos AsyncAPI a través del gateway",
-          "ok": true
+          "texto": "sin token: no se abre la suscripción",
+          "ok": true,
+          "detalle": "HTTP 401"
+        },
+        {
+          "texto": "verificación automática check-d06",
+          "ok": true,
+          "detalle": "GraphQL y eventos a través del gateway"
         }
       ],
       "data": {
-        "msGraphQL": 74,
+        "msGraphQL": 112,
+        "consultas": [
+          "concesiones",
+          "concesion",
+          "totalPorEstado"
+        ],
+        "sinToken": 401,
+        "fueraDeEsquema": 422,
+        "canales": [
+          "/ws"
+        ],
         "eventos": 3
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 7.883,
+          "fin_s": 11.495,
+          "factor": 1.6
+        },
+        {
+          "inicio_s": 19.381,
+          "fin_s": 22.986,
+          "factor": 1.5
+        }
+      ],
+      "zoom_fraction": 0.122,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 59.3,
+        "cuadros_recibidos": 2072,
+        "cuadros_video": 1779,
+        "cuadros_unicos": 1356,
+        "cuadros_descartados": 716,
+        "cps_efectivos": 22.9,
+        "cps_movimiento_p50": 26,
+        "cps_movimiento_p10": 20,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.51,
+        "hueco_p95_s": 0.066,
+        "disco_mb": 567.8,
+        "codificacion_s": 31.3,
+        "cpu_node_pct": 25
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 5.62,
+        "load_end": 4.99
       }
     },
     {
       "id": "D-07",
       "title": "Generación automática de SDK desde el contrato OpenAPI publicado",
-      "claim": "El portal de desarrolladores genera al momento, desde el contrato OpenAPI publicado, kits de desarrollo en Java, JavaScript, Python, C# y Android; cada uno trae las operaciones del contrato y el cliente generado funciona contra el gateway.",
-      "file": "D-07_sdk.webm",
+      "claim": "El generador integrado del portal de desarrolladores produce al momento, desde el contrato OpenAPI publicado, kits de desarrollo en los lenguajes que tiene habilitados (Java, JavaScript, Python, C# y Android en el laboratorio); cada uno trae las operaciones del contrato y el cliente JavaScript generado funciona contra el gateway.",
+      "file": "D-07_sdk.mp4",
+      "sha256": "cf90c37f38bb299db1e5a596a20bd9b747f54863ca088573adb1f20fad3f34a3",
+      "size_bytes": 10834072,
+      "duration_seconds": 58.3,
+      "frames": 1748,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "D-07_sdk.jpg",
-      "duration_seconds": 49.5,
-      "frames": 742,
-      "sha256": "d7decb49ed90ad14caccede8f5639d7511490b027a31e896efb734991c04b107",
-      "size_bytes": 870487,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T15:05:04-03:00",
+      "steps_file": "D-07_sdk.pasos.json",
+      "subtitles": "D-07_sdk.vtt",
+      "chapters_file": "D-07_sdk.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "El contrato OpenAPI publicado de la API Concesiones",
+          "start_s": 4.33,
+          "end_s": 12.9
+        },
+        {
+          "n": 2,
+          "title": "Lenguajes del generador integrado en el portal",
+          "start_s": 12.9,
+          "end_s": 20.93
+        },
+        {
+          "n": 3,
+          "title": "El portal genera y descarga un SDK por lenguaje",
+          "start_s": 20.93,
+          "end_s": 37.01
+        },
+        {
+          "n": 4,
+          "title": "El cliente JavaScript generado consulta la API por el gateway",
+          "start_s": 37.02,
+          "end_s": 55.25
+        }
+      ],
+      "video_stream_md5": "098d7cf6d5f2d7b90b1e97d4e43e8494",
+      "without_music": {
+        "file": "D-07_sdk.sin-musica.mp4",
+        "sha256": "f0d166213d9acb8fa1da1fbe6fe63f316751be672d993624c2a571cfbb80163d",
+        "size_bytes": 9622745
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 3,
+        "seed": 198362260,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 7.3 s (≈ 66 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 11 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "88b448c623eda204f82bc0cd24cac91dd82a27736dfc74a791ad27284b10ce19",
+        "integrated_lufs": -17.9,
+        "true_peak_dbtp": -4.9,
+        "lra_lu": 5.6,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:42:34-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "5 SDK generados desde el contrato publicado (Java, JavaScript, Python, C# y Android), con sus 3 operaciones; el cliente JavaScript generado consultó la API por el gateway",
+      "result": "5 SDK generados al momento desde el contrato publicado (java, javascript, python, csharp, android), con sus 3 operaciones; el cliente JavaScript generado consultó la API por el gateway",
       "checks": [
         {
-          "texto": "contrato publicado con operaciones",
+          "texto": "el contrato publicado tiene operaciones",
           "ok": true,
           "detalle": "3 operaciones"
         },
         {
-          "texto": "SDK generados con todas las operaciones del contrato",
+          "texto": "el generador ofrece al menos 3 lenguajes",
+          "ok": true,
+          "detalle": "5: java, javascript, python, csharp, android"
+        },
+        {
+          "texto": "SDK con todas las operaciones del contrato en al menos 3 lenguajes",
           "ok": true,
           "detalle": "5 de 5 lenguajes"
         },
         {
-          "texto": "SDK JavaScript instalado y compilado",
+          "texto": "el SDK JavaScript se instala y compila",
           "ok": true,
           "detalle": "código 0"
         },
         {
-          "texto": "el cliente JavaScript generado consulta la API por el gateway",
+          "texto": "el cliente generado consulta la API por el gateway",
           "ok": true,
           "detalle": "total vigentes: 142"
         }
       ],
       "data": {
+        "habilitados": [
+          "java",
+          "javascript",
+          "python",
+          "csharp",
+          "android"
+        ],
         "lenguajes": 5,
-        "operaciones": ["listarConcesiones", "registrarSolicitud", "obtenerConcesion"]
+        "operaciones": [
+          "listarConcesiones",
+          "registrarSolicitud",
+          "obtenerConcesion"
+        ],
+        "sdk": [
+          {
+            "lenguaje": "java",
+            "kb": 123,
+            "archivos": 53,
+            "ok": true
+          },
+          {
+            "lenguaje": "javascript",
+            "kb": 26,
+            "archivos": 24,
+            "ok": true
+          },
+          {
+            "lenguaje": "python",
+            "kb": 39,
+            "archivos": 37,
+            "ok": true
+          },
+          {
+            "lenguaje": "csharp",
+            "kb": 55,
+            "archivos": 43,
+            "ok": true
+          },
+          {
+            "lenguaje": "android",
+            "kb": 85,
+            "archivos": 33,
+            "ok": true
+          }
+        ]
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 15.023,
+          "fin_s": 18.425,
+          "factor": 1.5
+        }
+      ],
+      "zoom_fraction": 0.058,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 58.267,
+        "cuadros_recibidos": 2084,
+        "cuadros_video": 1748,
+        "cuadros_unicos": 1366,
+        "cuadros_descartados": 718,
+        "cps_efectivos": 23.4,
+        "cps_movimiento_p50": 27,
+        "cps_movimiento_p10": 21,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.504,
+        "hueco_p95_s": 0.067,
+        "disco_mb": 573.4,
+        "codificacion_s": 30.1,
+        "cpu_node_pct": 26
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 4.99,
+        "load_end": 4.79
       }
     },
     {
       "id": "D-08",
       "title": "Autoservicio en el portal de desarrolladores con aprobación institucional",
       "claim": "Una persona externa se registra sola en el portal de desarrolladores, solicita una aplicación, sus credenciales y la suscripción a una API; cada paso queda pendiente hasta que la institución lo aprueba, y solo entonces puede consumir la API.",
-      "file": "D-08_autoservicio_aprobacion.webm",
+      "file": "D-08_autoservicio_aprobacion.mp4",
+      "sha256": "a8f8ec52ceb96857e51463e03c768f697ab8ba4643905da1168e89bc8504cf86",
+      "size_bytes": 23638350,
+      "duration_seconds": 169.5,
+      "frames": 5084,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "D-08_autoservicio_aprobacion.jpg",
-      "duration_seconds": 123.4,
-      "frames": 1851,
-      "sha256": "8b0d448636ead5208a7d8c8ae980b100949b35217daa3a234d6805fde995ee88",
-      "size_bytes": 2463078,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T15:06:40-03:00",
+      "steps_file": "D-08_autoservicio_aprobacion.pasos.json",
+      "subtitles": "D-08_autoservicio_aprobacion.vtt",
+      "chapters_file": "D-08_autoservicio_aprobacion.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "Autorregistro de una persona de un operador",
+          "start_s": 4.34,
+          "end_s": 48.8
+        },
+        {
+          "n": 2,
+          "title": "Sin aprobación no hay acceso",
+          "start_s": 48.8,
+          "end_s": 68.53
+        },
+        {
+          "n": 3,
+          "title": "La institución aprueba el registro",
+          "start_s": 68.53,
+          "end_s": 76.63
+        },
+        {
+          "n": 4,
+          "title": "Aplicación y credenciales en Keycloak, con aprobación",
+          "start_s": 76.63,
+          "end_s": 139.2
+        },
+        {
+          "n": 5,
+          "title": "Suscripción a una API: pendiente hasta aprobarla",
+          "start_s": 139.2,
+          "end_s": 159.43
+        },
+        {
+          "n": 6,
+          "title": "Con todo aprobado, la persona consume la API",
+          "start_s": 159.43,
+          "end_s": 166.43
+        }
+      ],
+      "video_stream_md5": "b9ef4bdc57186e78b85ba4661c728bec",
+      "without_music": {
+        "file": "D-08_autoservicio_aprobacion.sin-musica.mp4",
+        "sha256": "368eeefd21c820b20909fad00e051159024afc2b65e9e30a0dd9502d759b90d0",
+        "size_bytes": 20097953
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 3,
+        "seed": 198362260,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.1 s (≈ 79 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 43 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "a90ffd33e7c69cd1551b080ca0041da419ce7dd785c1cacfff55fb3688f5423e",
+        "integrated_lufs": -18,
+        "true_peak_dbtp": -4.8,
+        "lra_lu": 6.2,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:44:15-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "registro, aplicación, credenciales en Keycloak y suscripción: cada paso esperó la aprobación institucional; sin ella, sin acceso al portal (403) ni a la API (401); con ella, 200",
       "checks": [
         {
+          "texto": "la cuenta queda registrada",
+          "ok": true,
+          "detalle": "operador.054415"
+        },
+        {
           "texto": "registro pendiente: la persona no entra al portal",
           "ok": true,
-          "detalle": "Error 403 en el Dev Portal"
+          "detalle": "Error 403 · 1 solicitud pendiente"
         },
         {
           "texto": "registro aprobado por la institución",
           "ok": true,
-          "detalle": "operador.180640"
+          "detalle": "operador.054415 · por admin"
         },
         {
           "texto": "creación de la aplicación aprobada",
           "ok": true,
-          "detalle": "Reportes 180640"
+          "detalle": "Reportes 054415"
         },
         {
           "texto": "credenciales de producción emitidas en Keycloak tras la aprobación",
           "ok": true,
-          "detalle": "61e95b1c…"
+          "detalle": "0b72d4ba…"
         },
         {
           "texto": "con la suscripción pendiente el gateway la rechaza",
@@ -449,43 +1450,177 @@
           "detalle": "HTTP 200"
         },
         {
-          "texto": "cuatro aprobaciones institucionales resueltas: registro, aplicación, credenciales y suscripción",
+          "texto": "cuatro aprobaciones resueltas: registro, aplicación, credenciales y suscripción",
           "ok": true,
           "detalle": "0 pendientes"
         }
       ],
       "data": {
-        "usuario": "operador.180640",
-        "aplicacion": "Reportes 180640",
+        "usuario": "operador.054415",
+        "aplicacion": "Reportes 054415",
         "antes": 401,
         "despues": 200
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 43.09,
+          "fin_s": 46.291,
+          "factor": 1.6
+        },
+        {
+          "inicio_s": 62.418,
+          "fin_s": 65.62,
+          "factor": 1.6
+        },
+        {
+          "inicio_s": 71.136,
+          "fin_s": 74.83,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 105.583,
+          "fin_s": 108.486,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 124.041,
+          "fin_s": 126.944,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 133.686,
+          "fin_s": 136.586,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 155.729,
+          "fin_s": 159.424,
+          "factor": 1.5
+        }
+      ],
+      "zoom_fraction": 0.133,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 169.467,
+        "cuadros_recibidos": 5773,
+        "cuadros_video": 5084,
+        "cuadros_unicos": 4134,
+        "cuadros_descartados": 1639,
+        "cps_efectivos": 24.4,
+        "cps_movimiento_p50": 26,
+        "cps_movimiento_p10": 19,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.752,
+        "hueco_p95_s": 0.063,
+        "disco_mb": 1185.6,
+        "codificacion_s": 82,
+        "cpu_node_pct": 23
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 4.79,
+        "load_end": 4.76
       }
     },
     {
       "id": "BT-005",
       "title": "Publicar, proteger y enrutar una API en el gateway",
       "claim": "Una API definida por su contrato OpenAPI se publica en el gateway desde el pipeline, queda protegida con OAuth (Keycloak), suscripción y límite del plan, y enruta cada llamada al sistema de destino.",
-      "file": "BT-005_publicar_proteger.webm",
+      "file": "BT-005_publicar_proteger.mp4",
+      "sha256": "585ba2f8408814087663c9f0db453a5131e372c4896208b9e9a25737cb25281b",
+      "size_bytes": 11415734,
+      "duration_seconds": 55,
+      "frames": 1650,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "BT-005_publicar_proteger.jpg",
-      "duration_seconds": 46.8,
-      "frames": 702,
-      "sha256": "124e719ccef55bf7760bfc1a0f72586855f521570abca62323738dfc33d407af",
-      "size_bytes": 1011058,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T15:10:17-03:00",
+      "steps_file": "BT-005_publicar_proteger.pasos.json",
+      "subtitles": "BT-005_publicar_proteger.vtt",
+      "chapters_file": "BT-005_publicar_proteger.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "Proyecto de API: contrato y políticas en un solo lugar",
+          "start_s": 4.26,
+          "end_s": 11.26
+        },
+        {
+          "n": 2,
+          "title": "El pipeline la valida, la despliega en el gateway y la publica",
+          "start_s": 11.26,
+          "end_s": 28.92
+        },
+        {
+          "n": 3,
+          "title": "Protección: sin token 401, sin suscripción 403, suscrita 200",
+          "start_s": 28.92,
+          "end_s": 35.92
+        },
+        {
+          "n": 4,
+          "title": "Límite del plan: el exceso recibe 429",
+          "start_s": 35.92,
+          "end_s": 42.92
+        },
+        {
+          "n": 5,
+          "title": "Enrutamiento: la analítica registra el destino de cada llamada",
+          "start_s": 42.92,
+          "end_s": 51.97
+        }
+      ],
+      "video_stream_md5": "14ebeb40053d17110eded204cdfba087",
+      "without_music": {
+        "file": "BT-005_publicar_proteger.sin-musica.mp4",
+        "sha256": "b34f18544ceb50b59506c26ece8aaf260327958245869da2d3fdf2d1d35aa667",
+        "size_bytes": 10279189
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 1,
+        "seed": 231917498,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.1 s (≈ 79 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "4a84d09247aed81ada2c6bd228c736caaac51970229c402a3bf9a286c10d7137",
+        "integrated_lufs": -17.9,
+        "true_peak_dbtp": -4.3,
+        "lra_lu": 4.7,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:51:36-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "API publicada por el pipeline y protegida: 401 sin token, 403 sin suscripción, 200 suscrita y 35 de 60 llamadas limitadas (429) por el plan",
+      "result": "API publicada por el pipeline y protegida: 401 sin token, 403 sin suscripción, 200 suscrita y 40 de 60 llamadas limitadas (429) por el plan",
       "checks": [
+        {
+          "texto": "el contrato cumple la guía de estilo",
+          "ok": true,
+          "detalle": "código 0 · Resultado: 0 errores, 0 advertencias, 0 info."
+        },
         {
           "texto": "pipeline terminó sin errores",
           "ok": true,
           "detalle": "código 0"
         },
         {
-          "texto": "API creada y publicada en WSO2",
+          "texto": "API publicada en el gateway",
           "ok": true,
-          "detalle": "PUBLISHED"
+          "detalle": "PUBLISHED · revisión desplegada en Default"
         },
         {
           "texto": "sin token: el gateway rechaza (401)",
@@ -493,24 +1628,24 @@
           "detalle": "HTTP 401"
         },
         {
-          "texto": "token válido pero sin suscripción: rechazo (403)",
+          "texto": "token válido sin suscripción: rechazo (403)",
           "ok": true,
           "detalle": "HTTP 403"
         },
         {
-          "texto": "suscrita y con token: 200 con la respuesta del sistema de destino",
+          "texto": "suscrita: 200 con la respuesta del destino",
           "ok": true,
-          "detalle": "HTTP 200"
+          "detalle": "HTTP 200 · {\"tarifas\":[{\"plan\":\"base\",\"valor\":9990}]}"
         },
         {
           "texto": "el gateway aplica el límite del plan (429)",
           "ok": true,
-          "detalle": "25 atendidas · 35 limitadas"
+          "detalle": "20 atendidas · 40 limitadas"
         },
         {
           "texto": "las llamadas autorizadas llegaron al sistema de destino",
           "ok": true,
-          "detalle": "http://ocultas:7001/legacy · 26 llamadas"
+          "detalle": "http://ocultas:7001/legacy · 21 llamadas"
         }
       ],
       "data": {
@@ -518,34 +1653,149 @@
         "sinSuscripcion": 403,
         "suscrita": 200,
         "limite": {
-          "200": 25,
-          "429": 35
+          "200": 20,
+          "429": 40
         }
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 19.744,
+          "fin_s": 23.546,
+          "factor": 1.8
+        }
+      ],
+      "zoom_fraction": 0.069,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 55,
+        "cuadros_recibidos": 2097,
+        "cuadros_video": 1650,
+        "cuadros_unicos": 1304,
+        "cuadros_descartados": 793,
+        "cps_efectivos": 23.7,
+        "cps_movimiento_p50": 28,
+        "cps_movimiento_p10": 20,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.756,
+        "hueco_p95_s": 0.057,
+        "disco_mb": 628.1,
+        "codificacion_s": 30.4,
+        "cpu_node_pct": 20
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 5.12,
+        "load_end": 4.77
       }
     },
     {
       "id": "BT-008",
       "title": "Flujo de integración con validación, transformación y orquestación",
-      "claim": "El flujo de solicitudes de concesión valida cada mensaje contra su contrato, evita duplicados, orquesta una consulta SOAP 1.2 y una cola de mensajería, transforma los datos, trata las fallas del destino con reintentos y cola de fallidos, y registra cada etapa con su correlación.",
-      "file": "BT-008_flujo_integracion.webm",
+      "claim": "El flujo de solicitudes de concesión valida cada mensaje contra su contrato, evita duplicados, orquesta una consulta SOAP 1.2 y una cola de mensajería, transforma los datos y los entrega al sistema de destino; ante una falla del destino reintenta, deja el mensaje en la cola de fallidos y lo entrega al reprocesarlo, registrando cada etapa con su correlación.",
+      "file": "BT-008_flujo_integracion.mp4",
+      "sha256": "9650a3995d96b137fca48b2dcc4ecba17f54a33d683a2c3b526bc441ae8ca16c",
+      "size_bytes": 19591253,
+      "duration_seconds": 101.5,
+      "frames": 3044,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "BT-008_flujo_integracion.jpg",
-      "duration_seconds": 69.8,
-      "frames": 1047,
-      "sha256": "4c4e9dcd303cd3f6532dbb1c99d91244a5aaa8bdb35429c55ee4c1452b8bfd76",
-      "size_bytes": 1717873,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T15:11:48-03:00",
+      "steps_file": "BT-008_flujo_integracion.pasos.json",
+      "subtitles": "BT-008_flujo_integracion.vtt",
+      "chapters_file": "BT-008_flujo_integracion.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "El flujo de solicitudes de concesión, etapa por etapa",
+          "start_s": 4.48,
+          "end_s": 13.98
+        },
+        {
+          "n": 2,
+          "title": "Solicitud válida: aceptada y entregada al destino",
+          "start_s": 13.98,
+          "end_s": 20.98
+        },
+        {
+          "n": 3,
+          "title": "Sin duplicados y con rechazo de datos inválidos",
+          "start_s": 20.98,
+          "end_s": 28.59
+        },
+        {
+          "n": 4,
+          "title": "Falla del destino: reintentos y cola de fallidos",
+          "start_s": 28.59,
+          "end_s": 56.55
+        },
+        {
+          "n": 5,
+          "title": "Reproceso aprobado: entrega real y cola vacía",
+          "start_s": 56.55,
+          "end_s": 71.35
+        },
+        {
+          "n": 6,
+          "title": "Traza de punta a punta y verificación automática",
+          "start_s": 71.35,
+          "end_s": 98.44
+        }
+      ],
+      "video_stream_md5": "23a6562790f53a8ca7fe31a7b2b57646",
+      "without_music": {
+        "file": "BT-008_flujo_integracion.sin-musica.mp4",
+        "sha256": "d282dac293e627f83d7d33d9b1b6fa48833d1eb36e90a0de749401440edf13d8",
+        "size_bytes": 17461334
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 2,
+        "seed": 215139879,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 6.8 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 15 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "fec991f7376b97a420fdfb2eff3214125bf396791e2ea4f612d2f5b72a61809f",
+        "integrated_lufs": -18,
+        "true_peak_dbtp": -4.9,
+        "lra_lu": 5,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:35:05-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "solicitud válida aceptada y trazada etapa por etapa, repetición sin duplicar, inválida rechazada (422) y falla del destino derivada a fallidos en 15 s tras 3 reintentos",
+      "result": "solicitud válida entregada al destino (+1 registro), repetición sin duplicar, inválida rechazada (422); con el destino caído el mensaje llegó a fallidos en 18 s y, reprocesado, se entregó (+1 registro) y la cola quedó en 4",
       "checks": [
+        {
+          "texto": "el flujo aparece en el grafo de dependencias",
+          "ok": true,
+          "detalle": "Flujo de integraciónSolicitudesConcesion"
+        },
         {
           "texto": "solicitud aceptada (202) con correlación",
           "ok": true,
-          "detalle": "urn:uuid:30d813ba-0ab6-4aef-8dee-07d3cb75672c"
+          "detalle": "HTTP 202 · urn:uuid:92e7aa89-fe04…"
         },
         {
-          "texto": "repetición idempotente: misma correlación, sin reprocesar",
+          "texto": "el sistema de destino registró la solicitud",
+          "ok": true,
+          "detalle": "+1 en 1 s"
+        },
+        {
+          "texto": "repetición idempotente: misma correlación",
           "ok": true,
           "detalle": "HTTP 200"
         },
@@ -555,51 +1805,181 @@
           "detalle": "HTTP 422"
         },
         {
-          "texto": "mensaje en la cola de fallidos tras agotar los reintentos",
+          "texto": "el destino no registró un duplicado",
           "ok": true,
-          "detalle": "15 s después de aceptado"
+          "detalle": "1 registro de 2 envíos"
         },
         {
-          "texto": "reproceso aprobado y entregado al destino",
+          "texto": "el mensaje llega a la cola de fallidos tras agotar los reintentos",
           "ok": true,
-          "detalle": "reprocesado"
+          "detalle": "18 s después de aceptado"
+        },
+        {
+          "texto": "la Consola muestra el mensaje con sus intentos",
+          "ok": true,
+          "detalle": "4 intentos"
+        },
+        {
+          "texto": "reproceso registrado por la persona aprobadora",
+          "ok": true,
+          "detalle": "reprocesado · luis.aprobador"
+        },
+        {
+          "texto": "el sistema de destino recibió la solicitud reprocesada",
+          "ok": true,
+          "detalle": "+1 en 0 s"
+        },
+        {
+          "texto": "cola de fallidos sin el mensaje (vuelve a 4)",
+          "ok": true,
+          "detalle": "4 mensajes"
         },
         {
           "texto": "traza con el gateway y el integrador",
           "ok": true,
-          "detalle": "WSO2-SYNAPSE, API:Gateway"
+          "detalle": "API:Gateway, WSO2-SYNAPSE"
         },
         {
-          "texto": "check-integracion: gateway → integrador → cola → destino",
-          "ok": true
+          "texto": "verificación automática check-integracion",
+          "ok": true,
+          "detalle": "gateway → integrador → cola → destino"
         }
       ],
       "data": {
-        "correlacion": "urn:uuid:30d813ba-0ab6-4aef-8dee-07d3cb75672c",
-        "segundosHastaFallidos": 15.232,
-        "servicios": ["WSO2-SYNAPSE", "API:Gateway"]
+        "correlacion": "urn:uuid:92e7aa89-fe04-4163-873e-7d973f46fb07",
+        "registrosDestino": {
+          "antes": 2,
+          "final": 4
+        },
+        "segundosHastaFallidos": 18.121,
+        "colaFallidos": {
+          "antes": 4,
+          "despues": 4
+        },
+        "servicios": [
+          "API:Gateway",
+          "WSO2-SYNAPSE"
+        ]
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 8.068,
+          "fin_s": 11.468,
+          "factor": 1.6
+        },
+        {
+          "inicio_s": 50.448,
+          "fin_s": 54.048,
+          "factor": 1.5
+        }
+      ],
+      "zoom_fraction": 0.069,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 101.467,
+        "cuadros_recibidos": 3909,
+        "cuadros_video": 3044,
+        "cuadros_unicos": 2596,
+        "cuadros_descartados": 1313,
+        "cps_efectivos": 25.6,
+        "cps_movimiento_p50": 28,
+        "cps_movimiento_p10": 23,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.769,
+        "hueco_p95_s": 0.049,
+        "disco_mb": 1155.7,
+        "codificacion_s": 56.8,
+        "cpu_node_pct": 23
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 2.22,
+        "load_end": 4.59
       }
     },
     {
       "id": "BT-018",
       "title": "Catálogo de APIs con dueño, contrato, versión y dependencias",
       "claim": "El catálogo de la Consola reúne, para cada API, su propósito, propietario, contrato, versión, autenticación, consumidores, dependencias y estado, sincronizado con WSO2 y consistente con lo que corre en el gateway.",
-      "file": "BT-018_catalogo.webm",
+      "file": "BT-018_catalogo.mp4",
+      "sha256": "a0b524d6795a4f2f7d759da8fd93f452943ff237c46b19fc448f99c43ca604f7",
+      "size_bytes": 9201157,
+      "duration_seconds": 47,
+      "frames": 1410,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "BT-018_catalogo.jpg",
-      "duration_seconds": 51.2,
-      "frames": 768,
-      "sha256": "011aa1765c1c365f5f9eb2ffa661253435357f100e685bc293146f4dcc4ed6ed",
-      "size_bytes": 1239154,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T15:14:03-03:00",
+      "steps_file": "BT-018_catalogo.pasos.json",
+      "subtitles": "BT-018_catalogo.vtt",
+      "chapters_file": "BT-018_catalogo.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "El catálogo se sincroniza con WSO2",
+          "start_s": 4.34,
+          "end_s": 11.34
+        },
+        {
+          "n": 2,
+          "title": "La ficha de una API: dueño, contrato, versión y estado",
+          "start_s": 11.34,
+          "end_s": 27.9
+        },
+        {
+          "n": 3,
+          "title": "Grafo de dependencias de la API",
+          "start_s": 27.9,
+          "end_s": 36.97
+        },
+        {
+          "n": 4,
+          "title": "Consistencia con el entorno de ejecución",
+          "start_s": 36.97,
+          "end_s": 43.97
+        }
+      ],
+      "video_stream_md5": "bf0d246943af182616bdb61c1789052f",
+      "without_music": {
+        "file": "BT-018_catalogo.sin-musica.mp4",
+        "sha256": "010f63ad2447e63618e71ebd30f73d89fecfc6d48616f268b2d6427a97621443",
+        "size_bytes": 8222621
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 2,
+        "seed": 215139879,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 6.7 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 6 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "f38b2ac07960f7d259ad6212a757e755211f26243667c2f13f9ab116c45fc399",
+        "integrated_lufs": -17.9,
+        "true_peak_dbtp": -4.7,
+        "lra_lu": 6.1,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:48:55-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "ficha de Concesiones completa al 100 % y 9 campos idénticos a lo que informa WSO2",
+      "result": "ficha de Concesiones completa al 100 % y 9 de 9 campos idénticos a lo que informa WSO2 (5 de 5 comprobaciones)",
       "checks": [
         {
-          "texto": "catálogo sincronizado",
+          "texto": "catálogo sincronizado con WSO2",
           "ok": true,
-          "detalle": "5 APIs"
+          "detalle": "5 APIs · 810 ms"
         },
         {
           "texto": "ficha completa: los campos comprometidos tienen valor",
@@ -607,39 +1987,19 @@
           "detalle": "completitud 100 %"
         },
         {
-          "texto": "nombre y versión coincide con WSO2",
+          "texto": "la API aparece en el grafo de dependencias",
           "ok": true,
-          "detalle": "Concesiones 1.0.0"
+          "detalle": "4 dependencias · 3 consumidores"
         },
         {
-          "texto": "contexto coincide con WSO2",
+          "texto": "nombre, versión, contexto y estado coinciden con WSO2",
           "ok": true,
-          "detalle": "/concesiones"
+          "detalle": "Concesiones 1.0.0 · /concesiones · PUBLISHED"
         },
         {
-          "texto": "estado coincide con WSO2",
-          "ok": true,
-          "detalle": "PUBLISHED"
-        },
-        {
-          "texto": "propietario coincide con WSO2",
+          "texto": "propietario, contacto, contrato y propósito coinciden con WSO2",
           "ok": true,
           "detalle": "División de Concesiones (sintético)"
-        },
-        {
-          "texto": "contacto coincide con WSO2",
-          "ok": true,
-          "detalle": "concesiones@ejemplo.invalid"
-        },
-        {
-          "texto": "contrato coincide con WSO2",
-          "ok": true,
-          "detalle": "wso2/apim/apis/concesiones/openapi.yaml"
-        },
-        {
-          "texto": "propósito coincide con WSO2",
-          "ok": true,
-          "detalle": "Consultar y registrar concesiones de servicios de "
         },
         {
           "texto": "autenticación coincide con WSO2",
@@ -649,27 +2009,132 @@
         {
           "texto": "consumidores coinciden con las suscripciones activas",
           "ok": true,
-          "detalle": "2 suscripción(es): FiscalizacionDemo, OperadorDemo"
+          "detalle": "3 suscripción(es): ConsumidorAltoVolumen, FiscalizacionDemo, OperadorDemo"
         }
       ],
       "data": {
         "apis": 5,
-        "completitud": 100
+        "completitud": 100,
+        "campos": 9
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 14.059,
+          "fin_s": 17.959,
+          "factor": 1.4
+        },
+        {
+          "inicio_s": 30.562,
+          "fin_s": 34.462,
+          "factor": 1.6
+        }
+      ],
+      "zoom_fraction": 0.166,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 47,
+        "cuadros_recibidos": 1487,
+        "cuadros_video": 1410,
+        "cuadros_unicos": 1071,
+        "cuadros_descartados": 416,
+        "cps_efectivos": 22.8,
+        "cps_movimiento_p50": 27,
+        "cps_movimiento_p10": 22,
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 0.772,
+        "hueco_p95_s": 0.063,
+        "disco_mb": 391.1,
+        "codificacion_s": 25.9,
+        "cpu_node_pct": 25
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 4.76,
+        "load_end": 5.39
       }
     },
     {
       "id": "BT-021",
       "title": "Medición de consumo por consumidor y endpoint, sin cobro",
       "claim": "Cada llamada que pasa por el gateway se atribuye a su aplicación consumidora, a la API y al endpoint; la Consola lo muestra y exporta, los planes limitan el exceso y la facturación permanece desactivada.",
-      "file": "BT-021_consumo.webm",
+      "file": "BT-021_consumo.mp4",
+      "sha256": "ccabdeae76cb5e922a9eb54646c6c054e44ae72d3ae9b240e8e4d61cf9d58306",
+      "size_bytes": 11015372,
+      "duration_seconds": 60.9,
+      "frames": 1826,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "BT-021_consumo.jpg",
-      "duration_seconds": 42.5,
-      "frames": 638,
-      "sha256": "2707105172584c97c4efdc3d127e54968438c1a3591305846e8866b662beed61",
-      "size_bytes": 1034701,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T15:15:40-03:00",
+      "steps_file": "BT-021_consumo.pasos.json",
+      "subtitles": "BT-021_consumo.vtt",
+      "chapters_file": "BT-021_consumo.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "Medición sin facturación",
+          "start_s": 4.49,
+          "end_s": 13.75
+        },
+        {
+          "n": 2,
+          "title": "Dos consumidores llaman a distintos endpoints",
+          "start_s": 13.75,
+          "end_s": 26.35
+        },
+        {
+          "n": 3,
+          "title": "La Consola atribuye el consumo a cada consumidor y endpoint",
+          "start_s": 26.35,
+          "end_s": 43.83
+        },
+        {
+          "n": 4,
+          "title": "Exportación del consumo en CSV",
+          "start_s": 43.83,
+          "end_s": 50.83
+        },
+        {
+          "n": 5,
+          "title": "El plan limita el exceso",
+          "start_s": 50.83,
+          "end_s": 57.84
+        }
+      ],
+      "video_stream_md5": "83fccb1f6ea06d010b705d50ea8a9d6d",
+      "without_music": {
+        "file": "BT-021_consumo.sin-musica.mp4",
+        "sha256": "9f0ca9a88adb01ce4efed8f632887718127eef808545161aa12c6c04e883addb",
+        "size_bytes": 9749258
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 1,
+        "seed": 231917498,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.8 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "7effbf30dda6130d5338fe9a048d496f060a2a80ab6c2f4529870e6f7e3d0023",
+        "integrated_lufs": -18,
+        "true_peak_dbtp": -4.9,
+        "lra_lu": 4.7,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:53:10-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "80 llamadas atribuidas sin diferencias a 2 consumidores y 2 endpoints, exportadas en CSV; el plan limitó 25 de 45 llamadas en exceso; facturación desactivada",
       "checks": [
@@ -677,6 +2142,11 @@
           "texto": "todos los planes sin cobro (FREE)",
           "ok": true,
           "detalle": "22 planes"
+        },
+        {
+          "texto": "las 80 llamadas responden 200",
+          "ok": true,
+          "detalle": "80 de 80"
         },
         {
           "texto": "OperadorDemo: llamadas atribuidas = enviadas",
@@ -701,12 +2171,12 @@
         {
           "texto": "CSV con consumidores y endpoints",
           "ok": true,
-          "detalle": "12 filas"
+          "detalle": "14 filas"
         },
         {
           "texto": "el plan limita el exceso (429), sin cobro",
           "ok": true,
-          "detalle": "25 limitadas"
+          "detalle": "25 de 45 limitadas"
         }
       ],
       "data": {
@@ -722,64 +2192,207 @@
           "200": 20,
           "429": 25
         }
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [
+        {
+          "inicio_s": 7.59,
+          "fin_s": 11.191,
+          "factor": 1.5
+        }
+      ],
+      "zoom_fraction": 0.059,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 60.867,
+        "cuadros_recibidos": 2437,
+        "cuadros_video": 1826,
+        "cuadros_unicos": 1484,
+        "cuadros_descartados": 953,
+        "cps_efectivos": 24.4,
+        "cps_movimiento_p50": 28,
+        "cps_movimiento_p10": 22,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.524,
+        "hueco_p95_s": 0.044,
+        "disco_mb": 675.5,
+        "codificacion_s": 32.9,
+        "cpu_node_pct": 14
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 4.77,
+        "load_end": 5.55
       }
     },
     {
       "id": "BT-049",
       "title": "Exportación de APIs, contratos, políticas, configuración y metadatos",
-      "claim": "La plataforma exporta sus APIs con contratos y políticas, los flujos de integración, el catálogo y el grafo de dependencias, la configuración de la plataforma y los datos de gestión, en formatos abiertos que se leen con herramientas estándar y con un manifiesto de sumas SHA-256.",
-      "file": "BT-049_exportacion.webm",
+      "claim": "La Consola genera un paquete de exportación con las APIs (contrato y políticas), los flujos de integración, el catálogo, el grafo de dependencias y la configuración de la plataforma, con un manifiesto de sumas SHA-256; los datos de gestión (auditoría y consumo) se exportan aparte por su API; todo se lee con herramientas estándar.",
+      "file": "BT-049_exportacion.mp4",
+      "sha256": "c86086fe8e168ebac31858c22b2833b1b497ffebb7d7913e5e07776db9376e37",
+      "size_bytes": 9814367,
+      "duration_seconds": 44.3,
+      "frames": 1328,
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
       "poster": "BT-049_exportacion.jpg",
-      "duration_seconds": 48.4,
-      "frames": 726,
-      "sha256": "aaf0a3bc7c373986dd270772b5c744c18a9923ccd9b25e29a79fa49b20ab2a22",
-      "size_bytes": 1454180,
-      "version": "1.0.0",
-      "commit": "1e1589b",
-      "recorded_at": "2026-10-04T15:17:03-03:00",
+      "steps_file": "BT-049_exportacion.pasos.json",
+      "subtitles": "BT-049_exportacion.vtt",
+      "chapters_file": "BT-049_exportacion.capitulos.vtt",
+      "chapters": [
+        {
+          "n": 1,
+          "title": "La administradora genera el paquete de exportación",
+          "start_s": 4.45,
+          "end_s": 13.24
+        },
+        {
+          "n": 2,
+          "title": "El manifiesto: una suma SHA-256 por artefacto",
+          "start_s": 13.25,
+          "end_s": 20.25
+        },
+        {
+          "n": 3,
+          "title": "Se leen con herramientas estándar",
+          "start_s": 20.25,
+          "end_s": 27.25
+        },
+        {
+          "n": 4,
+          "title": "Configuración de la plataforma dentro del paquete",
+          "start_s": 27.25,
+          "end_s": 34.25
+        },
+        {
+          "n": 5,
+          "title": "Datos de gestión: auditoría y consumo, aparte",
+          "start_s": 34.25,
+          "end_s": 41.25
+        }
+      ],
+      "video_stream_md5": "99619550af8bd92e63ac9d97ca6febd6",
+      "without_music": {
+        "file": "BT-049_exportacion.sin-musica.mp4",
+        "sha256": "9c760001d7fcd2e817305db585b7f8d42497feb8f94d3655f22ec4fd5ff2e32a",
+        "size_bytes": 8897493
+      },
+      "music": {
+        "style": "ambiental cálido",
+        "variant": 3,
+        "seed": 198362260,
+        "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
+        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.3 s (≈ 76 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 10 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "e75ffd133a251a5e9c2b0d93c9918d1451fe7d2fe740710943a223664852d787",
+        "integrated_lufs": -17.9,
+        "true_peak_dbtp": -5.1,
+        "lra_lu": 5.3,
+        "fade_in_s": 2,
+        "fade_out_s": 3
+      },
+      "tools_commit": "889cb3f",
+      "rehearsal": false,
+      "version": "1.2.0",
+      "commit": "889cb3f",
+      "tag": "v1.2.0",
+      "recorded_at": "2026-10-13T02:50:18-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "paquete con 8 artefactos (APIs con contrato y políticas, flujos, catálogo y grafo), 8 sumas SHA-256 coincidentes y lectura con herramientas estándar; auditoría (345 eventos) y consumo exportados",
+      "result": "paquete con 11 artefactos (api, flujo, metadatos, plataforma), 11 sumas SHA-256 coincidentes, lectura con herramientas estándar y configuración de la plataforma incluida; auditoría (547 eventos) y consumo exportados aparte por la API",
       "checks": [
         {
           "texto": "paquete con manifiesto",
           "ok": true,
-          "detalle": "8 artefactos · versión 0.1.0"
+          "detalle": "11 artefactos · versión 1.2.0"
         },
         {
           "texto": "sumas SHA-256 del manifiesto",
           "ok": true,
-          "detalle": "8 de 8"
+          "detalle": "11 de 11"
         },
         {
           "texto": "incluye APIs (contrato y políticas), flujos y metadatos",
           "ok": true,
-          "detalle": "api, flujo, metadatos"
+          "detalle": "api, flujo, metadatos, plataforma"
         },
         {
           "texto": "todos los artefactos se leen con herramientas estándar",
           "ok": true,
-          "detalle": "13 lecturas"
+          "detalle": "16 lecturas · código 0"
         },
         {
-          "texto": "auditoría exportable y verificable",
+          "texto": "el paquete incluye platform.yaml",
           "ok": true,
-          "detalle": "345 eventos"
-        },
-        {
-          "texto": "consumo exportable en CSV",
-          "ok": true,
-          "detalle": "12 filas"
+          "detalle": "plataforma/platform.yaml"
         },
         {
           "texto": "configuración de la plataforma legible (YAML)",
           "ok": true,
-          "detalle": "wso2/apim/platform.yaml"
+          "detalle": "export/plataforma/platform.yaml"
+        },
+        {
+          "texto": "auditoría exportable y verificable",
+          "ok": true,
+          "detalle": "547 eventos · cadena íntegra"
+        },
+        {
+          "texto": "consumo exportable en CSV",
+          "ok": true,
+          "detalle": "10 filas"
         }
       ],
       "data": {
-        "artefactos": 8,
-        "tipos": ["api", "flujo", "metadatos"],
-        "eventosAuditoria": 345
+        "artefactos": 11,
+        "tipos": [
+          "api",
+          "flujo",
+          "metadatos",
+          "plataforma"
+        ],
+        "plataforma": "plataforma/platform.yaml",
+        "eventosAuditoria": 547
+      },
+      "layers": [
+        "cursor resaltado",
+        "ampliaciones en vivo",
+        "narración",
+        "música original"
+      ],
+      "zooms": [],
+      "zoom_fraction": 0,
+      "capture": {
+        "ancho": 1920,
+        "alto": 1080,
+        "cps": 30,
+        "duracion_s": 44.267,
+        "cuadros_recibidos": 1732,
+        "cuadros_video": 1328,
+        "cuadros_unicos": 1063,
+        "cuadros_descartados": 669,
+        "cps_efectivos": 24,
+        "cps_movimiento_p50": 29,
+        "cps_movimiento_p10": 23,
+        "cps_movimiento_p90": 30,
+        "hueco_max_s": 0.999,
+        "hueco_p95_s": 0.044,
+        "disco_mb": 585.1,
+        "codificacion_s": 24.9,
+        "cpu_node_pct": 21
+      },
+      "machine": {
+        "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+        "cores": 4,
+        "load_start": 5.39,
+        "load_end": 5.12
       }
     }
   ]
