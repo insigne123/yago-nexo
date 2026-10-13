@@ -1,0 +1,805 @@
+{
+  "routing": {
+    "evaluationInterval": "15s",
+    "groupBy": [
+      "alertname",
+      "severidad"
+    ],
+    "receiver": "consola",
+    "webhookUrl": "http://console-api:8090/api/v1/alerts/alertmanager",
+    "sendResolved": true,
+    "tokenFile": "/run/secrets/nexo_alertas_token"
+  },
+  "jobs": [
+    {
+      "job": "prometheus",
+      "targets": [
+        "localhost:9090"
+      ],
+      "path": "/metrics"
+    },
+    {
+      "job": "nexo-integrator",
+      "targets": [
+        "mi:9201"
+      ],
+      "path": "/metric-service/metrics",
+      "componente": "integrator"
+    },
+    {
+      "job": "gateway",
+      "targets": [
+        "fluent-bit:2021"
+      ],
+      "path": "/metrics",
+      "componente": "gateway"
+    },
+    {
+      "job": "gateway-jvm",
+      "targets": [
+        "apim:9404"
+      ],
+      "path": "/metrics",
+      "componente": "gateway"
+    },
+    {
+      "job": "fluent-bit",
+      "targets": [
+        "fluent-bit:2020"
+      ],
+      "path": "/api/v2/metrics/prometheus",
+      "componente": "observabilidad"
+    },
+    {
+      "job": "rabbitmq",
+      "targets": [
+        "rabbitmq:15692"
+      ],
+      "path": "/metrics",
+      "componente": "colas"
+    },
+    {
+      "job": "rabbitmq-colas",
+      "targets": [
+        "rabbitmq:15692"
+      ],
+      "path": "/metrics/detailed",
+      "params": {
+        "family": [
+          "queue_coarse_metrics",
+          "queue_consumer_count"
+        ]
+      },
+      "componente": "colas"
+    },
+    {
+      "job": "keycloak",
+      "targets": [
+        "keycloak:9000"
+      ],
+      "path": "/metrics",
+      "componente": "identidad"
+    },
+    {
+      "job": "backends",
+      "targets": [
+        "concesiones-v1:7001",
+        "concesiones-v2:7001",
+        "registro-soap:7001"
+      ],
+      "path": "/metrics",
+      "componente": "backend"
+    },
+    {
+      "job": "nexo-services",
+      "targets": [
+        "console-api:8090"
+      ],
+      "path": "/api/v1/metrics",
+      "componente": "consola"
+    },
+    {
+      "job": "nexo-motores",
+      "targets": [
+        "motores:9465"
+      ],
+      "path": "/metrics",
+      "componente": "motores"
+    },
+    {
+      "job": "nexo-division",
+      "targets": [
+        "nexo-division:9902"
+      ],
+      "path": "/stats/prometheus",
+      "componente": "division"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "nexo_consola_*",
+      "type": "proceso",
+      "labels": [],
+      "help": "Métricas de proceso de Node.js (CPU, memoria, event loop, recolector de basura) con este prefijo",
+      "source": "apps/console-api/src/modules/platform.ts",
+      "job": "nexo-services"
+    },
+    {
+      "name": "nexo_continuidad_sitio",
+      "type": "gauge",
+      "labels": [
+        "sitio",
+        "estado"
+      ],
+      "help": "Estado del sitio (1 = sano) por sitio y voto",
+      "source": "services/engines/src/continuity/engine.ts",
+      "job": "sin recolección en el laboratorio (motor «continuidad», fuera del servicio motores)"
+    },
+    {
+      "name": "nexo_descubrimiento_escaneos_total",
+      "type": "counter",
+      "labels": [
+        "resultado"
+      ],
+      "help": "Escaneos ejecutados",
+      "source": "services/engines/src/discovery/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_descubrimiento_hallazgos",
+      "type": "gauge",
+      "labels": [
+        "estado"
+      ],
+      "help": "Hallazgos por estado",
+      "source": "services/engines/src/discovery/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_despliegue_pasos_total",
+      "type": "counter",
+      "labels": [
+        "estrategia",
+        "tipo"
+      ],
+      "help": "Pasos de despliegue aplicados",
+      "source": "services/engines/src/rollout/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_despliegue_peso_candidato",
+      "type": "gauge",
+      "labels": [
+        "api"
+      ],
+      "help": "Peso actual del candidato por API",
+      "source": "services/engines/src/rollout/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_despliegue_reversas_total",
+      "type": "counter",
+      "labels": [
+        "tipo"
+      ],
+      "help": "Reversas automáticas y detenciones manuales",
+      "source": "services/engines/src/rollout/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_gateway_conexiones_activeconnections",
+      "type": "jmx",
+      "labels": [
+        "transporte"
+      ],
+      "help": "Atributo JMX ActiveConnections (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_conexiones_lastminuterequests",
+      "type": "jmx",
+      "labels": [
+        "transporte"
+      ],
+      "help": "Atributo JMX LastMinuteRequests (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_conexiones_lastsecondrequests",
+      "type": "jmx",
+      "labels": [
+        "transporte"
+      ],
+      "help": "Atributo JMX LastSecondRequests (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_counter_solicitudes_total",
+      "type": "counter",
+      "labels": [
+        "apiName",
+        "applicationName",
+        "proxyResponseCode",
+        "keyType"
+      ],
+      "help": "Solicitudes atendidas por el gateway",
+      "source": "deploy/compose/fluent-bit/fluent-bit.yaml (log_to_metrics)",
+      "job": "gateway"
+    },
+    {
+      "name": "nexo_gateway_histogram_latencia_backend_ms",
+      "type": "histogram",
+      "labels": [
+        "apiName"
+      ],
+      "help": "Latencia del sistema de destino en milisegundos",
+      "source": "deploy/compose/fluent-bit/fluent-bit.yaml (log_to_metrics, valor backendLatency)",
+      "job": "gateway"
+    },
+    {
+      "name": "nexo_gateway_histogram_latencia_ms",
+      "type": "histogram",
+      "labels": [
+        "apiName"
+      ],
+      "help": "Latencia de respuesta del gateway en milisegundos",
+      "source": "deploy/compose/fluent-bit/fluent-bit.yaml (log_to_metrics, valor responseLatency)",
+      "job": "gateway"
+    },
+    {
+      "name": "nexo_gateway_transporte_activethreadcount",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX ActiveThreadCount (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_bytesreceived",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX BytesReceived (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_bytessent",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX BytesSent (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_faultsreceiving",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX FaultsReceiving (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_faultssending",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX FaultsSending (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_lastresettime",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX LastResetTime (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_messagesreceived",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX MessagesReceived (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_messagessent",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX MessagesSent (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_queuesize",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX QueueSize (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_timeoutsreceiving",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX TimeoutsReceiving (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_gateway_transporte_timeoutssending",
+      "type": "jmx",
+      "labels": [
+        "direccion"
+      ],
+      "help": "Atributo JMX TimeoutsSending (org.apache.synapse)",
+      "source": "deploy/compose/apim/jmx/config.yaml",
+      "job": "gateway-jvm"
+    },
+    {
+      "name": "nexo_guardian_anomalias_total",
+      "type": "counter",
+      "labels": [
+        "metrica",
+        "accion"
+      ],
+      "help": "Anomalías detectadas por métrica y acción",
+      "source": "services/engines/src/guardian/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_guardian_bloqueos_activos",
+      "type": "gauge",
+      "labels": [],
+      "help": "Bloqueos activos en el gateway",
+      "source": "services/engines/src/guardian/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_motor_lider",
+      "type": "gauge",
+      "labels": [
+        "motor"
+      ],
+      "help": "1 si esta instancia es la líder del motor",
+      "source": "services/engines/src/kit/runtime.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_motor_ultima_vuelta_timestamp_segundos",
+      "type": "gauge",
+      "labels": [
+        "motor"
+      ],
+      "help": "Momento de la última vuelta exitosa",
+      "source": "services/engines/src/kit/runtime.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_motor_vuelta_duracion_segundos",
+      "type": "histogram",
+      "labels": [
+        "motor"
+      ],
+      "help": "Duración de cada vuelta",
+      "source": "services/engines/src/kit/runtime.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_motor_vueltas_total",
+      "type": "counter",
+      "labels": [
+        "motor",
+        "resultado"
+      ],
+      "help": "Vueltas de trabajo por motor y resultado",
+      "source": "services/engines/src/kit/runtime.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_motores_*",
+      "type": "proceso",
+      "labels": [],
+      "help": "Métricas de proceso de Node.js (CPU, memoria, event loop, recolector de basura) con este prefijo",
+      "source": "services/engines/src/kit/runtime.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_siem_eventos_enviados_total",
+      "type": "counter",
+      "labels": [
+        "destino"
+      ],
+      "help": "Eventos de auditoría entregados al SIEM",
+      "source": "services/engines/src/siem/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_siem_fallas_total",
+      "type": "counter",
+      "labels": [
+        "destino"
+      ],
+      "help": "Envíos al SIEM que fallaron (se reintentan)",
+      "source": "services/engines/src/siem/engine.ts",
+      "job": "nexo-motores"
+    },
+    {
+      "name": "nexo_siem_rezago_eventos",
+      "type": "gauge",
+      "labels": [
+        "destino"
+      ],
+      "help": "Eventos de auditoría que aún no llegan al SIEM",
+      "source": "services/engines/src/siem/engine.ts",
+      "job": "nexo-motores"
+    }
+  ],
+  "thirdParty": [
+    {
+      "name": "jvm_memory_max_bytes",
+      "job": "gateway-jvm",
+      "usedBy": [
+        "tablero «Nexo · Plataforma» · Memoria JVM del gateway"
+      ]
+    },
+    {
+      "name": "jvm_memory_used_bytes",
+      "job": "gateway-jvm",
+      "usedBy": [
+        "tablero «Nexo · Plataforma» · Memoria JVM del gateway"
+      ]
+    },
+    {
+      "name": "rabbitmq_detailed_queue_consumers",
+      "job": "rabbitmq-colas (/metrics/detailed, familia queue_consumer_count)",
+      "usedBy": [
+        "tablero «Nexo · Plataforma» · Consumidores por cola"
+      ]
+    },
+    {
+      "name": "rabbitmq_detailed_queue_messages_ready",
+      "job": "rabbitmq-colas (/metrics/detailed, familia queue_coarse_metrics)",
+      "usedBy": [
+        "regla ColaConMensajesFallidos",
+        "tablero «Nexo · Plataforma» · Mensajes en colas"
+      ]
+    },
+    {
+      "name": "up",
+      "job": "todos los trabajos (Prometheus)",
+      "usedBy": [
+        "regla ComponenteCaido",
+        "tablero «Nexo · Plataforma» · Componentes disponibles (1 = arriba)"
+      ]
+    },
+    {
+      "name": "wso2_integration_api_request_count_error_total",
+      "job": "nexo-integrator",
+      "usedBy": [
+        "tablero «Nexo · Plataforma» · Solicitudes al integrador por API"
+      ]
+    },
+    {
+      "name": "wso2_integration_api_request_count_total",
+      "job": "nexo-integrator",
+      "usedBy": [
+        "tablero «Nexo · Plataforma» · Solicitudes al integrador por API"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "group": "nexo-plataforma",
+      "alert": "ComponenteCaido",
+      "expr": "up == 0",
+      "for": "1m",
+      "severidad": "S2",
+      "resumen": "{{ $labels.job }} en {{ $labels.instance }} no responde",
+      "metrics": [
+        "up"
+      ]
+    },
+    {
+      "group": "nexo-plataforma",
+      "alert": "ColaConMensajesFallidos",
+      "expr": "sum by (vhost, queue) (rabbitmq_detailed_queue_messages_ready{queue=~\".+[.]dlq\"}) > 0",
+      "for": "5m",
+      "severidad": "S3",
+      "resumen": "La cola de mensajes fallidos {{ $labels.queue }} tiene {{ $value }} mensajes pendientes",
+      "metrics": [
+        "rabbitmq_detailed_queue_messages_ready"
+      ]
+    },
+    {
+      "group": "nexo-gateway",
+      "alert": "TasaDeErrorAlta",
+      "expr": "100 * sum by (apiName) (rate(nexo_gateway_counter_solicitudes_total{proxyResponseCode=~\"5..\"}[5m])) / clamp_min(sum by (apiName) (rate(nexo_gateway_counter_solicitudes_total[5m])), 1e-9) > 5",
+      "for": "5m",
+      "severidad": "S2",
+      "resumen": "La API {{ $labels.apiName }} tiene más de 5% de errores 5xx",
+      "metrics": [
+        "nexo_gateway_counter_solicitudes_total"
+      ]
+    },
+    {
+      "group": "nexo-gateway",
+      "alert": "LatenciaAlta",
+      "expr": "histogram_quantile(0.99, sum by (le, apiName) (rate(nexo_gateway_histogram_latencia_ms_bucket[5m]))) > 2000",
+      "for": "10m",
+      "severidad": "S3",
+      "resumen": "La latencia p99 de {{ $labels.apiName }} supera 2 s",
+      "metrics": [
+        "nexo_gateway_histogram_latencia_ms_bucket"
+      ]
+    }
+  ],
+  "engineAlerts": [
+    {
+      "alert": "ConmutacionEjecutada",
+      "severidad": "S1",
+      "motor": "continuidad",
+      "source": "services/engines/src/continuity/engine.ts"
+    },
+    {
+      "alert": "RetornoEjecutado",
+      "severidad": "S2",
+      "motor": "continuidad",
+      "source": "services/engines/src/continuity/engine.ts"
+    },
+    {
+      "alert": "ApiNoGobernadaRiesgoAlto",
+      "severidad": "S3",
+      "motor": "descubrimiento",
+      "source": "services/engines/src/discovery/engine.ts"
+    },
+    {
+      "alert": "BloqueoVencido",
+      "severidad": "S4",
+      "motor": "guardian",
+      "source": "services/engines/src/guardian/engine.ts"
+    },
+    {
+      "alert": "ConsumidorBloqueado",
+      "severidad": "S2",
+      "motor": "guardian",
+      "source": "services/engines/src/guardian/engine.ts"
+    },
+    {
+      "alert": "AnomaliaDetectada",
+      "severidad": "S3",
+      "motor": "guardian",
+      "source": "services/engines/src/guardian/engine.ts"
+    },
+    {
+      "alert": "BloqueoPorAprobar",
+      "severidad": "S2",
+      "motor": "guardian",
+      "source": "services/engines/src/guardian/engine.ts"
+    },
+    {
+      "alert": "DespliegueRevertido",
+      "severidad": "S3",
+      "motor": "despliegues",
+      "source": "services/engines/src/rollout/engine.ts"
+    },
+    {
+      "alert": "DespliegueDetenido",
+      "severidad": "S4",
+      "motor": "despliegues",
+      "source": "services/engines/src/rollout/engine.ts"
+    },
+    {
+      "alert": "DespliegueCompletado",
+      "severidad": "S4",
+      "motor": "despliegues",
+      "source": "services/engines/src/rollout/engine.ts"
+    },
+    {
+      "alert": "SiemRecuperado",
+      "severidad": "S4",
+      "motor": "siem",
+      "source": "services/engines/src/siem/engine.ts"
+    },
+    {
+      "alert": "SiemSinEntrega",
+      "severidad": "S2",
+      "motor": "siem",
+      "source": "services/engines/src/siem/engine.ts"
+    }
+  ],
+  "dashboards": [
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Solicitudes por segundo",
+      "expr": "sum(rate(nexo_gateway_counter_solicitudes_total[5m]))",
+      "metrics": [
+        "nexo_gateway_counter_solicitudes_total"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Tasa de error (5xx)",
+      "expr": "100 * sum(rate(nexo_gateway_counter_solicitudes_total{proxyResponseCode=~\"5..\"}[5m])) / clamp_min(sum(rate(nexo_gateway_counter_solicitudes_total[5m])), 1e-9)",
+      "metrics": [
+        "nexo_gateway_counter_solicitudes_total"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Rechazos de seguridad (401/403)",
+      "expr": "sum(increase(nexo_gateway_counter_solicitudes_total{proxyResponseCode=~\"401|403\"}[1h]))",
+      "metrics": [
+        "nexo_gateway_counter_solicitudes_total"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Latencia p95 (ms)",
+      "expr": "histogram_quantile(0.95, sum by (le) (rate(nexo_gateway_histogram_latencia_ms_bucket[5m])))",
+      "metrics": [
+        "nexo_gateway_histogram_latencia_ms_bucket"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Solicitudes por segundo por API",
+      "expr": "sum by (apiName) (rate(nexo_gateway_counter_solicitudes_total[5m]))",
+      "metrics": [
+        "nexo_gateway_counter_solicitudes_total"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Respuestas por código",
+      "expr": "sum by (proxyResponseCode) (rate(nexo_gateway_counter_solicitudes_total[5m]))",
+      "metrics": [
+        "nexo_gateway_counter_solicitudes_total"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Latencia del gateway por API (p50, p95, p99)",
+      "expr": "histogram_quantile(0.50, sum by (le, apiName) (rate(nexo_gateway_histogram_latencia_ms_bucket[5m])))",
+      "metrics": [
+        "nexo_gateway_histogram_latencia_ms_bucket"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Latencia del gateway por API (p50, p95, p99)",
+      "expr": "histogram_quantile(0.95, sum by (le, apiName) (rate(nexo_gateway_histogram_latencia_ms_bucket[5m])))",
+      "metrics": [
+        "nexo_gateway_histogram_latencia_ms_bucket"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Latencia del gateway por API (p50, p95, p99)",
+      "expr": "histogram_quantile(0.99, sum by (le, apiName) (rate(nexo_gateway_histogram_latencia_ms_bucket[5m])))",
+      "metrics": [
+        "nexo_gateway_histogram_latencia_ms_bucket"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Latencia de los sistemas de destino (p95)",
+      "expr": "histogram_quantile(0.95, sum by (le, apiName) (rate(nexo_gateway_histogram_latencia_backend_ms_bucket[5m])))",
+      "metrics": [
+        "nexo_gateway_histogram_latencia_backend_ms_bucket"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Consumo por aplicación (última hora)",
+      "expr": "sum by (applicationName) (increase(nexo_gateway_counter_solicitudes_total[1h]))",
+      "metrics": [
+        "nexo_gateway_counter_solicitudes_total"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Componentes disponibles (1 = arriba)",
+      "expr": "up",
+      "metrics": [
+        "up"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Memoria JVM del gateway",
+      "expr": "jvm_memory_used_bytes{job=\"gateway-jvm\",area=\"heap\"}",
+      "metrics": [
+        "jvm_memory_used_bytes"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Memoria JVM del gateway",
+      "expr": "jvm_memory_max_bytes{job=\"gateway-jvm\",area=\"heap\"}",
+      "metrics": [
+        "jvm_memory_max_bytes"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Conexiones y cola del transporte",
+      "expr": "nexo_gateway_conexiones_activeconnections",
+      "metrics": [
+        "nexo_gateway_conexiones_activeconnections"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Conexiones y cola del transporte",
+      "expr": "nexo_gateway_transporte_queuesize",
+      "metrics": [
+        "nexo_gateway_transporte_queuesize"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Conexiones y cola del transporte",
+      "expr": "nexo_gateway_transporte_activethreadcount",
+      "metrics": [
+        "nexo_gateway_transporte_activethreadcount"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Solicitudes al integrador por API",
+      "expr": "sum by (service_name) (rate(wso2_integration_api_request_count_total[5m]))",
+      "metrics": [
+        "wso2_integration_api_request_count_total"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Solicitudes al integrador por API",
+      "expr": "sum by (service_name) (rate(wso2_integration_api_request_count_error_total[5m]))",
+      "metrics": [
+        "wso2_integration_api_request_count_error_total"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Mensajes en colas",
+      "expr": "sum by (queue) (rabbitmq_detailed_queue_messages_ready)",
+      "metrics": [
+        "rabbitmq_detailed_queue_messages_ready"
+      ]
+    },
+    {
+      "title": "Nexo · Plataforma",
+      "panel": "Consumidores por cola",
+      "expr": "sum by (queue) (rabbitmq_detailed_queue_consumers)",
+      "metrics": [
+        "rabbitmq_detailed_queue_consumers"
+      ]
+    }
+  ],
+  "warnings": []
+}

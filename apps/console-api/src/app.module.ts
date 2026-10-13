@@ -1,9 +1,11 @@
 import { Module } from "@nestjs/common";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { createPool } from "@nexo/console-db";
 import { MiManagementClient, Wso2Client } from "@nexo/wso2-client";
 import { AuthGuard } from "./auth/auth.js";
+import { AuditFailuresInterceptor } from "./common/audit-failures.js";
 import { AuditService } from "./common/audit.service.js";
+import { UnauthorizedAudit } from "./common/unauthorized-audit.js";
 import { DB, MI, WSO2 } from "./common/tokens.js";
 import { config } from "./config.js";
 import { OpenSearchService, PrometheusService, RabbitService, TlsProbeService } from "./integrations/integrations.js";
@@ -36,6 +38,7 @@ import { UsageController, UsageService } from "./modules/usage.js";
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditFailuresInterceptor },
     { provide: DB, useFactory: () => createPool(config.databaseUrl) },
     {
       provide: WSO2,
@@ -51,6 +54,7 @@ import { UsageController, UsageService } from "./modules/usage.js";
       useFactory: () => new MiManagementClient(config.mi.url, config.mi.user, config.mi.password, { rejectUnauthorized: !config.wso2.insecureTls }),
     },
     AuditService,
+    UnauthorizedAudit,
     CatalogService,
     UsageService,
     OpenSearchService,

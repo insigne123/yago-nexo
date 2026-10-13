@@ -83,9 +83,10 @@ spec:
       {{- include "nexo.podComun" $ctx | nindent 6 }}
       terminationGracePeriodSeconds: 60
       securityContext:
-        {{- include "nexo.podSeguridad" (dict "uid" 802) | nindent 8 }}
+        {{- include "nexo.podSeguridad" (dict "uid" (int $.Values.apim.uidImagen)) | nindent 8 }}
       initContainers:
         {{- include "nexo.apim.initConfig" (merge (dict "imagen" $imagen) $ctx) | nindent 8 }}
+        {{- include "nexo.wso2.initHogar" (dict "ctx" $ "imagen" $imagen) | nindent 8 }}
       containers:
         - name: apim-tm
           image: {{ $imagen }}
@@ -110,14 +111,17 @@ spec:
           securityContext:
             {{- include "nexo.contenedorSeguridad" (dict) | nindent 12 }}
           volumeMounts:
+            {{- include "nexo.wso2.montajesHogar" (dict) | nindent 12 }}
             - name: config
               mountPath: /home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml
               subPath: deployment.toml
+              readOnly: true
             {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.montajesSeguridad" "datos" (dict "ctx" $ "base" "/home/wso2carbon/wso2-config-volume/repository/resources/security") "indent" 12) }}
       volumes:
+        {{- include "nexo.wso2.volumenesHogar" (dict "cfg" $cfg) | nindent 8 }}
         - name: plantilla
-          configMap:
-            name: {{ $nombre }}
+          secret:
+            secretName: {{ $nombre }}-config
         - name: scripts
           configMap:
             name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "apim-scripts") }}

@@ -1,0 +1,95 @@
+# Pruebas unitarias de las reglas de alerta (promtool test rules). Fuera de rules/ a propósito: Prometheus carga
+# todo rules/*.yml como reglas.
+#   docker run --rm --entrypoint promtool -v "$PWD/deploy/compose/prometheus:/p:ro" -w /p/pruebas \
+#     prom/prometheus:v3.13.4 test rules nexo.test.yml
+rule_files:
+  - ../rules/nexo.yml
+
+evaluation_interval: 1m
+
+tests:
+  # La cola de fallidos con mensajes por 5 minutos dispara la alerta, con la cola en las etiquetas. La cola
+  # principal, una cola cuyo nombre solo termina en «dlq» y la métrica agregada sin etiqueta queue no cuentan.
+  - interval: 1m
+    input_series:
+      - series: 'rabbitmq_detailed_queue_messages_ready{job="rabbitmq-colas",instance="rabbitmq:15692",vhost="/",queue="solicitudes.dlq"}'
+        values: "0 0 3 3 3 3 3 3 3 3 0 0"
+      - series: 'rabbitmq_detailed_queue_messages_ready{job="rabbitmq-colas",instance="rabbitmq:15692",vhost="/",queue="solicitudes"}'
+        values: "50x12"
+      - series: 'rabbitmq_detailed_queue_messages_ready{job="rabbitmq-colas",instance="rabbitmq:15692",vhost="/",queue="otradlq"}'
+        values: "7x12"
+      - series: 'rabbitmq_queue_messages_ready{job="rabbitmq",instance="rabbitmq:15692"}'
+        values: "60x12"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: ColaConMensajesFallidos
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: ColaConMensajesFallidos
+        exp_alerts:
+          - exp_labels: { severidad: S3, vhost: "/", queue: solicitudes.dlq }
+            exp_annotations:
+              { resumen: "La cola de mensajes fallidos solicitudes.dlq tiene 3 mensajes pendientes" }
+      # Al vaciarse la cola (reproceso) la alerta se resuelve.
+      - eval_time: 11m
+        alertname: ColaConMensajesFallidos
+        exp_alerts: []
+
+  # Un componente que deja de responder por 1 minuto.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="nexo-services",instance="console-api:8090"}'
+        values: "1 1 0 0 0 0"
+      - series: 'up{job="rabbitmq",instance="rabbitmq:15692"}'
+        values: "1x6"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ComponenteCaido
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: ComponenteCaido
+        exp_alerts:
+          - exp_labels: { severidad: S2, job: nexo-services, instance: "console-api:8090" }
+            exp_annotations: { resumen: "nexo-services en console-api:8090 no responde" }
+
+  # 10 % de respuestas 5xx en una API dispara la alerta; 1 % en otra, no.
+  - interval: 1m
+    input_series:
+      - series: 'nexo_gateway_counter_solicitudes_total{apiName="Concesiones",applicationName="App",proxyResponseCode="200",keyType="PRODUCTION"}'
+        values: "0+90x20"
+      - series: 'nexo_gateway_counter_solicitudes_total{apiName="Concesiones",applicationName="App",proxyResponseCode="502",keyType="PRODUCTION"}'
+        values: "0+10x20"
+      - series: 'nexo_gateway_counter_solicitudes_total{apiName="Registro",applicationName="App",proxyResponseCode="200",keyType="PRODUCTION"}'
+        values: "0+99x20"
+      - series: 'nexo_gateway_counter_solicitudes_total{apiName="Registro",applicationName="App",proxyResponseCode="500",keyType="PRODUCTION"}'
+        values: "0+1x20"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: TasaDeErrorAlta
+        exp_alerts:
+          - exp_labels: { severidad: S2, apiName: Concesiones }
+            exp_annotations: { resumen: "La API Concesiones tiene más de 5% de errores 5xx" }
+
+  # Una API con todas sus respuestas entre 2,5 y 5 s supera el p99 de 2 s; otra bajo 100 ms, no.
+  - interval: 1m
+    input_series:
+      - series: 'nexo_gateway_histogram_latencia_ms_bucket{apiName="Lenta",le="1000.0"}'
+        values: "0x30"
+      - series: 'nexo_gateway_histogram_latencia_ms_bucket{apiName="Lenta",le="2500.0"}'
+        values: "0x30"
+      - series: 'nexo_gateway_histogram_latencia_ms_bucket{apiName="Lenta",le="5000.0"}'
+        values: "0+10x30"
+      - series: 'nexo_gateway_histogram_latencia_ms_bucket{apiName="Lenta",le="+Inf"}'
+        values: "0+10x30"
+      - series: 'nexo_gateway_histogram_latencia_ms_bucket{apiName="Rapida",le="100.0"}'
+        values: "0+10x30"
+      - series: 'nexo_gateway_histogram_latencia_ms_bucket{apiName="Rapida",le="2500.0"}'
+        values: "0+10x30"
+      - series: 'nexo_gateway_histogram_latencia_ms_bucket{apiName="Rapida",le="+Inf"}'
+        values: "0+10x30"
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: LatenciaAlta
+        exp_alerts:
+          - exp_labels: { severidad: S3, apiName: Lenta }
+            exp_annotations: { resumen: "La latencia p99 de Lenta supera 2 s" }

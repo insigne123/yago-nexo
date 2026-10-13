@@ -64,9 +64,14 @@ seccompProfile:
   type: RuntimeDefault
 {{- end -}}
 
+{{/*
+Contexto de seguridad de cada contenedor: raíz de solo lectura, sin escalar privilegios y sin capacidades.
+Todos los contenedores del chart cumplen esto; lo que un proceso necesita escribir va en un emptyDir
+(los servidores WSO2, ver "nexo.wso2.initHogar").
+*/}}
 {{- define "nexo.contenedorSeguridad" -}}
 allowPrivilegeEscalation: false
-readOnlyRootFilesystem: {{ default false .soloLectura }}
+readOnlyRootFilesystem: true
 capabilities:
   drop: [ALL]
 {{- end -}}
@@ -144,6 +149,61 @@ topologySpreadConstraints:
       fieldPath: metadata.name
 - name: TZ
   value: {{ .ctx.Values.global.zonaHoraria | quote }}
+# La imagen no tiene entrada en /etc/passwd para el uid del pod: sin HOME, Java usaría "/" (solo lectura).
+- name: HOME
+  value: /home/wso2carbon
+{{- end -}}
+
+{{/* ------------------------------------------------------------------ WSO2: raíz de solo lectura */}}
+
+{{/*
+Los servidores WSO2 escriben dentro de su propia carpeta al arrancar y al operar: el entrypoint de la imagen
+copia wso2-config-volume sobre la distribución, el config mapper genera repository/conf desde deployment.toml,
+y el servidor escribe la caché OSGi, los registros, la base H2 local, los índices y sus temporales.
+Para que la raíz del contenedor sea de solo lectura, este contenedor de inicio copia /home/wso2carbon de la
+imagen a un emptyDir ("hogar") y el servidor corre sobre esa copia; /tmp es otro emptyDir ("temporal").
+El pod corre con el uid de la imagen (apim.uidImagen, mi.uidImagen), dueño de /home/wso2carbon.
+Recibe ctx e imagen.
+*/}}
+{{- define "nexo.wso2.initHogar" -}}
+- name: hogar
+  image: {{ .imagen }}
+  imagePullPolicy: {{ .ctx.Values.global.imagePullPolicy }}
+  command:
+    - /bin/sh
+    - -c
+    - cp -a /home/wso2carbon/. /hogar/ && echo "carpeta del servidor copiada a /hogar ($(du -sh /hogar | cut -f1))"
+  securityContext:
+    {{- include "nexo.contenedorSeguridad" (dict) | nindent 4 }}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: "1"
+      memory: 256Mi
+  volumeMounts:
+    - name: hogar
+      mountPath: /hogar
+{{- end -}}
+
+{{/* Montajes de la copia escribible del servidor y de /tmp (contenedor principal de WSO2). */}}
+{{- define "nexo.wso2.montajesHogar" -}}
+- name: hogar
+  mountPath: /home/wso2carbon
+- name: temporal
+  mountPath: /tmp
+{{- end -}}
+
+{{/* Volúmenes emptyDir de la copia del servidor y de /tmp. Recibe cfg (con "almacenamiento"). */}}
+{{- define "nexo.wso2.volumenesHogar" -}}
+{{- $a := default (dict) .cfg.almacenamiento -}}
+- name: hogar
+  emptyDir:
+    sizeLimit: {{ default "3Gi" $a.hogar }}
+- name: temporal
+  emptyDir:
+    sizeLimit: {{ default "1Gi" $a.temporal }}
 {{- end -}}
 
 {{/* Sondas de los servidores WSO2 (Carbon). Recibe cfg (con "sondas") y, opcional, "lista" (ruta de lista). */}}

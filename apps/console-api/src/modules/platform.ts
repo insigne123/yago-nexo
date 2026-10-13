@@ -1,29 +1,20 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  Body,
-  Controller,
-  Get,
-  Header,
-  HttpCode,
-  Inject,
-  NotFoundException,
-  Param,
-  Post,
-  Query,
-  Res,
-  UnauthorizedException,
-  Headers as ReqHeaders,
-} from "@nestjs/common";
+import { Body, Controller, Get, Header, HttpCode, Inject, Logger, NotFoundException, Param, Post, Query, Req, Res, UnauthorizedException } from "@nestjs/common";
 import type { Response } from "express";
 import { zipSync, strToU8 } from "fflate";
 import { collectDefaultMetrics, register } from "@prometheus-io/client";
 import { permissionMatrix } from "@nexo/shared";
 import type { Db } from "@nexo/console-db";
 import type { Wso2Client, MiManagementClient } from "@nexo/wso2-client";
-import { CurrentUser, Public, RequirePermission, type AuthUser } from "../auth/auth.js";
+import { z } from "zod";
+import { CurrentUser, Public, RequirePermission, type AuthedRequest, type AuthUser } from "../auth/auth.js";
+import { AuditAction, routeOf } from "../common/audit-failures.js";
 import { AuditService } from "../common/audit.service.js";
+import { bearerToken, tokenMatches } from "../common/secret.js";
+import { UnauthorizedAudit } from "../common/unauthorized-audit.js";
+import { parse } from "../common/validation.js";
 import { DB, MI, WSO2 } from "../common/tokens.js";
 import { config } from "../config.js";
 import { OpenSearchService, RabbitService, TlsProbeService } from "../integrations/integrations.js";
@@ -162,6 +153,7 @@ export class ExportsController {
   @Post()
   @HttpCode(202)
   @RequirePermission("export:create")
+  @AuditAction("exportacion.generar")
   async create(@CurrentUser() user: AuthUser) {
     const job = (await this.db.query("INSERT INTO nexo.export_job (created_by) VALUES ($1) RETURNING *", [user.username])).rows[0];
     void this.run(String(job.id), user);
@@ -228,25 +220,72 @@ export class ExportsController {
 
 // ------------------------------------------------------------------ alertas (webhook de Alertmanager)
 
+/** Carga útil del webhook de Alertmanager (versión 4); se ignoran los campos que la API no usa. */
+const AlertSchema = z.object({
+  status: z.enum(["firing", "resolved"]),
+  labels: z.record(z.string(), z.string()),
+  annotations: z.record(z.string(), z.string()).optional(),
+  fingerprint: z.string().max(128).optional(),
+  startsAt: z.string().max(64).optional(),
+  endsAt: z.string().max(64).optional(),
+});
+const AlertWebhookSchema = z.object({ alerts: z.array(AlertSchema).max(1000) });
+
+/**
+ * Receptor de Alertmanager (BT-034). Exige el token compartido en «Authorization: Bearer …» (NEXO_ALERTS_TOKEN
+ * o NEXO_ALERTS_TOKEN_FILE), comparado en tiempo constante; sin token o con uno inválido responde 401 y el intento
+ * se audita agrupado por IP. Cada alerta recibida se guarda y queda en la cadena de auditoría («alerta.recibida»),
+ * desde donde el reenvío existente la entrega al SIEM.
+ */
 @Controller("alerts")
 export class AlertsController {
-  constructor(@Inject(DB) private readonly db: Db) {}
+  private readonly log = new Logger("alertas");
+
+  constructor(
+    @Inject(DB) private readonly db: Db,
+    private readonly audit: AuditService,
+    private readonly unauthorized: UnauthorizedAudit,
+  ) {
+    if (!config.alerts.token) this.log.error(`Webhook de alertas sin token válido (${config.alerts.problem}): rechazará todas las entregas (401)`);
+  }
 
   @Public()
   @Post("alertmanager")
   @HttpCode(204)
-  async alertmanager(@Body() body: { alerts?: Array<{ status: string; labels: Record<string, string>; annotations?: Record<string, string>; fingerprint?: string }> }, @ReqHeaders("authorization") auth?: string) {
-    const expected = process.env.NEXO_ALERTS_TOKEN;
-    if (expected && auth !== `Bearer ${expected}`) throw new UnauthorizedException();
-    for (const a of body.alerts ?? []) {
-      await this.db.query("INSERT INTO nexo.alert (status, name, severity, summary, labels, fingerprint) VALUES ($1,$2,$3,$4,$5,$6)", [
-        a.status,
-        a.labels.alertname ?? "alerta",
-        a.labels.severidad ?? null,
-        a.annotations?.resumen ?? null,
-        JSON.stringify(a.labels),
-        a.fingerprint ?? null,
-      ]);
+  @AuditAction("alerta.recibida", { actor: "alertmanager" })
+  async alertmanager(@Body() body: unknown, @Req() req: AuthedRequest) {
+    const provided = bearerToken(req.headers.authorization);
+    if (!tokenMatches(provided, config.alerts.token)) {
+      await this.unauthorized.hit(req.ip, provided ? "token del webhook de alertas inválido" : "webhook de alertas sin token", routeOf(req));
+      throw new UnauthorizedException({ statusCode: 401, message: "Token del webhook de alertas ausente o inválido" });
+    }
+    const { alerts } = parse(AlertWebhookSchema, body);
+    for (const a of alerts) {
+      const name = (a.labels.alertname ?? "alerta").slice(0, 120);
+      const res = await this.db.query(
+        "INSERT INTO nexo.alert (status, name, severity, summary, labels, fingerprint) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+        [a.status, name, a.labels.severidad ?? null, a.annotations?.resumen ?? null, JSON.stringify(a.labels), a.fingerprint ?? null],
+      );
+      await this.audit.store.append({
+        source: "consola",
+        actor: "alertmanager",
+        actorType: "tecnico",
+        action: "alerta.recibida",
+        resource: `alerta/${name}`,
+        result: "exito",
+        sourceIp: req.ip?.slice(0, 64),
+        details: {
+          estado: a.status,
+          alerta: name,
+          severidad: a.labels.severidad,
+          resumen: a.annotations?.resumen?.slice(0, 500),
+          huella: a.fingerprint,
+          inicio: a.startsAt,
+          fin: a.status === "resolved" ? a.endsAt : undefined,
+          etiquetas: a.labels,
+          registro: res.rows[0]?.id,
+        },
+      });
     }
   }
 }

@@ -448,11 +448,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Reporte de exposición */
+        /** Reporte de exposición (JSON, CSV o PDF) */
         get: {
             parameters: {
                 query?: {
-                    format?: "json" | "csv";
+                    format?: "json" | "csv" | "pdf";
                 };
                 header?: never;
                 path?: never;
@@ -465,7 +465,18 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            /** Format: date-time */
+                            generadoEn?: string;
+                            total?: number;
+                            noGobernados?: number;
+                            riesgoAlto?: number;
+                            hallazgos?: components["schemas"]["DiscoveryFinding"][];
+                        };
+                        "text/csv": string;
+                        "application/pdf": string;
+                    };
                 };
             };
         };
@@ -843,6 +854,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/traffic-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rutas de nexo-division (APIs habilitadas para despliegues progresivos) con su peso y tráfico sombra en vivo */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrafficRoute"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rollouts/{id}": {
         parameters: {
             query?: never;
@@ -1082,21 +1129,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/continuity/failback": {
+    "/continuity/failback/requests": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Solicitudes de retorno al sitio principal, de la más reciente a la más antigua (permiso continuity:read) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FailbackRequest"][];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+            };
+        };
         put?: never;
-        /** Aprueba el retorno al sitio principal (permiso continuity:failback:approve) */
+        /**
+         * Solicita el retorno al sitio principal (permiso continuity:failback:request, motivo obligatorio, auditado)
+         * @description Primer paso del retorno con dos personas. La solicitud queda «pendiente» hasta que otra persona con
+         *     continuity:failback:approve la aprueba, o vence (NEXO_FAILBACK_REQUEST_TTL_MIN, 30 min por omisión). Solo
+         *     puede haber una pendiente a la vez. Responde 409 si el sitio principal ya es el activo, si hay una conmutación
+         *     en curso o si ya existe una solicitud pendiente.
+         */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RequiredReason"];
+                };
+            };
+            responses: {
+                /** @description Solicitud creada */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FailbackRequest"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/continuity/failback/requests/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aprueba el retorno (permiso continuity:failback:approve, cuatro ojos, auditado)
+         * @description Quien aprueba debe ser una persona distinta de quien solicitó (por usuario y por sujeto del token); si es la
+         *     misma responde 403 con permission «cuatro-ojos». La solicitud debe seguir pendiente y vigente. Crea el evento
+         *     de conmutación «retorno» que ejecutan los agentes de continuidad, con requestedBy y approvedBy.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
                 cookie?: never;
             };
             requestBody?: {
@@ -1105,15 +1231,66 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Aceptado */
+                /** @description Aprobado */
                 202: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["FailoverEvent"];
+                        "application/json": components["schemas"]["FailbackApproval"];
                     };
                 };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/continuity/failback/requests/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rechaza o retira una solicitud pendiente (permiso continuity:failback:approve, motivo obligatorio, auditado) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RequiredReason"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FailbackRequest"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
             };
         };
         delete?: never;
@@ -1284,7 +1461,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reprocesa un mensaje (permiso dlq:reprocess:approve, auditado) */
+        /**
+         * Reprocesa un mensaje (rol aprobador con dlq:reprocess:approve, motivo obligatorio, auditado)
+         * @description Lo decide una sola persona con el permiso (no es una acción de cuatro ojos). El motivo es obligatorio (5 a
+         *     1000 caracteres). Queda auditado el reproceso («mensajes.reprocesar», exito) y también cada intento rechazado
+         *     (sin motivo, sin permiso o con el mensaje fuera de la cola) o fallido («error»).
+         */
         post: {
             parameters: {
                 query?: never;
@@ -1296,7 +1478,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["Reason"];
+                    "application/json": components["schemas"]["RequiredReason"];
                 };
             };
             responses: {
@@ -1309,6 +1491,9 @@ export interface paths {
                         "application/json": components["schemas"]["DeadLetter"];
                     };
                 };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         delete?: never;
@@ -1545,6 +1730,241 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/exports/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        /** Descarga del paquete (zip con manifiesto y hashes SHA-256) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["Id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paquete */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/zip": string;
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alerts/alertmanager": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receptor de alertas de Alertmanager (webhook interno, token obligatorio)
+         * @description Exige el token compartido en «Authorization: Bearer <token>» (NEXO_ALERTS_TOKEN o NEXO_ALERTS_TOKEN_FILE en la
+         *     API; credentials_file en Alertmanager). No usa el JWT de usuarios. Sin token, con un token inválido o sin token
+         *     configurado en la API responde 401; la comparación es de tiempo constante y los intentos se auditan agrupados
+         *     por IP. Cada alerta recibida se guarda y queda en la auditoría («alerta.recibida»), desde donde el reenvío
+         *     de auditoría la entrega al SIEM.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        alerts: {
+                            /** @enum {string} */
+                            status: "firing" | "resolved";
+                            labels: {
+                                [key: string]: string;
+                            };
+                            annotations?: {
+                                [key: string]: string;
+                            };
+                            fingerprint?: string;
+                            /** Format: date-time */
+                            startsAt?: string;
+                            /** Format: date-time */
+                            endsAt?: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Recibidas y auditadas */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description Token del webhook ausente o inválido */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/engines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estado de los motores (descubrimiento, guardián, despliegues, SIEM) con su réplica líder y último latido */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            engine?: string;
+                            instance?: string;
+                            leader?: boolean;
+                            /** Format: date-time */
+                            lastSeen?: string;
+                            /** @description activo, en espera, error o sin_latido */
+                            status?: string;
+                            info?: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Salud del servicio (incluye conexión a la base de datos) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            status?: string;
+                            version?: string;
+                            ambiente?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Métricas en formato Prometheus */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1552,10 +1972,47 @@ export interface components {
         Error: {
             statusCode: number;
             message: string;
+            /** @description Permiso que faltó */
             permission?: string;
+            /** @description Motivo de un 409: sitio_activo, conmutacion_en_curso, pendiente_existente, no_pendiente, vencida */
+            code?: string;
+            requestId?: string;
+            issues?: {
+                campo?: string;
+                detalle?: string;
+            }[];
         };
         Reason: {
             reason?: string;
+        };
+        RequiredReason: {
+            reason: string;
+        };
+        FailbackRequest: {
+            /** Format: uuid */
+            id: string;
+            /** @example gcp */
+            fromSite: string;
+            /** @example cpd */
+            toSite: string;
+            reason: string;
+            /** @enum {string} */
+            status: "pendiente" | "aprobada" | "rechazada" | "vencida";
+            requestedBy: string;
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            decidedBy?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            decisionReason?: string;
+            /** Format: uuid */
+            failoverEventId?: string;
+        };
+        FailbackApproval: {
+            request: components["schemas"]["FailbackRequest"];
+            event: components["schemas"]["FailoverEvent"];
         };
         /** @enum {string} */
         Audience: "interna" | "operadores" | "publica";
@@ -1739,14 +2196,23 @@ export interface components {
             path: string;
             protocol?: string;
             specFound?: boolean;
-            /** @enum {string} */
-            authDetected?: "ninguna" | "basica" | "token" | "mtls" | "desconocida";
+            /**
+             * @description ninguna, requerida o desconocida; cuando se conoce, con el mecanismo (p. ej. «requerida · APISIX (key-auth)»)
+             * @example requerida · APISIX (key-auth)
+             */
+            authDetected?: string;
             tls?: string;
             personalDataSuspected?: boolean;
             matchedApiId?: string;
             exposureScore: number;
             reasons?: string[];
             status: components["schemas"]["FindingStatus"];
+            /** @description Origen del hallazgo: archivo y location de NGINX, ruta y plugins de APISIX, contrato encontrado, destino, respuesta sin credenciales */
+            evidence?: {
+                [key: string]: unknown;
+            };
+            /** @description Llamadas vistas en el registro de accesos (NGINX) */
+            observedCalls?: number;
             /** Format: date-time */
             firstSeen?: string;
             /** Format: date-time */
@@ -1843,8 +2309,16 @@ export interface components {
              * @enum {string}
              */
             environment: "dev" | "qa" | "prod";
+            /**
+             * @description Segundos de tráfico sombra antes del primer paso (copia de las lecturas; los consumidores no reciben sus respuestas). 0 = sin sombra.
+             * @default 0
+             */
+            shadowSeconds: number;
         };
         RolloutStep: {
+            /** @enum {string} */
+            kind?: "sombra" | "canary" | "blue_green";
+            detail?: string;
             weight?: number;
             /** Format: date-time */
             startedAt?: string;
@@ -1855,6 +2329,22 @@ export interface components {
             p99Ms?: number;
             /** @enum {string} */
             decision?: "avanzar" | "revertir" | "pendiente";
+        };
+        TrafficRoute: {
+            apiId: string;
+            apiName: string;
+            environment: string;
+            /** @description Ruta en nexo-division, p. ej. /rutas/concesiones */
+            prefix: string;
+            stableUrl: string;
+            candidateUrl?: string;
+            /** @description % del tráfico al candidato */
+            weight: number;
+            /** @description % de las lecturas copiadas al candidato (sombra) */
+            mirrorPercent: number;
+            rolloutId?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         Rollout: components["schemas"]["RolloutInput"] & {
             id: string;
@@ -1897,9 +2387,12 @@ export interface components {
             activeSite?: string;
             /** @description por ejemplo 2 de 3 */
             quorum?: string;
+            votosPrimarioCaido?: number;
             sites?: components["schemas"]["SiteHealth"][];
             rtoObjetivoMin?: number;
             rpoObjetivoMin?: number;
+            /** @description Solicitud de retorno pendiente y vigente */
+            pendingFailback?: components["schemas"]["FailbackRequest"];
         };
         FailoverEvent: {
             id?: string;
@@ -1924,6 +2417,8 @@ export interface components {
             }[];
             /** @enum {string} */
             status?: "en_curso" | "completado" | "fallido";
+            /** @description Quien solicitó la operación (en un retorno */
+            requestedBy?: string;
             approvedBy?: string;
         };
         UsageRow: {
@@ -2010,8 +2505,26 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Sin permiso */
+        /** @description Sin permiso, o regla de cuatro ojos (permission «cuatro-ojos»). Queda auditado. */
         Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Datos de entrada inválidos */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description El estado actual no permite la operación (code indica el motivo) */
+        Conflict: {
             headers: {
                 [name: string]: unknown;
             };

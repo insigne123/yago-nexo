@@ -1,0 +1,4 @@
+{
+  "$comment": "Análisis de las vulnerabilidades críticas para el documento OpenVEX de cada versión (tools/release/vulnerabilidades.mjs). Una crítica sin entrada aquí queda como under_investigation, con lo que informa grype. Cada entrada: id (CVE o GHSA), opcional purl del paquete, status (not_affected | affected | fixed | under_investigation) y su texto: justification + impact_statement para not_affected, action_statement para affected, status_notes para el resto. Solo se escribe lo verificado.",
+  "decisiones": []
+}

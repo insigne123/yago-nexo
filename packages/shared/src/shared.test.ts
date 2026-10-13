@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AuditChain, verifyChain } from "./audit.js";
-import { can, FOUR_EYES_ACTIONS, permissionMatrix, ROLES } from "./roles.js";
+import { can, FOUR_EYES_ACTIONS, PERMISSIONS, permissionMatrix, REASON_REQUIRED_ACTIONS, ROLES } from "./roles.js";
 import { classifySeverity } from "./severity.js";
 import { formatRut, isValidRut, rutDv, SyntheticData } from "./synthetic.js";
 
@@ -52,6 +52,24 @@ describe("matriz rol-permiso", () => {
       const holders = ROLES.filter((r) => can([r], action));
       expect(holders).toEqual(["aprobador"]);
     }
+  });
+
+  it("el retorno al sitio principal lo solicita un operador o un aprobador y lo aprueba un aprobador", () => {
+    expect(ROLES.filter((r) => can([r], "continuity:failback:request"))).toEqual(["aprobador", "operador"]);
+    expect(ROLES.filter((r) => can([r], "continuity:failback:approve"))).toEqual(["aprobador"]);
+    expect(FOUR_EYES_ACTIONS).toContain("continuity:failback:approve");
+  });
+
+  it("el reproceso exige el rol aprobador y un motivo, pero no una segunda persona", () => {
+    expect(FOUR_EYES_ACTIONS).not.toContain("dlq:reprocess:approve");
+    expect(REASON_REQUIRED_ACTIONS).toEqual(["dlq:reprocess:approve"]);
+    expect(ROLES.filter((r) => can([r], "dlq:reprocess:approve"))).toEqual(["aprobador"]);
+  });
+
+  it("la matriz tiene 28 permisos y 6 roles", () => {
+    expect(PERMISSIONS).toHaveLength(28);
+    expect(permissionMatrix()).toHaveLength(PERMISSIONS.length);
+    expect(ROLES).toHaveLength(6);
   });
 
   it("ignora roles desconocidos", () => {

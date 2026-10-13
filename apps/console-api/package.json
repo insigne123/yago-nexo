@@ -1,6 +1,6 @@
 {
   "name": "@nexo/console-api",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "API de la Consola Nexo (NestJS). Contrato: openapi.yaml",
@@ -14,6 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests",
+    "metricas:diccionario": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/observability/metrics-dictionary.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {

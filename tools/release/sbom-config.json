@@ -1,0 +1,17 @@
+{
+  "$comment": "Paquetes del workspace que se entregan para correr en producción. Sus dependencias de producción (y las de sus dependencias del workspace) van al SBOM con scope required; todo lo demás del lockfile (devDependencies, sitio, laboratorio, pruebas y herramientas de evidencia) va con scope excluded.",
+  "ejecucion": [
+    { "paquete": "@nexo/console-api", "motivo": "API de la Consola (imagen nexo-console-api)" },
+    {
+      "paquete": "@nexo/console-web",
+      "motivo": "Web de la Consola (imagen nexo-console-web; el paquete corre en el navegador)"
+    },
+    {
+      "paquete": "@nexo/engines",
+      "motivo": "Motores, división de tráfico y agente de continuidad (imagen nexo-motores)"
+    },
+    { "paquete": "@nexo/nexo-ctl", "motivo": "CLI de los pipelines de APIs (BT-015 a BT-017, D-03)" },
+    { "paquete": "@nexo/respaldo", "motivo": "Respaldo cifrado y prueba de restauración de PostgreSQL" },
+    { "paquete": "@nexo/support-web", "motivo": "Mesa de soporte (web)" }
+  ]
+}

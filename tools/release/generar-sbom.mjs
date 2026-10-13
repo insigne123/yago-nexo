@@ -1,130 +1,151 @@
-// Genera el SBOM CycloneDX de una versión de Yago Nexo, el inventario de licencias y los checksums.
-// Fuentes: los paquetes npm del monorepo (pnpm licenses list) y los componentes de ejecución fijados en
-// deploy/compose (tools/release/componentes-plataforma.json). Falla si alguna licencia queda sin resolver
-// o si aparece una licencia de copyleft fuerte dentro del código propio (npm), que no debe redistribuirse así.
+// Genera el SBOM CycloneDX 1.6 de una versión de Yago Nexo y el inventario de licencias.
 //
-// Uso: node tools/release/generar-sbom.mjs
+// Qué incluye:
+//   - los componentes propios del workspace (@nexo/*), con su versión y purl;
+//   - los paquetes npm de terceros del lockfile (pnpm licenses list), separados en ejecución (scope required:
+//     dependencias de producción de los paquetes de sbom-config.json) y desarrollo (scope excluded);
+//   - los componentes de ejecución que no vienen de npm (componentes-plataforma.json).
+// Falla si alguna licencia queda sin resolver o si un paquete npm trae copyleft fuerte.
+// La versión sale del package.json raíz. También escribe CHECKSUMS.txt de la carpeta; el flujo de versión lo
+// rehace al final con tools/release/sumas.mjs, cuando ya están los SBOM por imagen (syft) y las vulnerabilidades.
+//
+// Uso: node tools/release/generar-sbom.mjs [carpeta de salida]   (por omisión release/<versión>)
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  aplanarLicenciasPnpm,
+  clasificarNpm,
+  componenteNpm,
+  componentesPlataforma,
+  componentesPropios,
+  construirBom,
+  licenciasDenegadas,
+  resumen,
+  textoLicencia,
+} from "./lib/sbom.mjs";
+import { escribirSumas } from "./lib/sumas.mjs";
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const release = JSON.parse(readFileSync(join(raiz, "apps/site/src/data/release.json"), "utf8"));
-const version = release.version;
-const salida = join(raiz, "release", version);
-const overrides = JSON.parse(readFileSync(join(raiz, "tools/release/overrides-licencias.json"), "utf8"));
-const plataforma = JSON.parse(readFileSync(join(raiz, "tools/release/componentes-plataforma.json"), "utf8")).componentes;
+const leer = (ruta) => JSON.parse(readFileSync(join(raiz, ruta), "utf8"));
+const pnpm = (...args) =>
+  JSON.parse(execFileSync("pnpm", args, { cwd: raiz, maxBuffer: 128 * 1024 * 1024, encoding: "utf8" }));
 
-// Copyleft fuerte: no puede venir incrustado en nuestro código (npm). En contenedores separados se permite
-// y se marca (p. ej. Grafana AGPL, que se ejecuta sin modificar).
-const DENEGADAS_EN_CODIGO = /\b(GPL-[23]|AGPL|LGPL|SSPL|BUSL|CC-BY-NC)/i;
+const version = leer("package.json").version;
+const salida = process.argv[2] ? resolve(process.argv[2]) : join(raiz, "release", version);
+const overrides = leer("tools/release/overrides-licencias.json");
+const plataforma = leer("tools/release/componentes-plataforma.json").componentes;
+const config = leer("tools/release/sbom-config.json");
+const paquetesEjecucion = config.ejecucion.map((e) => e.paquete);
 
-function spdx(lic) {
-  // Normaliza una expresión SPDX simple; deja las compuestas tal cual entre paréntesis.
-  return lic.replace(/^\(|\)$/g, "");
+// --- workspace: proyectos propios y cuáles se entregan para ejecución ---
+const proyectos = pnpm("ls", "-r", "--depth", "-1", "--json").filter((p) => p.name?.startsWith("@nexo/"));
+const conocidos = new Set(proyectos.map((p) => p.name));
+const faltan = paquetesEjecucion.filter((n) => !conocidos.has(n));
+if (faltan.length) {
+  console.error(`SBOM: sbom-config.json nombra paquetes que no están en el workspace: ${faltan.join(", ")}`);
+  process.exit(1);
 }
+const filtros = paquetesEjecucion.flatMap((n) => ["--filter", `${n}...`]);
+const propiosEjecucion = new Set(pnpm(...filtros, "ls", "--depth", "-1", "--json").map((p) => p.name));
+const propios = componentesPropios(
+  proyectos
+    .map((p) => {
+      const pkg = JSON.parse(readFileSync(join(p.path, "package.json"), "utf8"));
+      return {
+        nombre: p.name,
+        version: p.version,
+        ruta: relative(raiz, p.path),
+        descripcion: pkg.description,
+        uso: propiosEjecucion.has(p.name) ? "ejecucion" : "desarrollo",
+      };
+    })
+    .sort((a, b) => a.nombre.localeCompare(b.nombre)),
+);
 
-// --- paquetes npm de todo el workspace ---
-const crudo = JSON.parse(execFileSync("pnpm", ["licenses", "list", "--json"], { cwd: raiz, maxBuffer: 64 * 1024 * 1024, encoding: "utf8" }));
-const npm = [];
-const problemas = [];
-for (const [licencia, paquetes] of Object.entries(crudo)) {
-  for (const p of paquetes) {
-    let lic = licencia;
-    if (lic === "Unknown") {
-      const o = overrides[p.name];
-      if (!o) {
-        problemas.push(`Licencia desconocida sin resolver: ${p.name} (agréguela a overrides-licencias.json con su licencia verificada)`);
-        continue;
-      }
-      lic = o.licencia;
-    }
-    if (DENEGADAS_EN_CODIGO.test(lic)) problemas.push(`Licencia no permitida en código propio: ${p.name} → ${lic}`);
-    const versiones = Array.isArray(p.versions) ? p.versions : [p.version].filter(Boolean);
-    for (const v of versiones.length ? versiones : ["0.0.0"]) {
-      npm.push({
-        type: "library",
-        name: p.name,
-        version: String(v),
-        purl: `pkg:npm/${p.name}@${v}`,
-        licenses: [{ license: spdx(lic).includes(" OR ") || spdx(lic).includes(" AND ") ? { name: lic } : { id: spdx(lic) } }],
-        ...(p.homepage ? { externalReferences: [{ type: "website", url: p.homepage }] } : {}),
-      });
-    }
-  }
-}
+// --- paquetes npm de terceros: todo el lockfile y la parte de ejecución ---
+const todos = aplanarLicenciasPnpm(pnpm("licenses", "list", "--json"), overrides);
+const ejecucion = aplanarLicenciasPnpm(pnpm(...filtros, "licenses", "list", "--prod", "--json"), overrides);
+const npm = clasificarNpm(todos.paquetes, ejecucion.paquetes);
+const problemas = [...new Set([...todos.problemas, ...ejecucion.problemas]), ...licenciasDenegadas(npm)];
 if (problemas.length) {
   console.error("SBOM: no se puede generar por problemas de licencias:\n  - " + problemas.join("\n  - "));
   process.exit(1);
 }
 
-// --- componentes de ejecución (contenedores y bibliotecas Java) ---
-const infra = plataforma.map((c) => ({
-  type: "application",
-  name: c.nombre,
-  version: c.version,
-  ...(c.purl ? { purl: c.purl } : {}),
-  licenses: [{ license: c.licencia.includes(" ") ? { name: c.licencia } : { id: c.licencia } }],
-  externalReferences: [{ type: "website", url: c.url }],
-  properties: [{ name: "nexo:rol", value: c.rol }],
-}));
-
-const bom = {
-  bomFormat: "CycloneDX",
-  specVersion: "1.5",
-  version: 1,
-  metadata: {
-    timestamp: new Date().toISOString(),
-    component: { type: "application", name: "Yago Nexo", version, description: "Plataforma de gestión de APIs e integración de Yago, construida sobre WSO2 (base abierta)." },
-    supplier: { name: "Sociedad de Inversiones Yago SpA" },
-    licenses: [{ license: { name: "Propietaria (Yago); componentes de terceros bajo sus propias licencias" } }],
-    tools: [{ name: "generar-sbom.mjs", vendor: "Yago Nexo" }],
-  },
-  components: [...infra, ...npm].sort((a, b) => a.name.localeCompare(b.name)),
-};
+const bom = construirBom({
+  version,
+  timestamp: new Date().toISOString(),
+  serial: `urn:uuid:${randomUUID()}`,
+  propios,
+  plataforma: componentesPlataforma(plataforma),
+  npm: npm.map(componenteNpm),
+});
+const r = resumen(bom);
 
 mkdirSync(salida, { recursive: true });
-const sbomPath = join(salida, `sbom-nexo-${version}.cdx.json`);
-writeFileSync(sbomPath, JSON.stringify(bom, null, 2) + "\n");
+const nombreSbom = `sbom-nexo-${version}.cdx.json`;
+writeFileSync(join(salida, nombreSbom), JSON.stringify(bom, null, 2) + "\n");
 
 // --- inventario de licencias legible ---
 const porLic = new Map();
 for (const c of bom.components) {
-  const l = c.licenses[0].license.id ?? c.licenses[0].license.name;
-  (porLic.get(l) ?? porLic.set(l, []).get(l)).push(c);
+  if (c.properties?.some((p) => p.name === "nexo:origen" && p.value === "propio")) continue;
+  const l = textoLicencia(c.licenses[0]);
+  const fila = porLic.get(l) ?? { ejecucion: 0, desarrollo: 0, laboratorio: 0 };
+  const uso = c.properties?.find((p) => p.name === "nexo:uso")?.value ?? "desarrollo";
+  fila[uso] += 1;
+  porLic.set(l, fila);
 }
+const terceros = r.total - r.propios;
 const md = [
   `# Inventario de licencias · Yago Nexo ${version}`,
   "",
-  `Generado el ${new Date().toISOString().slice(0, 10)} a partir del SBOM CycloneDX (\`${`sbom-nexo-${version}.cdx.json`}\`).`,
-  `Total de componentes de terceros: **${bom.components.length}** (${infra.length} de ejecución + ${npm.length} de npm), en **${porLic.size}** licencias distintas.`,
+  `Generado el ${new Date().toISOString().slice(0, 10)} a partir del SBOM CycloneDX 1.6 (\`${nombreSbom}\`).`,
   "",
-  "Yago Nexo es software propietario de Sociedad de Inversiones Yago SpA, construido sobre una base de código",
-  "abierto. Cada componente de terceros conserva su propia licencia. Ningún componente incrustado en el código",
-  "propio usa copyleft fuerte; Grafana (AGPL‑3.0) se ejecuta como servicio separado y sin modificaciones.",
+  `- Componentes en el SBOM: **${r.total}**: ${r.propios} propios (@nexo/*) y ${terceros} de terceros.`,
+  `- Por uso: **${r.ejecucion}** de ejecución (scope \`required\`), **${r.desarrollo}** de desarrollo y construcción y **${r.laboratorio}** solo de laboratorio (scope \`excluded\`).`,
+  `- Licencias distintas entre los componentes de terceros: **${porLic.size}**.`,
   "",
-  "| Licencia | Componentes |",
-  "| --- | --- |",
-  ...[...porLic.entries()].sort().map(([l, cs]) => `| ${l} | ${cs.length} |`),
+  "Yago Nexo es software propietario de Sociedad de Inversiones Yago SpA (`LicenseRef-Yago-Nexo`), construido",
+  "sobre una base de código abierto. Cada componente de terceros conserva su propia licencia. Ningún paquete npm",
+  "(de ejecución ni de desarrollo) usa copyleft fuerte; Grafana (AGPL-3.0) se ejecuta como servicio separado y",
+  "sin modificaciones.",
   "",
-  "## Componentes de ejecución",
+  "| Licencia | Ejecución | Desarrollo | Laboratorio |",
+  "| --- | ---: | ---: | ---: |",
+  ...[...porLic.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([l, f]) => `| ${l} | ${f.ejecucion} | ${f.desarrollo} | ${f.laboratorio} |`),
   "",
-  "| Componente | Versión | Licencia | Rol |",
+  "## Componentes propios",
+  "",
+  "| Paquete | Versión | Uso | Ruta |",
   "| --- | --- | --- | --- |",
-  ...plataforma.map((c) => `| ${c.nombre} | ${c.version} | ${c.licencia} | ${c.rol} |`),
+  ...propios.map(
+    (c) =>
+      `| ${c.name} | ${c.version} | ${c.scope === "required" ? "ejecución" : "desarrollo"} | ${c.properties.find((p) => p.name === "nexo:ruta").value} |`,
+  ),
+  "",
+  "## Componentes de ejecución que no vienen de npm",
+  "",
+  "| Componente | Versión | Licencia | Uso | Rol |",
+  "| --- | --- | --- | --- | --- |",
+  ...plataforma.map(
+    (c) =>
+      `| ${c.nombre} | ${c.version} | ${c.licencia} | ${c.uso === "laboratorio" ? "laboratorio" : "ejecución"} | ${c.rol} |`,
+  ),
   "",
 ];
 writeFileSync(join(salida, "LICENCIAS.md"), md.join("\n"));
-
-// --- checksums de los artefactos de la versión ---
-const archivos = readdirSync(salida).filter((f) => f !== "CHECKSUMS.txt" && statSync(join(salida, f)).isFile());
-const sumas = archivos.sort().map((f) => `${createHash("sha256").update(readFileSync(join(salida, f))).digest("hex")}  ${f}`);
-writeFileSync(join(salida, "CHECKSUMS.txt"), sumas.join("\n") + "\n");
+escribirSumas(salida);
 
 console.log(`SBOM de Yago Nexo ${version}:`);
-console.log(`  componentes: ${bom.components.length} (${infra.length} ejecución + ${npm.length} npm) · ${porLic.size} licencias`);
-console.log(`  ${sbomPath.replace(raiz + "/", "")}`);
-console.log(`  ${join(salida, "LICENCIAS.md").replace(raiz + "/", "")}`);
-console.log(`  ${join(salida, "CHECKSUMS.txt").replace(raiz + "/", "")}`);
+console.log(
+  `  componentes: ${r.total} (${r.propios} propios; ${r.ejecucion} ejecución, ${r.desarrollo} desarrollo, ${r.laboratorio} laboratorio) · ${porLic.size} licencias`,
+);
+console.log(`  ${relative(raiz, join(salida, nombreSbom))}`);
+console.log(`  ${relative(raiz, join(salida, "LICENCIAS.md"))}`);
+console.log(`  ${relative(raiz, join(salida, "CHECKSUMS.txt"))}`);

@@ -1,64 +1,127 @@
 name: Versión
 
-# Publica una versión de Yago Nexo: compila, genera el SBOM, el inventario de licencias y las sumas,
-# firma cada artefacto con Sigstore (sin llaves: identidad OIDC de este workflow), publica las imágenes
-# propias en GHCR firmadas, y crea la etiqueta y la versión en GitHub.
+# Publica una versión firmada de Yago Nexo:
+#   1. Puerta: corre solo desde main o desde una etiqueta v*, con la versión igual en package.json, en el sitio
+#      (apps/site/src/data/release.json) y en la etiqueta, y solo si el CI de ese mismo commit está en verde.
+#   2. Compila y prueba; genera el SBOM CycloneDX del producto (componentes @nexo/*, ejecución y desarrollo
+#      separados) y el inventario de licencias.
+#   3. Construye, publica en GHCR y firma las imágenes propias; con syft genera el SBOM de cada imagen (propias y
+#      bases de terceros que usa el chart) y lo adjunta a la imagen como atestación firmada.
+#   4. Con grype produce la tabla de vulnerabilidades (Markdown y JSON, sin cortar) y el documento OpenVEX de las
+#      críticas (tools/release/vulnerabilidades.mjs, con el análisis de tools/release/vex-decisiones.json).
+#   5. Escribe CHECKSUMS.txt, firma cada archivo con Sigstore (sin llaves: identidad OIDC de este workflow), crea
+#      la etiqueta si no existe y publica la versión en GitHub con todos los archivos y sus firmas.
 #
-# Se dispara a mano (Actions → Versión → Run workflow) con el número de versión, que debe coincidir con
-# apps/site/src/data/release.json, o con un push cuyo mensaje de commit empiece con «Publicar versión »
-# (en ese caso la versión se toma de release.json). En ambos casos falla si la etiqueta ya existe.
+# Cómo se dispara: Actions → Versión → Run workflow (en main o en una etiqueta v*), empujando una etiqueta v*, o
+# con un push a main cuyo mensaje de commit empiece con «Publicar versión ».
+# Cómo se verifica una versión publicada (caso LAB-PA-055-01): release/LAB-PA-055-01.md y
+# tools/release/verificar-version.sh <versión>.
 #
-# Verificar un artefacto:
-#   cosign verify-blob --bundle <archivo>.sigstore.json \
-#     --certificate-identity-regexp '^https://github.com/insigne123/yago-nexo/\.github/workflows/release\.yml@' \
-#     --certificate-oidc-issuer https://token.actions.githubusercontent.com <archivo>
-# Verificar una imagen:
-#   cosign verify ghcr.io/insigne123/nexo-console-api:<versión> \
-#     --certificate-identity-regexp '^https://github.com/insigne123/yago-nexo/\.github/workflows/release\.yml@' \
-#     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+# Todas las acciones van fijadas por el SHA completo de su commit y las imágenes de herramientas por digest.
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Versión a publicar (por ejemplo 1.1.0)"
-        required: true
+        description: "Versión a publicar (por ejemplo 1.2.0); vacío = la de package.json"
+        required: false
   push:
-    branches: ["main", "claude/**"]
+    branches: ["main"]
+    tags: ["v*"]
 
 permissions:
-  contents: write # etiqueta y versión en GitHub
-  packages: write # imágenes en GHCR
-  id-token: write # identidad OIDC para firmar con Sigstore
+  contents: read
 
 concurrency:
   group: version
   cancel-in-progress: false
 
 jobs:
-  version:
-    name: Publicar versión
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Publicar versión ')
+  puerta:
+    name: Origen permitido y CI en verde
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      startsWith(github.event.head_commit.message, 'Publicar versión ')
     runs-on: ubuntu-latest
-    env:
-      REGISTRO: ghcr.io/insigne123
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      crear_etiqueta: ${{ steps.version.outputs.crear_etiqueta }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Solo desde main o desde una etiqueta v*
+        run: |
+          case "$GITHUB_REF" in
+            refs/heads/main | refs/tags/v*) echo "Origen permitido: $GITHUB_REF" ;;
+            *)
+              echo "::error::La versión se publica solo desde main o desde una etiqueta v* (origen: $GITHUB_REF)."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
-      - name: La versión coincide con el sitio y no existe todavía
+      - name: La versión coincide en package.json, el sitio y la etiqueta, y no está publicada
+        id: version
         env:
           SOLICITADA: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          declarada=$(jq -r .version apps/site/src/data/release.json)
-          VERSION="${SOLICITADA:-$declarada}"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          [ "$declarada" = "$VERSION" ] || { echo "release.json dice $declarada, no $VERSION"; exit 1; }
-          if git rev-parse "v$VERSION" >/dev/null 2>&1; then echo "la etiqueta v$VERSION ya existe"; exit 1; fi
+          set -euo pipefail
+          paquete=$(jq -r .version package.json)
+          sitio=$(jq -r .version apps/site/src/data/release.json)
+          VERSION="${SOLICITADA:-$paquete}"
+          [ "$paquete" = "$VERSION" ] || { echo "::error::package.json dice $paquete, no $VERSION"; exit 1; }
+          [ "$sitio" = "$VERSION" ] || { echo "::error::apps/site/src/data/release.json dice $sitio, no $VERSION"; exit 1; }
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            [ "$GITHUB_REF_NAME" = "v$VERSION" ] || { echo "::error::la etiqueta $GITHUB_REF_NAME no corresponde a v$VERSION"; exit 1; }
+            crear=false
+          else
+            if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+              echo "::error::la etiqueta v$VERSION ya existe: publique desde la etiqueta o suba la versión"
+              exit 1
+            fi
+            crear=true
+          fi
+          if gh release view "v$VERSION" >/dev/null 2>&1; then echo "::error::la versión v$VERSION ya está publicada"; exit 1; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "crear_etiqueta=$crear" >> "$GITHUB_OUTPUT"
+          echo "Versión $VERSION desde $GITHUB_REF (commit $GITHUB_SHA)"
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: El CI de este commit está en verde
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node tools/release/esperar-ci.mjs --sha "$GITHUB_SHA" --minutos 60
+
+  version:
+    name: Publicar versión firmada
+    needs: puerta
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # etiqueta y versión en GitHub
+      packages: write # imágenes en GHCR
+      id-token: write # identidad OIDC para firmar con Sigstore
+    env:
+      VERSION: ${{ needs.puerta.outputs.version }}
+      REGISTRO: ghcr.io/insigne123
+      SYFT: anchore/syft:v1.52.0@sha256:500e2d872ac019436926e8322b4fc1f39441d94d21f6f4046c6ff29b30e8cb02
+      GRYPE: anchore/grype:v0.119.0@sha256:8c2c9234a345577a6d321a4753aa3ee1276d8975c8452d2344a56b57733ecad3
+      CYCLONEDX: cyclonedx/cyclonedx-cli:0.33.1@sha256:252c2e26f468c25fea1e63ecde1bc3198ad6e9dbb57f5ed3236bddcb2281b3a7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -66,56 +129,127 @@ jobs:
       - run: pnpm -r --if-present build
       - run: pnpm -r --if-present test
 
-      - name: SBOM, inventario de licencias y sumas
-        run: pnpm sbom
+      - name: SBOM del producto e inventario de licencias
+        run: node tools/release/generar-sbom.mjs "release/$VERSION"
 
-      - uses: sigstore/cosign-installer@v3
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
 
       - name: Ingresar a GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Construir, publicar y firmar las imágenes propias
         run: |
           set -euo pipefail
           pnpm --filter @nexo/console-api deploy --prod --legacy apps/console-api/.deploy
           cp apps/console-api/Dockerfile apps/console-api/.deploy/
-          declare -A contexto=(
-            [nexo-console-api]=apps/console-api/.deploy
-            [nexo-console-web]=apps/console-web
-            [nexo-motores]=services/engines
-          )
+          mkdir -p "$RUNNER_TEMP/escaneo"
           : > "release/$VERSION/IMAGENES.txt"
-          for nombre in "${!contexto[@]}"; do
+          : > "$RUNNER_TEMP/escaneo/lista.txt"
+          while read -r nombre contexto; do
             imagen="$REGISTRO/$nombre:$VERSION"
             docker build --label "org.opencontainers.image.version=$VERSION" \
               --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-              -t "$imagen" "${contexto[$nombre]}"
-            docker push "$imagen"
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              -t "$imagen" "$contexto" </dev/null
+            docker push "$imagen" </dev/null
             digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$imagen")
-            cosign sign --yes "$digest"
+            cosign sign --yes "$digest" </dev/null
             echo "$digest" >> "release/$VERSION/IMAGENES.txt"
-          done
+            echo "$nombre $imagen $VERSION propia $digest" >> "$RUNNER_TEMP/escaneo/lista.txt"
+          done < <(jq -r '.propias[] | "\(.nombre) \(.contexto)"' tools/release/imagenes.json)
           cat "release/$VERSION/IMAGENES.txt"
 
-      - name: Firmar los artefactos de la versión (Sigstore, sin llaves)
+      - name: Descargar las imágenes de terceros que usa el chart
         run: |
+          set -euo pipefail
+          while read -r ref; do
+            docker pull -q "$ref" </dev/null
+            nombre=$(echo "$ref" | tr '/:@' '---')
+            echo "$nombre $ref ${ref##*:} tercero -" >> "$RUNNER_TEMP/escaneo/lista.txt"
+          done < <(jq -r '.terceros[]' tools/release/imagenes.json)
+          cat "$RUNNER_TEMP/escaneo/lista.txt"
+
+      - name: SBOM de cada imagen (syft) y validación CycloneDX
+        run: |
+          set -euo pipefail
+          validar() {
+            docker run --rm -v "$PWD/release/$VERSION:/d:ro" "$CYCLONEDX" validate \
+              --input-file "/d/$1" --input-format json --input-version v1_6 --fail-on-errors
+          }
+          validar "sbom-nexo-$VERSION.cdx.json"
+          while read -r nombre imagen version_fuente _tipo _digest; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/release/$VERSION:/salida" \
+              "$SYFT" scan "docker:$imagen" --source-name "$nombre" --source-version "$version_fuente" \
+              -o "cyclonedx-json@1.6=/salida/sbom-imagen-$nombre.cdx.json" -q </dev/null
+            validar "sbom-imagen-$nombre.cdx.json" </dev/null
+          done < "$RUNNER_TEMP/escaneo/lista.txt"
+
+      - name: Atestar el SBOM en cada imagen propia (cosign attest, CycloneDX)
+        run: |
+          set -euo pipefail
+          while read -r nombre _imagen _version tipo digest; do
+            [ "$tipo" = propia ] || continue
+            cosign attest --yes --type cyclonedx --predicate "release/$VERSION/sbom-imagen-$nombre.cdx.json" "$digest" </dev/null
+          done < "$RUNNER_TEMP/escaneo/lista.txt"
+
+      - name: Vulnerabilidades (grype), tabla sin cortar y OpenVEX de las críticas
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/grype-db"
+          echo '[]' > "$RUNNER_TEMP/escaneo/manifiesto.json"
+          while read -r nombre imagen _version tipo _digest; do
+            docker run --rm -e GRYPE_DB_CACHE_DIR=/cache -v "$RUNNER_TEMP/grype-db:/cache" \
+              -v "$PWD/release/$VERSION:/sbom:ro" -v "$RUNNER_TEMP/escaneo:/salida" \
+              "$GRYPE" "sbom:/sbom/sbom-imagen-$nombre.cdx.json" -o "json=/salida/grype-$nombre.json" -q </dev/null
+            jq --arg i "$imagen" --arg t "$tipo" --arg g "grype-$nombre.json" '. + [{imagen: $i, tipo: $t, grype: $g}]' \
+              "$RUNNER_TEMP/escaneo/manifiesto.json" > "$RUNNER_TEMP/escaneo/m.json"
+            mv "$RUNNER_TEMP/escaneo/m.json" "$RUNNER_TEMP/escaneo/manifiesto.json"
+          done < "$RUNNER_TEMP/escaneo/lista.txt"
+          node tools/release/vulnerabilidades.mjs --version "$VERSION" \
+            --manifiesto "$RUNNER_TEMP/escaneo/manifiesto.json" --salida "release/$VERSION"
+          # Resultados completos de grype (con descripciones, CVSS y EPSS), tal como los entregó la herramienta.
+          tar -czf "release/$VERSION/grype-nexo-$VERSION.tar.gz" -C "$RUNNER_TEMP/escaneo" .
+
+      - name: Sumas y firma de los artefactos de la versión (Sigstore, sin llaves)
+        run: |
+          set -euo pipefail
+          node tools/release/sumas.mjs "release/$VERSION"
           cd "release/$VERSION"
           for f in *; do
             case "$f" in *.sigstore.json) continue ;; esac
             cosign sign-blob --yes --bundle "$f.sigstore.json" "$f"
           done
+          # Comprobación inmediata con la misma identidad que se publica en release/LAB-PA-055-01.md.
+          cosign verify-blob --bundle CHECKSUMS.txt.sigstore.json \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/\.github/workflows/release\.yml@refs/(heads/main|tags/v.+)$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com CHECKSUMS.txt
+          sha256sum -c CHECKSUMS.txt
           ls -la
 
       - name: Etiqueta y versión en GitHub
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CREAR_ETIQUETA: ${{ needs.puerta.outputs.crear_etiqueta }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "v$VERSION" -m "Yago Nexo $VERSION"
-          git push origin "v$VERSION"
-          nota="apps/site/blog/$(ls apps/site/blog | grep -E "nexo-${VERSION//./-}\.md$" | head -1)"
-          # La nota del sitio sin su encabezado YAML ni el marcador de resumen.
-          if [ -f "$nota" ]; then awk 'NR==1 && /^---$/ {f=1; next} f && /^---$/ {f=0; next} !f' "$nota" | grep -v '<!-- truncate -->' | sed 's#](/#](https://yago-nexo.web.app/#g' > /tmp/nota.md; else echo "Yago Nexo $VERSION" > /tmp/nota.md; fi
-          cuerpo=/tmp/nota.md
-          gh release create "v$VERSION" --title "Yago Nexo $VERSION" --notes-file "$cuerpo" release/"$VERSION"/*
+          set -euo pipefail
+          if [ "$CREAR_ETIQUETA" = true ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "v$VERSION" -m "Yago Nexo $VERSION"
+            git push origin "v$VERSION"
+          fi
+          # Notas: release/<versión>/NOTAS.md; si no existe, la nota del sitio sin su encabezado YAML.
+          notas="$RUNNER_TEMP/notas.md"
+          blog=""
+          for f in apps/site/blog/*"nexo-${VERSION//./-}.md"; do [ -f "$f" ] && blog="$f" && break; done
+          if [ -f "release/$VERSION/NOTAS.md" ]; then
+            cp "release/$VERSION/NOTAS.md" "$notas"
+          elif [ -n "$blog" ]; then
+            awk 'NR==1 && /^---$/ {f=1; next} f && /^---$/ {f=0; next} !f' "$blog" | grep -v '<!-- truncate -->' \
+              | sed 's#](/#](https://yago-nexo.web.app/#g' > "$notas"
+          else
+            echo "Yago Nexo $VERSION" > "$notas"
+          fi
+          gh release create "v$VERSION" --verify-tag --title "Yago Nexo $VERSION" --notes-file "$notas" release/"$VERSION"/*

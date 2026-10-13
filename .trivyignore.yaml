@@ -1,0 +1,31 @@
+# Hallazgos de Trivy que se aceptan, cada uno con su justificación. Lo usa el job «Secretos y
+# vulnerabilidades (BT-057)» de .github/workflows/ci.yml (--ignorefile). Cada entrada se limita a un archivo.
+misconfigurations:
+  - id: KSV-0109
+    paths:
+      - "deploy/helm/nexo-platform/templates/apim/key-manager.yaml"
+    statement: >-
+      Falso positivo. El ConfigMap del Job km-registro trae key-manager.json (sin credenciales) y el script
+      registrar-key-manager.mjs, cuya línea «cuerpo.additionalProperties.client_secret =
+      process.env.KEYCLOAK_KM_CLIENT_SECRET» copia en memoria una variable que el Job recibe por secretKeyRef
+      desde secretos.keycloakKm. El valor del secreto nunca se escribe en el ConfigMap.
+
+vulnerabilities:
+  # tinypool 1.1.1 llega solo por @docusaurus/core 3.10.2 (apps/site), que exige tinypool ^1.0.2 y es la última
+  # versión publicada de Docusaurus al 08-10-2026; la corrección existe solo en tinypool 2.1.1/2.1.2.
+  - id: CVE-2026-104848
+    purls:
+      - "pkg:npm/tinypool@1.1.1"
+    statement: >-
+      Riesgo aceptado con plazo. tinypool solo se ejecuta al construir el sitio estático (docusaurus build), con
+      el contenido del propio repositorio; no va en ninguna imagen de Nexo ni en el sitio publicado. La falla es
+      un «gadget»: exige que otro código haya contaminado Object.prototype dentro de ese proceso de construcción.
+      Se elimina cuando Docusaurus acepte tinypool 2.1.2 o superior.
+    expired_at: 2026-12-31
+  - id: CVE-2026-104849
+    purls:
+      - "pkg:npm/tinypool@1.1.1"
+    statement: >-
+      Riesgo aceptado con plazo, por la misma razón que CVE-2026-104848 (mismo paquete, gadget en las opciones
+      de run()): solo corre al construir el sitio estático con contenido propio y no llega a ninguna imagen.
+    expired_at: 2026-12-31

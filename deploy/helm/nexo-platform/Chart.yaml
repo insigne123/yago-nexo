@@ -6,10 +6,11 @@ description: >-
   continuidad). Las dependencias con estado (PostgreSQL, RabbitMQ, OpenSearch y Keycloak) se consumen como
   servicios externos.
 type: application
-# Versión del chart (instalador en desarrollo: 0.x).
-version: 0.1.0
-# Versión de Nexo que instala por omisión (etiqueta de las imágenes nexo/*).
-appVersion: "1.0.0"
+# Versión del chart: la misma de Yago Nexo (se publican juntos).
+version: 1.2.0
+# Versión de Nexo que instala por omisión (etiqueta de las imágenes nexo/console-api, nexo/console-web y
+# nexo/motores; las de WSO2 llevan su propia versión en values.yaml).
+appVersion: "1.2.0"
 kubeVersion: ">=1.30.0-0"
 keywords:
   - nexo

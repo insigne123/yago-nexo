@@ -1,11 +1,19 @@
-# En producción las alertas van a la mesa de soporte 24x7 (webhook) y al SIEM.
+# Alertmanager · las alertas de Prometheus van al webhook de la Consola, que exige un token (BT-034).
+# Cada alerta recibida queda en la auditoría de la Consola y el reenvío de auditoría la entrega al SIEM.
+# El token se lee de un archivo de secreto (nunca en este archivo): en el laboratorio, el secreto
+# «nexo_alertas_token» de Docker Compose (variable NEXO_ALERTS_TOKEN del .env); en Kubernetes, un Secret montado.
+# La API de la Consola usa el mismo valor (NEXO_ALERTS_TOKEN o NEXO_ALERTS_TOKEN_FILE).
 route:
-  receiver: mesa-soporte
+  receiver: consola
   group_by: [alertname, severidad]
   group_wait: 30s
   repeat_interval: 1h
 receivers:
-  - name: mesa-soporte
+  - name: consola
     webhook_configs:
       - url: http://console-api:8090/api/v1/alerts/alertmanager
         send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /run/secrets/nexo_alertas_token

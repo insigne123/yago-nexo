@@ -2,6 +2,7 @@ import { Body, ConflictException, Controller, Get, HttpCode, Inject, NotFoundExc
 import { z } from "zod";
 import type { Db } from "@nexo/console-db";
 import { assertFourEyes, CurrentUser, RequirePermission, type AuthUser } from "../auth/auth.js";
+import { AuditAction } from "../common/audit-failures.js";
 import { AuditService } from "../common/audit.service.js";
 import { DB } from "../common/tokens.js";
 import { parse } from "../common/validation.js";
@@ -111,6 +112,7 @@ export class RolloutsController {
 
   @Post()
   @RequirePermission("rollout:create")
+  @AuditAction("despliegue.crear")
   async create(@Body() body: unknown, @CurrentUser() user: AuthUser) {
     const r = parse(RolloutSchema, body);
     const api = (await this.db.query("SELECT * FROM nexo.api_asset WHERE id = $1 OR wso2_api_id = $1", [r.apiId])).rows[0];
@@ -141,6 +143,7 @@ export class RolloutsController {
   @Post(":id/approve")
   @HttpCode(200)
   @RequirePermission("rollout:approve")
+  @AuditAction("despliegue.aprobar")
   async approve(@Param("id") id: string, @CurrentUser() user: AuthUser) {
     const r = (await this.db.query("SELECT * FROM nexo.rollout WHERE id = $1", [id])).rows[0];
     if (!r) throw new NotFoundException({ statusCode: 404, message: "El despliegue no existe" });
@@ -154,6 +157,7 @@ export class RolloutsController {
   @Post(":id/abort")
   @HttpCode(200)
   @RequirePermission("rollout:abort")
+  @AuditAction("despliegue.abortar")
   async abort(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const { reason } = parse(ReasonSchema, body ?? {});
     const res = await this.db.query(

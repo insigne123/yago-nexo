@@ -1,0 +1,16 @@
+{
+  "$comment": "Imágenes de cada versión. Las propias se construyen, publican y firman en .github/workflows/release.yml; las de terceros son las bases oficiales que usa el chart (las nexo/apim-* y nexo/mi se construyen sobre ellas en cada sitio) y las que se copian sin cambios. A cada una se le genera un SBOM con syft y se le pasa grype.",
+  "propias": [
+    { "nombre": "nexo-console-api", "contexto": "apps/console-api/.deploy" },
+    { "nombre": "nexo-console-web", "contexto": "apps/console-web" },
+    { "nombre": "nexo-motores", "contexto": "services/engines" }
+  ],
+  "terceros": [
+    "wso2/wso2am-acp:4.7.0",
+    "wso2/wso2am-tm:4.7.0",
+    "wso2/wso2am-universal-gw:4.7.0",
+    "wso2/wso2mi:4.6.0",
+    "envoyproxy/envoy:v1.38.5",
+    "fluent/fluent-bit:5.1.3"
+  ]
+}

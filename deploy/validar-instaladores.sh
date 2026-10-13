@@ -3,10 +3,14 @@
 #
 #   deploy/validar-instaladores.sh             valida el chart, el playbook y el módulo de OpenTofu
 #   deploy/validar-instaladores.sh --instalar  antes instala en ~/.local/bin las herramientas que falten
+#                                              (y Helm si la versión instalada no es la fijada)
+#   deploy/validar-instaladores.sh --solo-helm solo el chart (lo usa el job «Instaladores» del CI)
 #
 # Qué revisa:
 #   1. Helm:     helm lint --strict con cada archivo de valores, y helm template | kubeconform -strict;
-#                además, que cada deployment.toml generado sea TOML válido.
+#                además, que cada deployment.toml generado sea TOML válido y que el render cumpla las reglas
+#                de seguridad del chart (raíz de solo lectura en todos los contenedores, sin usuario root y
+#                ningún deployment.toml en un ConfigMap: van en Secrets porque nombran contraseñas).
 #                Los recursos de Kubernetes deben tener esquema; las CRD (ServiceMonitor, CloudNativePG,
 #                Traefik, GKE) se validan con el catálogo de esquemas de CRD y solo se omiten si falta el suyo.
 #   2. Ansible:  ansible-playbook --syntax-check y ansible-lint (perfil production) si está instalado.
@@ -93,18 +97,35 @@ instalar_ansible() {
   python3 -m pip install --user --quiet "ansible-core>=2.16" ansible-lint
 }
 
-if [ "${1:-}" = "--instalar" ]; then
+INSTALAR=0
+SOLO_HELM=0
+for arg in "$@"; do
+  case "$arg" in
+    --instalar) INSTALAR=1 ;;
+    --solo-helm) SOLO_HELM=1 ;;
+    *)
+      echo "Opción desconocida: $arg (use --instalar y/o --solo-helm)" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [ "$INSTALAR" = 1 ]; then
   titulo "Instalación de herramientas en $BIN"
   mkdir -p "$BIN"
-  command -v helm >/dev/null || paso "instalar Helm $HELM_VERSION" instalar_helm
+  helm version --short 2>/dev/null | grep -q "^$HELM_VERSION+" || paso "instalar Helm $HELM_VERSION" instalar_helm
   command -v kubeconform >/dev/null || paso "instalar kubeconform $KUBECONFORM_VERSION" instalar_kubeconform
-  command -v tofu >/dev/null || paso "instalar OpenTofu $TOFU_VERSION" instalar_tofu
-  { command -v ansible-playbook >/dev/null && command -v ansible-lint >/dev/null; } || paso "instalar ansible-core y ansible-lint" instalar_ansible
+  if [ "$SOLO_HELM" = 0 ]; then
+    command -v tofu >/dev/null || paso "instalar OpenTofu $TOFU_VERSION" instalar_tofu
+    { command -v ansible-playbook >/dev/null && command -v ansible-lint >/dev/null; } || paso "instalar ansible-core y ansible-lint" instalar_ansible
+  fi
   cd "$RAIZ" || exit 1
 fi
 
+necesarias=(helm kubeconform python3)
+[ "$SOLO_HELM" = 0 ] && necesarias+=(ansible-playbook ansible-galaxy tofu)
 faltan=()
-for h in helm kubeconform ansible-playbook ansible-galaxy tofu python3; do
+for h in "${necesarias[@]}"; do
   command -v "$h" >/dev/null || faltan+=("$h")
 done
 if [ ${#faltan[@]} -gt 0 ]; then
@@ -115,9 +136,11 @@ fi
 titulo "Versiones"
 helm version --short
 kubeconform -v
-tofu version | head -1
-ansible-playbook --version | head -1
-command -v ansible-lint >/dev/null && ansible-lint --version | head -1
+if [ "$SOLO_HELM" = 0 ]; then
+  tofu version | head -1
+  ansible-playbook --version | head -1
+  command -v ansible-lint >/dev/null && ansible-lint --version | head -1
+fi
 
 # ------------------------------------------------------------------ 1. Helm
 # Separa lo renderizado en recursos de Kubernetes y CRD (grupos que no son de Kubernetes).
@@ -136,7 +159,8 @@ print(f"{len(docs)} recursos: {sum(not es_crd(d) for d in docs)} de Kubernetes, 
 PY
 }
 
-# Revisa que cada deployment.toml generado sea TOML válido (sin tablas ni claves repetidas).
+# Revisa que cada deployment.toml generado sea TOML válido (sin tablas ni claves repetidas). Los deployment.toml
+# van en Secrets (stringData).
 validar_toml() {
   python3 - "$1" <<'PY'
 import sys, yaml
@@ -147,9 +171,9 @@ except ModuleNotFoundError:
     sys.exit(0)
 errores, n = 0, 0
 for d in yaml.safe_load_all(open(sys.argv[1], encoding="utf-8")):
-    if not d or d.get("kind") != "ConfigMap":
+    if not d or d.get("kind") not in ("ConfigMap", "Secret"):
         continue
-    for clave, texto in (d.get("data") or {}).items():
+    for clave, texto in {**(d.get("data") or {}), **(d.get("stringData") or {})}.items():
         if not clave.endswith(".toml"):
             continue
         n += 1
@@ -164,6 +188,41 @@ sys.exit(1 if errores else 0)
 PY
 }
 
+# Reglas de seguridad del render (las mismas que revisa Trivy en el CI, KSV-0014 y KSV-0109, más el usuario):
+#   - cada contenedor e initContainer tiene securityContext.readOnlyRootFilesystem: true;
+#   - cada pod corre sin root (runAsNonRoot en el pod o en el contenedor);
+#   - ningún ConfigMap trae un deployment.toml (nombra contraseñas: va en un Secret).
+validar_seguridad() {
+  python3 - "$1" <<'PY'
+import sys, yaml
+errores, contenedores = [], 0
+for d in yaml.safe_load_all(open(sys.argv[1], encoding="utf-8")):
+    if not d:
+        continue
+    tipo, nombre = d.get("kind"), d.get("metadata", {}).get("name")
+    if tipo == "ConfigMap" and any(k.endswith(".toml") for k in (d.get("data") or {})):
+        errores.append(f"ConfigMap {nombre}: trae un deployment.toml (debe ir en un Secret)")
+    spec = (d.get("spec") or {})
+    if tipo == "CronJob":
+        spec = spec.get("jobTemplate", {}).get("spec", {})
+    pod = spec.get("template", {}).get("spec") if tipo in ("Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob") else None
+    if not pod:
+        continue
+    pod_no_root = (pod.get("securityContext") or {}).get("runAsNonRoot") is True
+    for c in (pod.get("initContainers") or []) + (pod.get("containers") or []):
+        contenedores += 1
+        sc = c.get("securityContext") or {}
+        if sc.get("readOnlyRootFilesystem") is not True:
+            errores.append(f"{tipo} {nombre}, contenedor {c['name']}: falta readOnlyRootFilesystem: true")
+        if not (pod_no_root or sc.get("runAsNonRoot") is True):
+            errores.append(f"{tipo} {nombre}, contenedor {c['name']}: puede correr como root (falta runAsNonRoot)")
+for e in errores:
+    print(e)
+print(f"{contenedores} contenedores revisados, {len(errores)} incumplimientos de seguridad")
+sys.exit(1 if errores else 0)
+PY
+}
+
 validar_render() {
   # validar_render <nombre> [argumentos de helm template...]
   local nombre="$1"
@@ -172,6 +231,7 @@ validar_render() {
   helm template nexo-platform "$CHART" --namespace nexo "$@" >"$r.yaml" || return 1
   separar "$r.yaml" "$r.k8s.yaml" "$r.crd.yaml" || return 1
   validar_toml "$r.yaml" || return 1
+  validar_seguridad "$r.yaml" || return 1
   kubeconform -strict -summary -kubernetes-version "$K8S_VERSION" -cache "$CACHE/kubeconform" \
     -schema-location default "$r.k8s.yaml" || return 1
   if [ -s "$r.crd.yaml" ] && [ "$(head -c 3 "$r.crd.yaml")" != "[]" ]; then
@@ -198,6 +258,17 @@ paso "helm template | kubeconform -strict (values-gcp-dr.yaml + réplica CloudNa
   --set postgresql.cloudnativepg.replica.origen.host=10.50.0.20 \
   --set postgresql.cloudnativepg.replica.origen.certificadoSecret=nexo-bd-replica-cliente \
   --set postgresql.cloudnativepg.replica.origen.caSecret=nexo-bd-cpd-ca
+
+if [ "$SOLO_HELM" = 1 ]; then
+  titulo "Resumen (solo Helm)"
+  printf '%s\n' "${RESULTADOS[@]}"
+  if [ "$FALLAS" -gt 0 ]; then
+    printf '\n%d validaciones fallaron.\n' "$FALLAS"
+    exit 1
+  fi
+  printf '\nEl chart pasó todas las validaciones.\n'
+  exit 0
+fi
 
 # ------------------------------------------------------------------ 2. Ansible
 titulo "2. Ansible: deploy/ansible/rke2"

@@ -2,6 +2,9 @@
 WSO2 Micro Integrator 4.6.0 (Nexo Integrator): flujos de integración, colas RabbitMQ y reproceso. Misma
 configuración que deploy/compose/mi, con las direcciones y credenciales de cada ambiente. La imagen nexo/mi
 incluye los artefactos de integración (wso2/mi/artifacts).
+El deployment.toml va en un Secret: trae la contraseña de los almacenes de llaves (la de ejemplo si no hay
+secretos.almacenLlaves.existingSecret) y nombra las demás, que llegan como variables desde sus Secrets.
+La raíz del contenedor es de solo lectura: el servidor corre sobre una copia escribible (nexo.wso2.initHogar).
 */ -}}
 {{- if .Values.mi.enabled }}
 {{- $cfg := .Values.mi }}
@@ -22,12 +25,13 @@ metadata:
 automountServiceAccountToken: false
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: {{ $nombre }}
+  name: {{ $nombre }}-config
   labels:
     {{- include "nexo.etiquetas" $ctx | nindent 4 }}
-data:
+type: Opaque
+stringData:
   deployment.toml: |
     {{- $toml | nindent 4 }}
 ---
@@ -83,7 +87,9 @@ spec:
       {{- include "nexo.podComun" $ctx | nindent 6 }}
       terminationGracePeriodSeconds: 60
       securityContext:
-        {{- include "nexo.podSeguridad" (dict "uid" 802) | nindent 8 }}
+        {{- include "nexo.podSeguridad" (dict "uid" (int $.Values.mi.uidImagen)) | nindent 8 }}
+      initContainers:
+        {{- include "nexo.wso2.initHogar" (dict "ctx" $ "imagen" (include "nexo.imagen" (dict "ctx" $ "img" $cfg.image))) | nindent 8 }}
       containers:
         - name: mi
           image: {{ include "nexo.imagen" (dict "ctx" $ "img" $cfg.image) }}
@@ -134,15 +140,17 @@ spec:
           securityContext:
             {{- include "nexo.contenedorSeguridad" (dict) | nindent 12 }}
           volumeMounts:
+            {{- include "nexo.wso2.montajesHogar" (dict) | nindent 12 }}
             - name: config
               mountPath: /home/wso2carbon/wso2-config-volume/conf/deployment.toml
               subPath: deployment.toml
               readOnly: true
             {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.montajesSeguridad" "datos" (dict "ctx" $ "base" "/home/wso2carbon/wso2-config-volume/repository/resources/security") "indent" 12) }}
       volumes:
+        {{- include "nexo.wso2.volumenesHogar" (dict "cfg" $cfg) | nindent 8 }}
         - name: config
-          configMap:
-            name: {{ $nombre }}
+          secret:
+            secretName: {{ $nombre }}-config
         {{- include "nexo.incluir" (dict "plantilla" "nexo.apim.volumenesSeguridad" "datos" (dict "ctx" $) "indent" 8) }}
 {{- if $cfg.hpa.enabled }}
 ---

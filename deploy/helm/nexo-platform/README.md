@@ -24,7 +24,8 @@ pero todavía no se instala en un clúster real.
 | Fluent Bit junto a Control Plane y gateways (analítica, auditoría y registros hacia OpenSearch) | contenedor adicional | `fluent/fluent-bit:5.1.3` | 2020, 2021 |
 | PostgreSQL con CloudNativePG (opcional) | `Cluster` y `Database` de CloudNativePG | `ghcr.io/cloudnative-pg/postgresql:16` | 5432 |
 
-Además: ConfigMaps con los `deployment.toml` generados desde los valores, PodDisruptionBudget por
+Además: Secrets con los `deployment.toml` generados desde los valores (nombran las contraseñas y, sin
+`secretos.almacenLlaves.existingSecret`, traen la de los almacenes de ejemplo), PodDisruptionBudget por
 componente, antiafinidad entre réplicas, sondas de inicio, vida y disponibilidad, NetworkPolicies (todo
 denegado por omisión y solo los flujos necesarios) y ServiceMonitors opcionales.
 
@@ -100,6 +101,15 @@ verificación y vuelta atrás, está en el sitio de Nexo: *Instalación*.
 - **Registros de WSO2 con Fluent Bit al lado.** WSO2 escribe la analítica en archivos; un Fluent Bit en el
   mismo pod los lee de un volumen compartido, sin montar carpetas del nodo (compatible con Pod Security
   "restricted", que aplica el perfil CIS de RKE2).
+- **Raíz de solo lectura en todos los contenedores.** Los servidores WSO2 escriben dentro de su carpeta al
+  arrancar (el entrypoint copia `wso2-config-volume`, el config mapper genera `repository/conf`) y al operar
+  (caché OSGi, registros, H2 local, índices). Por eso un contenedor de inicio (`hogar`) copia `/home/wso2carbon`
+  de la imagen a un emptyDir y el servidor corre sobre esa copia, con `/tmp` en otro emptyDir. Los tamaños
+  máximos van en `almacenamiento.hogar` y `almacenamiento.temporal` de cada componente. La copia toma unos
+  segundos por arranque: en las imágenes del laboratorio, `/home/wso2carbon` pesa 293 MB en el integrador,
+  418 MB en el Universal Gateway y 841 MB en API Manager completo.
+  `deploy/validar-instaladores.sh` falla si un contenedor queda sin `readOnlyRootFilesystem: true` o si un
+  `deployment.toml` vuelve a un ConfigMap.
 - **TLS interno.** Traefik habla HTTPS con WSO2 y verifica su certificado con la CA interna (ServersTransport).
   El certificado de WSO2 debe incluir el nombre `global.ingress.traefik.serversTransport.serverName` y los
   nombres de servicio internos que usan la Consola y los motores.

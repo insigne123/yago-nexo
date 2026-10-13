@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, NotFoundException, Param, Post
 import { z } from "zod";
 import type { Db } from "@nexo/console-db";
 import { CurrentUser, RequirePermission, type AuthUser } from "../auth/auth.js";
+import { AuditAction } from "../common/audit-failures.js";
 import { AuditService } from "../common/audit.service.js";
 import { DB } from "../common/tokens.js";
 import { parse } from "../common/validation.js";
@@ -62,10 +63,16 @@ export class DeadLettersController {
     }));
   }
 
-  /** Mueve el mensaje de la cola de fallidos a la principal con los intentos en cero. Requiere motivo. */
+  /**
+   * Mueve el mensaje de la cola de fallidos a la principal con los intentos en cero. Lo decide una persona con el
+   * rol aprobador (dlq:reprocess:approve), con un motivo escrito obligatorio, y queda auditado: el reproceso con
+   * su motivo y también cada intento rechazado (sin motivo, sin permiso o con el mensaje ya fuera de la cola) o
+   * fallido. No es una acción de cuatro ojos: no requiere una segunda persona.
+   */
   @Post(":id/reprocess")
   @HttpCode(200)
   @RequirePermission("dlq:reprocess:approve")
+  @AuditAction("mensajes.reprocesar")
   async reprocess(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const { reason } = parse(ReprocessSchema, body);
     const batch = await this.mq.take(config.rabbitmq.dlq, 200);

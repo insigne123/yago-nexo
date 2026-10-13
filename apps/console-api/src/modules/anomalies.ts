@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createBlock, releaseBlock, type Db } from "@nexo/console-db";
 import type { Wso2Client } from "@nexo/wso2-client";
 import { assertFourEyes, CurrentUser, RequirePermission, type AuthUser } from "../auth/auth.js";
+import { AuditAction } from "../common/audit-failures.js";
 import { AuditService } from "../common/audit.service.js";
 import { DB, WSO2 } from "../common/tokens.js";
 import { parse } from "../common/validation.js";
@@ -89,6 +90,7 @@ export class AnomaliesController {
 
   @Post("anomaly-rules")
   @RequirePermission("anomaly:rules:write")
+  @AuditAction("anomalias.regla.crear")
   async createRule(@Body() body: unknown, @CurrentUser() user: AuthUser) {
     const r = parse(RuleSchema, body);
     const res = await this.db.query(
@@ -102,6 +104,7 @@ export class AnomaliesController {
 
   @Patch("anomaly-rules/:id")
   @RequirePermission("anomaly:rules:write")
+  @AuditAction("anomalias.regla.actualizar")
   async updateRule(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const r = parse(RuleSchema, body);
     const res = await this.db.query(
@@ -128,6 +131,7 @@ export class AnomaliesController {
   @Post("anomalies/:id/approve-block")
   @HttpCode(200)
   @RequirePermission("anomaly:block:approve")
+  @AuditAction("anomalias.bloqueo.aprobar")
   async approveBlock(@Param("id") id: string, @CurrentUser() user: AuthUser) {
     const ev = (await this.db.query("SELECT e.*, r.block_ttl_minutes FROM nexo.anomaly_event e LEFT JOIN nexo.anomaly_rule r ON r.id = e.rule_id WHERE e.id = $1", [id])).rows[0];
     if (!ev) throw new NotFoundException({ statusCode: 404, message: "La anomalía no existe" });
@@ -154,6 +158,7 @@ export class AnomaliesController {
   @Post("anomalies/:id/dismiss")
   @HttpCode(200)
   @RequirePermission("anomaly:block:approve")
+  @AuditAction("anomalias.descartar")
   async dismiss(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const { reason } = parse(ReasonSchema, body ?? {});
     const res = await this.db.query("UPDATE nexo.anomaly_event SET status = 'descartada', dismissed_by = $1, reason = $2 WHERE id = $3 RETURNING *", [
@@ -175,6 +180,7 @@ export class AnomaliesController {
   @Post("blocks/:id/release")
   @HttpCode(200)
   @RequirePermission("anomaly:block:release")
+  @AuditAction("anomalias.bloqueo.liberar")
   async release(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const { reason } = parse(ReasonSchema, body ?? {});
     const block = await releaseBlock(this.db, this.wso2.admin, id, user.username);

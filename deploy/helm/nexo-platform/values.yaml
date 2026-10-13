@@ -44,7 +44,7 @@ global:
 
   ingress:
     enabled: true
-    # traefik (RKE2 1.36 o superior) | gce (GKE) | otro. Ajusta las anotaciones que el chart agrega solo.
+    # traefik (RKE2 1.36.5 o superior) | gce (GKE) | otro. Ajusta las anotaciones que el chart agrega solo.
     proveedor: traefik
     className: traefik
     # Secret TLS por omisión para todos los hosts (cada Ingress puede indicar el suyo).
@@ -218,6 +218,9 @@ secretos:
 # WSO2 API Manager 4.7.0: Control Plane, Traffic Manager y Universal Gateways (uno por audiencia).
 apim:
   usuarioAdmin: admin
+  # uid con que corren los pods de API Manager: el usuario wso2carbon de las imágenes oficiales 4.7.0
+  # (wso2am-acp, wso2am-tm y wso2am-universal-gw, USER 10001). /home/wso2carbon es 750 y solo ese uid lo lee.
+  uidImagen: 10001
   # Llave de cifrado simétrica compartida por todos los nodos (ver secretos.apim).
   protocolosTls: "TLSv1.2,TLSv1.3"
   # Exportador JMX de Prometheus incluido en las imágenes nexo/apim-* (JVM y transporte, puerto 9404).
@@ -234,6 +237,11 @@ apim:
       tag: "4.7.0"
     # Carpeta de la distribución dentro de la imagen (registros y scripts).
     directorio: /home/wso2carbon/wso2am-acp-4.7.0
+    # La raíz del contenedor es de solo lectura: el servidor corre sobre una copia escribible de /home/wso2carbon
+    # (emptyDir "hogar") y usa otro emptyDir para /tmp. Tamaño máximo de cada uno.
+    almacenamiento:
+      hogar: 3Gi
+      temporal: 1Gi
     # Nombre público de los portales (Publisher, Developer Portal y Admin) y de la REST API.
     hostname: apim.nexo.example
     jvm: "-Xms1g -Xmx2g"
@@ -283,6 +291,11 @@ apim:
       repository: nexo/apim-tm
       tag: "4.7.0"
     directorio: /home/wso2carbon/wso2am-tm-4.7.0
+    # La raíz del contenedor es de solo lectura: el servidor corre sobre una copia escribible de /home/wso2carbon
+    # (emptyDir "hogar") y usa otro emptyDir para /tmp. Tamaño máximo de cada uno.
+    almacenamiento:
+      hogar: 2Gi
+      temporal: 1Gi
     jvm: "-Xms512m -Xmx1536m"
     resources:
       requests:
@@ -309,6 +322,11 @@ apim:
       repository: nexo/apim-gateway
       tag: "4.7.0"
     directorio: /home/wso2carbon/wso2am-universal-gw-4.7.0
+    # La raíz del contenedor es de solo lectura: el servidor corre sobre una copia escribible de /home/wso2carbon
+    # (emptyDir "hogar") y usa otro emptyDir para /tmp. Tamaño máximo de cada uno.
+    almacenamiento:
+      hogar: 2Gi
+      temporal: 1Gi
     jvm: "-Xms1g -Xmx2g"
     resources:
       requests:
@@ -427,10 +445,17 @@ apim:
 # WSO2 Micro Integrator 4.6.0 (Nexo Integrator). La imagen nexo/mi incluye los artefactos de integración.
 mi:
   enabled: true
+  # uid con que corre el integrador: el usuario wso2carbon de la imagen oficial wso2mi 4.6.0 (USER 10802).
+  uidImagen: 10802
   replicas: 1
   image:
     repository: nexo/mi
     tag: "4.6.0"
+  # La raíz del contenedor es de solo lectura: el servidor corre sobre una copia escribible de /home/wso2carbon
+  # (emptyDir "hogar") y usa otro emptyDir para /tmp. Tamaño máximo de cada uno.
+  almacenamiento:
+    hogar: 2Gi
+    temporal: 1Gi
   jvm: "-Xms512m -Xmx1536m"
   resources:
     requests:

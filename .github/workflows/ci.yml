@@ -1,5 +1,7 @@
 name: CI
 
+# Todas las acciones van fijadas por el SHA completo de su commit (el comentario dice la versión). Para
+# actualizar una: git ls-remote --tags https://github.com/<dueño>/<acción>.git y se reemplaza el SHA.
 on:
   push:
     branches: ["**"]
@@ -13,13 +15,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  neutralidad:
+    name: Neutralidad del repositorio y herramientas de versión
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      # Falla si el nombre de la institución compradora o el identificador del proceso aparecen en el
+      # repositorio (sin distinguir mayúsculas). El patrón se arma por partes: el repositorio no lo contiene.
+      - name: Sin nombres de la institución ni del proceso de compra
+        run: node tools/release/verificar-neutralidad.mjs
+      - name: Pruebas de las herramientas de versión (SBOM, vulnerabilidades, VEX, neutralidad, puerta del CI)
+        run: node --test "tools/release/test/*.test.mjs"
+
   calidad:
     name: Lint, tipos, pruebas y build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -33,32 +50,51 @@ jobs:
     name: Contratos contra la guía de estilo (D-03)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # nexo-ctl importa @nexo/wso2-client desde su dist/: se construyen antes sus dependencias del workspace.
+      - name: Construir las dependencias del workspace de nexo-ctl
+        run: pnpm turbo run build --filter=@nexo/nexo-ctl^...
       # Bloqueante: un contrato con errores de la guía de estilo institucional hace fallar el pipeline.
       - run: pnpm --filter @nexo/nexo-ctl contratos
+
+  instaladores:
+    name: Chart de Helm (lint, kubeconform y reglas de seguridad)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: PyYAML para revisar el render
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || {
+            sudo apt-get update -q && sudo apt-get install -y --no-install-recommends python3-yaml
+          }
+      # Instala Helm y kubeconform fijos y verificados por SHA-256; falla si un contenedor queda sin raíz de
+      # solo lectura o si un deployment.toml vuelve a un ConfigMap.
+      - run: deploy/validar-instaladores.sh --instalar --solo-helm
 
   seguridad:
     name: Secretos y vulnerabilidades (BT-057)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - name: Gitleaks (secretos en el repositorio)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Trivy (dependencias, secretos y configuración)
         # Imagen oficial de Trivy fijada por digest (la acción trivy-action@0.33.1 dejó de existir y rompía el job).
-        # Falla ante cualquier hallazgo ALTO o CRÍTICO con corrección disponible.
+        # Falla ante cualquier hallazgo ALTO o CRÍTICO con corrección disponible. Las excepciones, cada una con
+        # su justificación, están en .trivyignore.yaml.
         run: |
           docker run --rm -v "$PWD:/src:ro" \
             aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa \
             fs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH --ignore-unfixed \
+            --ignorefile /src/.trivyignore.yaml \
             --skip-dirs node_modules --exit-code 1 --format table /src

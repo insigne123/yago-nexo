@@ -1,6 +1,6 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { AuditStore, type Db } from "@nexo/console-db";
-import type { AuditResult } from "@nexo/shared";
+import type { AuditEventInput, AuditResult } from "@nexo/shared";
 import type { AuthUser } from "../auth/auth.js";
 import { DB } from "./tokens.js";
 
@@ -8,6 +8,7 @@ import { DB } from "./tokens.js";
 @Injectable()
 export class AuditService {
   readonly store: AuditStore;
+  private readonly log = new Logger("auditoria");
 
   constructor(@Inject(DB) db: Db) {
     this.store = new AuditStore(db);
@@ -26,5 +27,19 @@ export class AuditService {
       correlationId,
       details,
     });
+  }
+
+  /**
+   * Registra un evento sin interrumpir la respuesta en curso (rechazos y fallos). Si la escritura en la
+   * cadena falla, queda en el log de la API con el evento completo, para no perderlo en silencio.
+   */
+  async append(input: Omit<AuditEventInput, "source">): Promise<boolean> {
+    try {
+      await this.store.append({ source: "consola", ...input });
+      return true;
+    } catch (e) {
+      this.log.error(`no se pudo registrar en la auditoría: ${e instanceof Error ? e.message : String(e)} · evento ${JSON.stringify(input)}`);
+      return false;
+    }
   }
 }

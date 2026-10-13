@@ -3,6 +3,7 @@ import type { Response } from "express";
 import { z } from "zod";
 import type { Db } from "@nexo/console-db";
 import { CurrentUser, RequirePermission, type AuthUser } from "../auth/auth.js";
+import { AuditAction } from "../common/audit-failures.js";
 import { AuditService } from "../common/audit.service.js";
 import { DB } from "../common/tokens.js";
 import { parse } from "../common/validation.js";
@@ -87,6 +88,7 @@ export class DiscoveryController {
   @Post("scans")
   @HttpCode(202)
   @RequirePermission("discovery:scan")
+  @AuditAction("descubrimiento.escanear")
   async scan(@Body() body: unknown, @CurrentUser() user: AuthUser) {
     const req = parse(ScanSchema, body ?? {});
     const res = await this.db.query(
@@ -109,6 +111,7 @@ export class DiscoveryController {
 
   @Patch("findings/:id")
   @RequirePermission("discovery:triage")
+  @AuditAction("descubrimiento.clasificar")
   async triage(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const req = parse(TriageSchema, body);
     const res = await this.db.query("UPDATE nexo.discovery_finding SET status = $1, note = $2 WHERE id = $3 RETURNING *", [req.status, req.note ?? null, id]);

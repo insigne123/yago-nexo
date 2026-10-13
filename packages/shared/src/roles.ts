@@ -19,8 +19,10 @@ export type Role = (typeof ROLES)[number];
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   administrador: "Configura la plataforma, los conectores y los parámetros. No aprueba sus propios cambios.",
   desarrollador: "Diseña y publica APIs y flujos en ambientes no productivos. No promueve a producción.",
-  aprobador: "Aprueba promociones a producción, bloqueos, reprocesos y conmutaciones. No desarrolla.",
-  operador: "Opera la plataforma en régimen: monitorea, ejecuta despliegues aprobados y simulacros.",
+  aprobador:
+    "Aprueba promociones a producción, bloqueos y retornos al sitio principal; reprocesa mensajes con motivo. No desarrolla.",
+  operador:
+    "Opera la plataforma en régimen: monitorea, ejecuta despliegues aprobados y simulacros, y solicita retornos al sitio principal.",
   auditor: "Consulta auditoría, matrices y evidencias. Solo lectura.",
   consumidor: "Consulta el catálogo y su propio consumo.",
 };
@@ -42,6 +44,7 @@ export const PERMISSIONS = [
   "rollout:abort",
   "continuity:read",
   "continuity:drill",
+  "continuity:failback:request",
   "continuity:failback:approve",
   "usage:read:all",
   "usage:read:own",
@@ -98,6 +101,7 @@ const MATRIX: Record<Role, readonly Permission[]> = {
     "rollout:approve",
     "rollout:abort",
     "continuity:read",
+    "continuity:failback:request",
     "continuity:failback:approve",
     "usage:read:all",
     "dlq:read",
@@ -113,6 +117,7 @@ const MATRIX: Record<Role, readonly Permission[]> = {
     "rollout:abort",
     "continuity:read",
     "continuity:drill",
+    "continuity:failback:request",
     "usage:read:all",
     "dlq:read",
   ],
@@ -157,11 +162,18 @@ export function permissionMatrix(): Array<{ permission: Permission } & Record<Ro
 
 /**
  * Acciones que exigen segregación: quien inicia no puede aprobar (cuatro ojos).
- * La API verifica que actor !== aprobador en estas operaciones.
+ * La API verifica que actor !== aprobador en estas operaciones: el despliegue lo crea un desarrollador, el
+ * bloqueo lo propone el guardián y el retorno al sitio principal lo solicita otra persona
+ * (continuity:failback:request).
  */
 export const FOUR_EYES_ACTIONS = [
   "rollout:approve",
   "anomaly:block:approve",
-  "dlq:reprocess:approve",
   "continuity:failback:approve",
 ] as const satisfies readonly Permission[];
+
+/**
+ * Acciones de una sola persona que exigen el rol aprobador, un motivo escrito y quedan auditadas, sin
+ * segunda aprobación: el reproceso de un mensaje fallido (BT-051) lo decide quien tiene el permiso.
+ */
+export const REASON_REQUIRED_ACTIONS = ["dlq:reprocess:approve"] as const satisfies readonly Permission[];

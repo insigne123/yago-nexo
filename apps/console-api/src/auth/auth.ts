@@ -11,6 +11,9 @@ import { Reflector } from "@nestjs/core";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { permissionsFor, type Permission } from "@nexo/shared";
 import type { Request } from "express";
+import { routeOf } from "../common/audit-failures.js";
+import { AuditService } from "../common/audit.service.js";
+import { UnauthorizedAudit } from "../common/unauthorized-audit.js";
 import { config } from "../config.js";
 
 export interface AuthUser {
@@ -72,10 +75,17 @@ export function userFromClaims(payload: JWTPayload, ip?: string): AuthUser {
 /**
  * Valida el JWT contra el JWKS configurado (Keycloak o Supabase) y aplica la matriz rol-permiso.
  * Las rutas sin @RequirePermission solo exigen un usuario autenticado.
+ *
+ * Todo rechazo queda en la auditoría (BT-031): el 403 por permiso con el usuario, el permiso que faltó y la
+ * ruta; el 401 agrupado por IP de origen (UnauthorizedAudit), para que un ataque no inunde la cadena.
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly audit: AuditService,
+    private readonly unauthorized: UnauthorizedAudit,
+  ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const handler = ctx.getHandler();
@@ -84,29 +94,47 @@ export class AuthGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<AuthedRequest>();
     const header = req.headers.authorization ?? "";
     const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-    if (!token) throw new UnauthorizedException("Falta el token de acceso");
+    if (!token) {
+      await this.unauthorized.hit(req.ip, "sin token", routeOf(req));
+      throw new UnauthorizedException("Falta el token de acceso");
+    }
     let payload: JWTPayload;
     try {
       payload = await verifyToken(token);
     } catch (e) {
-      throw new UnauthorizedException(`Token inválido: ${e instanceof Error ? e.message : "error"}`);
+      const detail = e instanceof Error ? e.message : "error";
+      await this.unauthorized.hit(req.ip, `token inválido: ${detail}`, routeOf(req));
+      throw new UnauthorizedException(`Token inválido: ${detail}`);
     }
     req.user = userFromClaims(payload, req.ip);
     const required = this.reflector.getAllAndOverride<Permission | undefined>(PERMISSION_KEY, [handler, klass]);
     if (required && !req.user.permissions.includes(required)) {
+      await this.audit.append({
+        actor: req.user.username.slice(0, 256),
+        actorType: "usuario",
+        action: "acceso.rechazado.permiso",
+        resource: routeOf(req),
+        result: "rechazado",
+        sourceIp: req.ip?.slice(0, 64),
+        details: { permiso: required, roles: req.user.roles, estado: 403 },
+      });
       throw new ForbiddenException({ statusCode: 403, message: `Se requiere el permiso ${required}`, permission: required });
     }
     return true;
   }
 }
 
-/** Regla de cuatro ojos: quien inició la acción no puede aprobarla. */
-export function assertFourEyes(user: AuthUser, initiatedBy: string | null | undefined, what: string): void {
-  if (initiatedBy && (initiatedBy === user.username || initiatedBy === user.sub)) {
-    throw new ForbiddenException({
-      statusCode: 403,
-      message: `Regla de cuatro ojos: quien inició ${what} no puede aprobarlo`,
-      permission: "cuatro-ojos",
-    });
-  }
+/** Respuesta 403 de la regla de cuatro ojos (la auditoría la registra como «acceso.rechazado.cuatro_ojos»). */
+export function fourEyesError(what: string): ForbiddenException {
+  return new ForbiddenException({
+    statusCode: 403,
+    message: `Regla de cuatro ojos: quien inició ${what} no puede aprobarlo`,
+    permission: "cuatro-ojos",
+  });
+}
+
+/** Regla de cuatro ojos: quien inició la acción (por nombre de usuario o sujeto del token) no puede aprobarla. */
+export function assertFourEyes(user: AuthUser, initiatedBy: string | null | undefined | ReadonlyArray<string | null | undefined>, what: string): void {
+  const ids = (Array.isArray(initiatedBy) ? initiatedBy : [initiatedBy]).filter((x): x is string => !!x);
+  if (ids.some((id) => id === user.username || (!!user.sub && id === user.sub))) throw fourEyesError(what);
 }

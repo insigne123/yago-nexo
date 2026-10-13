@@ -1,4 +1,4 @@
-# Yago Nexo · producción en el CPD (RKE2 1.36 sobre VMware vSphere)
+# Yago Nexo · producción en el CPD (RKE2 1.36.5 sobre VMware vSphere)
 #
 # Se aplica encima de values.yaml:
 #   helm upgrade --install nexo-platform deploy/helm/nexo-platform -n nexo \

@@ -1,21 +1,28 @@
 /**
  * Verificación de la API de la Consola Nexo contra el laboratorio: autenticación con Keycloak, matriz
  * rol-permiso (BT-026), catálogo e impacto (BT-018, BT-022, BT-024), auditoría encadenada y detección de
- * alteraciones (BT-031), reproceso autorizado (BT-051), exportación con manifiesto (BT-049, BT-060),
- * consumo sin cobro (BT-021), canales TLS (BT-028) y webhook de alertas.
+ * alteraciones (BT-031), rechazos auditados (403 por permiso y por cuatro ojos, 401 agrupados por IP), retorno
+ * al sitio principal con dos personas (BT-036), reproceso con rol aprobador y motivo (BT-051), exportación con
+ * manifiesto (BT-049, BT-060), consumo sin cobro (BT-021), canales TLS (BT-028) y webhook de alertas con token
+ * (sin token = 401; cada alerta queda en la auditoría y llega al SIEM).
  *
  * Uso: NEXO_CONSOLE_URL=http://localhost:8090/api/v1 pnpm --filter @nexo/lab-bootstrap check:consola
+ * Variables: NEXO_ALERTS_TOKEN (el mismo de deploy/compose/.env), NEXO_OPENSEARCH_URL (SIEM del laboratorio),
+ * NEXO_DATABASE_URL (base de la Consola, para la alteración deliberada y la precondición del retorno).
  */
 import { createHash, randomUUID } from "node:crypto";
 import { Agent, fetch } from "undici";
 import { unzipSync, strFromU8 } from "fflate";
 import pg from "pg";
+import { PERMISSIONS, ROLES } from "@nexo/shared";
 import { Wso2Client } from "@nexo/wso2-client";
 
 const BASE = process.env.NEXO_CONSOLE_URL ?? "http://localhost:8090/api/v1";
 const KEYCLOAK = process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo";
 const PASSWORD = process.env.NEXO_LAB_USER_PASSWORD ?? "Nexo-Lab-2026!";
 const DB_URL = process.env.NEXO_DATABASE_URL ?? "postgres://nexo:nexo-lab-console@localhost:15432/nexo";
+const ALERTS_TOKEN = process.env.NEXO_ALERTS_TOKEN ?? "nexo-lab-alertas-token";
+const OPENSEARCH = process.env.NEXO_OPENSEARCH_URL ?? "http://localhost:9200";
 
 const USERS = {
   administrador: "admin.nexo",
@@ -44,10 +51,11 @@ async function token(username: string): Promise<string> {
   return body.access_token;
 }
 
-async function call(tok: string | undefined, method: string, path: string, body?: unknown) {
+async function call(tok: string | undefined, method: string, path: string, body?: unknown, authorization?: string) {
+  const auth = authorization ?? (tok ? `Bearer ${tok}` : undefined);
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { ...(tok ? { authorization: `Bearer ${tok}` } : {}), ...(body !== undefined ? { "content-type": "application/json" } : {}) },
+    headers: { ...(auth ? { authorization: auth } : {}), ...(body !== undefined ? { "content-type": "application/json" } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const type = res.headers.get("content-type") ?? "";
@@ -56,6 +64,17 @@ async function call(tok: string | undefined, method: string, path: string, body?
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+type AuditRow = { id: string; ts: string; actor: string; action: string; resource?: string; result: string; sourceIp?: string; details?: Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+async function waitUntil<T>(fn: () => Promise<T | undefined>, timeoutSec: number): Promise<T | undefined> {
+  const t0 = Date.now();
+  for (;;) {
+    const v = await fn();
+    if (v !== undefined || (Date.now() - t0) / 1000 > timeoutSec) return v;
+    await sleep(2000);
+  }
+}
 
 const insecure = new Agent({ connect: { rejectUnauthorized: false } });
 const CHAOS = process.env.NEXO_LAB_CHAOS_URL ?? "http://localhost:7001/_chaos";
@@ -98,11 +117,40 @@ async function produceDeadLetter(): Promise<string> {
 async function main() {
   const tok = {} as Record<Role, string>;
   for (const [role, user] of Object.entries(USERS) as Array<[Role, string]>) tok[role] = await token(user);
+  // Eventos de auditoría de esta corrida (margen por diferencias de reloj).
+  const since = new Date(Date.now() - 5000).toISOString();
+  const audit = async (prefix: string, from = since): Promise<AuditRow[]> =>
+    ((await call(tok.auditor, "GET", `/audit-events?action=${encodeURIComponent(prefix)}&from=${encodeURIComponent(from)}&limit=1000`)).data as AuditRow[]).filter(
+      (e) => e.action === prefix || e.action.startsWith(`${prefix}.`),
+    );
+  const db = new pg.Client({ connectionString: DB_URL });
+  await db.connect();
+  try {
+    await verificar(tok, audit, since, db);
+  } finally {
+    await db.end();
+  }
+  console.table(rows);
+  const failed = rows.filter((r) => !r.cumple);
+  console.log(failed.length ? `[Consola] ${failed.length} de ${rows.length} verificaciones NO cumplen` : `[Consola] ${rows.length} verificaciones cumplen`);
+  if (failed.length) process.exit(1);
+}
 
+type AuditQuery = (prefix: string, from?: string) => Promise<AuditRow[]>;
+
+async function verificar(tok: Record<Role, string>, audit: AuditQuery, since: string, db: pg.Client) {
   // --------------------------------------------------------------- autenticación y roles (BT-026)
   check("BT-026", "salud sin token", 200, (await call(undefined, "GET", "/health")).status);
   check("BT-026", "sin token → rechazo", 401, (await call(undefined, "GET", "/me")).status);
   check("BT-026", "token alterado → rechazo", 401, (await call(`${tok.auditor.slice(0, -4)}AAAA`, "GET", "/me")).status);
+  // Ráfaga de 20 intentos sin token: la auditoría los agrupa por IP (un evento al primero y un resumen al cerrar la ventana).
+  for (let i = 0; i < 20; i++) await call(undefined, "GET", "/audit-events");
+  // La ventana puede haberse abierto en una corrida anterior (hasta 60 s antes): se mira desde entonces.
+  const desdeVentana = new Date(new Date(since).getTime() - 65_000).toISOString();
+  const firsts = (await audit("acceso.rechazado.autenticacion", desdeVentana)).filter((e) => e.details?.fase === "primero");
+  const nuevos = firsts.filter((e) => e.ts >= since);
+  const ips = new Set(nuevos.map((e) => e.sourceIp ?? e.resource));
+  check("BT-031", "401 auditados y agrupados por IP", "1 evento por IP para 22 intentos", `${nuevos.length} evento(s) de ${ips.size} IP`, firsts.length >= 1 && nuevos.length === ips.size);
   for (const role of Object.keys(USERS) as Role[]) {
     const me = await call(tok[role], "GET", "/me");
     check("BT-026", `rol de ${USERS[role]}`, role, (me.data.roles ?? []).join(","));
@@ -111,7 +159,14 @@ async function main() {
   check("BT-026", "desarrollador no lee auditoría", 403, (await call(tok.desarrollador, "GET", "/audit-events")).status);
   check("BT-026", "administrador no verifica auditoría", 403, (await call(tok.administrador, "GET", "/audit-events/verify")).status);
   const matrix = await call(tok.auditor, "GET", "/compliance/role-matrix");
-  check("BT-026", "matriz rol-permiso publicada", "27 permisos × 6 roles", `${matrix.data.length} permisos × ${Object.keys(matrix.data[0] ?? {}).length - 1} roles`);
+  check("BT-026", "matriz rol-permiso publicada", `${PERMISSIONS.length} permisos × ${ROLES.length} roles`, `${matrix.data.length} permisos × ${Object.keys(matrix.data[0] ?? {}).length - 1} roles`);
+  const denied = await audit("acceso.rechazado.permiso");
+  const deniedOk = [
+    ["consumidor.demo", "catalog:write"],
+    ["ana.desarrollo", "audit:read"],
+    ["admin.nexo", "audit:verify"],
+  ].filter(([actor, perm]) => denied.some((e) => e.actor === actor && e.details?.permiso === perm));
+  check("BT-031", "403 por permiso auditados (usuario y permiso)", "3 de 3", `${deniedOk.length} de 3`);
 
   // --------------------------------------------------------------- catálogo e impacto (BT-018, BT-022, BT-024)
   const sync = await call(tok.desarrollador, "POST", "/catalog/sync");
@@ -151,12 +206,15 @@ async function main() {
   const created = await call(tok.desarrollador, "POST", "/rollouts", { apiId: apiConcesiones.id, strategy: "canary", candidateEndpoint: "http://concesiones-v2:7001", steps: [10, 50, 100], stepDurationSec: 30 });
   if (created.status === 201) {
     check("D-04", "desarrollador solicita el despliegue", 201, created.status);
-    check("D-04", "desarrollador no se aprueba a sí mismo", 403, (await call(tok.desarrollador, "POST", `/rollouts/${created.data.id}/approve`)).status);
+    check("D-04", "desarrollador no aprueba (sin el permiso)", 403, (await call(tok.desarrollador, "POST", `/rollouts/${created.data.id}/approve`)).status);
     const aborted = await call(tok.operador, "POST", `/rollouts/${created.data.id}/abort`, { reason: "verificación de la Consola" });
     check("D-04", "operador detiene el despliegue", "abortado", aborted.data.status);
   } else {
     check("D-04", "desarrollador solicita el despliegue", 201, `${created.status} ${created.data.message ?? ""}`);
   }
+
+  // --------------------------------------------------------------- retorno al sitio principal con dos personas (BT-036, BT-026)
+  await checkFailback(tok, audit, db);
 
   // --------------------------------------------------------------- mensajes fallidos (BT-051)
   const correlacion = await produceDeadLetter();
@@ -177,20 +235,39 @@ async function main() {
     check("BT-051", "reproceso exige motivo", 400, (await call(tok.aprobador, "POST", path, {})).status);
     check("BT-051", "desarrollador no puede reprocesar", 403, (await call(tok.desarrollador, "POST", path, { reason: "intento sin permiso" })).status);
     const rep = await call(tok.aprobador, "POST", path, { reason: "Destino restablecido, se reintenta (verificación)" });
-    check("BT-051", "reproceso autorizado y auditado", "reprocesado", rep.data.status);
+    check("BT-051", "reproceso con rol aprobador y motivo", "reprocesado", rep.data.status);
+    const repAudit = (await audit("mensajes.reprocesar")).filter((e) => e.resource === `mensaje/${pending.id}` || String(e.resource).includes(encodeURIComponent(pending.id)) || String(e.resource).includes(pending.id));
+    const okEv = repAudit.find((e) => e.result === "exito" && e.actor === USERS.aprobador && typeof e.details?.reason === "string");
+    const sinMotivo = repAudit.find((e) => e.result === "rechazado" && e.details?.estado === 400);
+    const sinPermiso = (await audit("acceso.rechazado.permiso")).find((e) => e.actor === USERS.desarrollador && e.details?.permiso === "dlq:reprocess:approve");
+    check("BT-051", "reproceso y sus rechazos auditados", "éxito con motivo, sin motivo y sin permiso", [okEv ? "éxito" : "sin éxito", sinMotivo ? "sin motivo" : "falta 400", sinPermiso ? "sin permiso" : "falta 403"].join(", "), !!okEv && !!sinMotivo && !!sinPermiso);
     // Si el destino fallara de nuevo, el mensaje volvería a la cola en ~15 s (reintentos 2/4/8 s).
     await sleep(20_000);
     const after = (await call(tok.aprobador, "GET", "/dead-letters")).data as Array<{ id: string; status: string }>;
     check("BT-051", "mensaje reprocesado con éxito", "fuera de la cola", after.find((m) => m.id === correlacion)?.status === "pendiente" ? "volvió a fallar" : "fuera de la cola");
   }
 
-  // --------------------------------------------------------------- alertas
-  const am = await call(undefined, "POST", "/alerts/alertmanager", {
-    alerts: [{ status: "firing", labels: { alertname: "VerificacionConsola", severidad: "S3" }, annotations: { resumen: "Alerta de prueba de la verificación" }, fingerprint: "verificacion" }],
-  });
-  check("BT-034", "webhook de Alertmanager", 204, am.status);
+  // --------------------------------------------------------------- alertas (webhook con token, auditoría y SIEM)
+  const alerta = {
+    alerts: [{ status: "firing", labels: { alertname: "VerificacionConsola", severidad: "S3" }, annotations: { resumen: "Alerta de prueba de la verificación" }, fingerprint: `verificacion-${Date.now()}` }],
+  };
+  check("BT-034", "webhook de alertas sin token → rechazo", 401, (await call(undefined, "POST", "/alerts/alertmanager", alerta)).status);
+  check("BT-034", "webhook de alertas con token inválido → rechazo", 401, (await call(undefined, "POST", "/alerts/alertmanager", alerta, `Bearer ${ALERTS_TOKEN}-otro`)).status);
+  const am = await call(undefined, "POST", "/alerts/alertmanager", alerta, `Bearer ${ALERTS_TOKEN}`);
+  check("BT-034", "webhook de alertas con token", 204, am.status);
   const ov = (await call(tok.operador, "GET", "/overview")).data;
   check("BT-034", "resumen muestra alertas abiertas", "≥ 1", ov.alertas?.abiertas, Number(ov.alertas?.abiertas) >= 1);
+  const alertEv = (await audit("alerta.recibida")).find((e) => e.details?.huella === alerta.alerts[0]!.fingerprint);
+  check("BT-031", "alerta recibida queda en la auditoría", "alerta.recibida · alertmanager", alertEv ? `${alertEv.action} · ${alertEv.actor}` : "sin evento", alertEv?.actor === "alertmanager");
+  const enSiem = alertEv
+    ? await waitUntil(async () => {
+        await fetch(`${OPENSEARCH}/nexo-siem-*/_refresh`, { method: "POST" }).catch(() => undefined);
+        const r = await fetch(`${OPENSEARCH}/nexo-siem-*/_search`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: { ids: { values: [alertEv.id] } } }) }).catch(() => undefined);
+        const body = r ? ((await r.json().catch(() => ({}))) as { hits?: { total?: { value?: number } } }) : {};
+        return (body.hits?.total?.value ?? 0) > 0 ? true : undefined;
+      }, 90)
+    : undefined;
+  check("BT-031", "la alerta llega al SIEM (reenvío de auditoría)", "en nexo-siem-*", enSiem ? "en nexo-siem-*" : "no llegó");
 
   // --------------------------------------------------------------- exportación con manifiesto (BT-049, BT-060)
   const job = await call(tok.auditor, "POST", "/exports");
@@ -213,31 +290,108 @@ async function main() {
   // --------------------------------------------------------------- auditoría encadenada (BT-031)
   const verify = await call(tok.auditor, "GET", "/audit-events/verify");
   check("BT-031", "cadena de auditoría íntegra", true, verify.data.ok);
-  const events = (await call(tok.auditor, "GET", "/audit-events?limit=500")).data as Array<{ action: string }>;
+  const events = (await call(tok.auditor, "GET", `/audit-events?from=${encodeURIComponent(new Date(Date.now() - 3_600_000).toISOString())}&limit=1000`)).data as Array<{ action: string }>;
   const acciones = new Set(events.map((e) => e.action));
-  const esperadas = ["catalogo.sincronizar", "impacto.simular", "despliegue.crear", "despliegue.abortar", "exportacion.generar"];
+  const esperadas = [
+    "catalogo.sincronizar",
+    "impacto.simular",
+    "despliegue.crear",
+    "despliegue.abortar",
+    "exportacion.generar",
+    "continuidad.retorno.solicitar",
+    "continuidad.retorno.aprobar",
+    "mensajes.reprocesar",
+    "alerta.recibida",
+    "acceso.rechazado.permiso",
+    "acceso.rechazado.cuatro_ojos",
+    "acceso.rechazado.autenticacion",
+  ];
   const faltan = esperadas.filter((a) => !acciones.has(a));
-  check("BT-031", "acciones de la Consola auditadas", "todas", faltan.length ? `faltan ${faltan.join(", ")}` : "todas");
+  check("BT-031", "acciones y rechazos de la Consola auditados", "todas", faltan.length ? `faltan ${faltan.join(", ")}` : "todas");
+  // Resumen de la ráfaga de 401 al cerrar la ventana de agrupación (60 s por omisión).
+  const resumen401 = await waitUntil(async () => (await audit("acceso.rechazado.autenticacion")).find((e) => e.details?.fase === "resumen" && Number(e.details?.intentos) >= 20), 90);
+  check("BT-031", "resumen de 401 con el total de intentos", "≥ 20 intentos en un evento", resumen401 ? `${resumen401.details?.intentos} intentos (${resumen401.details?.ventanaSeg} s)` : "sin resumen", !!resumen401);
   // Alteración deliberada de un evento directamente en la base: la verificación debe detectarla.
-  const db = new pg.Client({ connectionString: DB_URL });
-  await db.connect();
-  try {
-    const victim = (await db.query("SELECT seq, details FROM nexo.audit_event ORDER BY seq LIMIT 1 OFFSET 1")).rows[0];
-    if (victim) {
-      await db.query("UPDATE nexo.audit_event SET details = $1 WHERE seq = $2", [JSON.stringify({ alterado: true }), victim.seq]);
-      const broken = await call(tok.auditor, "GET", "/audit-events/verify");
-      check("BT-031", "detecta un evento alterado", `quiebre en seq ${victim.seq}`, broken.data.ok ? "no detectado" : `quiebre en seq ${broken.data.brokenAt}`);
-      await db.query("UPDATE nexo.audit_event SET details = $1 WHERE seq = $2", [victim.details === null ? null : JSON.stringify(victim.details), victim.seq]);
-      check("BT-031", "cadena íntegra tras restaurar", true, (await call(tok.auditor, "GET", "/audit-events/verify")).data.ok);
-    }
-  } finally {
-    await db.end();
+  const victim = (await db.query("SELECT seq, details FROM nexo.audit_event ORDER BY seq LIMIT 1 OFFSET 1")).rows[0];
+  if (victim) {
+    await db.query("UPDATE nexo.audit_event SET details = $1 WHERE seq = $2", [JSON.stringify({ alterado: true }), victim.seq]);
+    const broken = await call(tok.auditor, "GET", "/audit-events/verify");
+    check("BT-031", "detecta un evento alterado", `quiebre en seq ${victim.seq}`, broken.data.ok ? "no detectado" : `quiebre en seq ${broken.data.brokenAt}`);
+    await db.query("UPDATE nexo.audit_event SET details = $1 WHERE seq = $2", [victim.details === null ? null : JSON.stringify(victim.details), victim.seq]);
+    check("BT-031", "cadena íntegra tras restaurar", true, (await call(tok.auditor, "GET", "/audit-events/verify")).data.ok);
   }
+}
 
-  console.table(rows);
-  const failed = rows.filter((r) => !r.cumple);
-  console.log(failed.length ? `[Consola] ${failed.length} de ${rows.length} verificaciones NO cumplen` : `[Consola] ${rows.length} verificaciones cumplen`);
-  if (failed.length) process.exit(1);
+/**
+ * Retorno con dos personas. La solicitud exige que el sitio principal no sea el activo: si el laboratorio está
+ * en el CPD, la precondición se simula en la base (el sitio activo pasa a «gcp») y se repone al final. Si hay
+ * agentes de continuidad con latido, ellos ejecutan el retorno aprobado (reapuntan al CPD, que ya es el activo);
+ * si no los hay, el evento de prueba se elimina para no dejar una conmutación «en curso» que nadie ejecutará.
+ */
+async function checkFailback(tok: Record<Role, string>, audit: AuditQuery, db: pg.Client) {
+  const engines = ((await call(tok.operador, "GET", "/engines")).data ?? []) as Array<{ engine: string; status: string }>;
+  const agentes = engines.some((e) => e.engine === "continuidad" && e.status !== "sin_latido");
+  const original = String((await db.query("SELECT active_site FROM nexo.continuity_settings WHERE id = 1")).rows[0]?.active_site ?? "cpd");
+  const busy = (await db.query("SELECT count(*)::int AS n FROM nexo.failover_event WHERE status = 'en_curso'")).rows[0].n as number;
+  if (busy) {
+    check("BT-036", "retorno con dos personas", "sin conmutación en curso", `${busy} conmutación(es) en curso: no se verifica`, false);
+    return;
+  }
+  const precondicion = async () => {
+    if (original === "cpd") await db.query("UPDATE nexo.continuity_settings SET active_site = 'gcp' WHERE id = 1");
+  };
+  // Solicitudes pendientes de corridas anteriores: se retiran.
+  for (const r of ((await call(tok.auditor, "GET", "/continuity/failback/requests")).data ?? []) as Array<{ id: string; status: string }>) {
+    if (r.status === "pendiente") await call(tok.aprobador, "POST", `/continuity/failback/requests/${r.id}/reject`, { reason: "Retirada por la verificación de la Consola" });
+  }
+  const request = async (who: Role, reason: string) => {
+    for (let i = 0; i < 3; i++) {
+      await precondicion();
+      const r = await call(tok[who], "POST", "/continuity/failback/requests", { reason });
+      if (!(r.status === 409 && r.data?.code === "sitio_activo")) return r;
+    }
+    return call(tok[who], "POST", "/continuity/failback/requests", { reason });
+  };
+  let eventId: string | undefined;
+  try {
+    // Un aprobador lo pide y no puede aprobar su propia solicitud: cuatro ojos.
+    const own = await request("aprobador", "Verificación: el aprobador solicita");
+    check("BT-026", "solicitud de retorno (aprobador)", 201, own.status);
+    if (own.status === 201) {
+      const self = await call(tok.aprobador, "POST", `/continuity/failback/requests/${own.data.id}/approve`, {});
+      check("BT-026", "quien solicita no aprueba (cuatro ojos)", "403 cuatro-ojos", `${self.status} ${self.data?.permission ?? ""}`.trim(), self.status === 403 && self.data?.permission === "cuatro-ojos");
+      await call(tok.aprobador, "POST", `/continuity/failback/requests/${own.data.id}/reject`, { reason: "La aprueba otra persona (verificación)" });
+    }
+    // La operadora lo pide (con vencimiento); ella no puede aprobar y el aprobador sí.
+    const req = await request("operador", "Verificación: CPD restablecido y réplica al día");
+    check("BT-036", "solicitud de retorno (operadora)", "201 pendiente con vencimiento", `${req.status} ${req.data?.status ?? ""}`.trim(), req.status === 201 && req.data?.status === "pendiente" && new Date(req.data?.expiresAt).getTime() > Date.now());
+    if (req.status !== 201) return;
+    check("BT-026", "la operadora no aprueba (sin el permiso)", 403, (await call(tok.operador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, {})).status);
+    let ok = await call(tok.aprobador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, { reason: "Conforme (verificación)" });
+    for (let i = 0; i < 2 && ok.status === 409 && ok.data?.code === "sitio_activo"; i++) {
+      await precondicion();
+      ok = await call(tok.aprobador, "POST", `/continuity/failback/requests/${req.data.id}/approve`, { reason: "Conforme (verificación)" });
+    }
+    eventId = ok.data?.event?.id;
+    check(
+      "BT-036",
+      "retorno con dos personas",
+      `202 · pidió ${USERS.operador} · aprobó ${USERS.aprobador}`,
+      `${ok.status} · pidió ${ok.data?.event?.requestedBy ?? "?"} · aprobó ${ok.data?.event?.approvedBy ?? "?"}`,
+      ok.status === 202 && ok.data?.event?.requestedBy === USERS.operador && ok.data?.event?.approvedBy === USERS.aprobador,
+    );
+    const pidio = (await audit("continuidad.retorno.solicitar")).some((e) => e.result === "exito" && e.actor === USERS.operador && e.resource === `retorno/${req.data.id}`);
+    const aprobo = (await audit("continuidad.retorno.aprobar")).some((e) => e.result === "exito" && e.actor === USERS.aprobador && e.resource === `retorno/${req.data.id}`);
+    const cuatroOjos = (await audit("acceso.rechazado.cuatro_ojos")).some((e) => e.actor === USERS.aprobador && e.details?.accion === "continuidad.retorno.aprobar");
+    check("BT-031", "retorno: ambas personas y el rechazo de cuatro ojos auditados", "solicitud, aprobación y cuatro ojos", [pidio ? "solicitud" : "falta solicitud", aprobo ? "aprobación" : "falta aprobación", cuatroOjos ? "cuatro ojos" : "falta cuatro ojos"].join(", "), pidio && aprobo && cuatroOjos);
+  } finally {
+    if (eventId && agentes) {
+      await waitUntil(async () => ((await db.query("SELECT status FROM nexo.failover_event WHERE id = $1", [eventId])).rows[0]?.status !== "en_curso" ? true : undefined), 30);
+    } else if (eventId) {
+      await db.query("DELETE FROM nexo.failover_event WHERE id = $1 AND status = 'en_curso'", [eventId]);
+    }
+    if (!agentes) await db.query("UPDATE nexo.continuity_settings SET active_site = $1 WHERE id = 1", [original]);
+  }
 }
 
 main().catch((e) => {

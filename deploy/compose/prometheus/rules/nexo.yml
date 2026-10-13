@@ -1,3 +1,6 @@
+# Reglas de alerta de Nexo (BT-034). Las verifica `promtool check rules` y sus pruebas unitarias están en
+# ../pruebas/nexo.test.yml (`promtool test rules`). El diccionario de métricas y reglas se genera con
+# `pnpm --filter @nexo/console-api metricas:diccionario` (../diccionario-metricas.md).
 groups:
   - name: nexo-plataforma
     rules:
@@ -7,12 +10,15 @@ groups:
         labels: { severidad: S2 }
         annotations:
           resumen: "{{ $labels.job }} en {{ $labels.instance }} no responde"
+      # Mensajes por cola: RabbitMQ los publica en /metrics/detailed (familia queue_coarse_metrics, job
+      # rabbitmq-colas) como rabbitmq_detailed_queue_messages_ready{vhost, queue}. El endpoint agregado (/metrics)
+      # publica rabbitmq_queue_messages_ready sin la etiqueta queue, por eso filtrar ahí por la cola nunca coincide.
       - alert: ColaConMensajesFallidos
-        expr: sum by (queue) (rabbitmq_queue_messages_ready{queue=~".*\\.dlq"}) > 0
+        expr: sum by (vhost, queue) (rabbitmq_detailed_queue_messages_ready{queue=~".+[.]dlq"}) > 0
         for: 5m
         labels: { severidad: S3 }
         annotations:
-          resumen: "La cola de mensajes fallidos {{ $labels.queue }} tiene mensajes pendientes"
+          resumen: "La cola de mensajes fallidos {{ $labels.queue }} tiene {{ $value }} mensajes pendientes"
   - name: nexo-gateway
     rules:
       - alert: TasaDeErrorAlta

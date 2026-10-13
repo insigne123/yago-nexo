@@ -85,7 +85,7 @@ spec:
       {{- include "nexo.podComun" $ctx | nindent 6 }}
       terminationGracePeriodSeconds: 90
       securityContext:
-        {{- include "nexo.podSeguridad" (dict "uid" 802) | nindent 8 }}
+        {{- include "nexo.podSeguridad" (dict "uid" (int $.Values.apim.uidImagen)) | nindent 8 }}
       initContainers:
         {{- if $cfg.esquemaBd.aplicar }}
         {{- $pg := .Values.global.dependencias.postgresql }}
@@ -103,7 +103,7 @@ spec:
             {{- end }}
             - { name: BD_APIM, value: {{ $pg.bases.apim | quote }} }
             - { name: BD_COMPARTIDA, value: {{ $pg.bases.compartida | quote }} }
-            {{- include "nexo.envSecreto" (dict "nombre" "APIM_DB_PASSWORD" "secreto" .Values.secretos.apimBd.existingSecret "clave" .Values.secretos.apimBd.claves.password) | nindent 12 }}
+            {{- include "nexo.envSecreto" (dict "nombre" "PGPASSWORD" "secreto" .Values.secretos.apimBd.existingSecret "clave" .Values.secretos.apimBd.claves.password) | nindent 12 }}
           securityContext:
             {{- include "nexo.contenedorSeguridad" (dict "soloLectura" true) | nindent 12 }}
             # Usuario "postgres" de la imagen (psql necesita un usuario conocido).
@@ -117,6 +117,7 @@ spec:
             {{- include "nexo.incluir" (dict "plantilla" "nexo.tls.montaje" "datos" . "indent" 12) }}
         {{- end }}
         {{- include "nexo.apim.initConfig" (merge (dict "imagen" $imagen) $ctx) | nindent 8 }}
+        {{- include "nexo.wso2.initHogar" (dict "ctx" $ "imagen" $imagen) | nindent 8 }}
       containers:
         - name: apim-cp
           image: {{ $imagen }}
@@ -141,9 +142,11 @@ spec:
           securityContext:
             {{- include "nexo.contenedorSeguridad" (dict) | nindent 12 }}
           volumeMounts:
+            {{- include "nexo.wso2.montajesHogar" (dict) | nindent 12 }}
             - name: config
               mountPath: /home/wso2carbon/wso2-config-volume/repository/conf/deployment.toml
               subPath: deployment.toml
+              readOnly: true
             {{- if .Values.apim.registros.enabled }}
             - name: registros
               mountPath: {{ $cfg.directorio }}/repository/logs
@@ -153,9 +156,10 @@ spec:
         {{- include "nexo.apim.sidecarRegistros" (dict "ctx" $ "rol" "cp") | nindent 8 }}
         {{- end }}
       volumes:
+        {{- include "nexo.wso2.volumenesHogar" (dict "cfg" $cfg) | nindent 8 }}
         - name: plantilla
-          configMap:
-            name: {{ $nombre }}
+          secret:
+            secretName: {{ $nombre }}-config
         - name: scripts
           configMap:
             name: {{ include "nexo.nombre" (dict "ctx" $ "comp" "apim-scripts") }}

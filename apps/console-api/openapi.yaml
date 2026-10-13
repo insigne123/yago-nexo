@@ -6,7 +6,9 @@ info:
     API de la Consola Nexo (Yago). Todas las rutas requieren un JWT válido (Keycloak de la institución,
     Supabase Auth en la demo). La autorización se basa en la matriz rol-permiso de `@nexo/shared`.
     Las acciones de cuatro ojos (aprobaciones) exigen que quien aprueba sea distinto de quien inició.
-    Toda acción de escritura genera un evento de auditoría encadenado.
+    Toda acción de escritura genera un evento de auditoría encadenado, también cuando se rechaza («rechazado») o
+    falla («error»). Los rechazos de acceso se auditan: 403 por permiso («acceso.rechazado.permiso»), 403 por cuatro
+    ojos («acceso.rechazado.cuatro_ojos») y 401 agrupados por IP de origen («acceso.rechazado.autenticacion»).
   contact: { name: Yago, email: soporte@yago.cl }
 servers:
   - url: /api/v1
@@ -300,14 +302,61 @@ paths:
       summary: Inicia un simulacro de conmutación (permiso continuity:drill)
       responses:
         "202": { description: Aceptado, content: { application/json: { schema: { $ref: "#/components/schemas/FailoverEvent" } } } }
-  /continuity/failback:
+  /continuity/failback/requests:
+    get:
+      tags: [continuidad]
+      summary: Solicitudes de retorno al sitio principal, de la más reciente a la más antigua (permiso continuity:read)
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/FailbackRequest" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
     post:
       tags: [continuidad]
-      summary: Aprueba el retorno al sitio principal (permiso continuity:failback:approve)
+      summary: Solicita el retorno al sitio principal (permiso continuity:failback:request, motivo obligatorio, auditado)
+      description: |
+        Primer paso del retorno con dos personas. La solicitud queda «pendiente» hasta que otra persona con
+        continuity:failback:approve la aprueba, o vence (NEXO_FAILBACK_REQUEST_TTL_MIN, 30 min por omisión). Solo
+        puede haber una pendiente a la vez. Responde 409 si el sitio principal ya es el activo, si hay una conmutación
+        en curso o si ya existe una solicitud pendiente.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RequiredReason" } } }
+      responses:
+        "201": { description: Solicitud creada, content: { application/json: { schema: { $ref: "#/components/schemas/FailbackRequest" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /continuity/failback/requests/{id}/approve:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [continuidad]
+      summary: Aprueba el retorno (permiso continuity:failback:approve, cuatro ojos, auditado)
+      description: |
+        Quien aprueba debe ser una persona distinta de quien solicitó (por usuario y por sujeto del token); si es la
+        misma responde 403 con permission «cuatro-ojos». La solicitud debe seguir pendiente y vigente. Crea el evento
+        de conmutación «retorno» que ejecutan los agentes de continuidad, con requestedBy y approvedBy.
       requestBody:
         content: { application/json: { schema: { $ref: "#/components/schemas/Reason" } } }
       responses:
-        "202": { description: Aceptado, content: { application/json: { schema: { $ref: "#/components/schemas/FailoverEvent" } } } }
+        "202": { description: Aprobado, content: { application/json: { schema: { $ref: "#/components/schemas/FailbackApproval" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /continuity/failback/requests/{id}/reject:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [continuidad]
+      summary: Rechaza o retira una solicitud pendiente (permiso continuity:failback:approve, motivo obligatorio, auditado)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RequiredReason" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/FailbackRequest" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /continuity/events:
     get:
       tags: [continuidad]
@@ -351,12 +400,19 @@ paths:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     post:
       tags: [mensajes-fallidos]
-      summary: Reprocesa un mensaje (permiso dlq:reprocess:approve, auditado)
+      summary: Reprocesa un mensaje (rol aprobador con dlq:reprocess:approve, motivo obligatorio, auditado)
+      description: |
+        Lo decide una sola persona con el permiso (no es una acción de cuatro ojos). El motivo es obligatorio (5 a
+        1000 caracteres). Queda auditado el reproceso («mensajes.reprocesar», exito) y también cada intento rechazado
+        (sin motivo, sin permiso o con el mensaje fuera de la cola) o fallido («error»).
       requestBody:
         required: true
-        content: { application/json: { schema: { $ref: "#/components/schemas/Reason" } } }
+        content: { application/json: { schema: { $ref: "#/components/schemas/RequiredReason" } } }
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/DeadLetter" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /audit-events:
     get:
@@ -422,29 +478,39 @@ paths:
   /alerts/alertmanager:
     post:
       tags: [plataforma]
-      summary: Receptor de alertas de Alertmanager (webhook interno)
-      description: Autenticado con un token compartido (NEXO_ALERTS_TOKEN) cuando está configurado; no usa el JWT de usuarios.
-      security: []
+      summary: Receptor de alertas de Alertmanager (webhook interno, token obligatorio)
+      description: |
+        Exige el token compartido en «Authorization: Bearer <token>» (NEXO_ALERTS_TOKEN o NEXO_ALERTS_TOKEN_FILE en la
+        API; credentials_file en Alertmanager). No usa el JWT de usuarios. Sin token, con un token inválido o sin token
+        configurado en la API responde 401; la comparación es de tiempo constante y los intentos se auditan agrupados
+        por IP. Cada alerta recibida se guarda y queda en la auditoría («alerta.recibida»), desde donde el reenvío
+        de auditoría la entrega al SIEM.
+      security: [{ alertsToken: [] }]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [alerts]
               properties:
                 alerts:
                   type: array
+                  maxItems: 1000
                   items:
                     type: object
                     required: [status, labels]
                     properties:
-                      status: { type: string }
+                      status: { type: string, enum: [firing, resolved] }
                       labels: { type: object, additionalProperties: { type: string } }
                       annotations: { type: object, additionalProperties: { type: string } }
                       fingerprint: { type: string }
+                      startsAt: { type: string, format: date-time }
+                      endsAt: { type: string, format: date-time }
       responses:
-        "204": { description: Recibidas }
-        "401": { description: Token del webhook inválido }
+        "204": { description: Recibidas y auditadas }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { description: Token del webhook ausente o inválido, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   /engines:
     get:
@@ -492,6 +558,7 @@ paths:
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+    alertsToken: { type: http, scheme: bearer, description: Token compartido entre Alertmanager y la API (no es un JWT) }
   parameters:
     Id: { name: id, in: path, required: true, schema: { type: string } }
   responses:
@@ -499,7 +566,13 @@ components:
       description: No existe
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     Forbidden:
-      description: Sin permiso
+      description: Sin permiso, o regla de cuatro ojos (permission «cuatro-ojos»). Queda auditado.
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    BadRequest:
+      description: Datos de entrada inválidos
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: El estado actual no permite la operación (code indica el motivo)
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
   schemas:
     Error:
@@ -508,10 +581,41 @@ components:
       properties:
         statusCode: { type: integer }
         message: { type: string }
-        permission: { type: string }
+        permission: { type: string, description: Permiso que faltó, o «cuatro-ojos» }
+        code: { type: string, description: "Motivo de un 409: sitio_activo, conmutacion_en_curso, pendiente_existente, no_pendiente, vencida" }
+        requestId: { type: string }
+        issues:
+          type: array
+          items: { type: object, properties: { campo: { type: string }, detalle: { type: string } } }
     Reason:
       type: object
       properties: { reason: { type: string, maxLength: 1000 } }
+    RequiredReason:
+      type: object
+      required: [reason]
+      properties: { reason: { type: string, minLength: 5, maxLength: 1000 } }
+    FailbackRequest:
+      type: object
+      required: [id, fromSite, toSite, reason, status, requestedBy, requestedAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        fromSite: { type: string, examples: [gcp] }
+        toSite: { type: string, examples: [cpd] }
+        reason: { type: string }
+        status: { type: string, enum: [pendiente, aprobada, rechazada, vencida] }
+        requestedBy: { type: string }
+        requestedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        decidedBy: { type: string }
+        decidedAt: { type: string, format: date-time }
+        decisionReason: { type: string }
+        failoverEventId: { type: string, format: uuid }
+    FailbackApproval:
+      type: object
+      required: [request, event]
+      properties:
+        request: { $ref: "#/components/schemas/FailbackRequest" }
+        event: { $ref: "#/components/schemas/FailoverEvent" }
     Audience: { type: string, enum: [interna, operadores, publica] }
     Me:
       type: object
@@ -827,9 +931,11 @@ components:
         mode: { type: string, enum: [manual, automatico] }
         activeSite: { type: string }
         quorum: { type: string, description: "por ejemplo 2 de 3" }
+        votosPrimarioCaido: { type: integer }
         sites: { type: array, items: { $ref: "#/components/schemas/SiteHealth" } }
         rtoObjetivoMin: { type: number }
         rpoObjetivoMin: { type: number }
+        pendingFailback: { $ref: "#/components/schemas/FailbackRequest", description: Solicitud de retorno pendiente y vigente, si la hay }
     FailoverEvent:
       type: object
       properties:
@@ -848,6 +954,7 @@ components:
             type: object
             properties: { name: { type: string }, status: { type: string }, ts: { type: string, format: date-time }, detail: { type: string } }
         status: { type: string, enum: [en_curso, completado, fallido] }
+        requestedBy: { type: string, description: Quien solicitó la operación (en un retorno, distinto de approvedBy) }
         approvedBy: { type: string }
     UsageRow:
       type: object

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { withTx, type Db } from "@nexo/console-db";
 import type { MiManagementClient, Subscription, Wso2Client } from "@nexo/wso2-client";
 import { CurrentUser, RequirePermission, type AuthUser } from "../auth/auth.js";
+import { AuditAction } from "../common/audit-failures.js";
 import { AuditService } from "../common/audit.service.js";
 import { DB, MI, WSO2 } from "../common/tokens.js";
 import { parse } from "../common/validation.js";
@@ -305,6 +306,7 @@ export class CatalogController {
 
   @Patch("apis/:id")
   @RequirePermission("catalog:write")
+  @AuditAction("catalogo.actualizar")
   async patch(@Param("id") id: string, @Body() body: unknown, @CurrentUser() user: AuthUser) {
     const res = await this.catalog.patch(id, body, user);
     await this.audit.record(user, "catalogo.actualizar", `api/${res.id}`, "exito", { campos: Object.keys(body as object) });
@@ -314,6 +316,7 @@ export class CatalogController {
   @Post("catalog/sync")
   @HttpCode(200)
   @RequirePermission("catalog:write")
+  @AuditAction("catalogo.sincronizar")
   async sync(@CurrentUser() user: AuthUser) {
     const res = await this.catalog.sync();
     await this.audit.record(user, "catalogo.sincronizar", "wso2", "exito", res);
@@ -329,6 +332,7 @@ export class CatalogController {
   @Post("impact/simulate")
   @HttpCode(200)
   @RequirePermission("impact:simulate")
+  @AuditAction("impacto.simular")
   async impact(@Body() body: unknown, @CurrentUser() user: AuthUser) {
     const req = parse(ImpactSchema, body);
     const res = await this.catalog.impact(req.nodeId, req.change.kind, req.change.detail);
