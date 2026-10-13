@@ -10,8 +10,8 @@
  *
  * Laboratorio de dos sitios en Docker Compose (perfil cont): PostgreSQL CPD (primario) y GCP (réplica por
  * streaming), etcd para los votos, CoreDNS para el nombre del sitio activo y tres agentes (CPD, GCP y testigo).
- * Cada comando que se ve en la terminal es el que se ejecuta. preparar() fija el modo automático desde la
- * Consola (PUT /continuity/mode). Duración estimada: ≈ 145 s (ver ayudas-d.test.ts).
+ * Cada comando que se ve en la terminal es el que se ejecuta. preparar() comprueba el modo automático en la
+ * Consola (GET /continuity; lo fija la instalación). Duración estimada: ≈ 145 s (ver ayudas-d.test.ts).
  *
  * La partición se hace dentro del contenedor del agente de Google Cloud: su /etc/hosts apunta cont-cpd a
  * 192.0.2.1 (dirección de documentación, no enrutable), así sus sondas al CPD no llegan mientras el CPD y los
@@ -304,13 +304,16 @@ export const d05: Demo = {
     const notas = [
       "laboratorio de continuidad (perfil cont) arriba: dos sitios en contenedores, etcd, CoreDNS y tres agentes",
     ];
-    // Modo automático fijado desde la Consola (lo que hace el selector «Modo de conmutación»), con un administrador.
+    // Desde la 1.2.0 el modo de conmutación lo fija la instalación (NEXO_CONTINUITY_AUTOMATICO) y la Consola solo lo
+    // muestra: se comprueba que esté en «automático» antes de grabar.
     const adm = await tokenPersona("admin.nexo");
-    const m = await consola<Estado>(adm, "PUT", "/continuity/mode", { mode: "automatico" });
+    const m = await consola<Estado>(adm, "GET", "/continuity");
     if (m.status >= 300 || m.data.mode !== "automatico")
-      throw new Error(`no se pudo fijar el modo automático desde la Consola: HTTP ${m.status}`);
+      throw new Error(
+        `el modo de conmutación de la instalación no es «automático»: HTTP ${m.status} · ${m.data?.mode}`,
+      );
     notas.push(
-      "modo de conmutación fijado en «automático» desde la Consola (admin.nexo, PUT /continuity/mode)",
+      "modo de conmutación «automático», fijado por la instalación y leído en la Consola (GET /continuity)",
     );
     const apr = await tokenPersona("luis.aprobador");
     // Solicitudes de retorno pendientes de corridas anteriores se rechazan (quedan en la auditoría).
