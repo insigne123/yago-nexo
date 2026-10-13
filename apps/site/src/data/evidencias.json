@@ -1,17 +1,17 @@
 {
   "$schema": "./evidencias.schema.json",
   "$comment": "Índice de las demostraciones registradas de Yago Nexo. Lo genera tools/evidencias (pnpm --filter @nexo/evidencias grabar). Los videos se publican junto al sitio en /evidencias/<archivo>.",
-  "generado": "2026-10-13T06:12:11.729Z",
+  "generado": "2026-10-13T12:13:58.322Z",
   "evidencias": [
     {
       "id": "D-01",
       "title": "Descubrimiento automático de APIs no gobernadas",
       "claim": "El motor de descubrimiento recorre el perímetro (gateway APISIX y NGINX heredados, y servicios de la red autorizada), detecta las APIs que no están en el catálogo gobernado, calcula su exposición y entrega el reporte en CSV y PDF.",
       "file": "D-01_descubrimiento.mp4",
-      "sha256": "93293923249d39cd99e3ce92d94cb49505b6df6e4c6e53a91b28ddb0a286a03c",
-      "size_bytes": 16120776,
-      "duration_seconds": 79.3,
-      "frames": 2379,
+      "sha256": "8eb33cfdabae2d7f983d48307ff607b05912857693e87a481b50b41dfde00cfa",
+      "size_bytes": 17872734,
+      "duration_seconds": 83.8,
+      "frames": 2513,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -23,61 +23,61 @@
         {
           "n": 1,
           "title": "El perímetro que revisa el motor de descubrimiento",
-          "start_s": 4.34,
-          "end_s": 11.34
+          "start_s": 4.32,
+          "end_s": 11.32
         },
         {
           "n": 2,
           "title": "La operadora inicia un escaneo desde la Consola",
-          "start_s": 11.34,
-          "end_s": 36.51
+          "start_s": 11.32,
+          "end_s": 34.19
         },
         {
           "n": 3,
           "title": "Hallazgos ordenados por exposición",
-          "start_s": 36.52,
-          "end_s": 47.34
+          "start_s": 34.19,
+          "end_s": 49.93
         },
         {
           "n": 4,
           "title": "Reporte de exposición en CSV y PDF",
-          "start_s": 47.34,
-          "end_s": 57.69
+          "start_s": 49.93,
+          "end_s": 60.05
         },
         {
           "n": 5,
           "title": "Verificación automática del escenario (check-d01)",
-          "start_s": 57.7,
-          "end_s": 76.28
+          "start_s": 60.06,
+          "end_s": 80.75
         }
       ],
-      "video_stream_md5": "576160af16bbf7c0fdfea688bda00c44",
+      "video_stream_md5": "c60dd0ccd7b0de7ece567d07a2dd7dc6",
       "without_music": {
         "file": "D-01_descubrimiento.sin-musica.mp4",
-        "sha256": "8bef48e5ce9436b80049ba6a7e8bda835b4b1a722eb81ab2107498de749569a6",
-        "size_bytes": 14461775
+        "sha256": "ee9db3b25ae3d7b1f209eca1e8104d753a3911f3871a095cd6de97df29076483",
+        "size_bytes": 16121667
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 2,
         "seed": 215139879,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.2 s (≈ 67 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 11 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "327790cc5914fa6bcd0db967ba8ddb69c034f1b4eb85e24ea57d0e2460507f17",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.6 s (≈ 63 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 11 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "a4d7a6a13df7752147771df0d5d485141d0710646a14bf4f2f5f2dc00ac81c8a",
         "integrated_lufs": -17.9,
         "true_peak_dbtp": -4.8,
         "lra_lu": 5.1,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "838f39d",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T03:05:28-03:00",
+      "recorded_at": "2026-10-13T08:07:03-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "9 endpoints detectados en 10 s: 5 no gobernados y 6 de riesgo alto, con reporte CSV y PDF",
+      "result": "9 endpoints detectados en 5 s: 5 no gobernados y 6 de riesgo alto, con reporte CSV y PDF",
       "checks": [
         {
           "texto": "fuentes del motor configuradas",
@@ -92,7 +92,7 @@
         {
           "texto": "escaneo terminado",
           "ok": true,
-          "detalle": "terminado en 10,2 s"
+          "detalle": "terminado en 4,9 s"
         },
         {
           "texto": "NGINX: datos personales sin autenticación",
@@ -136,7 +136,7 @@
         }
       ],
       "data": {
-        "segundosEscaneo": 10.2,
+        "segundosEscaneo": 4.9,
         "endpoints": 9,
         "noGobernados": 5,
         "riesgoAlto": 6,
@@ -150,47 +150,47 @@
       ],
       "zooms": [
         {
-          "inicio_s": 37.936,
-          "fin_s": 42.339,
+          "inicio_s": 35.471,
+          "fin_s": 39.873,
           "factor": 1.5
         }
       ],
-      "zoom_fraction": 0.056,
+      "zoom_fraction": 0.053,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 79.3,
-        "cuadros_recibidos": 2963,
-        "cuadros_video": 2379,
-        "cuadros_unicos": 1989,
-        "cuadros_descartados": 974,
-        "cps_efectivos": 25.1,
+        "duracion_s": 83.767,
+        "cuadros_recibidos": 3154,
+        "cuadros_video": 2513,
+        "cuadros_unicos": 2109,
+        "cuadros_descartados": 1045,
+        "cps_efectivos": 25.2,
         "cps_movimiento_p50": 28,
-        "cps_movimiento_p10": 22,
+        "cps_movimiento_p10": 21,
         "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.754,
-        "hueco_p95_s": 0.054,
-        "disco_mb": 943.9,
-        "codificacion_s": 42.1,
-        "cpu_node_pct": 27
+        "hueco_max_s": 0.507,
+        "hueco_p95_s": 0.052,
+        "disco_mb": 1000.5,
+        "codificacion_s": 46.2,
+        "cpu_node_pct": 30
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 1.76,
-        "load_end": 4.3
+        "load_start": 3.77,
+        "load_end": 4.93
       }
     },
     {
       "id": "D-02",
       "title": "Detección de anomalías de consumo con alerta y bloqueo configurable",
-      "claim": "El guardián compara el consumo de cada consumidor con su propia línea base (61 ventanas de 30 s, unos 31 min de tráfico normal); ante una ráfaga anómala alerta y, según la regla, lo bloquea en el gateway hasta que un aprobador lo libere o venza el bloqueo, sin afectar a los consumidores que se comportan como siempre.",
+      "claim": "El guardián compara el consumo de cada consumidor con su propia línea base (las 60 ventanas anteriores de 30 s, 30 min de tráfico normal); ante una ráfaga anómala alerta y, según la regla, lo bloquea en el gateway hasta que un aprobador lo libere o venza el bloqueo, sin afectar a los consumidores que se comportan como siempre.",
       "file": "D-02_anomalias.mp4",
-      "sha256": "da2a062150a3fad96adc5fedb15e739dc4c7761a207206a1df8e3d6f45673550",
-      "size_bytes": 25197404,
-      "duration_seconds": 135.9,
-      "frames": 4076,
+      "sha256": "829433b74c2c87124e6353197b97203c57875811147c6e58dee38dcf7275458f",
+      "size_bytes": 22657539,
+      "duration_seconds": 129,
+      "frames": 3869,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -201,56 +201,56 @@
       "chapters": [
         {
           "n": 1,
-          "title": "Parte 1 · La línea base: 31 min de tráfico normal",
-          "start_s": 4.55,
-          "end_s": 11.55
+          "title": "Parte 1 · La línea base: las 60 ventanas de 30 s anteriores",
+          "start_s": 4.46,
+          "end_s": 11.46
         },
         {
           "n": 2,
           "title": "Parte 2 · El administrador configura la regla",
-          "start_s": 11.55,
-          "end_s": 42.15
+          "start_s": 11.46,
+          "end_s": 42.21
         },
         {
           "n": 3,
           "title": "Parte 3 · Ráfaga de A: alerta y bloqueo en el gateway",
-          "start_s": 42.15,
-          "end_s": 105.91
+          "start_s": 42.21,
+          "end_s": 99.42
         },
         {
           "n": 4,
           "title": "Parte 4 · Un aprobador libera el bloqueo",
-          "start_s": 105.91,
-          "end_s": 132.86
+          "start_s": 99.42,
+          "end_s": 125.94
         }
       ],
-      "video_stream_md5": "38d4da124960d824a7aa33978c7f127d",
+      "video_stream_md5": "b5c696b7b3762b4b93c3da8260bf4b65",
       "without_music": {
         "file": "D-02_anomalias.sin-musica.mp4",
-        "sha256": "a40578aad0012d5b290cdd917034e5b950e07bdef65ae4f7c51678e5b55be109",
-        "size_bytes": 22351375
+        "sha256": "94efebfff8c8971be813df2138d3e938ae39be61062311245a6ef5d202018756",
+        "size_bytes": 19960179
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 3,
         "seed": 198362260,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.8 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 24 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "54b5c91b069218c737a7be6984bf76552ca4251da8ce1bda1704de59bb44610b",
+        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.4 s (≈ 74 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 24 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "a0bab987148ec816efeb71c7a6e145d874dd38c6c819a2c5fdd28127288fe725",
         "integrated_lufs": -18,
         "true_peak_dbtp": -4.9,
         "lra_lu": 5.5,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:29:51-03:00",
+      "recorded_at": "2026-10-13T09:02:33-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "ráfaga de A bloqueada en el gateway a los 42 s frente a su línea base de 31 min, con alerta; B (25 llamadas/s) no fue afectado; acceso restablecido 2 s después de la liberación",
+      "result": "ráfaga de A bloqueada en el gateway a los 35 s frente a su línea base (las 60 ventanas de 30 s anteriores), con alerta; B (25 llamadas/s) no fue afectado; acceso restablecido 2 s después de la liberación",
       "checks": [
         {
           "texto": "consumidor A: 60 de 60 ventanas previas con tráfico",
@@ -260,7 +260,7 @@
         {
           "texto": "consumidor B: 60 de 60 ventanas previas con tráfico",
           "ok": true,
-          "detalle": "60 de 60 · ≈ 747 llamadas por ventana"
+          "detalle": "60 de 60 · ≈ 749 llamadas por ventana"
         },
         {
           "texto": "regla creada y activa",
@@ -270,12 +270,12 @@
         {
           "texto": "A bloqueado en el gateway (HTTP 403)",
           "ok": true,
-          "detalle": "HTTP 403 a los 42 s de empezar la ráfaga"
+          "detalle": "HTTP 403 a los 35 s de empezar la ráfaga"
         },
         {
           "texto": "B sigue atendido sin rechazos",
           "ok": true,
-          "detalle": "1.150 respuestas a B durante la ráfaga · 0 rechazos"
+          "detalle": "1.100 respuestas a B durante la ráfaga · 0 rechazos"
         },
         {
           "texto": "política de denegación activa en WSO2",
@@ -285,7 +285,7 @@
         {
           "texto": "evento con lo observado y su línea base",
           "ok": true,
-          "detalle": "336 llamadas en la ventana frente a una línea base de 60 · puntaje 18.4"
+          "detalle": "220 llamadas en la ventana frente a una línea base de 60 · puntaje 10,7"
         },
         {
           "texto": "alerta enviada",
@@ -309,10 +309,10 @@
         }
       ],
       "data": {
-        "segundosHastaBloqueo": 41.593,
-        "respuestas403": 100,
-        "segundosHastaAcceso": 1.612,
-        "observado": 336,
+        "segundosHastaBloqueo": 34.602,
+        "respuestas403": 104,
+        "segundosHastaAcceso": 1.862,
+        "observado": 220,
         "lineaBase": 60,
         "ventanasLineaBase": {
           "OperadorDemo": 60,
@@ -328,41 +328,41 @@
       ],
       "zooms": [
         {
-          "inicio_s": 90.199,
-          "fin_s": 94.6,
+          "inicio_s": 83.714,
+          "fin_s": 88.114,
           "factor": 1.5
         },
         {
-          "inicio_s": 102.096,
-          "fin_s": 105.903,
+          "inicio_s": 95.62,
+          "fin_s": 99.421,
           "factor": 1.8
         }
       ],
-      "zoom_fraction": 0.06,
+      "zoom_fraction": 0.064,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 135.867,
-        "cuadros_recibidos": 4655,
-        "cuadros_video": 4076,
-        "cuadros_unicos": 3255,
-        "cuadros_descartados": 1400,
-        "cps_efectivos": 24,
+        "duracion_s": 128.967,
+        "cuadros_recibidos": 4261,
+        "cuadros_video": 3869,
+        "cuadros_unicos": 3126,
+        "cuadros_descartados": 1135,
+        "cps_efectivos": 24.2,
         "cps_movimiento_p50": 26,
-        "cps_movimiento_p10": 20,
+        "cps_movimiento_p10": 21,
         "cps_movimiento_p90": 29,
-        "hueco_max_s": 1.001,
-        "hueco_p95_s": 0.066,
-        "disco_mb": 1473.3,
-        "codificacion_s": 77.7,
-        "cpu_node_pct": 30
+        "hueco_max_s": 0.752,
+        "hueco_p95_s": 0.065,
+        "disco_mb": 1261.4,
+        "codificacion_s": 72.2,
+        "cpu_node_pct": 33
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 1.29,
-        "load_end": 4.95
+        "load_start": 1.12,
+        "load_end": 5.53
       }
     },
     {
@@ -370,10 +370,10 @@
       "title": "Validación de contratos OpenAPI contra la guía de estilo, bloqueante en el pipeline",
       "claim": "Cada contrato OpenAPI se valida automáticamente contra la guía de estilo institucional, configurable por la institución: el pipeline bloquea la promoción si no cumple y la política de gobierno de WSO2 bloquea su despliegue aunque se cargue a mano.",
       "file": "D-03_contratos_pipeline.mp4",
-      "sha256": "1c34c63b00097134c74a855a6042eb7819fd700e453a53e3ec876fda6d5efea3",
-      "size_bytes": 11301733,
-      "duration_seconds": 52.9,
-      "frames": 1586,
+      "sha256": "cf562f976599290c92241f07a9bf27bb3a1f20c62eb9bd5c9e8debac50d4dd51",
+      "size_bytes": 12522773,
+      "duration_seconds": 56.9,
+      "frames": 1707,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -385,66 +385,66 @@
         {
           "n": 1,
           "title": "La guía de estilo y el paso del pipeline que la aplica",
-          "start_s": 4.25,
-          "end_s": 14.99
+          "start_s": 4.26,
+          "end_s": 13.5
         },
         {
           "n": 2,
           "title": "Contrato que no cumple: el pipeline bloquea la promoción",
-          "start_s": 14.99,
-          "end_s": 21.99
+          "start_s": 13.5,
+          "end_s": 22.02
         },
         {
           "n": 3,
           "title": "Carga manual: la política de gobierno de WSO2 también bloquea",
-          "start_s": 21.99,
-          "end_s": 31.43
+          "start_s": 22.02,
+          "end_s": 35.5
         },
         {
           "n": 4,
           "title": "Contrato corregido: validado, versionado y publicado",
-          "start_s": 31.43,
-          "end_s": 42.83
+          "start_s": 35.5,
+          "end_s": 46.89
         },
         {
           "n": 5,
           "title": "La guía es configurable: una regla más estricta vuelve a bloquear",
-          "start_s": 42.83,
-          "end_s": 49.83
+          "start_s": 46.89,
+          "end_s": 53.89
         }
       ],
-      "video_stream_md5": "339885bb653003b85920d5c45e7855c7",
+      "video_stream_md5": "52108c7e5d1284b4268ae3f00b4bec74",
       "without_music": {
         "file": "D-03_contratos_pipeline.sin-musica.mp4",
-        "sha256": "07acbb9cdf48cd202fad5d791a6132ca5dddd659ff73e024a66ab1167e10dd65",
-        "size_bytes": 10197686
+        "sha256": "b8a3eeca34a058a4bb0edd5c7871af3720b8a035a83f38c92b7fdc4ec6f188b7",
+        "size_bytes": 11333271
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 2,
         "seed": 215139879,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.6 s (≈ 64 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 6 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "a8fdf09c7d640c0fce1d2559fe23bbd4dcaae0d0718ee63b64404a87b1c50baf",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.1 s (≈ 67 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 8 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "ff6962044561d318e43a21f80cd7a8ed35a70507c023cf8ab3d163a650c85c93",
         "integrated_lufs": -17.9,
-        "true_peak_dbtp": -4.7,
-        "lra_lu": 5.6,
+        "true_peak_dbtp": -4.8,
+        "lra_lu": 5.4,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:39:18-03:00",
+      "recorded_at": "2026-10-13T08:09:29-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "contrato no conforme bloqueado por el pipeline (código 2, nada llegó a WSO2) y por la política de gobierno de WSO2 (8 violaciones); corregido, se publicó; con la guía endurecida, se rechazó",
       "checks": [
         {
           "texto": "los contratos versionados cumplen la guía",
           "ok": true,
-          "detalle": "código 0 · 4 contratos sin errores"
+          "detalle": "código 0 · 5 validados: 4 contratos con 0 errores y 1 esquema GraphQL válido"
         },
         {
           "texto": "pipeline bloqueado (código de salida 2)",
@@ -459,7 +459,7 @@
         {
           "texto": "WSO2 bloquea el despliegue del contrato no conforme",
           "ok": true,
-          "detalle": "8 violaciones bloqueantes"
+          "detalle": "8 violaciones bloqueantes de 6 reglas"
         },
         {
           "texto": "contrato corregido promovido y publicado",
@@ -486,47 +486,47 @@
       ],
       "zooms": [
         {
-          "inicio_s": 39.029,
-          "fin_s": 42.83,
+          "inicio_s": 43.086,
+          "fin_s": 46.89,
           "factor": 1.8
         }
       ],
-      "zoom_fraction": 0.072,
+      "zoom_fraction": 0.067,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 52.867,
-        "cuadros_recibidos": 1661,
-        "cuadros_video": 1586,
-        "cuadros_unicos": 1099,
-        "cuadros_descartados": 562,
-        "cps_efectivos": 20.8,
-        "cps_movimiento_p50": 23,
-        "cps_movimiento_p10": 15,
-        "cps_movimiento_p90": 29,
-        "hueco_max_s": 0.539,
-        "hueco_p95_s": 0.089,
-        "disco_mb": 507.2,
-        "codificacion_s": 28.6,
-        "cpu_node_pct": 23
+        "duracion_s": 56.9,
+        "cuadros_recibidos": 1903,
+        "cuadros_video": 1707,
+        "cuadros_unicos": 1272,
+        "cuadros_descartados": 631,
+        "cps_efectivos": 22.4,
+        "cps_movimiento_p50": 26,
+        "cps_movimiento_p10": 20,
+        "cps_movimiento_p90": 28,
+        "hueco_max_s": 0.75,
+        "hueco_p95_s": 0.075,
+        "disco_mb": 589.1,
+        "codificacion_s": 32.9,
+        "cpu_node_pct": 24
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 5.37,
-        "load_end": 5.62
+        "load_start": 4.93,
+        "load_end": 4.54
       }
     },
     {
       "id": "D-04",
       "title": "Despliegue canary y blue-green con reversión automática y sin corte",
-      "claim": "Con un consumidor llamando sin pausa por el gateway, una versión que falla con el 25 % del tráfico real se revierte sola, la versión corregida avanza en canary 5 → 25 → 50 → 100 % y un blue-green devuelve el tráfico de una vez; cada cambio lo aprueba una persona distinta de quien lo pide.",
+      "claim": "Con un consumidor llamando sin pausa por el gateway, una versión a la que se le inyecta una falla con el 25 % del tráfico real se revierte sola, la versión corregida avanza en canary 5 → 25 → 50 → 100 % y un blue-green devuelve el tráfico de una vez; cada cambio lo aprueba una persona distinta de quien lo pide.",
       "file": "D-04_canary_blue_green.mp4",
-      "sha256": "eccf4aca9e4f27eace180858fd0c7d9b33e11bdfe18425c16dc03e91fac4c79a",
-      "size_bytes": 29459439,
-      "duration_seconds": 149.4,
-      "frames": 4483,
+      "sha256": "e9929ef77a1ca9fcd468cd0b7381bac6e93300e1626d5d4c2a23307653c11d54",
+      "size_bytes": 30531635,
+      "duration_seconds": 151.4,
+      "frames": 4542,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -538,61 +538,61 @@
         {
           "n": 1,
           "title": "Producción estable: el consumidor llama sin pausa",
-          "start_s": 4.43,
-          "end_s": 12.13
+          "start_s": 4.41,
+          "end_s": 12.03
         },
         {
           "n": 2,
           "title": "Una persona pide el cambio y otra lo aprueba",
-          "start_s": 12.13,
-          "end_s": 20.94
+          "start_s": 12.04,
+          "end_s": 20.74
         },
         {
           "n": 3,
-          "title": "Falla real con el 25 % del tráfico: se revierte solo",
-          "start_s": 20.94,
-          "end_s": 49.4
+          "title": "Falla inyectada con el 25 % del tráfico real: se revierte solo",
+          "start_s": 20.74,
+          "end_s": 48.67
         },
         {
           "n": 4,
           "title": "Versión corregida: avanza 5 → 25 → 50 → 100 %",
-          "start_s": 49.4,
-          "end_s": 122.6
+          "start_s": 48.67,
+          "end_s": 121.1
         },
         {
           "n": 5,
           "title": "Blue-green: vuelta a concesiones-v1 de una vez",
-          "start_s": 122.6,
-          "end_s": 146.42
+          "start_s": 121.11,
+          "end_s": 148.38
         }
       ],
-      "video_stream_md5": "3950537f3d2de2b51b3a6ab69028cdc9",
+      "video_stream_md5": "f2be8f7c7082db673f1865acefd1896d",
       "without_music": {
         "file": "D-04_canary_blue_green.sin-musica.mp4",
-        "sha256": "7c85a418c3123cec7954ff834e55c2ea291fa3e7ba06d15a4da1fe1d02b8c93e",
-        "size_bytes": 26321858
+        "sha256": "69e85988925a99122185bde360edebd15ab6afbf1496cb0392e759d0abc9843e",
+        "size_bytes": 27352699
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 2,
         "seed": 215139879,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.9 s (≈ 61 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 21 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "c424c5c17ce9601a28468375ed4c703486c8bbc9e9398fc7e16814bd31991a4c",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 8.0 s (≈ 60 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 21 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "fd4d1f4c562bf26428af9c411d42b88243d64e0f130d8cc1b1b356404b3ed9d0",
         "integrated_lufs": -18,
         "true_peak_dbtp": -4.8,
-        "lra_lu": 4.9,
+        "lra_lu": 5,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:54:55-03:00",
+      "recorded_at": "2026-10-13T09:09:44-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "2.780 llamadas del consumidor: la falla con el 25 % del tráfico se revirtió sola en 2,1 s (6 errores, solo en ese tramo); el canary corregido llegó al 100 % en 58 s y el blue-green volvió en 16 s sin errores",
+      "result": "2.820 llamadas del consumidor: la falla con el 25 % del tráfico se revirtió sola en 2,1 s (4 errores, solo en ese tramo); el canary corregido llegó al 100 % en 57 s y el blue-green volvió en 15 s sin errores",
       "checks": [
         {
           "texto": "endpoint estable: concesiones-v1",
@@ -622,7 +622,7 @@
         {
           "texto": "errores solo mientras duró la falla",
           "ok": true,
-          "detalle": "6 errores en 2,1 s · después, 0"
+          "detalle": "4 errores en 2,1 s · después, 0"
         },
         {
           "texto": "el tráfico vuelve entero a concesiones-v1",
@@ -632,7 +632,7 @@
         {
           "texto": "canary completado al 100 %",
           "ok": true,
-          "detalle": "sombra → 5 % → 25 % → 50 % → 100 % en 58 s"
+          "detalle": "sombra → 5 % → 25 % → 50 % → 100 % en 57 s"
         },
         {
           "texto": "sin errores nuevos para el consumidor en este paso",
@@ -647,7 +647,7 @@
         {
           "texto": "blue-green completado",
           "ok": true,
-          "detalle": "en 16 s"
+          "detalle": "en 15 s"
         },
         {
           "texto": "sin errores durante el cambio",
@@ -657,20 +657,20 @@
         {
           "texto": "ambos backends atendieron tráfico real",
           "ok": true,
-          "detalle": "2.780 llamadas · 6 errores, solo durante la falla"
+          "detalle": "2.820 llamadas · 4 errores, solo durante la falla"
         }
       ],
       "data": {
-        "llamadas": 2780,
-        "errores": 6,
+        "llamadas": 2820,
+        "errores": 4,
         "porBackend": {
-          "concesiones-v1": 1887,
-          "concesiones-v2": 887
+          "concesiones-v1": 2023,
+          "concesiones-v2": 793
         },
         "segReversionDesdeFalla": 2.1,
-        "segCanary": 58,
-        "segBlueGreen": 16,
-        "motivoReversion": "tasa de error del candidato 30.8 % supera el umbral de 2.0 % (estable: 0.0 %), con 25 % del tráfico"
+        "segCanary": 57,
+        "segBlueGreen": 15,
+        "motivoReversion": "tasa de error del candidato 30.0 % supera el umbral de 2.0 % (estable: 0.0 %), con 25 % del tráfico"
       },
       "layers": [
         "cursor resaltado",
@@ -680,56 +680,56 @@
       ],
       "zooms": [
         {
-          "inicio_s": 12.462,
-          "fin_s": 16.264,
+          "inicio_s": 12.304,
+          "fin_s": 16.106,
           "factor": 1.5
         },
         {
-          "inicio_s": 39.679,
-          "fin_s": 43.882,
+          "inicio_s": 38.95,
+          "fin_s": 43.157,
           "factor": 1.5
         },
         {
-          "inicio_s": 84.57,
-          "fin_s": 88.172,
+          "inicio_s": 83.684,
+          "fin_s": 87.288,
           "factor": 1.6
         },
         {
-          "inicio_s": 110.646,
-          "fin_s": 114.647,
+          "inicio_s": 109.134,
+          "fin_s": 113.136,
           "factor": 1.5
         },
         {
-          "inicio_s": 116.295,
-          "fin_s": 120.097,
+          "inicio_s": 114.8,
+          "fin_s": 118.604,
           "factor": 1.8
         }
       ],
-      "zoom_fraction": 0.13,
+      "zoom_fraction": 0.128,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 149.433,
-        "cuadros_recibidos": 4467,
-        "cuadros_video": 4483,
-        "cuadros_unicos": 3409,
-        "cuadros_descartados": 1058,
-        "cps_efectivos": 22.8,
+        "duracion_s": 151.4,
+        "cuadros_recibidos": 4542,
+        "cuadros_video": 4542,
+        "cuadros_unicos": 3510,
+        "cuadros_descartados": 1032,
+        "cps_efectivos": 23.2,
         "cps_movimiento_p50": 25,
-        "cps_movimiento_p10": 17,
+        "cps_movimiento_p10": 18,
         "cps_movimiento_p90": 29,
-        "hueco_max_s": 0.754,
-        "hueco_p95_s": 0.076,
-        "disco_mb": 1404.1,
-        "codificacion_s": 77.2,
-        "cpu_node_pct": 28
+        "hueco_max_s": 1.006,
+        "hueco_p95_s": 0.07,
+        "disco_mb": 1450.9,
+        "codificacion_s": 79.5,
+        "cpu_node_pct": 30
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 5.55,
-        "load_end": 3.55
+        "load_start": 5.07,
+        "load_end": 5.08
       }
     },
     {
@@ -737,10 +737,10 @@
       "title": "Conmutación automática CPD ↔ Google Cloud sin intervención manual",
       "claim": "Los agentes de continuidad conmutan solos al sitio de respaldo cuando al menos 2 de 3 votos ven caído el sitio principal: promueven la réplica, reapuntan el DNS y registran el RTO, medido desde la falla. Con 1 de 3 votos (una partición) no conmutan, y el retorno lo pide una persona y lo aprueba otra.",
       "file": "D-05_conmutacion.mp4",
-      "sha256": "d641a95c110e83a7131b7711b5c12204d0a8b8d32c92caac1c7eedfbaf8b52c2",
-      "size_bytes": 25439761,
-      "duration_seconds": 118.7,
-      "frames": 3562,
+      "sha256": "375a232bc98743a686d7c8fccd850271865e79bf814e83e303411e7fedd6fd0a",
+      "size_bytes": 29500019,
+      "duration_seconds": 136.3,
+      "frames": 4089,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -753,65 +753,65 @@
           "n": 1,
           "title": "Estado sano: tres agentes votan y el CPD atiende",
           "start_s": 4.37,
-          "end_s": 11.37
+          "end_s": 13.45
         },
         {
           "n": 2,
           "title": "Acto 1 · Partición: un solo agente ve caído el CPD",
-          "start_s": 11.37,
-          "end_s": 42.81
+          "start_s": 13.45,
+          "end_s": 55.07
         },
         {
           "n": 3,
           "title": "Acto 2 · Cae el CPD y se conmuta solo",
-          "start_s": 42.81,
-          "end_s": 61.9
+          "start_s": 55.07,
+          "end_s": 71.79
         },
         {
           "n": 4,
           "title": "Acto 3 · RTO medido desde la falla",
-          "start_s": 61.9,
-          "end_s": 69.91
+          "start_s": 71.8,
+          "end_s": 81.31
         },
         {
           "n": 5,
           "title": "Retorno al CPD: lo pide una persona y lo aprueba otra",
-          "start_s": 69.91,
-          "end_s": 115.73
+          "start_s": 81.31,
+          "end_s": 133.29
         }
       ],
-      "video_stream_md5": "b4f8b7bb303b829022e888913e8e7568",
+      "video_stream_md5": "6f4d0fb40774f18a2f198496db06b457",
       "without_music": {
         "file": "D-05_conmutacion.sin-musica.mp4",
-        "sha256": "59ed68550c5e2ce8177b9380b7ddbab51dda673a07d8398aab21b1cc1843c97c",
-        "size_bytes": 22960327
+        "sha256": "a5dbfd5f6d8ad998fcba47deb1f01b5cf2e4541a194c8230aac78db75d6bdc95",
+        "size_bytes": 26654417
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 1,
         "seed": 231917498,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 7.0 s (≈ 69 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 29 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "cd4c1bc60056ed36111504b0cddb23a9a6fde1d5746cff8b1fd9c97fd98c4ac3",
+        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.5 s (≈ 74 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 36 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "10bb5f0f0f8249ac3f4efc5e74ccea6303536dde1563b20e54d120d2ee2d5f0d",
         "integrated_lufs": -17.9,
-        "true_peak_dbtp": -4.9,
+        "true_peak_dbtp": -4.8,
         "lra_lu": 5.6,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "838f39d",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T03:08:44-03:00",
+      "recorded_at": "2026-10-13T08:25:21-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "RTO 6,4 s desde la caída del CPD hasta el respaldo activo (conmutación automática con 3 de 3 votos «primario caído», sin pérdida del dato confirmado); con 1 de 3 no conmutó; retorno pedido y aprobado por dos personas en 33 s",
+      "result": "RTO 7,4 s desde la caída del CPD hasta el respaldo activo (conmutación automática con 3 de 3 votos «primario caído», sin pérdida del dato confirmado); con 1 de 3 no conmutó; retorno pedido y aprobado por dos personas en 32 s",
       "checks": [
         {
           "texto": "3 de 3 votos «primario sano» · modo automático",
           "ok": true,
-          "detalle": "3 de 3 sanos · automatico"
+          "detalle": "3 de 3 sanos · automático"
         },
         {
           "texto": "el DNS apunta al CPD (10.80.0.1)",
@@ -821,7 +821,7 @@
         {
           "texto": "dato de control escrito en el CPD y replicado",
           "ok": true,
-          "detalle": "marca-1791871732105 ya está en Google Cloud"
+          "detalle": "marca-1791890729844 ya está en Google Cloud"
         },
         {
           "texto": "1 de 3 votos «primario caído»",
@@ -829,9 +829,9 @@
           "detalle": "1 de 3 votos «primario caído» (máximo visto)"
         },
         {
-          "texto": "el CPD sigue activo 20 s después",
+          "texto": "el CPD sigue activo durante la partición",
           "ok": true,
-          "detalle": "activo CPD tras 28 s de partición"
+          "detalle": "activo CPD a los 35 s de partición (29 s después del voto)"
         },
         {
           "texto": "la réplica de Google Cloud no se promueve",
@@ -851,22 +851,22 @@
         {
           "texto": "el dato de control sigue en el respaldo",
           "ok": true,
-          "detalle": "marca-1791871732105 presente (sin pérdida del dato confirmado)"
+          "detalle": "marca-1791890729844 presente (sin pérdida del dato confirmado)"
         },
         {
           "texto": "RTO desde la falla dentro del objetivo",
           "ok": true,
-          "detalle": "6,4 s (objetivo 15 min)"
+          "detalle": "7,4 s (objetivo 15 min)"
         },
         {
-          "texto": "evento automático con el RTO del motor",
+          "texto": "historial: conmutación automática y su duración",
           "ok": true,
-          "detalle": "conmutación misma 0,18 s · RPO no medido (se registra el rezago de WAL)"
+          "detalle": "«RTO medido» 1,06 s = la conmutación misma, sin la detección · RPO no medido (se registra el rezago de WAL)"
         },
         {
           "texto": "conmutación registrada en la auditoría",
           "ok": true,
-          "detalle": "continuidad.conmutar · conmutacion/f68f3dfd-d1f7-4a0a-a840-14a95ce5bb15"
+          "detalle": "continuidad.conmutar · conmutacion/521cb12b-1bed-494a-a54c-75e3711c26c8"
         },
         {
           "texto": "quien solicita no puede aprobar (HTTP 403)",
@@ -881,16 +881,16 @@
         {
           "texto": "CPD activo de nuevo y DNS en 10.80.0.1",
           "ok": true,
-          "detalle": "33 s desde la solicitud · DNS 10.80.0.1"
+          "detalle": "32 s desde la solicitud · DNS 10.80.0.1"
         }
       ],
       "data": {
-        "rtoDesdeFallaSeg": 6.4,
-        "rtoMotorSeg": 0.183,
+        "rtoDesdeFallaSeg": 7.4,
+        "rtoMotorSeg": 1.062,
         "rpoEstimadoSeg": null,
         "votosEnParticion": 1,
         "votosAlConmutar": 3,
-        "segundosRetorno": 33,
+        "segundosRetorno": 32,
         "particion": "hosts"
       },
       "layers": [
@@ -901,51 +901,51 @@
       ],
       "zooms": [
         {
-          "inicio_s": 23.663,
-          "fin_s": 27.464,
+          "inicio_s": 32.807,
+          "fin_s": 36.608,
           "factor": 1.8
         },
         {
-          "inicio_s": 54.906,
-          "fin_s": 58.71,
+          "inicio_s": 65.084,
+          "fin_s": 68.887,
           "factor": 1.8
         },
         {
-          "inicio_s": 63.251,
-          "fin_s": 67.253,
-          "factor": 1.8
+          "inicio_s": 74.669,
+          "fin_s": 78.676,
+          "factor": 1.5
         },
         {
-          "inicio_s": 109.629,
-          "fin_s": 113.229,
+          "inicio_s": 127.132,
+          "fin_s": 130.733,
           "factor": 1.8
         }
       ],
-      "zoom_fraction": 0.128,
+      "zoom_fraction": 0.112,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 118.733,
-        "cuadros_recibidos": 4610,
-        "cuadros_video": 3562,
-        "cuadros_unicos": 3004,
-        "cuadros_descartados": 1606,
-        "cps_efectivos": 25.3,
-        "cps_movimiento_p50": 28,
-        "cps_movimiento_p10": 22,
-        "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.752,
-        "hueco_p95_s": 0.05,
-        "disco_mb": 1494.2,
-        "codificacion_s": 67.5,
-        "cpu_node_pct": 24
+        "duracion_s": 136.3,
+        "cuadros_recibidos": 4940,
+        "cuadros_video": 4089,
+        "cuadros_unicos": 3383,
+        "cuadros_descartados": 1557,
+        "cps_efectivos": 24.8,
+        "cps_movimiento_p50": 27,
+        "cps_movimiento_p10": 21,
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 1.027,
+        "hueco_p95_s": 0.056,
+        "disco_mb": 1601.8,
+        "codificacion_s": 80.6,
+        "cpu_node_pct": 28
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 2.08,
-        "load_end": 5.45
+        "load_start": 3.35,
+        "load_end": 4.19
       }
     },
     {
@@ -953,10 +953,10 @@
       "title": "GraphQL nativo y APIs de eventos con contratos AsyncAPI",
       "claim": "La plataforma publica y protege APIs GraphQL nativas (con su esquema, su publicación y sus políticas) y APIs dirigidas por eventos descritas con AsyncAPI y entregadas por WebSocket, en el mismo gateway, portal y control de acceso que las APIs REST.",
       "file": "D-06_graphql_asyncapi.mp4",
-      "sha256": "592a58931881aefd47eba54d5075e1a22e4b9715c21d1ba249ab1790c859a822",
-      "size_bytes": 11527622,
-      "duration_seconds": 59.3,
-      "frames": 1779,
+      "sha256": "2a8b214da9042dfd7bacb92987f7686fcf6146c5ed3771cd3dae69c5b78f912e",
+      "size_bytes": 12007712,
+      "duration_seconds": 62.2,
+      "frames": 1866,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -968,61 +968,61 @@
         {
           "n": 1,
           "title": "Un mismo portal para APIs REST, GraphQL y de eventos",
-          "start_s": 4.43,
-          "end_s": 15.08
+          "start_s": 4.45,
+          "end_s": 15.11
         },
         {
           "n": 2,
           "title": "GraphQL nativo: tipo, publicación y esquema",
-          "start_s": 15.08,
-          "end_s": 25.49
+          "start_s": 15.11,
+          "end_s": 24.98
         },
         {
           "n": 3,
           "title": "Políticas sobre GraphQL en el gateway",
-          "start_s": 25.49,
-          "end_s": 32.49
+          "start_s": 24.98,
+          "end_s": 31.99
         },
         {
           "n": 4,
           "title": "AsyncAPI: el contrato de la API de eventos",
-          "start_s": 32.49,
-          "end_s": 42.5
+          "start_s": 31.99,
+          "end_s": 41.88
         },
         {
           "n": 5,
           "title": "Eventos en vivo por WebSocket con token OAuth",
-          "start_s": 42.5,
-          "end_s": 56.28
+          "start_s": 41.88,
+          "end_s": 59.2
         }
       ],
-      "video_stream_md5": "8ad108f1da433987c293748cc5011a47",
+      "video_stream_md5": "2f9cec0da7af6fed44fae689eca95a0e",
       "without_music": {
         "file": "D-06_graphql_asyncapi.sin-musica.mp4",
-        "sha256": "ac9d700684eb8ac2777967aa546037b8223eab8ddc392c7b056b8384c8403f6c",
-        "size_bytes": 10296725
+        "sha256": "4e4c85e4aecdf3b8019bfd04c78a5f39fa06a6a1230d3279ebb770410370c407",
+        "size_bytes": 10713331
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 1,
         "seed": 231917498,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.6 s (≈ 73 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "ff4966dbe5cefcfda1f76df08daa922969327ae400d1ea046f9bc0598dc50145",
+        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.9 s (≈ 69 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "13f3225e23205a42364f0ee6aa26cb54df70a2430d5178581facf2d622e823e2",
         "integrated_lufs": -17.9,
         "true_peak_dbtp": -4.9,
-        "lra_lu": 5.3,
+        "lra_lu": 5.1,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:40:52-03:00",
+      "recorded_at": "2026-10-13T08:11:10-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "API GraphQL nativa publicada con su esquema (3 consultas) y protegida (con token 200, sin token 401, fuera del esquema 422); contrato AsyncAPI 2.6.0 y 3 eventos recibidos por WebSocket con token OAuth",
+      "result": "API GraphQL nativa publicada con su esquema (3 consultas) y protegida (con token 200, sin token 401, fuera del esquema 422); contrato AsyncAPI 2.6.0 y 2 eventos recibidos por WebSocket con token OAuth",
       "checks": [
         {
           "texto": "el portal publica una API GraphQL",
@@ -1062,7 +1062,7 @@
         {
           "texto": "campo fuera del esquema: rechazado",
           "ok": true,
-          "detalle": "HTTP 422 · {\"code\":\"900422\",\"message\":\"INVALID QUERY\",\"description\":\"Va"
+          "detalle": "HTTP 422 · INVALID QUERY: el campo campoInexistente no existe en el tipo Concesion"
         },
         {
           "texto": "el contrato AsyncAPI publicado describe sus canales",
@@ -1072,12 +1072,12 @@
         {
           "texto": "el contrato cumple la guía de estilo AsyncAPI",
           "ok": true,
-          "detalle": "código de salida 0"
+          "detalle": "código de salida 0 · 0 errores · 4 advertencias"
         },
         {
           "texto": "con token: llegan eventos por WebSocket",
           "ok": true,
-          "detalle": "3 eventos"
+          "detalle": "2 eventos de la red (más el mensaje de bienvenida)"
         },
         {
           "texto": "sin token: no se abre la suscripción",
@@ -1091,7 +1091,7 @@
         }
       ],
       "data": {
-        "msGraphQL": 112,
+        "msGraphQL": 101,
         "consultas": [
           "concesiones",
           "concesion",
@@ -1102,7 +1102,7 @@
         "canales": [
           "/ws"
         ],
-        "eventos": 3
+        "eventos": 2
       },
       "layers": [
         "cursor resaltado",
@@ -1112,41 +1112,41 @@
       ],
       "zooms": [
         {
-          "inicio_s": 7.883,
-          "fin_s": 11.495,
+          "inicio_s": 7.975,
+          "fin_s": 11.58,
           "factor": 1.6
         },
         {
-          "inicio_s": 19.381,
-          "fin_s": 22.986,
+          "inicio_s": 18.873,
+          "fin_s": 22.474,
           "factor": 1.5
         }
       ],
-      "zoom_fraction": 0.122,
+      "zoom_fraction": 0.116,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 59.3,
-        "cuadros_recibidos": 2072,
-        "cuadros_video": 1779,
-        "cuadros_unicos": 1356,
-        "cuadros_descartados": 716,
-        "cps_efectivos": 22.9,
-        "cps_movimiento_p50": 26,
+        "duracion_s": 62.2,
+        "cuadros_recibidos": 2252,
+        "cuadros_video": 1866,
+        "cuadros_unicos": 1483,
+        "cuadros_descartados": 769,
+        "cps_efectivos": 23.8,
+        "cps_movimiento_p50": 27,
         "cps_movimiento_p10": 20,
         "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.51,
-        "hueco_p95_s": 0.066,
-        "disco_mb": 567.8,
-        "codificacion_s": 31.3,
-        "cpu_node_pct": 25
+        "hueco_max_s": 0.517,
+        "hueco_p95_s": 0.057,
+        "disco_mb": 628.1,
+        "codificacion_s": 34.2,
+        "cpu_node_pct": 27
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 5.62,
-        "load_end": 4.99
+        "load_start": 4.54,
+        "load_end": 3.69
       }
     },
     {
@@ -1154,10 +1154,10 @@
       "title": "Generación automática de SDK desde el contrato OpenAPI publicado",
       "claim": "El generador integrado del portal de desarrolladores produce al momento, desde el contrato OpenAPI publicado, kits de desarrollo en los lenguajes que tiene habilitados (Java, JavaScript, Python, C# y Android en el laboratorio); cada uno trae las operaciones del contrato y el cliente JavaScript generado funciona contra el gateway.",
       "file": "D-07_sdk.mp4",
-      "sha256": "cf90c37f38bb299db1e5a596a20bd9b747f54863ca088573adb1f20fad3f34a3",
-      "size_bytes": 10834072,
-      "duration_seconds": 58.3,
-      "frames": 1748,
+      "sha256": "7adf621531972b9b1fed5e0c6071b464492bdd82e279abf2f997a9722c8746b3",
+      "size_bytes": 12557473,
+      "duration_seconds": 63.7,
+      "frames": 1911,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -1169,53 +1169,53 @@
         {
           "n": 1,
           "title": "El contrato OpenAPI publicado de la API Concesiones",
-          "start_s": 4.33,
-          "end_s": 12.9
+          "start_s": 4.32,
+          "end_s": 17.93
         },
         {
           "n": 2,
           "title": "Lenguajes del generador integrado en el portal",
-          "start_s": 12.9,
-          "end_s": 20.93
+          "start_s": 17.94,
+          "end_s": 25.91
         },
         {
           "n": 3,
           "title": "El portal genera y descarga un SDK por lenguaje",
-          "start_s": 20.93,
-          "end_s": 37.01
+          "start_s": 25.91,
+          "end_s": 42.18
         },
         {
           "n": 4,
           "title": "El cliente JavaScript generado consulta la API por el gateway",
-          "start_s": 37.02,
-          "end_s": 55.25
+          "start_s": 42.18,
+          "end_s": 60.67
         }
       ],
-      "video_stream_md5": "098d7cf6d5f2d7b90b1e97d4e43e8494",
+      "video_stream_md5": "d4c45e0a6f164a9614559bb23150882e",
       "without_music": {
         "file": "D-07_sdk.sin-musica.mp4",
-        "sha256": "f0d166213d9acb8fa1da1fbe6fe63f316751be672d993624c2a571cfbb80163d",
-        "size_bytes": 9622745
+        "sha256": "45ff0e07cc0d66022c497e8cf1942919049b9fc2d9b6d3d8f63ae9f994b633a0",
+        "size_bytes": 11236957
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 3,
         "seed": 198362260,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 7.3 s (≈ 66 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 11 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "88b448c623eda204f82bc0cd24cac91dd82a27736dfc74a791ad27284b10ce19",
+        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 8.0 s (≈ 60 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 11 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "7661e4aac73eb586db75dacc28cf38edf27c2c838a1659085b122650cb459293",
         "integrated_lufs": -17.9,
         "true_peak_dbtp": -4.9,
-        "lra_lu": 5.6,
+        "lra_lu": 4.6,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:42:34-03:00",
+      "recorded_at": "2026-10-13T08:12:59-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "5 SDK generados al momento desde el contrato publicado (java, javascript, python, csharp, android), con sus 3 operaciones; el cliente JavaScript generado consultó la API por el gateway",
       "checks": [
@@ -1300,36 +1300,41 @@
       ],
       "zooms": [
         {
-          "inicio_s": 15.023,
-          "fin_s": 18.425,
+          "inicio_s": 11.635,
+          "fin_s": 15.435,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 20.008,
+          "fin_s": 23.411,
           "factor": 1.5
         }
       ],
-      "zoom_fraction": 0.058,
+      "zoom_fraction": 0.113,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 58.267,
-        "cuadros_recibidos": 2084,
-        "cuadros_video": 1748,
-        "cuadros_unicos": 1366,
-        "cuadros_descartados": 718,
-        "cps_efectivos": 23.4,
-        "cps_movimiento_p50": 27,
-        "cps_movimiento_p10": 21,
-        "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.504,
-        "hueco_p95_s": 0.067,
-        "disco_mb": 573.4,
-        "codificacion_s": 30.1,
-        "cpu_node_pct": 26
+        "duracion_s": 63.7,
+        "cuadros_recibidos": 2036,
+        "cuadros_video": 1911,
+        "cuadros_unicos": 1469,
+        "cuadros_descartados": 567,
+        "cps_efectivos": 23.1,
+        "cps_movimiento_p50": 26,
+        "cps_movimiento_p10": 19,
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 0.757,
+        "hueco_p95_s": 0.069,
+        "disco_mb": 603.6,
+        "codificacion_s": 34.5,
+        "cpu_node_pct": 25
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 4.99,
-        "load_end": 4.79
+        "load_start": 3.69,
+        "load_end": 4.96
       }
     },
     {
@@ -1337,10 +1342,10 @@
       "title": "Autoservicio en el portal de desarrolladores con aprobación institucional",
       "claim": "Una persona externa se registra sola en el portal de desarrolladores, solicita una aplicación, sus credenciales y la suscripción a una API; cada paso queda pendiente hasta que la institución lo aprueba, y solo entonces puede consumir la API.",
       "file": "D-08_autoservicio_aprobacion.mp4",
-      "sha256": "a8f8ec52ceb96857e51463e03c768f697ab8ba4643905da1168e89bc8504cf86",
-      "size_bytes": 23638350,
-      "duration_seconds": 169.5,
-      "frames": 5084,
+      "sha256": "665b931d43b30acab39f9cc93e9fc9492faa45f870fa9ee995d82be853fab42a",
+      "size_bytes": 24347406,
+      "duration_seconds": 174.6,
+      "frames": 5237,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -1352,72 +1357,72 @@
         {
           "n": 1,
           "title": "Autorregistro de una persona de un operador",
-          "start_s": 4.34,
-          "end_s": 48.8
+          "start_s": 4.33,
+          "end_s": 45.78
         },
         {
           "n": 2,
           "title": "Sin aprobación no hay acceso",
-          "start_s": 48.8,
-          "end_s": 68.53
+          "start_s": 45.78,
+          "end_s": 65.46
         },
         {
           "n": 3,
           "title": "La institución aprueba el registro",
-          "start_s": 68.53,
-          "end_s": 76.63
+          "start_s": 65.46,
+          "end_s": 74.16
         },
         {
           "n": 4,
           "title": "Aplicación y credenciales en Keycloak, con aprobación",
-          "start_s": 76.63,
-          "end_s": 139.2
+          "start_s": 74.17,
+          "end_s": 141.96
         },
         {
           "n": 5,
           "title": "Suscripción a una API: pendiente hasta aprobarla",
-          "start_s": 139.2,
-          "end_s": 159.43
+          "start_s": 141.97,
+          "end_s": 164.55
         },
         {
           "n": 6,
           "title": "Con todo aprobado, la persona consume la API",
-          "start_s": 159.43,
-          "end_s": 166.43
+          "start_s": 164.55,
+          "end_s": 171.56
         }
       ],
-      "video_stream_md5": "b9ef4bdc57186e78b85ba4661c728bec",
+      "video_stream_md5": "6dca8ef43b08efae725cb1bbaf457ad6",
       "without_music": {
         "file": "D-08_autoservicio_aprobacion.sin-musica.mp4",
-        "sha256": "368eeefd21c820b20909fad00e051159024afc2b65e9e30a0dd9502d759b90d0",
-        "size_bytes": 20097953
+        "sha256": "67b66b58a49d996c4a56182b139aeca395a9608fdd5215aa5c05e894e72c60bd",
+        "size_bytes": 20702156
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 3,
         "seed": 198362260,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.1 s (≈ 79 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 43 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "a90ffd33e7c69cd1551b080ca0041da419ce7dd785c1cacfff55fb3688f5423e",
+        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.2 s (≈ 77 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 43 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "30f28ab64486283f7774899132073f4c4cd420c19ff4f21faaf5770a1cedc497",
         "integrated_lufs": -18,
-        "true_peak_dbtp": -4.8,
+        "true_peak_dbtp": -4.9,
         "lra_lu": 6.2,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:44:15-03:00",
+      "recorded_at": "2026-10-13T08:14:51-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "registro, aplicación, credenciales en Keycloak y suscripción: cada paso esperó la aprobación institucional; sin ella, sin acceso al portal (403) ni a la API (401); con ella, 200",
       "checks": [
         {
           "texto": "la cuenta queda registrada",
           "ok": true,
-          "detalle": "operador.054415"
+          "detalle": "operador.111452"
         },
         {
           "texto": "registro pendiente: la persona no entra al portal",
@@ -1427,17 +1432,17 @@
         {
           "texto": "registro aprobado por la institución",
           "ok": true,
-          "detalle": "operador.054415 · por admin"
+          "detalle": "operador.111452 · por admin"
         },
         {
           "texto": "creación de la aplicación aprobada",
           "ok": true,
-          "detalle": "Reportes 054415"
+          "detalle": "Reportes 111452"
         },
         {
           "texto": "credenciales de producción emitidas en Keycloak tras la aprobación",
           "ok": true,
-          "detalle": "0b72d4ba…"
+          "detalle": "b2b19639…"
         },
         {
           "texto": "con la suscripción pendiente el gateway la rechaza",
@@ -1456,8 +1461,8 @@
         }
       ],
       "data": {
-        "usuario": "operador.054415",
-        "aplicacion": "Reportes 054415",
+        "usuario": "operador.111452",
+        "aplicacion": "Reportes 111452",
         "antes": 401,
         "despues": 200
       },
@@ -1469,66 +1474,61 @@
       ],
       "zooms": [
         {
-          "inicio_s": 43.09,
-          "fin_s": 46.291,
+          "inicio_s": 40.064,
+          "fin_s": 43.266,
           "factor": 1.6
         },
         {
-          "inicio_s": 62.418,
-          "fin_s": 65.62,
+          "inicio_s": 59.424,
+          "fin_s": 62.625,
           "factor": 1.6
         },
         {
-          "inicio_s": 71.136,
-          "fin_s": 74.83,
+          "inicio_s": 68.655,
+          "fin_s": 72.366,
           "factor": 1.5
         },
         {
-          "inicio_s": 105.583,
-          "fin_s": 108.486,
+          "inicio_s": 104.83,
+          "fin_s": 107.731,
           "factor": 1.5
         },
         {
-          "inicio_s": 124.041,
-          "fin_s": 126.944,
+          "inicio_s": 136.169,
+          "fin_s": 139.373,
           "factor": 1.5
         },
         {
-          "inicio_s": 133.686,
-          "fin_s": 136.586,
-          "factor": 1.5
-        },
-        {
-          "inicio_s": 155.729,
-          "fin_s": 159.424,
+          "inicio_s": 160.852,
+          "fin_s": 164.552,
           "factor": 1.5
         }
       ],
-      "zoom_fraction": 0.133,
+      "zoom_fraction": 0.114,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 169.467,
-        "cuadros_recibidos": 5773,
-        "cuadros_video": 5084,
-        "cuadros_unicos": 4134,
-        "cuadros_descartados": 1639,
-        "cps_efectivos": 24.4,
-        "cps_movimiento_p50": 26,
+        "duracion_s": 174.567,
+        "cuadros_recibidos": 5383,
+        "cuadros_video": 5237,
+        "cuadros_unicos": 4141,
+        "cuadros_descartados": 1242,
+        "cps_efectivos": 23.7,
+        "cps_movimiento_p50": 25,
         "cps_movimiento_p10": 19,
-        "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.752,
-        "hueco_p95_s": 0.063,
-        "disco_mb": 1185.6,
-        "codificacion_s": 82,
-        "cpu_node_pct": 23
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 0.764,
+        "hueco_p95_s": 0.069,
+        "disco_mb": 1132.7,
+        "codificacion_s": 86.3,
+        "cpu_node_pct": 25
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 4.79,
-        "load_end": 4.76
+        "load_start": 4.96,
+        "load_end": 4.85
       }
     },
     {
@@ -1536,10 +1536,10 @@
       "title": "Publicar, proteger y enrutar una API en el gateway",
       "claim": "Una API definida por su contrato OpenAPI se publica en el gateway desde el pipeline, queda protegida con OAuth (Keycloak), suscripción y límite del plan, y enruta cada llamada al sistema de destino.",
       "file": "BT-005_publicar_proteger.mp4",
-      "sha256": "585ba2f8408814087663c9f0db453a5131e372c4896208b9e9a25737cb25281b",
-      "size_bytes": 11415734,
-      "duration_seconds": 55,
-      "frames": 1650,
+      "sha256": "35512c985c5ee561056283f967142976bbf7a55ffd1161c84d7cf9bb96a8abb0",
+      "size_bytes": 13279195,
+      "duration_seconds": 60.1,
+      "frames": 1802,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -1558,59 +1558,59 @@
           "n": 2,
           "title": "El pipeline la valida, la despliega en el gateway y la publica",
           "start_s": 11.26,
-          "end_s": 28.92
+          "end_s": 34.33
         },
         {
           "n": 3,
           "title": "Protección: sin token 401, sin suscripción 403, suscrita 200",
-          "start_s": 28.92,
-          "end_s": 35.92
+          "start_s": 34.33,
+          "end_s": 41.33
         },
         {
           "n": 4,
           "title": "Límite del plan: el exceso recibe 429",
-          "start_s": 35.92,
-          "end_s": 42.92
+          "start_s": 41.33,
+          "end_s": 48.33
         },
         {
           "n": 5,
           "title": "Enrutamiento: la analítica registra el destino de cada llamada",
-          "start_s": 42.92,
-          "end_s": 51.97
+          "start_s": 48.33,
+          "end_s": 57.06
         }
       ],
-      "video_stream_md5": "14ebeb40053d17110eded204cdfba087",
+      "video_stream_md5": "e96e49944e690092729c536b46c4de09",
       "without_music": {
         "file": "BT-005_publicar_proteger.sin-musica.mp4",
-        "sha256": "b34f18544ceb50b59506c26ece8aaf260327958245869da2d3fdf2d1d35aa667",
-        "size_bytes": 10279189
+        "sha256": "1e60ef8fd1ae6bdfbbe02b5e97b3fab9f3f662796657ffeaa39a3d31835b63bf",
+        "size_bytes": 12033751
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 1,
         "seed": 231917498,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.1 s (≈ 79 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "4a84d09247aed81ada2c6bd228c736caaac51970229c402a3bf9a286c10d7137",
+        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.7 s (≈ 72 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "b9cc80bae6d57ccb22cf253c93d26d58778266d9ce155eee38dff792fffbc38c",
         "integrated_lufs": -17.9,
-        "true_peak_dbtp": -4.3,
-        "lra_lu": 4.7,
+        "true_peak_dbtp": -4.9,
+        "lra_lu": 5,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:51:36-03:00",
+      "recorded_at": "2026-10-13T08:22:33-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
       "result": "API publicada por el pipeline y protegida: 401 sin token, 403 sin suscripción, 200 suscrita y 40 de 60 llamadas limitadas (429) por el plan",
       "checks": [
         {
           "texto": "el contrato cumple la guía de estilo",
           "ok": true,
-          "detalle": "código 0 · Resultado: 0 errores, 0 advertencias, 0 info."
+          "detalle": "0 errores · 0 advertencias"
         },
         {
           "texto": "pipeline terminó sin errores",
@@ -1620,7 +1620,7 @@
         {
           "texto": "API publicada en el gateway",
           "ok": true,
-          "detalle": "PUBLISHED · revisión desplegada en Default"
+          "detalle": "PUBLISHED · Revision 1 en Default"
         },
         {
           "texto": "sin token: el gateway rechaza (401)",
@@ -1645,7 +1645,7 @@
         {
           "texto": "las llamadas autorizadas llegaron al sistema de destino",
           "ok": true,
-          "detalle": "http://ocultas:7001/legacy · 21 llamadas"
+          "detalle": "21 llamadas, 21 autorizadas"
         }
       ],
       "data": {
@@ -1665,36 +1665,41 @@
       ],
       "zooms": [
         {
-          "inicio_s": 19.744,
-          "fin_s": 23.546,
+          "inicio_s": 20.671,
+          "fin_s": 24.473,
+          "factor": 1.8
+        },
+        {
+          "inicio_s": 29.023,
+          "fin_s": 32.825,
           "factor": 1.8
         }
       ],
-      "zoom_fraction": 0.069,
+      "zoom_fraction": 0.127,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 55,
-        "cuadros_recibidos": 2097,
-        "cuadros_video": 1650,
-        "cuadros_unicos": 1304,
-        "cuadros_descartados": 793,
-        "cps_efectivos": 23.7,
-        "cps_movimiento_p50": 28,
+        "duracion_s": 60.067,
+        "cuadros_recibidos": 2023,
+        "cuadros_video": 1802,
+        "cuadros_unicos": 1391,
+        "cuadros_descartados": 632,
+        "cps_efectivos": 23.2,
+        "cps_movimiento_p50": 26,
         "cps_movimiento_p10": 20,
-        "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.756,
-        "hueco_p95_s": 0.057,
-        "disco_mb": 628.1,
-        "codificacion_s": 30.4,
-        "cpu_node_pct": 20
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 0.512,
+        "hueco_p95_s": 0.068,
+        "disco_mb": 638.2,
+        "codificacion_s": 34.2,
+        "cpu_node_pct": 29
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 5.12,
-        "load_end": 4.77
+        "load_start": 5.75,
+        "load_end": 6.36
       }
     },
     {
@@ -1702,10 +1707,10 @@
       "title": "Flujo de integración con validación, transformación y orquestación",
       "claim": "El flujo de solicitudes de concesión valida cada mensaje contra su contrato, evita duplicados, orquesta una consulta SOAP 1.2 y una cola de mensajería, transforma los datos y los entrega al sistema de destino; ante una falla del destino reintenta, deja el mensaje en la cola de fallidos y lo entrega al reprocesarlo, registrando cada etapa con su correlación.",
       "file": "BT-008_flujo_integracion.mp4",
-      "sha256": "9650a3995d96b137fca48b2dcc4ecba17f54a33d683a2c3b526bc441ae8ca16c",
-      "size_bytes": 19591253,
-      "duration_seconds": 101.5,
-      "frames": 3044,
+      "sha256": "386c714661ddd5915fa96e6bd9b3ae16a0e07c353044d8f8a916676af5c9b827",
+      "size_bytes": 22983925,
+      "duration_seconds": 113,
+      "frames": 3390,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -1717,82 +1722,82 @@
         {
           "n": 1,
           "title": "El flujo de solicitudes de concesión, etapa por etapa",
-          "start_s": 4.48,
-          "end_s": 13.98
+          "start_s": 4.5,
+          "end_s": 14.17
         },
         {
           "n": 2,
           "title": "Solicitud válida: aceptada y entregada al destino",
-          "start_s": 13.98,
-          "end_s": 20.98
+          "start_s": 14.17,
+          "end_s": 21.17
         },
         {
           "n": 3,
           "title": "Sin duplicados y con rechazo de datos inválidos",
-          "start_s": 20.98,
-          "end_s": 28.59
+          "start_s": 21.17,
+          "end_s": 28.81
         },
         {
           "n": 4,
           "title": "Falla del destino: reintentos y cola de fallidos",
-          "start_s": 28.59,
-          "end_s": 56.55
+          "start_s": 28.81,
+          "end_s": 61.35
         },
         {
           "n": 5,
-          "title": "Reproceso aprobado: entrega real y cola vacía",
-          "start_s": 56.55,
-          "end_s": 71.35
+          "title": "Reproceso aprobado: entrega real y salida de la cola de fallidos",
+          "start_s": 61.36,
+          "end_s": 79.88
         },
         {
           "n": 6,
           "title": "Traza de punta a punta y verificación automática",
-          "start_s": 71.35,
-          "end_s": 98.44
+          "start_s": 79.88,
+          "end_s": 109.97
         }
       ],
-      "video_stream_md5": "23a6562790f53a8ca7fe31a7b2b57646",
+      "video_stream_md5": "05809ffce79e1ff86b7268e542f265ab",
       "without_music": {
         "file": "BT-008_flujo_integracion.sin-musica.mp4",
-        "sha256": "d282dac293e627f83d7d33d9b1b6fa48833d1eb36e90a0de749401440edf13d8",
-        "size_bytes": 17461334
+        "sha256": "10a63577474cc315bc900c8689a72dd1037927384e2e7097c17113f6a407da6e",
+        "size_bytes": 20619332
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 2,
         "seed": 215139879,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 6.8 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 15 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "fec991f7376b97a420fdfb2eff3214125bf396791e2ea4f612d2f5b72a61809f",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 7.5 s (≈ 64 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 15 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "90f42cd15739e1dc2f4c4a2333184686f372ef8197a9ab6fc1271ef52f3dd8f0",
         "integrated_lufs": -18,
-        "true_peak_dbtp": -4.9,
-        "lra_lu": 5,
+        "true_peak_dbtp": -4.5,
+        "lra_lu": 4.9,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:35:05-03:00",
+      "recorded_at": "2026-10-13T08:03:46-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "solicitud válida entregada al destino (+1 registro), repetición sin duplicar, inválida rechazada (422); con el destino caído el mensaje llegó a fallidos en 18 s y, reprocesado, se entregó (+1 registro) y la cola quedó en 4",
+      "result": "solicitud válida entregada al destino (+1 registro), repetición sin duplicar, inválida rechazada (422) sin pasar a fallidos; con el destino caído el mensaje llegó a fallidos en 22 s y, reprocesado, se entregó (+1 registro) y salió de la cola (7 → 6 mensajes)",
       "checks": [
         {
           "texto": "el flujo aparece en el grafo de dependencias",
           "ok": true,
-          "detalle": "Flujo de integraciónSolicitudesConcesion"
+          "detalle": "SolicitudesConcesionAPI"
         },
         {
           "texto": "solicitud aceptada (202) con correlación",
           "ok": true,
-          "detalle": "HTTP 202 · urn:uuid:92e7aa89-fe04…"
+          "detalle": "HTTP 202 · urn:uuid:e19f2cd6-cbf8…"
         },
         {
           "texto": "el sistema de destino registró la solicitud",
           "ok": true,
-          "detalle": "+1 en 1 s"
+          "detalle": "+1 en 0 s"
         },
         {
           "texto": "repetición idempotente: misma correlación",
@@ -1810,9 +1815,14 @@
           "detalle": "1 registro de 2 envíos"
         },
         {
+          "texto": "la inválida no llega a la cola de fallidos",
+          "ok": true,
+          "detalle": "6 → 6 mensajes"
+        },
+        {
           "texto": "el mensaje llega a la cola de fallidos tras agotar los reintentos",
           "ok": true,
-          "detalle": "18 s después de aceptado"
+          "detalle": "22 s después de aceptado"
         },
         {
           "texto": "la Consola muestra el mensaje con sus intentos",
@@ -1830,9 +1840,9 @@
           "detalle": "+1 en 0 s"
         },
         {
-          "texto": "cola de fallidos sin el mensaje (vuelve a 4)",
+          "texto": "el mensaje reprocesado sale de la cola de fallidos",
           "ok": true,
-          "detalle": "4 mensajes"
+          "detalle": "7 → 6 mensajes"
         },
         {
           "texto": "traza con el gateway y el integrador",
@@ -1842,19 +1852,21 @@
         {
           "texto": "verificación automática check-integracion",
           "ok": true,
-          "detalle": "gateway → integrador → cola → destino"
+          "detalle": "8 de 8 comprobaciones propias"
         }
       ],
       "data": {
-        "correlacion": "urn:uuid:92e7aa89-fe04-4163-873e-7d973f46fb07",
+        "correlacion": "urn:uuid:e19f2cd6-cbf8-4af7-8709-04cb6ebb1dcf",
         "registrosDestino": {
-          "antes": 2,
-          "final": 4
+          "antes": 107,
+          "final": 109
         },
-        "segundosHastaFallidos": 18.121,
+        "segundosHastaFallidos": 22.254,
         "colaFallidos": {
-          "antes": 4,
-          "despues": 4
+          "antesDeGrabar": 6,
+          "antesDelReproceso": 7,
+          "despuesDelReproceso": 6,
+          "trasVerificacion": 7
         },
         "servicios": [
           "API:Gateway",
@@ -1869,41 +1881,46 @@
       ],
       "zooms": [
         {
-          "inicio_s": 8.068,
-          "fin_s": 11.468,
+          "inicio_s": 8.255,
+          "fin_s": 11.657,
           "factor": 1.6
         },
         {
-          "inicio_s": 50.448,
-          "fin_s": 54.048,
+          "inicio_s": 55.25,
+          "fin_s": 58.854,
           "factor": 1.5
+        },
+        {
+          "inicio_s": 83.223,
+          "fin_s": 87.225,
+          "factor": 1.6
         }
       ],
-      "zoom_fraction": 0.069,
+      "zoom_fraction": 0.097,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 101.467,
-        "cuadros_recibidos": 3909,
-        "cuadros_video": 3044,
-        "cuadros_unicos": 2596,
-        "cuadros_descartados": 1313,
-        "cps_efectivos": 25.6,
+        "duracion_s": 113,
+        "cuadros_recibidos": 4514,
+        "cuadros_video": 3390,
+        "cuadros_unicos": 2923,
+        "cuadros_descartados": 1591,
+        "cps_efectivos": 25.9,
         "cps_movimiento_p50": 28,
-        "cps_movimiento_p10": 23,
+        "cps_movimiento_p10": 22,
         "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.769,
+        "hueco_max_s": 0.76,
         "hueco_p95_s": 0.049,
-        "disco_mb": 1155.7,
-        "codificacion_s": 56.8,
-        "cpu_node_pct": 23
+        "disco_mb": 1412.3,
+        "codificacion_s": 65.4,
+        "cpu_node_pct": 24
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 2.22,
-        "load_end": 4.59
+        "load_start": 2.49,
+        "load_end": 3.77
       }
     },
     {
@@ -1911,10 +1928,10 @@
       "title": "Catálogo de APIs con dueño, contrato, versión y dependencias",
       "claim": "El catálogo de la Consola reúne, para cada API, su propósito, propietario, contrato, versión, autenticación, consumidores, dependencias y estado, sincronizado con WSO2 y consistente con lo que corre en el gateway.",
       "file": "BT-018_catalogo.mp4",
-      "sha256": "a0b524d6795a4f2f7d759da8fd93f452943ff237c46b19fc448f99c43ca604f7",
-      "size_bytes": 9201157,
-      "duration_seconds": 47,
-      "frames": 1410,
+      "sha256": "e4c4602c27fbc47d5b9ceb4eab0b79dcd2c13a7caa031a1a49a6e6651732d2c1",
+      "size_bytes": 9396397,
+      "duration_seconds": 47.7,
+      "frames": 1432,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -1926,60 +1943,60 @@
         {
           "n": 1,
           "title": "El catálogo se sincroniza con WSO2",
-          "start_s": 4.34,
-          "end_s": 11.34
+          "start_s": 4.32,
+          "end_s": 11.32
         },
         {
           "n": 2,
           "title": "La ficha de una API: dueño, contrato, versión y estado",
-          "start_s": 11.34,
-          "end_s": 27.9
+          "start_s": 11.32,
+          "end_s": 27.85
         },
         {
           "n": 3,
           "title": "Grafo de dependencias de la API",
-          "start_s": 27.9,
-          "end_s": 36.97
+          "start_s": 27.85,
+          "end_s": 37.12
         },
         {
           "n": 4,
           "title": "Consistencia con el entorno de ejecución",
-          "start_s": 36.97,
-          "end_s": 43.97
+          "start_s": 37.12,
+          "end_s": 44.71
         }
       ],
-      "video_stream_md5": "bf0d246943af182616bdb61c1789052f",
+      "video_stream_md5": "4ecfe74222c5925d6f93b8ed3557f293",
       "without_music": {
         "file": "BT-018_catalogo.sin-musica.mp4",
-        "sha256": "010f63ad2447e63618e71ebd30f73d89fecfc6d48616f268b2d6427a97621443",
-        "size_bytes": 8222621
+        "sha256": "0ce8144a4a14f209071238b1e2101bc891888447b2c4e5a09a5a7391a5469681",
+        "size_bytes": 8402532
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 2,
         "seed": 215139879,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 6.7 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 6 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "f38b2ac07960f7d259ad6212a757e755211f26243667c2f13f9ab116c45fc399",
+        "description": "ambiental cálido, variante 2: Do mayor, Am9 – Fmaj7 – Cmaj9 – G6sus, un acorde cada 6.8 s (≈ 70 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 6 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "f07884049aa956722fddf057fb5a72f64691ddf1b6662e6afdf3124a3f90386d",
         "integrated_lufs": -17.9,
-        "true_peak_dbtp": -4.7,
-        "lra_lu": 6.1,
+        "true_peak_dbtp": -4.8,
+        "lra_lu": 5.9,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:48:55-03:00",
+      "recorded_at": "2026-10-13T08:19:41-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "ficha de Concesiones completa al 100 % y 9 de 9 campos idénticos a lo que informa WSO2 (5 de 5 comprobaciones)",
+      "result": "ficha de Concesiones completa al 100 %; 9 de 9 campos de la ficha coinciden con lo que informa WSO2 (nombre y versión, contexto, estado, propietario, contacto, contrato, propósito, autenticación y consumidores)",
       "checks": [
         {
           "texto": "catálogo sincronizado con WSO2",
           "ok": true,
-          "detalle": "5 APIs · 810 ms"
+          "detalle": "5 APIs · 841 ms"
         },
         {
           "texto": "ficha completa: los campos comprometidos tienen valor",
@@ -2002,14 +2019,14 @@
           "detalle": "División de Concesiones (sintético)"
         },
         {
-          "texto": "autenticación coincide con WSO2",
+          "texto": "la autenticación de la ficha figura en WSO2",
           "ok": true,
-          "detalle": "oauth_basic_auth_api_key_mandatory, oauth2"
+          "detalle": "«oauth2» en WSO2"
         },
         {
           "texto": "consumidores coinciden con las suscripciones activas",
           "ok": true,
-          "detalle": "3 suscripción(es): ConsumidorAltoVolumen, FiscalizacionDemo, OperadorDemo"
+          "detalle": "3 aplicaciones, mismos nombres"
         }
       ],
       "data": {
@@ -2025,41 +2042,41 @@
       ],
       "zooms": [
         {
-          "inicio_s": 14.059,
-          "fin_s": 17.959,
+          "inicio_s": 13.954,
+          "fin_s": 17.858,
           "factor": 1.4
         },
         {
-          "inicio_s": 30.562,
-          "fin_s": 34.462,
+          "inicio_s": 30.715,
+          "fin_s": 34.616,
           "factor": 1.6
         }
       ],
-      "zoom_fraction": 0.166,
+      "zoom_fraction": 0.164,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 47,
-        "cuadros_recibidos": 1487,
-        "cuadros_video": 1410,
-        "cuadros_unicos": 1071,
-        "cuadros_descartados": 416,
-        "cps_efectivos": 22.8,
-        "cps_movimiento_p50": 27,
-        "cps_movimiento_p10": 22,
+        "duracion_s": 47.733,
+        "cuadros_recibidos": 1420,
+        "cuadros_video": 1432,
+        "cuadros_unicos": 1069,
+        "cuadros_descartados": 351,
+        "cps_efectivos": 22.4,
+        "cps_movimiento_p50": 26,
+        "cps_movimiento_p10": 18,
         "cps_movimiento_p90": 29,
-        "hueco_max_s": 0.772,
-        "hueco_p95_s": 0.063,
-        "disco_mb": 391.1,
-        "codificacion_s": 25.9,
-        "cpu_node_pct": 25
+        "hueco_max_s": 0.52,
+        "hueco_p95_s": 0.069,
+        "disco_mb": 382.6,
+        "codificacion_s": 27.1,
+        "cpu_node_pct": 26
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 4.76,
-        "load_end": 5.39
+        "load_start": 4.85,
+        "load_end": 4.95
       }
     },
     {
@@ -2067,10 +2084,10 @@
       "title": "Medición de consumo por consumidor y endpoint, sin cobro",
       "claim": "Cada llamada que pasa por el gateway se atribuye a su aplicación consumidora, a la API y al endpoint; la Consola lo muestra y exporta, los planes limitan el exceso y la facturación permanece desactivada.",
       "file": "BT-021_consumo.mp4",
-      "sha256": "ccabdeae76cb5e922a9eb54646c6c054e44ae72d3ae9b240e8e4d61cf9d58306",
-      "size_bytes": 11015372,
-      "duration_seconds": 60.9,
-      "frames": 1826,
+      "sha256": "57b3db3e17c043a25181d690f7bd291cef363c43aa19e964c81aa187cd729a72",
+      "size_bytes": 13353383,
+      "duration_seconds": 64.4,
+      "frames": 1932,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -2082,61 +2099,61 @@
         {
           "n": 1,
           "title": "Medición sin facturación",
-          "start_s": 4.49,
-          "end_s": 13.75
+          "start_s": 4.47,
+          "end_s": 13.7
         },
         {
           "n": 2,
           "title": "Dos consumidores llaman a distintos endpoints",
-          "start_s": 13.75,
-          "end_s": 26.35
+          "start_s": 13.7,
+          "end_s": 26.33
         },
         {
           "n": 3,
           "title": "La Consola atribuye el consumo a cada consumidor y endpoint",
-          "start_s": 26.35,
-          "end_s": 43.83
+          "start_s": 26.33,
+          "end_s": 47.36
         },
         {
           "n": 4,
           "title": "Exportación del consumo en CSV",
-          "start_s": 43.83,
-          "end_s": 50.83
+          "start_s": 47.36,
+          "end_s": 54.36
         },
         {
           "n": 5,
           "title": "El plan limita el exceso",
-          "start_s": 50.83,
-          "end_s": 57.84
+          "start_s": 54.37,
+          "end_s": 61.37
         }
       ],
-      "video_stream_md5": "83fccb1f6ea06d010b705d50ea8a9d6d",
+      "video_stream_md5": "dbe64eb0f27ba5fb07992e8099a16b08",
       "without_music": {
         "file": "BT-021_consumo.sin-musica.mp4",
-        "sha256": "9f0ca9a88adb01ce4efed8f632887718127eef808545161aa12c6c04e883addb",
-        "size_bytes": 9749258
+        "sha256": "98747fc6ab4e98bfb261d42a53d65cbf67daa87d1e856c1ed2c7562910f28051",
+        "size_bytes": 12014449
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 1,
         "seed": 231917498,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 6.8 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "7effbf30dda6130d5338fe9a048d496f060a2a80ab6c2f4529870e6f7e3d0023",
-        "integrated_lufs": -18,
+        "description": "ambiental cálido, variante 1: Do mayor, Cmaj9 – Am9 – Fmaj7 – G6sus, un acorde cada 7.2 s (≈ 67 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 13 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "9ba71595b512b6a6cc52a5943d5ee69a0ba68603e5692680b7af436274e0a7a9",
+        "integrated_lufs": -17.9,
         "true_peak_dbtp": -4.9,
-        "lra_lu": 4.7,
+        "lra_lu": 5.1,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:53:10-03:00",
+      "recorded_at": "2026-10-13T09:07:54-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "80 llamadas atribuidas sin diferencias a 2 consumidores y 2 endpoints, exportadas en CSV; el plan limitó 25 de 45 llamadas en exceso; facturación desactivada",
+      "result": "las 80 llamadas de la prueba sumaron en la Consola (consumo de hoy) exactamente lo enviado por cada consumidor (OperadorDemo +56, FiscalizacionDemo +24) y endpoint (+40 y +40), exportadas en CSV; el plan limitó 25 de 45 llamadas en exceso; facturación desactivada",
       "checks": [
         {
           "texto": "todos los planes sin cobro (FREE)",
@@ -2149,29 +2166,29 @@
           "detalle": "80 de 80"
         },
         {
-          "texto": "OperadorDemo: llamadas atribuidas = enviadas",
+          "texto": "OperadorDemo: sumó en la Consola lo que envió",
           "ok": true,
-          "detalle": "56 de 56"
+          "detalle": "+56 de 56 · 19.613 → 19.669"
         },
         {
-          "texto": "FiscalizacionDemo: llamadas atribuidas = enviadas",
+          "texto": "FiscalizacionDemo: sumó en la Consola lo que envió",
           "ok": true,
-          "detalle": "24 de 24"
+          "detalle": "+24 de 24 · 69 → 93"
         },
         {
-          "texto": "endpoint /concesiones atribuido",
+          "texto": "endpoint /concesiones: sumó lo enviado",
           "ok": true,
-          "detalle": "40 de 40"
+          "detalle": "+40 de 40 · 212.698 → 212.738"
         },
         {
-          "texto": "endpoint /concesiones/{id} atribuido",
+          "texto": "endpoint /concesiones/{id}: sumó lo enviado",
           "ok": true,
-          "detalle": "40 de 40"
+          "detalle": "+40 de 40 · 62 → 102"
         },
         {
           "texto": "CSV con consumidores y endpoints",
           "ok": true,
-          "detalle": "14 filas"
+          "detalle": "13 filas"
         },
         {
           "texto": "el plan limita el exceso (429), sin cobro",
@@ -2184,9 +2201,18 @@
           "OperadorDemo": 56,
           "FiscalizacionDemo": 24
         },
+        "dia": "2026-10-13",
+        "consumidores": {
+          "OperadorDemo": 56,
+          "FiscalizacionDemo": 24
+        },
         "endpoints": {
           "/concesiones": 40,
           "/concesiones/{id}": 40
+        },
+        "totales": {
+          "porConsumidor": 213339,
+          "porEndpoint": 213026
         },
         "exceso": {
           "200": 20,
@@ -2201,47 +2227,57 @@
       ],
       "zooms": [
         {
-          "inicio_s": 7.59,
-          "fin_s": 11.191,
+          "inicio_s": 7.57,
+          "fin_s": 11.172,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 30.407,
+          "fin_s": 34.612,
+          "factor": 1.5
+        },
+        {
+          "inicio_s": 40.65,
+          "fin_s": 44.858,
           "factor": 1.5
         }
       ],
-      "zoom_fraction": 0.059,
+      "zoom_fraction": 0.187,
       "capture": {
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 60.867,
-        "cuadros_recibidos": 2437,
-        "cuadros_video": 1826,
-        "cuadros_unicos": 1484,
-        "cuadros_descartados": 953,
-        "cps_efectivos": 24.4,
+        "duracion_s": 64.4,
+        "cuadros_recibidos": 2320,
+        "cuadros_video": 1932,
+        "cuadros_unicos": 1594,
+        "cuadros_descartados": 726,
+        "cps_efectivos": 24.8,
         "cps_movimiento_p50": 28,
-        "cps_movimiento_p10": 22,
+        "cps_movimiento_p10": 23,
         "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.524,
-        "hueco_p95_s": 0.044,
-        "disco_mb": 675.5,
-        "codificacion_s": 32.9,
-        "cpu_node_pct": 14
+        "hueco_max_s": 0.756,
+        "hueco_p95_s": 0.049,
+        "disco_mb": 691.9,
+        "codificacion_s": 34.3,
+        "cpu_node_pct": 28
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 4.77,
-        "load_end": 5.55
+        "load_start": 1.5,
+        "load_end": 5.07
       }
     },
     {
       "id": "BT-049",
       "title": "Exportación de APIs, contratos, políticas, configuración y metadatos",
-      "claim": "La Consola genera un paquete de exportación con las APIs (contrato y políticas), los flujos de integración, el catálogo, el grafo de dependencias y la configuración de la plataforma, con un manifiesto de sumas SHA-256; los datos de gestión (auditoría y consumo) se exportan aparte por su API; todo se lee con herramientas estándar.",
+      "claim": "La Consola genera un paquete de exportación con las APIs (contrato y políticas), los flujos de integración, el catálogo, el grafo de dependencias y la configuración de la plataforma, con un manifiesto de sumas SHA-256; los datos de gestión (auditoría y consumo) se exportan aparte por su API; todo se lee con herramientas abiertas de uso común (Python y PyYAML).",
       "file": "BT-049_exportacion.mp4",
-      "sha256": "c86086fe8e168ebac31858c22b2833b1b497ffebb7d7913e5e07776db9376e37",
-      "size_bytes": 9814367,
-      "duration_seconds": 44.3,
-      "frames": 1328,
+      "sha256": "d848711656f99400a10d5cfc95af85d26eb2ccd497327d9b0072e1679d117ab7",
+      "size_bytes": 10045183,
+      "duration_seconds": 47.5,
+      "frames": 1426,
       "width": 1920,
       "height": 1080,
       "fps": 30,
@@ -2253,61 +2289,61 @@
         {
           "n": 1,
           "title": "La administradora genera el paquete de exportación",
-          "start_s": 4.45,
-          "end_s": 13.24
+          "start_s": 4.42,
+          "end_s": 16.52
         },
         {
           "n": 2,
           "title": "El manifiesto: una suma SHA-256 por artefacto",
-          "start_s": 13.25,
-          "end_s": 20.25
+          "start_s": 16.52,
+          "end_s": 23.52
         },
         {
           "n": 3,
-          "title": "Se leen con herramientas estándar",
-          "start_s": 20.25,
-          "end_s": 27.25
+          "title": "Se leen con herramientas abiertas de uso común",
+          "start_s": 23.52,
+          "end_s": 30.52
         },
         {
           "n": 4,
           "title": "Configuración de la plataforma dentro del paquete",
-          "start_s": 27.25,
-          "end_s": 34.25
+          "start_s": 30.53,
+          "end_s": 37.53
         },
         {
           "n": 5,
           "title": "Datos de gestión: auditoría y consumo, aparte",
-          "start_s": 34.25,
-          "end_s": 41.25
+          "start_s": 37.53,
+          "end_s": 44.53
         }
       ],
-      "video_stream_md5": "99619550af8bd92e63ac9d97ca6febd6",
+      "video_stream_md5": "6ab432fdef17c91ad544fb67cc4a7980",
       "without_music": {
         "file": "BT-049_exportacion.sin-musica.mp4",
-        "sha256": "9c760001d7fcd2e817305db585b7f8d42497feb8f94d3655f22ec4fd5ff2e32a",
-        "size_bytes": 8897493
+        "sha256": "d9f3cf8aefd82ca651cbd24fec4bed310c3cae968f8e7f98e0b79a00c730e219",
+        "size_bytes": 9060608
       },
       "music": {
         "style": "ambiental cálido",
         "variant": 3,
         "seed": 198362260,
         "author": "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)",
-        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.3 s (≈ 76 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 10 notas de piano de fieltro y reverb estéreo",
-        "pcm_sha256": "e75ffd133a251a5e9c2b0d93c9918d1451fe7d2fe740710943a223664852d787",
+        "description": "ambiental cálido, variante 3: Do mayor, Fmaj7 – G6sus – Am9 – Cmaj9, un acorde cada 6.8 s (≈ 71 pulsos por minuto); colchón de pads con filtro y LFO lento, sub-bajo suave, 10 notas de piano de fieltro y reverb estéreo",
+        "pcm_sha256": "f7a37745a810fcca8f743e3b9a14ac950938ae316197853ca6b0869c96e4ed44",
         "integrated_lufs": -17.9,
-        "true_peak_dbtp": -5.1,
-        "lra_lu": 5.3,
+        "true_peak_dbtp": -4.9,
+        "lra_lu": 5.5,
         "fade_in_s": 2,
         "fade_out_s": 3
       },
-      "tools_commit": "889cb3f",
+      "tools_commit": "92345e8",
       "rehearsal": false,
       "version": "1.2.0",
       "commit": "889cb3f",
       "tag": "v1.2.0",
-      "recorded_at": "2026-10-13T02:50:18-03:00",
+      "recorded_at": "2026-10-13T08:21:07-03:00",
       "environment": "Laboratorio Yago Nexo · Docker Compose · vm",
-      "result": "paquete con 11 artefactos (api, flujo, metadatos, plataforma), 11 sumas SHA-256 coincidentes, lectura con herramientas estándar y configuración de la plataforma incluida; auditoría (547 eventos) y consumo exportados aparte por la API",
+      "result": "paquete con 11 artefactos (api, flujo, metadatos, plataforma), 11 sumas SHA-256 coincidentes, lectura con bibliotecas abiertas de uso común (Python y PyYAML) y configuración de la plataforma incluida; auditoría (647 eventos) y consumo exportados aparte por la API",
       "checks": [
         {
           "texto": "paquete con manifiesto",
@@ -2325,7 +2361,7 @@
           "detalle": "api, flujo, metadatos, plataforma"
         },
         {
-          "texto": "todos los artefactos se leen con herramientas estándar",
+          "texto": "todos los artefactos se leen con herramientas abiertas",
           "ok": true,
           "detalle": "16 lecturas · código 0"
         },
@@ -2342,12 +2378,12 @@
         {
           "texto": "auditoría exportable y verificable",
           "ok": true,
-          "detalle": "547 eventos · cadena íntegra"
+          "detalle": "647 eventos · cadena íntegra"
         },
         {
           "texto": "consumo exportable en CSV",
           "ok": true,
-          "detalle": "10 filas"
+          "detalle": "13 filas"
         }
       ],
       "data": {
@@ -2359,7 +2395,7 @@
           "plataforma"
         ],
         "plataforma": "plataforma/platform.yaml",
-        "eventosAuditoria": 547
+        "eventosAuditoria": 647
       },
       "layers": [
         "cursor resaltado",
@@ -2373,26 +2409,26 @@
         "ancho": 1920,
         "alto": 1080,
         "cps": 30,
-        "duracion_s": 44.267,
-        "cuadros_recibidos": 1732,
-        "cuadros_video": 1328,
-        "cuadros_unicos": 1063,
-        "cuadros_descartados": 669,
-        "cps_efectivos": 24,
-        "cps_movimiento_p50": 29,
+        "duracion_s": 47.533,
+        "cuadros_recibidos": 1636,
+        "cuadros_video": 1426,
+        "cuadros_unicos": 1137,
+        "cuadros_descartados": 499,
+        "cps_efectivos": 23.9,
+        "cps_movimiento_p50": 28,
         "cps_movimiento_p10": 23,
-        "cps_movimiento_p90": 30,
-        "hueco_max_s": 0.999,
-        "hueco_p95_s": 0.044,
-        "disco_mb": 585.1,
-        "codificacion_s": 24.9,
-        "cpu_node_pct": 21
+        "cps_movimiento_p90": 29,
+        "hueco_max_s": 0.756,
+        "hueco_p95_s": 0.056,
+        "disco_mb": 544.7,
+        "codificacion_s": 29.1,
+        "cpu_node_pct": 30
       },
       "machine": {
         "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
         "cores": 4,
-        "load_start": 5.39,
-        "load_end": 5.12
+        "load_start": 4.95,
+        "load_end": 5.75
       }
     }
   ]
