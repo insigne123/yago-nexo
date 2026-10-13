@@ -71,6 +71,16 @@ describe("listaConcat", () => {
       ],
       30,
     );
-    expect(l).toBe(["ffconcat version 1.0", "file 'c000001.jpg'", "duration 0.100000", "file 'c'\\''3.jpg'", "duration 1.000000", "file 'c'\\''3.jpg'", ""].join("\n"));
+    expect(l).toBe(
+      [
+        "ffconcat version 1.0",
+        "file 'c000001.jpg'",
+        "duration 0.100000",
+        "file 'c'\\''3.jpg'",
+        "duration 1.000000",
+        "file 'c'\\''3.jpg'",
+        "",
+      ].join("\n"),
+    );
   });
 });

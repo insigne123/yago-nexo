@@ -54,13 +54,17 @@ for (const e of evidencias) {
     faltan.push(e.file);
     continue;
   }
-  if (sha256(join(ORIGEN, e.file)) !== e.sha256) fail(SCRIPT, `${e.file}: su SHA-256 no coincide con src/data/evidencias.json`);
+  if (sha256(join(ORIGEN, e.file)) !== e.sha256)
+    fail(SCRIPT, `${e.file}: su SHA-256 no coincide con src/data/evidencias.json`);
   const textos = [e.subtitles, e.chapters_file, e.steps_file].filter(Boolean);
-  for (const f of textos) if (!existsSync(join(ORIGEN, f))) fail(SCRIPT, `${f}: lo anuncia ${e.file} pero no está en ${ORIGEN}`);
+  for (const f of textos)
+    if (!existsSync(join(ORIGEN, f))) fail(SCRIPT, `${f}: lo anuncia ${e.file} pero no está en ${ORIGEN}`);
   if (e.steps_file) {
     const pasos = readJson(join(ORIGEN, e.steps_file));
-    if (pasos.ensayo !== false) fail(SCRIPT, `${e.steps_file}: grabación de ensayo (o sin «ensayo: false»); no se publica`);
-    if (pasos.version !== e.version) fail(SCRIPT, `${e.steps_file}: versión ${pasos.version} distinta de la del índice (${e.version})`);
+    if (pasos.ensayo !== false)
+      fail(SCRIPT, `${e.steps_file}: grabación de ensayo (o sin «ensayo: false»); no se publica`);
+    if (pasos.version !== e.version)
+      fail(SCRIPT, `${e.steps_file}: versión ${pasos.version} distinta de la del índice (${e.version})`);
   }
   for (const f of textos) publicable(f);
   copiar(e.file);
@@ -72,7 +76,9 @@ if (existsSync(join(ORIGEN, "SHA256SUMS.txt"))) copiar("SHA256SUMS.txt");
 
 const anunciados = new Set(evidencias.map((e) => e.file));
 for (const f of presentes) {
-  if (VIDEO.test(f) && !SIN_MUSICA.test(f) && !anunciados.has(f)) console.log(`[${SCRIPT}] ${f} no está en src/data/evidencias.json: no se publica`);
+  if (VIDEO.test(f) && !SIN_MUSICA.test(f) && !anunciados.has(f))
+    console.log(`[${SCRIPT}] ${f} no está en src/data/evidencias.json: no se publica`);
 }
-if (faltan.length) console.log(`[${SCRIPT}] aviso: la página anuncia videos que no están en ${ORIGEN}: ${faltan.join(", ")}`);
+if (faltan.length)
+  console.log(`[${SCRIPT}] aviso: la página anuncia videos que no están en ${ORIGEN}: ${faltan.join(", ")}`);
 console.log(`[${SCRIPT}] ${copiados} archivos copiados a build/evidencias`);

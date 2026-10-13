@@ -33,10 +33,14 @@ describe("chequeo previo (V10)", () => {
   it("con el laboratorio arriba la carga habitual solo avisa; una sobrecarga clara aborta (oficial)", () => {
     const habitual = evaluarRecursos({ ...sana(), carga1: 3.2 }, UMBRALES_OFICIAL);
     expect(habitual.ok).toBe(true);
-    expect(habitual.avisos.join()).toMatch(/CPU con carga 3.20 en 4 núcleos \(80 %\): la captura puede perder cuadros/);
+    expect(habitual.avisos.join()).toMatch(
+      /CPU con carga 3.20 en 4 núcleos \(80 %\): la captura puede perder cuadros/,
+    );
     const sobrecarga = evaluarRecursos({ ...sana(), carga1: 6.4 }, UMBRALES_OFICIAL);
     expect(sobrecarga.ok).toBe(false);
-    expect(sobrecarga.problemas.join()).toMatch(/CPU ocupada: carga 6.40 en 4 núcleos \(160 %\); nadie debe compilar/);
+    expect(sobrecarga.problemas.join()).toMatch(
+      /CPU ocupada: carga 6.40 en 4 núcleos \(160 %\); nadie debe compilar/,
+    );
     const ensayo = evaluarRecursos({ ...sana(), carga1: 9 }, UMBRALES_ENSAYO);
     expect(ensayo.ok).toBe(true);
     expect(ensayo.avisos.join()).toMatch(/puede perder cuadros/);
@@ -50,7 +54,10 @@ describe("chequeo previo (V10)", () => {
   });
 
   it("exige memoria, núcleos, ffmpeg con H.264 y Chromium", () => {
-    const r = evaluarRecursos({ ...sana(), memoriaDisponibleBytes: 1 * GB, nucleos: 2, ffmpegH264: false, navegador: false }, UMBRALES_OFICIAL);
+    const r = evaluarRecursos(
+      { ...sana(), memoriaDisponibleBytes: 1 * GB, nucleos: 2, ffmpegH264: false, navegador: false },
+      UMBRALES_OFICIAL,
+    );
     expect(r.problemas).toHaveLength(4);
     expect(r.problemas.join("\n")).toMatch(/memoria[\s\S]*CPU: 2 núcleos[\s\S]*ffmpeg[\s\S]*Chromium/);
   });
@@ -82,11 +89,15 @@ describe("regla de versión del modo oficial (V10)", () => {
 
   it("se niega si el producto difiere de la etiqueta fuera de tools/evidencias y tools/aceptacion", () => {
     const p = problemasModoOficial(rev({ diferencias: ["apps/console-api/src/x.ts"] }), "1.2.0");
-    expect(p[0]).toMatch(/HEAD difiere de v1.2.0 fuera de tools\/evidencias y tools\/aceptacion \(1 archivos: apps\/console-api\/src\/x.ts\)/);
+    expect(p[0]).toMatch(
+      /HEAD difiere de v1.2.0 fuera de tools\/evidencias y tools\/aceptacion \(1 archivos: apps\/console-api\/src\/x.ts\)/,
+    );
   });
 
   it("se niega con cambios sin confirmar o con una versión que no calza", () => {
-    expect(problemasModoOficial(rev({ sinConfirmar: ["tools/evidencias/src/grabar.ts"] }), "1.2.0")[0]).toMatch(/cambios sin confirmar/);
+    expect(
+      problemasModoOficial(rev({ sinConfirmar: ["tools/evidencias/src/grabar.ts"] }), "1.2.0")[0],
+    ).toMatch(/cambios sin confirmar/);
     const p = problemasModoOficial(rev({ versionEtiqueta: "1.1.0" }), "1.1.0");
     expect(p).toHaveLength(2);
   });
@@ -111,8 +122,28 @@ describe("argumentos de grabar", () => {
   });
 
   it("opciones con valor (separado o con =) y el «--» de pnpm", () => {
-    const a = leerArgumentos(["--", "--etiqueta", "v1.2.1", "D-01", "--salida=/tmp/x", "--ritmo", "1.5", "--perfil", "1600x900", "BT-005", "--sin-compilar"]);
-    expect(a).toMatchObject({ ensayo: false, etiqueta: "v1.2.1", salida: "/tmp/x", ritmo: 1.5, sinCompilar: true, ids: ["D-01", "BT-005"], perfil: { ancho: 1600, alto: 900, cps: 30 } });
+    const a = leerArgumentos([
+      "--",
+      "--etiqueta",
+      "v1.2.1",
+      "D-01",
+      "--salida=/tmp/x",
+      "--ritmo",
+      "1.5",
+      "--perfil",
+      "1600x900",
+      "BT-005",
+      "--sin-compilar",
+    ]);
+    expect(a).toMatchObject({
+      ensayo: false,
+      etiqueta: "v1.2.1",
+      salida: "/tmp/x",
+      ritmo: 1.5,
+      sinCompilar: true,
+      ids: ["D-01", "BT-005"],
+      perfil: { ancho: 1600, alto: 900, cps: 30 },
+    });
   });
 
   it("--rendimiento con y sin segundos", () => {

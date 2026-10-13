@@ -3,16 +3,30 @@
 // Se inyecta solo en ensayo (src/demos/bt0x-ensayo.ts, prepararEnsayo) y dibuja sobre la pantalla genérica de
 // ensayo/consola/consola.js. Los datos vienen del servidor de ensayo (simulados) y todo lleva el rótulo ENSAYO.
 (() => {
-  const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const esc = (t) =>
+    String(t ?? "").replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
   const api = async (metodo, ruta, cuerpo) => {
     const r = await fetch(`/api/v1${ruta}`, {
       method: metodo,
-      headers: { authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}`, ...(cuerpo ? { "content-type": "application/json" } : {}) },
+      headers: {
+        authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}`,
+        ...(cuerpo ? { "content-type": "application/json" } : {}),
+      },
       body: cuerpo ? JSON.stringify(cuerpo) : undefined,
     });
     return { status: r.status, data: await r.json().catch(() => null) };
   };
-  const RUTAS = [/^\/catalogo$/, /^\/catalogo\/[^/]+$/, /^\/dependencias$/, /^\/mensajes-fallidos$/, /^\/consumo$/, /^\/exportacion$/];
+  const RUTAS = [
+    /^\/catalogo$/,
+    /^\/catalogo\/[^/]+$/,
+    /^\/dependencias$/,
+    /^\/mensajes-fallidos$/,
+    /^\/consumo$/,
+    /^\/exportacion$/,
+  ];
   const mia = (p) => RUTAS.some((r) => r.test(p));
   const aviso = (texto) => {
     const t = document.createElement("div");
@@ -23,7 +37,9 @@
   };
   // Descarga como la Consola real: fetch con el token y blob (un enlace relativo lo tomaría el enrutador de consola.js).
   const descargar = async (ruta, nombre) => {
-    const r = await fetch(ruta, { headers: { authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}` } });
+    const r = await fetch(ruta, {
+      headers: { authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}` },
+    });
     const url = URL.createObjectURL(await r.blob());
     const x = document.createElement("a");
     x.href = url;
@@ -38,7 +54,10 @@
   async function catalogo(main) {
     const { data } = await api("GET", "/apis");
     const filas = (data || [])
-      .map((a) => `<tr><td><a href="/catalogo/${encodeURIComponent(a.id)}">${esc(a.name)}</a></td><td>${esc(a.version)}</td><td>${esc(a.type)}</td><td>${esc(a.state)}</td><td>${a.completeness} %</td></tr>`)
+      .map(
+        (a) =>
+          `<tr><td><a href="/catalogo/${encodeURIComponent(a.id)}">${esc(a.name)}</a></td><td>${esc(a.version)}</td><td>${esc(a.type)}</td><td>${esc(a.state)}</td><td>${a.completeness} %</td></tr>`,
+      )
       .join("");
     main.innerHTML = `<h1>Catálogo de APIs</h1><p class="sub">Sincronizado con WSO2 (simulado en el ensayo).</p>
       <div class="tarjeta"><button class="btn" data-testid="btn-sync-wso2">Sincronizar con WSO2</button></div>
@@ -72,7 +91,13 @@
       )
       .join("");
     main.innerHTML = `<h1>Dependencias e impacto</h1><p class="sub">Grafo simulado del ensayo.</p><div class="tarjeta" data-testid="graph-canvas" style="position:relative;height:340px">${nodos}</div><div id="seleccion" class="tarjeta">Seleccione un nodo.</div>`;
-    main.querySelectorAll("[data-testid^=graph-node-]").forEach((el) => (el.onclick = () => (main.querySelector("#seleccion").innerHTML = `Seleccionado: <b>${esc(el.textContent)}</b>`)));
+    main
+      .querySelectorAll("[data-testid^=graph-node-]")
+      .forEach(
+        (el) =>
+          (el.onclick = () =>
+            (main.querySelector("#seleccion").innerHTML = `Seleccionado: <b>${esc(el.textContent)}</b>`)),
+      );
   }
 
   async function fallidos(main) {
@@ -97,7 +122,9 @@
           }),
       );
       main.querySelector("[data-testid=reprocess-dialog-confirm]").onclick = async () => {
-        await api("POST", `/dead-letters/${encodeURIComponent(elegido)}/reprocess`, { reason: main.querySelector("[data-testid=reprocess-dialog-reason]").value });
+        await api("POST", `/dead-letters/${encodeURIComponent(elegido)}/reprocess`, {
+          reason: main.querySelector("[data-testid=reprocess-dialog-reason]").value,
+        });
         aviso("Mensaje reprocesado (ensayo)");
         await pintar();
       };
@@ -109,15 +136,19 @@
     const hoy = new Date().toISOString().slice(0, 10);
     const pintar = async (g) => {
       const { data } = await api("GET", `/usage?from=${hoy}&to=${hoy}&groupBy=${g}`);
-      main.querySelector("#tabla-uso").innerHTML = `<table><thead><tr><th>${g === "endpoint" ? "Endpoint" : "Consumidor"}</th><th>Llamadas</th><th>Errores</th></tr></thead><tbody>${(data || [])
-        .map((f) => `<tr><td>${esc(f.label)}</td><td>${f.llamadas}</td><td>${f.errores}</td></tr>`)
-        .join("")}</tbody></table>`;
+      main.querySelector("#tabla-uso").innerHTML =
+        `<table><thead><tr><th>${g === "endpoint" ? "Endpoint" : "Consumidor"}</th><th>Llamadas</th><th>Errores</th></tr></thead><tbody>${(
+          data || []
+        )
+          .map((f) => `<tr><td>${esc(f.label)}</td><td>${f.llamadas}</td><td>${f.errores}</td></tr>`)
+          .join("")}</tbody></table>`;
     };
     main.innerHTML = `<h1>Consumo</h1><div data-testid="billing-disabled-notice" class="tarjeta" style="border-left:4px solid #1d4f91"><b>Medición sin facturación: los cobros están desactivados</b><br>Ensayo: valores simulados.</div>
       <div class="tarjeta"><label for="agrupar">Agrupar por</label> <select id="agrupar" data-testid="usage-group-by"><option value="consumer">Consumidor</option><option value="endpoint">Endpoint</option><option value="day">Día</option></select>
       <button class="btn" data-testid="btn-export-usage" style="margin-left:16px">Exportar CSV</button></div>
       <div class="tarjeta" id="tabla-uso"></div>${relleno(18)}`;
-    main.querySelector("[data-testid=btn-export-usage]").onclick = () => descargar(`/api/v1/usage/export?from=${hoy}&to=${hoy}`, "consumo.csv");
+    main.querySelector("[data-testid=btn-export-usage]").onclick = () =>
+      descargar(`/api/v1/usage/export?from=${hoy}&to=${hoy}`, "consumo.csv");
     const sel = main.querySelector("[data-testid=usage-group-by]");
     sel.onchange = () => pintar(sel.value);
     await pintar("consumer");
@@ -129,8 +160,10 @@
       main.querySelector("#estado-exp").textContent = "Generando…";
       const r = await api("POST", "/exports");
       setTimeout(() => {
-        main.querySelector("#estado-exp").innerHTML = `Paquete listo: <button class="btn" data-testid="btn-download-export">Descargar paquete</button>`;
-        main.querySelector("[data-testid=btn-download-export]").onclick = () => descargar(r.data?.downloadUrl, "nexo-export.zip");
+        main.querySelector("#estado-exp").innerHTML =
+          `Paquete listo: <button class="btn" data-testid="btn-download-export">Descargar paquete</button>`;
+        main.querySelector("[data-testid=btn-download-export]").onclick = () =>
+          descargar(r.data?.downloadUrl, "nexo-export.zip");
       }, 1500);
     };
   }

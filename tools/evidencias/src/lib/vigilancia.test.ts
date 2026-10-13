@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buscarProhibidos, huellasConfiguradas, huellaTermino, HUELLAS_MOTOR, normalizar, Vigilante } from "./vigilancia.js";
+import {
+  buscarProhibidos,
+  huellasConfiguradas,
+  huellaTermino,
+  HUELLAS_MOTOR,
+  normalizar,
+  Vigilante,
+} from "./vigilancia.js";
 
 // Los términos de prueba son inventados: la lista real vive en el motor solo como huellas SHA-256.
 const FICTICIO = "Instituto Ficticio de Pruebas";
@@ -17,7 +24,10 @@ describe("normalizar y huellas", () => {
   });
 
   it("agrega términos y huellas desde el entorno sin escribirlos en el repositorio", () => {
-    const h = huellasConfiguradas({ EVIDENCIAS_PROHIBIDOS: "Cliente Uno, Otro Cliente", EVIDENCIAS_PROHIBIDOS_HUELLAS: `${"a".repeat(64)},no-es-huella` });
+    const h = huellasConfiguradas({
+      EVIDENCIAS_PROHIBIDOS: "Cliente Uno, Otro Cliente",
+      EVIDENCIAS_PROHIBIDOS_HUELLAS: `${"a".repeat(64)},no-es-huella`,
+    });
     expect(h.has(huellaTermino("cliente uno"))).toBe(true);
     expect(h.has(huellaTermino("otro cliente"))).toBe(true);
     expect(h.has("a".repeat(64))).toBe(true);

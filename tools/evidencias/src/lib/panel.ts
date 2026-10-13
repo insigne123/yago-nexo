@@ -48,7 +48,8 @@ export function normalizar(t: string): string {
     .trim();
 }
 
-const valorTexto = (v: string | number | undefined): string | undefined => (v === undefined || v === "" ? undefined : String(v));
+const valorTexto = (v: string | number | undefined): string | undefined =>
+  v === undefined || v === "" ? undefined : String(v);
 
 /** Renglón unido con el índice de la última verificación en vivo que lo marcó (para saber cuándo llegó). */
 interface ItemUnido extends ItemComprobacion {
@@ -63,7 +64,11 @@ const limpio = ({ ultima: _u, ...it }: ItemUnido): ItemComprobacion => it;
  * que llegaron. Una verificación que se repite (mismo texto) actualiza su renglón: si alguna vez falló, queda ✗.
  */
 function unir(declaradas: readonly string[], vivas: readonly Viva[]): ItemUnido[] {
-  const items: ItemUnido[] = declaradas.map((texto, i) => ({ clave: `d${i}`, texto, estado: "pendiente" as const }));
+  const items: ItemUnido[] = declaradas.map((texto, i) => ({
+    clave: `d${i}`,
+    texto,
+    estado: "pendiente" as const,
+  }));
   const porTexto = new Map<string, ItemUnido>();
   items.forEach((it) => porTexto.set(normalizar(it.texto), it));
   vivas.forEach((v, i) => {
@@ -77,7 +82,13 @@ function unir(declaradas: readonly string[], vivas: readonly Viva[]): ItemUnido[
       else delete existente.valor;
       return;
     }
-    const it: ItemUnido = { clave: `v${i}`, texto: v.texto, estado: v.ok ? "ok" : "mal", ultima: i, ...(valor !== undefined ? { valor } : {}) };
+    const it: ItemUnido = {
+      clave: `v${i}`,
+      texto: v.texto,
+      estado: v.ok ? "ok" : "mal",
+      ultima: i,
+      ...(valor !== undefined ? { valor } : {}),
+    };
     items.push(it);
     porTexto.set(k, it);
   });
@@ -85,7 +96,11 @@ function unir(declaradas: readonly string[], vivas: readonly Viva[]): ItemUnido[
 }
 
 /** «Se comprueba» del paso en curso: lo declarado y lo verificado en vivo, recortado a `max` renglones. */
-export function listaComprobaciones(declaradas: readonly string[], vivas: readonly Viva[], max = MAX_COMPROBACIONES): ListaComprobaciones {
+export function listaComprobaciones(
+  declaradas: readonly string[],
+  vivas: readonly Viva[],
+  max = MAX_COMPROBACIONES,
+): ListaComprobaciones {
   return recortar(unir(declaradas, vivas).map(limpio), Math.max(1, max));
 }
 
@@ -120,7 +135,8 @@ export function arrastreAlCerrar(
   o: { ventanaMs?: number; minimoMs?: number; max?: number } = {},
 ): Arrastre | undefined {
   const ventana = o.ventanaMs ?? ARRASTRE_MS;
-  const llegada = (it: ItemUnido) => (it.ultima !== undefined ? (llegadas[it.ultima] ?? -Infinity) : -Infinity);
+  const llegada = (it: ItemUnido) =>
+    it.ultima !== undefined ? (llegadas[it.ultima] ?? -Infinity) : -Infinity;
   const marcadas = unir(declaradas, vivas).filter((it) => it.estado !== "pendiente");
   const fallidas = marcadas.filter((it) => it.estado === "mal");
   const recientes = marcadas
@@ -130,7 +146,11 @@ export function arrastreAlCerrar(
     .reverse();
   if (!fallidas.length && !recientes.length) return undefined;
   const r: Arrastre = { n, items: [...fallidas, ...recientes].map(limpio) };
-  if (!fallidas.length) r.hastaMs = Math.max(ahoraMs + (o.minimoMs ?? ARRASTRE_MINIMO_MS), Math.max(...recientes.map(llegada)) + ventana);
+  if (!fallidas.length)
+    r.hastaMs = Math.max(
+      ahoraMs + (o.minimoMs ?? ARRASTRE_MINIMO_MS),
+      Math.max(...recientes.map(llegada)) + ventana,
+    );
   return r;
 }
 

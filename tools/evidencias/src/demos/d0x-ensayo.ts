@@ -25,7 +25,12 @@ import { ENSAYO, reescribirUrlEnsayo } from "../lib/lab.js";
 // ── Utilidades HTTP ───────────────────────────────────────────────────────────────────────────────────
 
 const json = (res: ServerResponse, status: number, cuerpo: unknown, extra: Record<string, string> = {}) => {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-ensayo": "1", ...extra });
+  res.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "x-ensayo": "1",
+    ...extra,
+  });
   res.end(JSON.stringify(cuerpo));
 };
 
@@ -51,7 +56,10 @@ async function cuerpo(req: IncomingMessage): Promise<Record<string, unknown>> {
 export function sujetoToken(auth: string | undefined): string | undefined {
   const t = auth?.replace(/^Bearer /, "") ?? "";
   try {
-    const p = JSON.parse(Buffer.from(t.split(".")[1] ?? "", "base64url").toString()) as { preferred_username?: string; sub?: string };
+    const p = JSON.parse(Buffer.from(t.split(".")[1] ?? "", "base64url").toString()) as {
+      preferred_username?: string;
+      sub?: string;
+    };
     return p.preferred_username ?? p.sub;
   } catch {
     return undefined;
@@ -61,7 +69,9 @@ export function sujetoToken(auth: string | undefined): string | undefined {
 /** PDF mínimo válido (una página con texto) para el reporte de ensayo. */
 export function pdfMinimo(lineas: readonly string[]): Buffer {
   const esc = (t: string) => t.replace(/[\\()]/g, (c) => `\\${c}`).replace(/[^\x20-\x7e]/g, "?");
-  const texto = lineas.map((l, i) => `BT /F1 ${i === 0 ? 20 : 12} Tf 50 ${780 - i * 26} Td (${esc(l)}) Tj ET`).join("\n");
+  const texto = lineas
+    .map((l, i) => `BT /F1 ${i === 0 ? 20 : 12} Tf 50 ${780 - i * 26} Td (${esc(l)}) Tj ET`)
+    .join("\n");
   const objetos = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -88,7 +98,8 @@ const APPS = [
   { applicationId: "app-ensayo-2", name: "ReportesEnsayo" },
   { applicationId: "app-ensayo-3", name: "ConsumidorAltoVolumen" },
 ];
-const appDeLlave = (sujeto: string | undefined) => APPS.find((a) => sujeto === `ensayo-ck-${a.applicationId}`)?.name;
+const appDeLlave = (sujeto: string | undefined) =>
+  APPS.find((a) => sujeto === `ensayo-ck-${a.applicationId}`)?.name;
 
 type Voto = "primario_sano" | "primario_caido";
 interface AgenteSim {
@@ -105,7 +116,11 @@ export class ContinuidadSim {
   particion = false;
   promovida = false;
   marcas = new Set<string>();
-  agentes: AgenteSim[] = [{ id: "cpd", voto: "primario_sano" }, { id: "gcp", voto: "primario_sano" }, { id: "testigo", voto: "primario_sano" }];
+  agentes: AgenteSim[] = [
+    { id: "cpd", voto: "primario_sano" },
+    { id: "gcp", voto: "primario_sano" },
+    { id: "testigo", voto: "primario_sano" },
+  ];
   eventos: Array<Record<string, unknown>> = [];
   solicitudes: Array<Record<string, unknown>> = [];
   auditoria: Array<Record<string, unknown>> = [];
@@ -138,12 +153,32 @@ export class ContinuidadSim {
         this.promovida = true;
         this.conmutandoDesde = undefined;
         const id = `ens-conm-${++this.n}`;
-        this.eventos.unshift({ id, kind: "conmutacion", trigger: "automatico", from: "cpd", to: "gcp", startedAt: new Date(ahora - 1500).toISOString(), finishedAt: new Date(ahora).toISOString(), rtoSeconds: 1.62, status: "completado", requestedBy: "nexo-continuidad@gcp" });
-        this.auditoria.unshift({ action: "continuidad.conmutar", resource: `conmutacion/${id}`, actor: "nexo-continuidad@gcp", ts: new Date(ahora).toISOString() });
+        this.eventos.unshift({
+          id,
+          kind: "conmutacion",
+          trigger: "automatico",
+          from: "cpd",
+          to: "gcp",
+          startedAt: new Date(ahora - 1500).toISOString(),
+          finishedAt: new Date(ahora).toISOString(),
+          rtoSeconds: 1.62,
+          status: "completado",
+          requestedBy: "nexo-continuidad@gcp",
+        });
+        this.auditoria.unshift({
+          action: "continuidad.conmutar",
+          resource: `conmutacion/${id}`,
+          actor: "nexo-continuidad@gcp",
+          ts: new Date(ahora).toISOString(),
+        });
       }
     } else this.conmutandoDesde = undefined;
     for (const ev of this.eventos) {
-      if (ev.kind === "retorno" && ev.status === "en_curso" && ahora - Date.parse(String(ev.startedAt)) >= 3000) {
+      if (
+        ev.kind === "retorno" &&
+        ev.status === "en_curso" &&
+        ahora - Date.parse(String(ev.startedAt)) >= 3000
+      ) {
         ev.status = "completado";
         ev.finishedAt = new Date(ahora).toISOString();
         this.activo = "cpd";
@@ -161,7 +196,14 @@ export class ContinuidadSim {
       votosPrimarioCaido: this.agentes.filter((a) => a.voto === "primario_caido").length,
       rtoObjetivoMin: 15,
       rpoObjetivoMin: 1,
-      sites: this.agentes.map((a) => ({ id: a.id, name: a.id.toUpperCase(), role: a.id === "cpd" ? "primario" : a.id === "gcp" ? "respaldo" : "testigo", active: a.id === this.activo, vote: a.voto, lastSeen: new Date().toISOString() })),
+      sites: this.agentes.map((a) => ({
+        id: a.id,
+        name: a.id.toUpperCase(),
+        role: a.id === "cpd" ? "primario" : a.id === "gcp" ? "respaldo" : "testigo",
+        active: a.id === this.activo,
+        vote: a.voto,
+        lastSeen: new Date().toISOString(),
+      })),
       ...(pend ? { pendingFailback: pend } : {}),
       ensayo: true,
     };
@@ -206,24 +248,56 @@ export class ContinuidadSim {
   solicitar(usuario: string, motivo: string): [number, unknown] {
     this.avanzar();
     if (this.activo === "cpd") return [409, { message: "El CPD ya es el sitio activo (ensayo)" }];
-    if (this.solicitudes.some((s) => s.status === "pendiente")) return [409, { message: "Ya hay una solicitud pendiente (ensayo)" }];
-    const r = { id: `ens-ret-${++this.n}`, status: "pendiente", requestedBy: usuario, reason: motivo, fromSite: this.activo, toSite: "cpd", requestedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 30 * 60_000).toISOString() };
+    if (this.solicitudes.some((s) => s.status === "pendiente"))
+      return [409, { message: "Ya hay una solicitud pendiente (ensayo)" }];
+    const r = {
+      id: `ens-ret-${++this.n}`,
+      status: "pendiente",
+      requestedBy: usuario,
+      reason: motivo,
+      fromSite: this.activo,
+      toSite: "cpd",
+      requestedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+    };
     this.solicitudes.unshift(r);
-    this.auditoria.unshift({ action: "continuidad.retorno.solicitar", resource: `retorno/${r.id}`, actor: usuario, ts: r.requestedAt });
+    this.auditoria.unshift({
+      action: "continuidad.retorno.solicitar",
+      resource: `retorno/${r.id}`,
+      actor: usuario,
+      ts: r.requestedAt,
+    });
     return [201, r];
   }
 
   aprobar(id: string, usuario: string): [number, unknown] {
     const s = this.solicitudes.find((x) => x.id === id);
     if (!s) return [404, { message: "La solicitud de retorno no existe (ensayo)" }];
-    if (usuario === "carla.operacion") return [403, { message: "No tiene el permiso continuity:failback:approve (ensayo)" }];
-    if (usuario === s.requestedBy) return [403, { message: "Regla de cuatro ojos: quien solicita no aprueba (ensayo)" }];
+    if (usuario === "carla.operacion")
+      return [403, { message: "No tiene el permiso continuity:failback:approve (ensayo)" }];
+    if (usuario === s.requestedBy)
+      return [403, { message: "Regla de cuatro ojos: quien solicita no aprueba (ensayo)" }];
     if (s.status !== "pendiente") return [409, { message: "La solicitud no está pendiente (ensayo)" }];
     s.status = "aprobada";
     s.approvedBy = usuario;
-    const ev = { id: `ens-conm-${++this.n}`, kind: "retorno", trigger: "manual", from: this.activo, to: "cpd", startedAt: new Date().toISOString(), status: "en_curso", requestedBy: s.requestedBy, approvedBy: usuario };
+    const ev = {
+      id: `ens-conm-${++this.n}`,
+      kind: "retorno",
+      trigger: "manual",
+      from: this.activo,
+      to: "cpd",
+      startedAt: new Date().toISOString(),
+      status: "en_curso",
+      requestedBy: s.requestedBy,
+      approvedBy: usuario,
+    };
     this.eventos.unshift(ev);
-    this.auditoria.unshift({ action: "continuidad.retorno.aprobar", resource: `retorno/${id}`, actor: usuario, ts: ev.startedAt });
+    this.auditoria.unshift({
+      action: "continuidad.retorno.aprobar",
+      resource: `retorno/${id}`,
+      actor: usuario,
+      ts: ev.startedAt,
+    });
     return [202, { request: s, event: ev }];
   }
 }
@@ -252,7 +326,21 @@ const estados = new WeakMap<object, EstadoD>();
 function estadoDe(s: object): EstadoD {
   let e = estados.get(s);
   if (!e) {
-    e = { continuidad: new ContinuidadSim(), scans: [], hallazgos: [], reglas: [], anomalias: [], bloqueos: [], auditoria: [], llamadas: new Map(), publicadas: new Map(), suscripciones: new Set(), manuales: new Set(), tarifasPorSegundo: new Map(), n: 0 };
+    e = {
+      continuidad: new ContinuidadSim(),
+      scans: [],
+      hallazgos: [],
+      reglas: [],
+      anomalias: [],
+      bloqueos: [],
+      auditoria: [],
+      llamadas: new Map(),
+      publicadas: new Map(),
+      suscripciones: new Set(),
+      manuales: new Set(),
+      tarifasPorSegundo: new Map(),
+      n: 0,
+    };
     estados.set(s, e);
   }
   return e;
@@ -261,13 +349,84 @@ function estadoDe(s: object): EstadoD {
 /** Hallazgos simulados del descubrimiento (mismas rutas que verifica check-d01, ordenados por puntaje). */
 export function hallazgosEnsayo(): Array<Record<string, unknown>> {
   const h = [
-    { source: "nginx", host: "nginx-legacy", port: 80, path: "/interno/reportes/titulares", specFound: false, authDetected: "ninguna", personalDataSuspected: true, exposureScore: 95, reasons: ["responde sin autenticación", "parece exponer datos personales"] },
-    { source: "red", host: "ocultas", port: 7001, path: "/espectro/asignaciones", specFound: true, authDetected: "ninguna", personalDataSuspected: true, exposureScore: 88, reasons: ["contrato OpenAPI publicado", "responde sin autenticación"] },
-    { source: "nginx", host: "nginx-legacy", port: 80, path: "/tarifas", specFound: false, authDetected: "ninguna", personalDataSuspected: false, exposureScore: 64, reasons: ["responde sin autenticación"] },
-    { source: "apisix", host: "apisix", port: 9080, path: "/fiscalizacion", specFound: false, authDetected: "requerida (key-auth)", personalDataSuspected: false, exposureScore: 52, reasons: ["fuera del catálogo gobernado"] },
-    { source: "red", host: "registro-soap", port: 7001, path: "/registro", specFound: false, authDetected: "desconocida", personalDataSuspected: false, exposureScore: 41, reasons: ["servicio SOAP sin contrato"] },
-    { source: "red", host: "concesiones-v1", port: 7001, path: "/concesiones", specFound: false, authDetected: "ninguna", personalDataSuspected: false, matchedApiId: "wso2-concesiones", exposureScore: 33, reasons: ["backend de una API gobernada accesible sin pasar por el gateway"] },
-    { source: "red", host: "graphql-concesiones", port: 7001, path: "/graphql", specFound: false, authDetected: "ninguna", personalDataSuspected: false, exposureScore: 27, reasons: ["endpoint GraphQL"] },
+    {
+      source: "nginx",
+      host: "nginx-legacy",
+      port: 80,
+      path: "/interno/reportes/titulares",
+      specFound: false,
+      authDetected: "ninguna",
+      personalDataSuspected: true,
+      exposureScore: 95,
+      reasons: ["responde sin autenticación", "parece exponer datos personales"],
+    },
+    {
+      source: "red",
+      host: "ocultas",
+      port: 7001,
+      path: "/espectro/asignaciones",
+      specFound: true,
+      authDetected: "ninguna",
+      personalDataSuspected: true,
+      exposureScore: 88,
+      reasons: ["contrato OpenAPI publicado", "responde sin autenticación"],
+    },
+    {
+      source: "nginx",
+      host: "nginx-legacy",
+      port: 80,
+      path: "/tarifas",
+      specFound: false,
+      authDetected: "ninguna",
+      personalDataSuspected: false,
+      exposureScore: 64,
+      reasons: ["responde sin autenticación"],
+    },
+    {
+      source: "apisix",
+      host: "apisix",
+      port: 9080,
+      path: "/fiscalizacion",
+      specFound: false,
+      authDetected: "requerida (key-auth)",
+      personalDataSuspected: false,
+      exposureScore: 52,
+      reasons: ["fuera del catálogo gobernado"],
+    },
+    {
+      source: "red",
+      host: "registro-soap",
+      port: 7001,
+      path: "/registro",
+      specFound: false,
+      authDetected: "desconocida",
+      personalDataSuspected: false,
+      exposureScore: 41,
+      reasons: ["servicio SOAP sin contrato"],
+    },
+    {
+      source: "red",
+      host: "concesiones-v1",
+      port: 7001,
+      path: "/concesiones",
+      specFound: false,
+      authDetected: "ninguna",
+      personalDataSuspected: false,
+      matchedApiId: "wso2-concesiones",
+      exposureScore: 33,
+      reasons: ["backend de una API gobernada accesible sin pasar por el gateway"],
+    },
+    {
+      source: "red",
+      host: "graphql-concesiones",
+      port: 7001,
+      path: "/graphql",
+      specFound: false,
+      authDetected: "ninguna",
+      personalDataSuspected: false,
+      exposureScore: 27,
+      reasons: ["endpoint GraphQL"],
+    },
   ];
   return h.map((x, i) => ({ id: `ens-h-${i + 1}`, status: "nuevo", ...x }));
 }
@@ -298,21 +457,72 @@ async function manejar(s: object, req: IncomingMessage, res: ServerResponse, url
     const q = await leer(req);
     if (q.includes("applicationName.keyword") && q.includes("date_histogram")) {
       const rps: Record<string, number> = { OperadorDemo: 2, ConsumidorAltoVolumen: 25 };
-      json(res, 200, { aggregations: { app: { buckets: Object.entries(rps).map(([key, r]) => ({ key, doc_count: r * 30 * 60, v: { buckets: Array.from({ length: 60 }, (_, i) => ({ key: i, doc_count: r * 30 })) } })) } } });
+      json(res, 200, {
+        aggregations: {
+          app: {
+            buckets: Object.entries(rps).map(([key, r]) => ({
+              key,
+              doc_count: r * 30 * 60,
+              v: { buckets: Array.from({ length: 60 }, (_, i) => ({ key: i, doc_count: r * 30 })) },
+            })),
+          },
+        },
+      });
     } else if (q.includes("destination.keyword")) {
-      json(res, 200, { aggregations: { destino: { buckets: [{ key: "http://ocultas:7001/legacy/tarifas", doc_count: 22, codigo: { buckets: [{ key: 200, doc_count: 21 }, { key: 429, doc_count: 1 }] }, backend: { buckets: [{ key: 200, doc_count: 21 }] } }] } } });
+      json(res, 200, {
+        aggregations: {
+          destino: {
+            buckets: [
+              {
+                key: "http://ocultas:7001/legacy/tarifas",
+                doc_count: 22,
+                codigo: {
+                  buckets: [
+                    { key: 200, doc_count: 21 },
+                    { key: 429, doc_count: 1 },
+                  ],
+                },
+                backend: { buckets: [{ key: 200, doc_count: 21 }] },
+              },
+            ],
+          },
+        },
+      });
     } else json(res, 200, { hits: { total: { value: 0 }, hits: [] }, aggregations: {} });
     return true;
   }
   if (p === "/d0x/alertmanager/api/v2/alerts") {
     const b = e.bloqueos.find((x) => x.active);
-    json(res, 200, b ? [{ labels: { alertname: "ConsumidorBloqueado", severidad: "S2", consumidor: String(b.conditionValue) }, annotations: { resumen: `Bloqueo automático de ${String(b.conditionValue)} por volumen anómalo (ensayo)` } }] : []);
+    json(
+      res,
+      200,
+      b
+        ? [
+            {
+              labels: {
+                alertname: "ConsumidorBloqueado",
+                severidad: "S2",
+                consumidor: String(b.conditionValue),
+              },
+              annotations: {
+                resumen: `Bloqueo automático de ${String(b.conditionValue)} por volumen anómalo (ensayo)`,
+              },
+            },
+          ]
+        : [],
+    );
     return true;
   }
   if (p === "/d0x/wso2/publicar" && metodo === "POST") {
     const b = await cuerpo(req);
     const name = String(b.name ?? "");
-    e.publicadas.set(name, { id: `ens-api-${name.toLowerCase()}`, name, version: "1.0.0", lifeCycleStatus: "PUBLISHED", context: `/${name.toLowerCase()}` });
+    e.publicadas.set(name, {
+      id: `ens-api-${name.toLowerCase()}`,
+      name,
+      version: "1.0.0",
+      lifeCycleStatus: "PUBLISHED",
+      context: `/${name.toLowerCase()}`,
+    });
     json(res, 200, { ok: true });
     return true;
   }
@@ -327,33 +537,85 @@ async function manejar(s: object, req: IncomingMessage, res: ServerResponse, url
         if (sc.status === "en_curso" && Date.now() - Number(sc._t) > 7000) {
           sc.status = "terminado";
           e.hallazgos = hallazgosEnsayo();
-          sc.totals = { endpoints: e.hallazgos.length, gobernados: 1, noGobernados: e.hallazgos.length - 1, riesgoAlto: e.hallazgos.filter((h) => Number(h.exposureScore) >= 70).length };
+          sc.totals = {
+            endpoints: e.hallazgos.length,
+            gobernados: 1,
+            noGobernados: e.hallazgos.length - 1,
+            riesgoAlto: e.hallazgos.filter((h) => Number(h.exposureScore) >= 70).length,
+          };
         }
       }
-      return (json(res, 200, e.scans.map(({ _t, ...x }) => x)), true);
+      return (
+        json(
+          res,
+          200,
+          e.scans.map(({ _t, ...x }) => x),
+        ),
+        true
+      );
     }
     if (r === "/discovery/scans" && metodo === "POST") {
-      const sc = { id: `ens-scan-${++e.n}`, status: "en_curso", startedAt: new Date().toISOString(), requestedBy: usuario(), _t: Date.now() };
+      const sc = {
+        id: `ens-scan-${++e.n}`,
+        status: "en_curso",
+        startedAt: new Date().toISOString(),
+        requestedBy: usuario(),
+        _t: Date.now(),
+      };
       e.scans.unshift(sc);
       return (json(res, 202, sc), true);
     }
     if (r === "/discovery/report") {
       if (url.searchParams.get("format") === "pdf") {
-        res.writeHead(200, { "content-type": "application/pdf", "content-disposition": 'attachment; filename="reporte-exposicion.pdf"', "x-ensayo": "1" });
-        res.end(pdfMinimo(["Reporte de exposicion (ENSAYO, datos simulados)", ...e.hallazgos.map((h) => `${String(h.exposureScore)}  ${String(h.host)}${String(h.path)}  ${String(h.source)}`)]));
+        res.writeHead(200, {
+          "content-type": "application/pdf",
+          "content-disposition": 'attachment; filename="reporte-exposicion.pdf"',
+          "x-ensayo": "1",
+        });
+        res.end(
+          pdfMinimo([
+            "Reporte de exposicion (ENSAYO, datos simulados)",
+            ...e.hallazgos.map(
+              (h) => `${String(h.exposureScore)}  ${String(h.host)}${String(h.path)}  ${String(h.source)}`,
+            ),
+          ]),
+        );
         return true;
       }
-      const csv = ["puntaje,fuente,host,ruta,autenticacion,datos_personales", ...e.hallazgos.map((h) => `${String(h.exposureScore)},${String(h.source)},${String(h.host)},${String(h.path)},${String(h.authDetected)},${h.personalDataSuspected ? "si" : "no"}`)].join("\n");
-      res.writeHead(200, { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="reporte-exposicion.csv"', "x-ensayo": "1" });
+      const csv = [
+        "puntaje,fuente,host,ruta,autenticacion,datos_personales",
+        ...e.hallazgos.map(
+          (h) =>
+            `${String(h.exposureScore)},${String(h.source)},${String(h.host)},${String(h.path)},${String(h.authDetected)},${h.personalDataSuspected ? "si" : "no"}`,
+        ),
+      ].join("\n");
+      res.writeHead(200, {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": 'attachment; filename="reporte-exposicion.csv"',
+        "x-ensayo": "1",
+      });
       res.end(`${csv}\n`);
       return true;
     }
     // Anomalías (D-02)
-    if (r.startsWith("/apis") && metodo === "GET") return (json(res, 200, [{ id: "api-concesiones", wso2ApiId: "wso2-concesiones", name: "Concesiones", version: "1.0.0" }]), true);
+    if (r.startsWith("/apis") && metodo === "GET")
+      return (
+        json(res, 200, [
+          { id: "api-concesiones", wso2ApiId: "wso2-concesiones", name: "Concesiones", version: "1.0.0" },
+        ]),
+        true
+      );
     if (r === "/anomaly-rules" && metodo === "GET") return (json(res, 200, e.reglas), true);
     if (r === "/anomaly-rules" && metodo === "POST") {
       const b = await cuerpo(req);
-      const regla = { id: `ens-regla-${++e.n}`, enabled: true, ...b, sensitivity: Number(b.sensitivity ?? 3), minVolume: Number(b.minVolume ?? 30), blockTtlMinutes: Number(b.blockTtlMinutes ?? 2) };
+      const regla = {
+        id: `ens-regla-${++e.n}`,
+        enabled: true,
+        ...b,
+        sensitivity: Number(b.sensitivity ?? 3),
+        minVolume: Number(b.minVolume ?? 30),
+        blockTtlMinutes: Number(b.blockTtlMinutes ?? 2),
+      };
       e.reglas.unshift(regla);
       return (json(res, 201, regla), true);
     }
@@ -373,7 +635,12 @@ async function manejar(s: object, req: IncomingMessage, res: ServerResponse, url
       b.active = false;
       b.releasedBy = usuario();
       b.releasedAt = new Date().toISOString();
-      e.auditoria.unshift({ action: "anomalias.bloqueo.liberar", resource: `bloqueo/${String(b.id)}`, actor: usuario(), ts: b.releasedAt });
+      e.auditoria.unshift({
+        action: "anomalias.bloqueo.liberar",
+        resource: `bloqueo/${String(b.id)}`,
+        actor: usuario(),
+        ts: b.releasedAt,
+      });
       e.rafagaDesde = undefined;
       return (json(res, 200, b), true);
     }
@@ -384,8 +651,10 @@ async function manejar(s: object, req: IncomingMessage, res: ServerResponse, url
       cont.modo = String((await cuerpo(req)).mode ?? cont.modo);
       return (json(res, 200, cont.estado()), true);
     }
-    if (r === "/continuity/events" && metodo === "GET") return (cont.avanzar(), json(res, 200, cont.eventos), true);
-    if (r === "/continuity/failback/requests" && metodo === "GET") return (json(res, 200, cont.solicitudes), true);
+    if (r === "/continuity/events" && metodo === "GET")
+      return (cont.avanzar(), json(res, 200, cont.eventos), true);
+    if (r === "/continuity/failback/requests" && metodo === "GET")
+      return (json(res, 200, cont.solicitudes), true);
     if (r === "/continuity/failback/requests" && metodo === "POST") {
       const [st, b] = cont.solicitar(usuario(), String((await cuerpo(req)).reason ?? ""));
       return (json(res, st, b), true);
@@ -414,13 +683,26 @@ async function manejar(s: object, req: IncomingMessage, res: ServerResponse, url
   if (p.startsWith("/gateway/")) {
     const app = appDeLlave(sujetoToken(req.headers.authorization));
     if (p.startsWith("/gateway/tarifas/")) {
-      if (!req.headers.authorization) return (json(res, 401, { code: 900902, message: "Missing Credentials (ensayo)" }), true);
-      if (!e.suscripciones.has("OperadorDemo")) return (json(res, 403, { code: 900908, message: "Resource forbidden: sin suscripción (ensayo)" }), true);
+      if (!req.headers.authorization)
+        return (json(res, 401, { code: 900902, message: "Missing Credentials (ensayo)" }), true);
+      if (!e.suscripciones.has("OperadorDemo"))
+        return (
+          json(res, 403, { code: 900908, message: "Resource forbidden: sin suscripción (ensayo)" }),
+          true
+        );
       const s0 = Math.floor(Date.now() / 1000);
       const k = (e.tarifasPorSegundo.get(s0) ?? 0) + 1;
       e.tarifasPorSegundo.set(s0, k);
       if (k > 20) return (json(res, 429, { code: 900800, message: "Message throttled out (ensayo)" }), true);
-      return (json(res, 200, { tarifas: [{ plan: "Plan base (ensayo)", valor: 9990 }, { plan: "Plan full (ensayo)", valor: 19990 }] }), true);
+      return (
+        json(res, 200, {
+          tarifas: [
+            { plan: "Plan base (ensayo)", valor: 9990 },
+            { plan: "Plan full (ensayo)", valor: 19990 },
+          ],
+        }),
+        true
+      );
     }
     if (app) {
       const ahora = Math.floor(Date.now() / 1000);
@@ -429,15 +711,39 @@ async function manejar(s: object, req: IncomingMessage, res: ServerResponse, url
       while (serie.length && serie[0]! < ahora - 5) serie.shift();
       e.llamadas.set(app, serie);
       const bloqueado = e.bloqueos.find((b) => b.active && String(b.conditionValue).endsWith(`:${app}`));
-      if (bloqueado) return (json(res, 403, { code: 900908, message: "Blocked by deny policy (ensayo)" }), true);
+      if (bloqueado)
+        return (json(res, 403, { code: 900908, message: "Blocked by deny policy (ensayo)" }), true);
       const regla = e.reglas.find((x) => x.enabled && x.action === "bloquear_automatico");
       if (regla && app === "OperadorDemo" && serie.length / 5 >= 10) {
         e.rafagaDesde ??= Date.now();
         if (Date.now() - e.rafagaDesde > 25_000) {
           const id = `ens-bloqueo-${++e.n}`;
-          e.bloqueos.unshift({ id, active: true, conditionType: "APPLICATION", conditionValue: `admin:${app}`, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 120_000).toISOString() });
-          e.anomalias.unshift({ id: `ens-anom-${e.n}`, ruleId: regla.id, status: "bloqueada", blockId: id, observed: 598, baseline: 60, score: 9.4, consumer: app, metric: "volumen", detectedAt: new Date().toISOString() });
-          e.auditoria.unshift({ action: "anomalias.bloqueo.automatico", resource: `bloqueo/${id}`, actor: "nexo-guardian", ts: new Date().toISOString() });
+          e.bloqueos.unshift({
+            id,
+            active: true,
+            conditionType: "APPLICATION",
+            conditionValue: `admin:${app}`,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 120_000).toISOString(),
+          });
+          e.anomalias.unshift({
+            id: `ens-anom-${e.n}`,
+            ruleId: regla.id,
+            status: "bloqueada",
+            blockId: id,
+            observed: 598,
+            baseline: 60,
+            score: 9.4,
+            consumer: app,
+            metric: "volumen",
+            detectedAt: new Date().toISOString(),
+          });
+          e.auditoria.unshift({
+            action: "anomalias.bloqueo.automatico",
+            resource: `bloqueo/${id}`,
+            actor: "nexo-guardian",
+            ts: new Date().toISOString(),
+          });
           return (json(res, 403, { code: 900908, message: "Blocked by deny policy (ensayo)" }), true);
         }
       } else if (app === "OperadorDemo" && serie.length / 5 < 5) e.rafagaDesde = undefined;
@@ -449,21 +755,66 @@ async function manejar(s: object, req: IncomingMessage, res: ServerResponse, url
   if (p.startsWith("/wso2/api/am/")) {
     const r = p.slice("/wso2/api/am".length);
     if (r === "/admin/v4/throttling/deny-policies" && metodo === "GET") {
-      const lista = e.bloqueos.filter((b) => b.active).map((b) => ({ policyId: `ens-deny-${String(b.id)}`, conditionType: "APPLICATION", conditionValue: b.conditionValue, conditionStatus: true }));
+      const lista = e.bloqueos
+        .filter((b) => b.active)
+        .map((b) => ({
+          policyId: `ens-deny-${String(b.id)}`,
+          conditionType: "APPLICATION",
+          conditionValue: b.conditionValue,
+          conditionStatus: true,
+        }));
       return (json(res, 200, { count: lista.length, list: lista }), true);
     }
-    if (/^\/devportal\/v3\/applications\/?$/.test(r) && metodo === "GET") return (json(res, 200, { count: APPS.length, list: APPS.map((a) => ({ ...a, throttlingPolicy: "Unlimited", status: "APPROVED" })) }), true);
+    if (/^\/devportal\/v3\/applications\/?$/.test(r) && metodo === "GET")
+      return (
+        json(res, 200, {
+          count: APPS.length,
+          list: APPS.map((a) => ({ ...a, throttlingPolicy: "Unlimited", status: "APPROVED" })),
+        }),
+        true
+      );
     const mk = /^\/devportal\/v3\/applications\/([^/]+)\/(oauth-keys|keys)/.exec(r);
-    if (mk && metodo === "GET") return (json(res, 200, { count: 1, list: [{ keyManager: "Keycloak", keyType: "PRODUCTION", consumerKey: `ensayo-ck-${mk[1]}`, consumerSecret: "ensayo-cs", keyState: "COMPLETED" }] }), true);
-    const ms = /^\/devportal\/v3\/applications\/([^/]+)\/subscriptions|^\/devportal\/v3\/subscriptions/.exec(r);
-    if (ms && metodo === "GET") return (json(res, 200, { count: 1, list: [{ apiId: "wso2-concesiones", status: "UNBLOCKED", apiInfo: { id: "wso2-concesiones" } }] }), true);
+    if (mk && metodo === "GET")
+      return (
+        json(res, 200, {
+          count: 1,
+          list: [
+            {
+              keyManager: "Keycloak",
+              keyType: "PRODUCTION",
+              consumerKey: `ensayo-ck-${mk[1]}`,
+              consumerSecret: "ensayo-cs",
+              keyState: "COMPLETED",
+            },
+          ],
+        }),
+        true
+      );
+    const ms = /^\/devportal\/v3\/applications\/([^/]+)\/subscriptions|^\/devportal\/v3\/subscriptions/.exec(
+      r,
+    );
+    if (ms && metodo === "GET")
+      return (
+        json(res, 200, {
+          count: 1,
+          list: [{ apiId: "wso2-concesiones", status: "UNBLOCKED", apiInfo: { id: "wso2-concesiones" } }],
+        }),
+        true
+      );
     if (r.startsWith("/devportal/v3/subscriptions") && metodo === "POST") {
       const b = await cuerpo(req);
       const app = APPS.find((a) => a.applicationId === b.applicationId)?.name ?? "OperadorDemo";
       e.suscripciones.add(app);
       return (json(res, 201, { subscriptionId: `ens-sub-${++e.n}`, ...b, status: "UNBLOCKED" }), true);
     }
-    if (/^\/devportal\/v3\/apis\/?$/.test(r) && metodo === "GET") return (json(res, 200, { count: 1 + e.publicadas.size, list: [{ id: "wso2-concesiones", name: "Concesiones", version: "1.0.0" }, ...e.publicadas.values()] }), true);
+    if (/^\/devportal\/v3\/apis\/?$/.test(r) && metodo === "GET")
+      return (
+        json(res, 200, {
+          count: 1 + e.publicadas.size,
+          list: [{ id: "wso2-concesiones", name: "Concesiones", version: "1.0.0" }, ...e.publicadas.values()],
+        }),
+        true
+      );
     if (/^\/publisher\/v4\/apis\/?$/.test(r) && metodo === "GET") {
       const q = url.searchParams.get("query") ?? "";
       const nombre = /name:"?([^"]+)"?/.exec(q)?.[1];
@@ -481,10 +832,17 @@ async function manejar(s: object, req: IncomingMessage, res: ServerResponse, url
       await leer(req);
       const violaciones = [
         { ruleName: "nexo-info-contacto", message: "Falta info.contact con name y email." },
-        { ruleName: "nexo-rutas-kebab", message: "La ruta /obtenerReportes no cumple kebab-case en minúsculas." },
+        {
+          ruleName: "nexo-rutas-kebab",
+          message: "La ruta /obtenerReportes no cumple kebab-case en minúsculas.",
+        },
         { ruleName: "nexo-sin-basic-auth", message: "El esquema de seguridad usa HTTP basic." },
       ];
-      json(res, 400, { code: 400, message: "API Governance: el despliegue tiene infracciones bloqueantes (ensayo)", description: JSON.stringify({ blockingViolations: violaciones }) });
+      json(res, 400, {
+        code: 400,
+        message: "API Governance: el despliegue tiene infracciones bloqueantes (ensayo)",
+        description: JSON.stringify({ blockingViolations: violaciones }),
+      });
       return true;
     }
     const mdel = /^\/publisher\/v4\/apis\/([^/]+)$/.exec(r);
@@ -532,14 +890,38 @@ export function instalarServidorD(o: { siempre?: boolean } = {}): void {
   };
   // D-04: un canary hacia concesiones-v2 que empieza a fallar con ≥ 25 % del tráfico se revierte en ese paso.
   const rollout = proto.rollout;
-  proto.rollout = function (this: { falla: { v2: number }; rollouts: Map<string, Record<string, unknown>>; abortados: Set<string>; ruta: { rolloutId?: string } }, id: string) {
+  proto.rollout = function (
+    this: {
+      falla: { v2: number };
+      rollouts: Map<string, Record<string, unknown>>;
+      abortados: Set<string>;
+      ruta: { rolloutId?: string };
+    },
+    id: string,
+  ) {
     const r = rollout.call(this, id) as Record<string, unknown> | undefined;
     if (!estaActivo() || !r || r.status !== "en_curso" || r.strategy !== "canary") return r;
     const peso = Number(r.currentWeight ?? 0);
     const desde = estadoDe(this).fallaV2Desde;
-    if (peso >= 25 && this.falla.v2 > 0.02 && desde !== undefined && Date.now() - desde >= 3500 && String(r.candidateEndpoint).includes("concesiones-v2")) {
-      const pasos = [...((r.stepsDone as unknown[]) ?? []), { kind: "peso", weight: peso, requests: 50, decision: "revierte", errorRate: this.falla.v2 }];
-      const rev = { ...r, status: "revertido", currentWeight: 0, stepsDone: pasos, finishedAt: new Date().toISOString(), rollbackReason: `tasa de error del candidato ${Math.round(this.falla.v2 * 100)} % supera el umbral de 2 % (estable: 0 %), con ${peso} % del tráfico (ensayo)` };
+    if (
+      peso >= 25 &&
+      this.falla.v2 > 0.02 &&
+      desde !== undefined &&
+      Date.now() - desde >= 3500 &&
+      String(r.candidateEndpoint).includes("concesiones-v2")
+    ) {
+      const pasos = [
+        ...((r.stepsDone as unknown[]) ?? []),
+        { kind: "peso", weight: peso, requests: 50, decision: "revierte", errorRate: this.falla.v2 },
+      ];
+      const rev = {
+        ...r,
+        status: "revertido",
+        currentWeight: 0,
+        stepsDone: pasos,
+        finishedAt: new Date().toISOString(),
+        rollbackReason: `tasa de error del candidato ${Math.round(this.falla.v2 * 100)} % supera el umbral de 2 % (estable: 0 %), con ${peso} % del tráfico (ensayo)`,
+      };
       this.rollouts.set(id, rev);
       this.abortados.add(id);
       this.ruta.rolloutId = undefined;
@@ -554,7 +936,10 @@ const conPaginas = new WeakSet<BrowserContext>();
 
 /** Página que redirige en el navegador (así la navegación siguiente vuelve a pasar por page.route). */
 export function paginaRedireccion(destino: string): string {
-  const d = destino.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  const d = destino.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
   return `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${d}"><script>location.replace(${JSON.stringify(destino)})</script>`;
 }
 
@@ -570,12 +955,22 @@ export async function instalarPaginasD(ctx: BrowserContext): Promise<void> {
   await ctx.addInitScript({ content: SCRIPT_PAGINAS() });
   await ctx.route(/^https:\/\/apim:9443(\/|\?|$)/, async (ruta) => {
     const original = ruta.request().url();
-    const r = await ruta.fetch({ url: reescribirUrlEnsayo(original), maxRedirects: 0 }).catch(() => undefined);
+    const r = await ruta
+      .fetch({ url: reescribirUrlEnsayo(original), maxRedirects: 0 })
+      .catch(() => undefined);
     if (!r) return ruta.abort();
     const destino = r.headers().location;
     if (r.status() >= 300 && r.status() < 400 && destino) {
-      const cookie = r.headersArray().filter((h) => h.name.toLowerCase() === "set-cookie").map((h) => h.value);
-      return ruta.fulfill({ status: 200, contentType: "text/html; charset=utf-8", headers: cookie.length ? { "set-cookie": cookie.join("\n") } : {}, body: paginaRedireccion(new URL(destino, original).toString()) });
+      const cookie = r
+        .headersArray()
+        .filter((h) => h.name.toLowerCase() === "set-cookie")
+        .map((h) => h.value);
+      return ruta.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        headers: cookie.length ? { "set-cookie": cookie.join("\n") } : {},
+        body: paginaRedireccion(new URL(destino, original).toString()),
+      });
     }
     return ruta.fulfill({ response: r });
   });

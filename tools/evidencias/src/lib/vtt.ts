@@ -68,20 +68,30 @@ const esNumero = (v: unknown): v is number => typeof v === "number" && Number.is
  * con `publicar` además exige las reglas de publicación: no es ensayo, resolución y cps permitidos, duración
  * ≤ 240 s, cada paso ≥ 7 s y todas sus comprobaciones cumplidas.
  */
-export function validarPasos(datos: unknown, o: { publicar?: boolean } = {}): { ok: boolean; problemas: string[]; pasos?: ArchivoPasos } {
+export function validarPasos(
+  datos: unknown,
+  o: { publicar?: boolean } = {},
+): { ok: boolean; problemas: string[]; pasos?: ArchivoPasos } {
   const problemas: string[] = [];
   if (!datos || typeof datos !== "object") return { ok: false, problemas: ["no es un objeto JSON"] };
   const p = datos as Partial<ArchivoPasos>;
   if (!esTexto(p.producto)) problemas.push("falta «producto»");
-  else if (p.producto !== REGLAS.producto) problemas.push(`producto «${p.producto}» (se espera «${REGLAS.producto}»)`);
-  if (!esTexto(p.version) || !/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(p.version)) problemas.push("«version» no es una versión x.y.z");
+  else if (p.producto !== REGLAS.producto)
+    problemas.push(`producto «${p.producto}» (se espera «${REGLAS.producto}»)`);
+  if (!esTexto(p.version) || !/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(p.version))
+    problemas.push("«version» no es una versión x.y.z");
   for (const k of ["commit_producto", "commit_herramientas"] as const) {
-    if (!esTexto(p[k]) || !/^[0-9a-f]{7,40}$/.test(p[k])) problemas.push(`«${k}» no es un commit (7 a 40 hexadecimales)`);
+    if (!esTexto(p[k]) || !/^[0-9a-f]{7,40}$/.test(p[k]))
+      problemas.push(`«${k}» no es un commit (7 a 40 hexadecimales)`);
   }
   if (typeof p.ensayo !== "boolean") problemas.push("«ensayo» debe ser true o false");
-  for (const k of ["ancho", "alto", "cps"] as const) if (!esNumero(p[k]) || p[k] <= 0 || !Number.isInteger(p[k])) problemas.push(`«${k}» debe ser un entero positivo`);
-  if (!esNumero(p.duracion_s) || p.duracion_s <= 0) problemas.push("«duracion_s» debe ser un número positivo");
-  if (!Array.isArray(p.pasos) || p.pasos.length === 0) problemas.push("«pasos» debe ser una lista con al menos un paso");
+  for (const k of ["ancho", "alto", "cps"] as const)
+    if (!esNumero(p[k]) || p[k] <= 0 || !Number.isInteger(p[k]))
+      problemas.push(`«${k}» debe ser un entero positivo`);
+  if (!esNumero(p.duracion_s) || p.duracion_s <= 0)
+    problemas.push("«duracion_s» debe ser un número positivo");
+  if (!Array.isArray(p.pasos) || p.pasos.length === 0)
+    problemas.push("«pasos» debe ser una lista con al menos un paso");
   if (problemas.length) return { ok: false, problemas };
 
   const a = p as ArchivoPasos;
@@ -104,27 +114,40 @@ export function validarPasos(datos: unknown, o: { publicar?: boolean } = {}): { 
       problemas.push(`${id}: «inicio_s» y «fin_s» deben ser números`);
       return;
     }
-    if (paso.inicio_s < 0 || paso.fin_s <= paso.inicio_s) problemas.push(`${id}: tiempos inválidos (${paso.inicio_s} → ${paso.fin_s})`);
-    if (paso.inicio_s < finAnterior - HOLGURA) problemas.push(`${id}: empieza (${paso.inicio_s} s) antes de que termine el anterior (${finAnterior} s)`);
-    if (paso.fin_s > a.duracion_s + HOLGURA) problemas.push(`${id}: termina (${paso.fin_s} s) después del video (${a.duracion_s} s)`);
+    if (paso.inicio_s < 0 || paso.fin_s <= paso.inicio_s)
+      problemas.push(`${id}: tiempos inválidos (${paso.inicio_s} → ${paso.fin_s})`);
+    if (paso.inicio_s < finAnterior - HOLGURA)
+      problemas.push(
+        `${id}: empieza (${paso.inicio_s} s) antes de que termine el anterior (${finAnterior} s)`,
+      );
+    if (paso.fin_s > a.duracion_s + HOLGURA)
+      problemas.push(`${id}: termina (${paso.fin_s} s) después del video (${a.duracion_s} s)`);
     finAnterior = paso.fin_s;
     if (!Array.isArray(paso.comprueba)) problemas.push(`${id}: «comprueba» debe ser una lista`);
     else
       paso.comprueba.forEach((c, j) => {
-        if (!c || !esTexto(c.texto) || typeof c.ok !== "boolean") problemas.push(`${id}: comprobación ${j + 1} sin «texto» u «ok»`);
-        else if (c.valor !== undefined && typeof c.valor !== "string" && !esNumero(c.valor)) problemas.push(`${id}: comprobación ${j + 1}: «valor» debe ser texto o número`);
+        if (!c || !esTexto(c.texto) || typeof c.ok !== "boolean")
+          problemas.push(`${id}: comprobación ${j + 1} sin «texto» u «ok»`);
+        else if (c.valor !== undefined && typeof c.valor !== "string" && !esNumero(c.valor))
+          problemas.push(`${id}: comprobación ${j + 1}: «valor» debe ser texto o número`);
       });
     if (o.publicar) {
       const dura = paso.fin_s - paso.inicio_s;
-      if (dura < REGLAS.pasoMinimo - HOLGURA) problemas.push(`${id}: dura ${dura.toFixed(1)} s (mínimo ${REGLAS.pasoMinimo} s)`);
-      for (const c of paso.comprueba ?? []) if (c && c.ok === false) problemas.push(`${id}: comprobación no cumplida: ${c.texto}`);
+      if (dura < REGLAS.pasoMinimo - HOLGURA)
+        problemas.push(`${id}: dura ${dura.toFixed(1)} s (mínimo ${REGLAS.pasoMinimo} s)`);
+      for (const c of paso.comprueba ?? [])
+        if (c && c.ok === false) problemas.push(`${id}: comprobación no cumplida: ${c.texto}`);
     }
   });
   if (o.publicar) {
     if (a.ensayo) problemas.push("es una grabación de ENSAYO: no se publica");
-    if (!REGLAS.resoluciones.some(([w, h]) => w === a.ancho && h === a.alto)) problemas.push(`resolución ${a.ancho}×${a.alto} no permitida (${REGLAS.resoluciones.map(([w, h]) => `${w}×${h}`).join(" o ")})`);
+    if (!REGLAS.resoluciones.some(([w, h]) => w === a.ancho && h === a.alto))
+      problemas.push(
+        `resolución ${a.ancho}×${a.alto} no permitida (${REGLAS.resoluciones.map(([w, h]) => `${w}×${h}`).join(" o ")})`,
+      );
     if (!REGLAS.cps.includes(a.cps)) problemas.push(`${a.cps} cps no permitido (${REGLAS.cps.join(" o ")})`);
-    if (a.duracion_s > REGLAS.duracionMaxima) problemas.push(`dura ${a.duracion_s.toFixed(1)} s (máximo ${REGLAS.duracionMaxima} s)`);
+    if (a.duracion_s > REGLAS.duracionMaxima)
+      problemas.push(`dura ${a.duracion_s.toFixed(1)} s (máximo ${REGLAS.duracionMaxima} s)`);
   }
   return problemas.length ? { ok: false, problemas } : { ok: true, problemas, pasos: a };
 }
@@ -141,12 +164,7 @@ export function tiempoVtt(s: number): string {
 
 /** Texto seguro para una señal WebVTT: sin marcas, sin líneas en blanco y sin «-->». */
 export function textoVtt(t: string): string {
-  return t
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return t.replace(/\s+/g, " ").trim().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** Corta un texto en líneas de hasta `ancho` caracteres (sin partir palabras, salvo las más largas que el ancho). */
@@ -256,7 +274,12 @@ function serializar(senales: Senal[], encabezado: string): string {
   return partes.join("\n");
 }
 
-const normalizar = (t: string) => t.replace(/\s+/g, " ").trim().replace(/[.…]+$/, "").toLowerCase();
+const normalizar = (t: string) =>
+  t
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[.…]+$/, "")
+    .toLowerCase();
 
 /** Señales de subtítulos: en cada paso, «Paso n de N · título» y luego «qué pasa» en bloques, repartidos en su tiempo. */
 export function senalesSubtitulos(a: ArchivoPasos): Senal[] {
@@ -275,7 +298,12 @@ export function senalesSubtitulos(a: ArchivoPasos): Senal[] {
     let t = paso.inicio_s;
     bloques.forEach((b, i) => {
       const hasta = i === bloques.length - 1 ? fin : t + (largo * pesos[i]!) / suma;
-      senales.push({ id: `paso-${paso.n}-${i + 1}`, inicio: t, fin: hasta, texto: [titulo, ...b.map(textoVtt)].join("\n") });
+      senales.push({
+        id: `paso-${paso.n}-${i + 1}`,
+        inicio: t,
+        fin: hasta,
+        texto: [titulo, ...b.map(textoVtt)].join("\n"),
+      });
       t = hasta;
     });
     if (!bloques.length) senales.push({ id: `paso-${paso.n}-1`, inicio: paso.inicio_s, fin, texto: titulo });
@@ -290,13 +318,20 @@ export function subtitulosVtt(a: ArchivoPasos): string {
 /** Capítulos WebVTT: uno por paso, con su título. */
 export function capitulosVtt(a: ArchivoPasos): string {
   return serializar(
-    a.pasos.map((p) => ({ id: `capitulo-${p.n}`, inicio: p.inicio_s, fin: p.fin_s, texto: textoVtt(`${p.n}. ${p.titulo}`) })),
+    a.pasos.map((p) => ({
+      id: `capitulo-${p.n}`,
+      inicio: p.inicio_s,
+      fin: p.fin_s,
+      texto: textoVtt(`${p.n}. ${p.titulo}`),
+    })),
     `${a.producto} ${a.version} · capítulos`,
   );
 }
 
 /** Capítulos para el índice del sitio (evidencias.json). */
-export function capitulosIndice(a: ArchivoPasos): Array<{ n: number; title: string; start_s: number; end_s: number }> {
+export function capitulosIndice(
+  a: ArchivoPasos,
+): Array<{ n: number; title: string; start_s: number; end_s: number }> {
   const r = (x: number) => Math.round(x * 100) / 100;
   return a.pasos.map((p) => ({ n: p.n, title: p.titulo, start_s: r(p.inicio_s), end_s: r(p.fin_s) }));
 }
@@ -320,7 +355,12 @@ export function leerVtt(texto: string): Senal[] {
     if (iFlecha < 0 || iFlecha > 1) throw new Error(`señal sin tiempos: «${lineas[0]}»`);
     const [ini, resto] = lineas[iFlecha]!.split("-->");
     const fin = resto!.trim().split(/\s+/)[0]!;
-    senales.push({ ...(iFlecha === 1 ? { id: lineas[0] } : {}), inicio: segundosVtt(ini!), fin: segundosVtt(fin), texto: lineas.slice(iFlecha + 1).join("\n") });
+    senales.push({
+      ...(iFlecha === 1 ? { id: lineas[0] } : {}),
+      inicio: segundosVtt(ini!),
+      fin: segundosVtt(fin),
+      texto: lineas.slice(iFlecha + 1).join("\n"),
+    });
   }
   return senales;
 }

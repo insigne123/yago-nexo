@@ -16,7 +16,17 @@ import { escaparHtml } from "../lib/grabador.js";
 import { desdeRaiz } from "../lib/entorno.js";
 import { wso2 } from "../lib/lab.js";
 import { esperarHasta } from "./comun.js";
-import { abrir, agendaDe, ampliar, aparece, comando, lineaShell, argsNexoCtl, nexoCtl, type PasoGuion } from "./ayudas-d.js";
+import {
+  abrir,
+  agendaDe,
+  ampliar,
+  aparece,
+  comando,
+  lineaShell,
+  argsNexoCtl,
+  nexoCtl,
+  type PasoGuion,
+} from "./ayudas-d.js";
 import { prepararEnsayoD } from "./d0x-ensayo.js";
 
 const NOMBRE = "ReportesInternos";
@@ -88,35 +98,40 @@ security:
 export const PASOS_D03: PasoGuion[] = [
   {
     titulo: "La guía de estilo y el paso del pipeline que la aplica",
-    quePasa: "Un archivo define las reglas de los contratos de API: nombres, seguridad y documentación. El pipeline valida con ellas cada contrato versionado.",
+    quePasa:
+      "Un archivo define las reglas de los contratos de API: nombres, seguridad y documentación. El pipeline valida con ellas cada contrato versionado.",
     porQueImporta: "Las reglas se aplican siempre igual y de forma automática, no según quién revise.",
     comprueba: ["los contratos versionados cumplen la guía"],
     estimadoS: 14,
   },
   {
     titulo: "Contrato que no cumple: el pipeline bloquea la promoción",
-    quePasa: "Se intenta desplegar un contrato con errores. La validación lo rechaza regla por regla, el pipeline termina con error y nada llega al gateway.",
+    quePasa:
+      "Se intenta desplegar un contrato con errores. La validación lo rechaza regla por regla, el pipeline termina con error y nada llega al gateway.",
     porQueImporta: "Un contrato mal hecho no puede llegar a producción por descuido.",
     comprueba: ["pipeline bloqueado (código de salida 2)", "nada llegó a WSO2"],
     estimadoS: 13,
   },
   {
     titulo: "Carga manual: la política de gobierno de WSO2 también bloquea",
-    quePasa: "Si alguien se salta el pipeline y carga el contrato a mano en WSO2, la política de gobierno impide desplegarlo e informa cada regla incumplida.",
+    quePasa:
+      "Si alguien se salta el pipeline y carga el contrato a mano en WSO2, la política de gobierno impide desplegarlo e informa cada regla incumplida.",
     porQueImporta: "El control no depende de usar el pipeline: también protege la puerta manual.",
     comprueba: ["WSO2 bloquea el despliegue del contrato no conforme"],
     estimadoS: 16,
   },
   {
     titulo: "Contrato corregido: validado, versionado y publicado",
-    quePasa: "Se corrigen rutas, contacto y seguridad: OAuth en vez de usuario y clave. El pipeline lo valida, crea la revisión y lo publica en Desarrollo.",
+    quePasa:
+      "Se corrigen rutas, contacto y seguridad: OAuth en vez de usuario y clave. El pipeline lo valida, crea la revisión y lo publica en Desarrollo.",
     porQueImporta: "Cumplir la guía es el único camino para publicar, y cada publicación queda versionada.",
     comprueba: ["contrato corregido promovido y publicado"],
     estimadoS: 22,
   },
   {
     titulo: "La guía es configurable: una regla más estricta vuelve a bloquear",
-    quePasa: "La institución decide exigir etiquetas en cada operación. Con esa regla endurecida, el mismo contrato corregido se rechaza.",
+    quePasa:
+      "La institución decide exigir etiquetas en cada operación. Con esa regla endurecida, el mismo contrato corregido se rechaza.",
     porQueImporta: "La institución ajusta sus reglas cuando lo necesita, sin cambiar el producto.",
     comprueba: ["con la regla endurecida el contrato se rechaza"],
     estimadoS: 12,
@@ -125,12 +140,15 @@ export const PASOS_D03: PasoGuion[] = [
 
 async function borrarApi() {
   const w = wso2();
-  for (const a of ((await w.publisher.listApis(`name:"${NOMBRE}"`)).list ?? []).filter((x) => x.name === NOMBRE)) {
+  for (const a of ((await w.publisher.listApis(`name:"${NOMBRE}"`)).list ?? []).filter(
+    (x) => x.name === NOMBRE,
+  )) {
     await w.request({ method: "DELETE", path: `/api/am/publisher/v4/apis/${a.id}` });
   }
 }
 
-const SIN_RUTA = (l: string) => l.replace(/\/(tmp|home)\/[^ ]*\/(reportes-internos|wso2\/apim\/apis)\//, "…/$2/");
+const SIN_RUTA = (l: string) =>
+  l.replace(/\/(tmp|home)\/[^ ]*\/(reportes-internos|wso2\/apim\/apis)\//, "…/$2/");
 
 export const d03: Demo = {
   id: "D-03",
@@ -145,7 +163,12 @@ export const d03: Demo = {
     await prepararEnsayoD(c);
     await borrarApi();
     // En ensayo los portales son simulados: si su inicio de sesión falla, el ensayo sigue (en el laboratorio, no).
-    if (c.estudio.ensayo) await c.ingresarWso2("publisher").catch((err: unknown) => c.avisar(`(ensayo) Publisher: ${err instanceof Error ? err.message.split("\n")[0] : err}`));
+    if (c.estudio.ensayo)
+      await c
+        .ingresarWso2("publisher")
+        .catch((err: unknown) =>
+          c.avisar(`(ensayo) Publisher: ${err instanceof Error ? err.message.split("\n")[0] : err}`),
+        );
     else await c.ingresarWso2("publisher");
     return ["la API de ejemplo ReportesInternos no existe en WSO2"];
   },
@@ -157,45 +180,84 @@ export const d03: Demo = {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "api.yaml"), API_YAML);
     const malo = readFileSync(desdeRaiz("wso2/apim/apis/_ejemplos/contrato-incumple.yaml"), "utf8");
-    const listar = async () => ((await w.publisher.listApis(`name:"${NOMBRE}"`)).list ?? []).filter((a) => a.name === NOMBRE);
+    const listar = async () =>
+      ((await w.publisher.listApis(`name:"${NOMBRE}"`)).list ?? []).filter((a) => a.name === NOMBRE);
 
     // ── 1. Guía y paso de CI ───────────────────────────────────────────────────────────────────────
     await abrir(c, PASOS_D03[0]!);
-    const guia = parse(readFileSync(GUIA, "utf8")) as { rules: Record<string, { description: string; severity: string }> };
+    const guia = parse(readFileSync(GUIA, "utf8")) as {
+      rules: Record<string, { description: string; severity: string }>;
+    };
     const filas = Object.entries(guia.rules)
       .filter(([id]) => !/-(put|post|delete|patch)$/.test(id))
-      .map(([id, r]) => `<tr><td><code>${escaparHtml(id.replace(/-get$/, ""))}</code></td><td class="${r.severity === "error" ? "mal" : ""}">${r.severity}</td><td>${escaparHtml(r.description)}</td></tr>`)
+      .map(
+        ([id, r]) =>
+          `<tr><td><code>${escaparHtml(id.replace(/-get$/, ""))}</code></td><td class="${r.severity === "error" ? "mal" : ""}">${r.severity}</td><td>${escaparHtml(r.description)}</td></tr>`,
+      )
       .join("");
-    c.panel(`<h3>wso2/apim/governance/guia-estilo-institucional.yaml (${Object.keys(guia.rules).length} reglas)</h3><table><tr><th>Regla</th><th>Severidad</th><th>Qué exige</th></tr>${filas}</table>`);
+    c.panel(
+      `<h3>wso2/apim/governance/guia-estilo-institucional.yaml (${Object.keys(guia.rules).length} reglas)</h3><table><tr><th>Regla</th><th>Severidad</th><th>Qué exige</th></tr>${filas}</table>`,
+    );
     await c.vista("terminal-panel");
-    c.log(".github/workflows/ci.yml · trabajo «contratos» (bloqueante): pnpm --filter @nexo/nexo-ctl contratos", "tenue");
+    c.log(
+      ".github/workflows/ci.yml · trabajo «contratos» (bloqueante): pnpm --filter @nexo/nexo-ctl contratos",
+      "tenue",
+    );
     const ci = await comando(c, "pnpm --silent --filter @nexo/nexo-ctl contratos", {
       cwd: desdeRaiz(),
-      filtro: (l) => (/Resultado|Contratos:|Esquema|Validación del contrato/.test(l) ? SIN_RUTA(l) : undefined),
+      filtro: (l) =>
+        /Resultado|Contratos:|Esquema|Validación del contrato/.test(l) ? SIN_RUTA(l) : undefined,
     });
     const cumplen = ci.salida.filter((l) => /Resultado: 0 errores/.test(l)).length;
     c.log(`(código de salida ${ci.codigo})`, ci.codigo === 0 ? "tenue" : "mal");
-    e.comprueba("los contratos versionados cumplen la guía", ci.codigo === 0, `código ${ci.codigo}${cumplen ? ` · ${cumplen} contratos sin errores` : ""}`);
+    e.comprueba(
+      "los contratos versionados cumplen la guía",
+      ci.codigo === 0,
+      `código ${ci.codigo}${cumplen ? ` · ${cumplen} contratos sin errores` : ""}`,
+    );
 
     // ── 2. Contrato que no cumple: pipeline bloqueado ──────────────────────────────────────────────
     await abrir(c, PASOS_D03[1]!);
     writeFileSync(join(dir, "openapi.yaml"), malo);
     await c.vista("dividido");
     await c.ir("https://apim:9443/publisher/apis");
-    const r1 = await nexoCtl(c, ["api", "deploy", dir, "-s", "dev", "-m", "Primera versión"], { local: true, filtro: SIN_RUTA });
+    const r1 = await nexoCtl(c, ["api", "deploy", dir, "-s", "dev", "-m", "Primera versión"], {
+      local: true,
+      filtro: SIN_RUTA,
+    });
     const enWso2 = await listar();
-    e.comprueba("pipeline bloqueado (código de salida 2)", r1.codigo === 2 && r1.salida.some((l) => l.includes("PROMOCIÓN BLOQUEADA")), `código ${r1.codigo} · ${r1.salida.filter((l) => /\[error\]/.test(l)).length} errores de la guía`);
+    e.comprueba(
+      "pipeline bloqueado (código de salida 2)",
+      r1.codigo === 2 && r1.salida.some((l) => l.includes("PROMOCIÓN BLOQUEADA")),
+      `código ${r1.codigo} · ${r1.salida.filter((l) => /\[error\]/.test(l)).length} errores de la guía`,
+    );
     e.comprueba("nada llegó a WSO2", enWso2.length === 0, `${enWso2.length} APIs ${NOMBRE} en el Publisher`);
     await c.app.reload();
     await e.esperar(1500);
 
     // ── 3. Carga manual: WSO2 bloquea el despliegue ────────────────────────────────────────────────
     await abrir(c, PASOS_D03[2]!);
-    c.log("admin → POST https://apim:9443/api/am/publisher/v4/apis/import-openapi   # carga manual en WSO2, sin pasar por el pipeline", "cmd");
-    const manual = await w.publisher.importOpenApi(malo, { name: NOMBRE, version: "1.0.0", context: "/reportes-internos", policies: ["Interno"], endpointConfig: { endpoint_type: "http", production_endpoints: { url: "http://ocultas:7001" }, sandbox_endpoints: { url: "http://ocultas:7001" } } } as never);
+    c.log(
+      "admin → POST https://apim:9443/api/am/publisher/v4/apis/import-openapi   # carga manual en WSO2, sin pasar por el pipeline",
+      "cmd",
+    );
+    const manual = await w.publisher.importOpenApi(malo, {
+      name: NOMBRE,
+      version: "1.0.0",
+      context: "/reportes-internos",
+      policies: ["Interno"],
+      endpointConfig: {
+        endpoint_type: "http",
+        production_endpoints: { url: "http://ocultas:7001" },
+        sandbox_endpoints: { url: "http://ocultas:7001" },
+      },
+    } as never);
     const idManual = String((manual as { id?: string }).id ?? "");
     c.log(`  API creada en el Publisher (${idManual.slice(0, 8)}…), sin desplegar`, "tenue");
-    c.log(`admin → POST https://apim:9443/api/am/publisher/v4/apis/${idManual.slice(0, 8)}…/revisions   # revisión para desplegarla`, "cmd");
+    c.log(
+      `admin → POST https://apim:9443/api/am/publisher/v4/apis/${idManual.slice(0, 8)}…/revisions   # revisión para desplegarla`,
+      "cmd",
+    );
     let bloqueo = "";
     let creoRevision = false;
     try {
@@ -207,15 +269,29 @@ export const d03: Demo = {
     const detalle = (() => {
       try {
         const b = JSON.parse(bloqueo) as { code?: number; message?: string; description?: string };
-        const v = JSON.parse(b.description ?? "{}") as { blockingViolations?: Array<{ ruleName: string; message: string }> };
+        const v = JSON.parse(b.description ?? "{}") as {
+          blockingViolations?: Array<{ ruleName: string; message: string }>;
+        };
         return { codigo: b.code, mensaje: b.message ?? "", violaciones: v.blockingViolations ?? [] };
       } catch {
-        return { codigo: undefined, mensaje: bloqueo.slice(0, 120), violaciones: [] as Array<{ ruleName: string; message: string }> };
+        return {
+          codigo: undefined,
+          mensaje: bloqueo.slice(0, 120),
+          violaciones: [] as Array<{ ruleName: string; message: string }>,
+        };
       }
     })();
-    c.log(`  HTTP ${detalle.codigo ?? (creoRevision ? 201 : "?")} · ${detalle.mensaje || (creoRevision ? "revisión creada" : "")}`, creoRevision ? "mal" : "aviso");
-    for (const v of detalle.violaciones.slice(0, 7)) c.log(`  [bloqueante] ${v.ruleName}: ${v.message}`, "aviso");
-    e.comprueba("WSO2 bloquea el despliegue del contrato no conforme", !creoRevision && /governance/i.test(detalle.mensaje) && detalle.violaciones.length > 0, `${detalle.violaciones.length} violaciones bloqueantes`);
+    c.log(
+      `  HTTP ${detalle.codigo ?? (creoRevision ? 201 : "?")} · ${detalle.mensaje || (creoRevision ? "revisión creada" : "")}`,
+      creoRevision ? "mal" : "aviso",
+    );
+    for (const v of detalle.violaciones.slice(0, 7))
+      c.log(`  [bloqueante] ${v.ruleName}: ${v.message}`, "aviso");
+    e.comprueba(
+      "WSO2 bloquea el despliegue del contrato no conforme",
+      !creoRevision && /governance/i.test(detalle.mensaje) && detalle.violaciones.length > 0,
+      `${detalle.violaciones.length} violaciones bloqueantes`,
+    );
     if (idManual) {
       await c.app.goto(`https://apim:9443/publisher/apis/${idManual}/overview`).catch(() => undefined);
       const cumplimiento = c.app.getByText("Compliance", { exact: true }).first();
@@ -224,23 +300,37 @@ export const d03: Demo = {
         await e.esperar(2500);
         await ampliar(c, c.app.getByText(/violation|infracci|incumpl/i).first(), 2400);
       }
-      await w.request({ method: "DELETE", path: `/api/am/publisher/v4/apis/${idManual}` }).catch(() => undefined);
+      await w
+        .request({ method: "DELETE", path: `/api/am/publisher/v4/apis/${idManual}` })
+        .catch(() => undefined);
       c.log("  (se elimina la API cargada a mano)", "tenue");
     }
 
     // ── 4. Contrato corregido: publicado ───────────────────────────────────────────────────────────
     await abrir(c, PASOS_D03[3]!);
     writeFileSync(join(dir, "openapi.yaml"), CORREGIDO);
-    c.log("cambios: rutas en kebab-case, contacto, descripción, versión semántica, summary, HTTPS y OAuth en vez de HTTP basic", "tenue");
+    c.log(
+      "cambios: rutas en kebab-case, contacto, descripción, versión semántica, summary, HTTPS y OAuth en vez de HTTP basic",
+      "tenue",
+    );
     const r2 = await nexoCtl(c, ["api", "deploy", dir, "-s", "dev", "-m", "Contrato corregido"], {
       filtro: SIN_RUTA,
       simulado: { codigo: 0, salida: ["(ensayo) Resultado: 0 errores, 2 advertencias, 0 info."] },
       ensayoPublica: NOMBRE,
     });
     // La búsqueda del Publisher indexa con unos segundos de retraso.
-    const encontrada = await esperarHasta(async () => (await listar())[0], (a) => !!a, c.estudio.ensayo ? 3 : 30, 1500);
+    const encontrada = await esperarHasta(
+      async () => (await listar())[0],
+      (a) => !!a,
+      c.estudio.ensayo ? 3 : 30,
+      1500,
+    );
     const creada = encontrada?.valor;
-    e.comprueba("contrato corregido promovido y publicado", r2.codigo === 0 && !!creada && creada.lifeCycleStatus === "PUBLISHED", creada ? `${creada.lifeCycleStatus} en Desarrollo` : `código ${r2.codigo}`);
+    e.comprueba(
+      "contrato corregido promovido y publicado",
+      r2.codigo === 0 && !!creada && creada.lifeCycleStatus === "PUBLISHED",
+      creada ? `${creada.lifeCycleStatus} en Desarrollo` : `código ${r2.codigo}`,
+    );
     if (creada) {
       await c.app.goto(`https://apim:9443/publisher/apis/${creada.id}/overview`).catch(() => undefined);
       await ampliar(c, c.app.getByText(/PUBLISHED|Published|Publicad/).first(), 2400);
@@ -250,17 +340,30 @@ export const d03: Demo = {
     await abrir(c, PASOS_D03[4]!);
     await c.vista("terminal");
     const guia2 = parse(readFileSync(GUIA, "utf8")) as { rules: Record<string, { severity: string }> };
-    for (const id of Object.keys(guia2.rules)) if (id.startsWith("nexo-etiquetas-")) guia2.rules[id]!.severity = "error";
+    for (const id of Object.keys(guia2.rules))
+      if (id.startsWith("nexo-etiquetas-")) guia2.rules[id]!.severity = "error";
     const guiaPropia = join(c.archivos, "guia-institucion.yaml");
     writeFileSync(guiaPropia, stringify(guia2));
     c.log("guia-institucion.yaml: las reglas nexo-etiquetas-* pasan de «warn» a «error»", "tenue");
-    const r3 = await nexoCtl(c, ["api", "lint", join(dir, "openapi.yaml"), "-r", guiaPropia], { local: true, filtro: SIN_RUTA });
-    e.comprueba("con la regla endurecida el contrato se rechaza", r3.codigo === 2 && r3.salida.some((l) => /nexo-etiquetas/.test(l)), `código ${r3.codigo} · ${r3.salida.filter((l) => /\[error\] nexo-etiquetas/.test(l)).length} operaciones sin etiquetas`);
+    const r3 = await nexoCtl(c, ["api", "lint", join(dir, "openapi.yaml"), "-r", guiaPropia], {
+      local: true,
+      filtro: SIN_RUTA,
+    });
+    e.comprueba(
+      "con la regla endurecida el contrato se rechaza",
+      r3.codigo === 2 && r3.salida.some((l) => /nexo-etiquetas/.test(l)),
+      `código ${r3.codigo} · ${r3.salida.filter((l) => /\[error\] nexo-etiquetas/.test(l)).length} operaciones sin etiquetas`,
+    );
     await e.esperar(2000);
 
     return {
       medido: `contrato no conforme bloqueado por el pipeline (código 2, nada llegó a WSO2) y por la política de gobierno de WSO2 (${detalle.violaciones.length} violaciones); corregido, se publicó; con la guía endurecida, se rechazó`,
-      datos: { violacionesWso2: detalle.violaciones.length, codigoBloqueo: r1.codigo, codigoEndurecida: r3.codigo, comandoDeploy: `pnpm ${lineaShell(argsNexoCtl(["api", "deploy", "<proyecto>", "-s", "dev"]))}` },
+      datos: {
+        violacionesWso2: detalle.violaciones.length,
+        codigoBloqueo: r1.codigo,
+        codigoEndurecida: r3.codigo,
+        comandoDeploy: `pnpm ${lineaShell(argsNexoCtl(["api", "deploy", "<proyecto>", "-s", "dev"]))}`,
+      },
     };
   },
 

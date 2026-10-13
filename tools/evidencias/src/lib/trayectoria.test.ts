@@ -91,7 +91,10 @@ describe("punto de llegada y vista", () => {
   });
 
   it("nunca apunta fuera del área visible", () => {
-    expect(puntoObjetivo({ x: -50, y: 700, width: 40, height: 60 }, { width: 800, height: 720 })).toEqual({ x: 2, y: 718 });
+    expect(puntoObjetivo({ x: -50, y: 700, width: 40, height: 60 }, { width: 800, height: 720 })).toEqual({
+      x: 2,
+      y: 718,
+    });
   });
 
   it("dentroDeVista exige el objetivo completo con margen vertical", () => {

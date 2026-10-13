@@ -29,7 +29,10 @@ describe("ventanaZoom (V05: ampliación en vivo ×1,8)", () => {
     expect(v.factor).toBeGreaterThanOrEqual(1.5);
     expect(v.width).toBeGreaterThanOrEqual(700 * 1.12);
     expect(ventanaZoom({ x: 0, y: 0, width: 2000, height: 2000 }, VISTA).factor).toBe(1);
-    expect(ventanaZoom({ x: 0, y: 0, width: 300, height: 700 }, VISTA).factor).toBeCloseTo(860 / (700 * 1.12), 1);
+    expect(ventanaZoom({ x: 0, y: 0, width: 300, height: 700 }, VISTA).factor).toBeCloseTo(
+      860 / (700 * 1.12),
+      1,
+    );
   });
 
   it("un objetivo más ancho que lo ampliado (fila de tabla) se amplía ×1,5 desde su borde izquierdo", () => {

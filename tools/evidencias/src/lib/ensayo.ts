@@ -55,7 +55,12 @@ export interface RolloutEnsayo {
 }
 
 /** Estado simulado del despliegue `r` a los `seg` segundos de aprobado (función pura, se prueba aparte). */
-export function avanzarRollout(r: RolloutEnsayo, seg: number, fallaCandidata: number, rps = 20): RolloutEnsayo {
+export function avanzarRollout(
+  r: RolloutEnsayo,
+  seg: number,
+  fallaCandidata: number,
+  rps = 20,
+): RolloutEnsayo {
   if (r.status !== "en_curso" && r.status !== "pendiente_aprobacion") return r;
   if (r.status === "pendiente_aprobacion") return r;
   const pasos: PasoRollout[] = [];
@@ -63,38 +68,74 @@ export function avanzarRollout(r: RolloutEnsayo, seg: number, fallaCandidata: nu
   if (r.strategy === "blue_green") {
     const fin = Math.max(2, r.stepDurationSec);
     if (seg < fin) return { ...r, currentWeight: 0, stepsDone: [] };
-    return { ...r, status: "completado", currentWeight: 100, stepsDone: [{ kind: "peso", weight: 100, requests: Math.round(fin * rps), decision: "completa", errorRate: 0 }] };
+    return {
+      ...r,
+      status: "completado",
+      currentWeight: 100,
+      stepsDone: [
+        { kind: "peso", weight: 100, requests: Math.round(fin * rps), decision: "completa", errorRate: 0 },
+      ],
+    };
   }
   if (r.shadowSeconds > 0) {
     const decide = fallaCandidata > 0 ? Math.min(r.shadowSeconds, 6) : r.shadowSeconds;
     if (seg < decide) return { ...r, currentWeight: 0, stepsDone: [] };
-    const sombra: PasoRollout = { kind: "sombra", weight: 0, requests: Math.round(decide * rps), decision: fallaCandidata > 0.02 ? "revierte" : "avanza", errorRate: fallaCandidata };
+    const sombra: PasoRollout = {
+      kind: "sombra",
+      weight: 0,
+      requests: Math.round(decide * rps),
+      decision: fallaCandidata > 0.02 ? "revierte" : "avanza",
+      errorRate: fallaCandidata,
+    };
     pasos.push(sombra);
     if (sombra.decision === "revierte")
-      return { ...r, status: "revertido", currentWeight: 0, stepsDone: pasos, rollbackReason: `sombra: tasa de error ${Math.round(fallaCandidata * 100)} % supera el umbral de 2 %` };
+      return {
+        ...r,
+        status: "revertido",
+        currentWeight: 0,
+        stepsDone: pasos,
+        rollbackReason: `sombra: tasa de error ${Math.round(fallaCandidata * 100)} % supera el umbral de 2 %`,
+      };
     t = decide;
   }
   for (const peso of r.steps) {
     if (seg < t + r.stepDurationSec) return { ...r, currentWeight: peso, stepsDone: pasos };
-    pasos.push({ kind: "peso", weight: peso, requests: Math.round(r.stepDurationSec * rps * (peso / 100)), decision: peso === 100 ? "completa" : "avanza", errorRate: 0 });
+    pasos.push({
+      kind: "peso",
+      weight: peso,
+      requests: Math.round(r.stepDurationSec * rps * (peso / 100)),
+      decision: peso === 100 ? "completa" : "avanza",
+      errorRate: 0,
+    });
     t += r.stepDurationSec;
   }
   return { ...r, status: "completado", currentWeight: 100, stepsDone: pasos };
 }
 
 const json = (res: ServerResponse, status: number, cuerpo: unknown, extra: Record<string, string> = {}) => {
-  res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-ensayo": "1", ...extra });
+  res.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "x-ensayo": "1",
+    ...extra,
+  });
   res.end(JSON.stringify(cuerpo));
 };
 const html = (res: ServerResponse, cuerpo: string, extra: Record<string, string> = {}) => {
-  res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-ensayo": "1", ...extra });
+  res.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+    "x-ensayo": "1",
+    ...extra,
+  });
   res.end(cuerpo);
 };
 const redirigir = (res: ServerResponse, a: string, extra: Record<string, string> = {}) => {
   res.writeHead(302, { location: a, "cache-control": "no-store", ...extra });
   res.end();
 };
-const esc = (t: string) => t.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+const esc = (t: string) =>
+  t.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 function leer(req: IncomingMessage): Promise<string> {
   return new Promise((ok, mal) => {
@@ -122,7 +163,11 @@ export function tokenEnsayo(sujeto: string): string {
   return `${b64({ alg: "none", typ: "JWT" })}.${b64({ sub: sujeto, preferred_username: sujeto, ensayo: true, exp: Math.floor(Date.now() / 1000) + 3600 })}.ensayo`;
 }
 
-const PAGINA = (titulo: string, cuerpo: string, estilo = "") => `<!doctype html><html lang="es-CL"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
+const PAGINA = (
+  titulo: string,
+  cuerpo: string,
+  estilo = "",
+) => `<!doctype html><html lang="es-CL"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
 <style>
   body { margin: 0; font: 15px/1.4 "Liberation Sans", "DejaVu Sans", Arial, sans-serif; color: #1f2933; background: #f2f4f7; }
   .ensayo { position: fixed; top: 0; right: 0; background: #c62828; color: #fff; font: bold 12px/1 Arial; letter-spacing: .14em; padding: 6px 12px; border-bottom-left-radius: 8px; z-index: 10; }
@@ -140,7 +185,12 @@ export class ServidorEnsayo {
   private abortados = new Set<string>();
   private falla: Record<"v1" | "v2", number> = { v1: 0, v2: 0 };
   private fallaAlAprobar = new Map<string, number>();
-  private ruta = { apiId: "api-concesiones", apiName: "Concesiones 1.0.0", stableUrl: V1, rolloutId: undefined as string | undefined };
+  private ruta = {
+    apiId: "api-concesiones",
+    apiName: "Concesiones 1.0.0",
+    stableUrl: V1,
+    rolloutId: undefined as string | undefined,
+  };
   private contador = 0;
   private llamadas = 0;
   private sesionesWso2 = new Set<string>();
@@ -148,7 +198,9 @@ export class ServidorEnsayo {
   /** Puerto por defecto 5174; EVIDENCIAS_PUERTO_ENSAYO lo cambia (p. ej. para dos ensayos a la vez). */
   constructor(o: { puerto?: number } = {}) {
     const delEntorno = Number(process.env.EVIDENCIAS_PUERTO_ENSAYO);
-    this.puerto = o.puerto ?? (Number.isInteger(delEntorno) && delEntorno > 1024 && delEntorno < 65536 ? delEntorno : 5174);
+    this.puerto =
+      o.puerto ??
+      (Number.isInteger(delEntorno) && delEntorno > 1024 && delEntorno < 65536 ? delEntorno : 5174);
   }
 
   get url(): string {
@@ -198,11 +250,13 @@ export class ServidorEnsayo {
     if (p.startsWith("/gateway/")) return this.gateway(res, p);
     if (p === "/chaos-v1/_chaos" || p === "/chaos-v2/_chaos") {
       const v = p.includes("v1") ? "v1" : "v2";
-      if (metodo === "POST") this.falla[v] = Number(cuerpoComo(await leer(req), req.headers["content-type"]).failRate ?? 0);
+      if (metodo === "POST")
+        this.falla[v] = Number(cuerpoComo(await leer(req), req.headers["content-type"]).failRate ?? 0);
       return json(res, 200, { failRate: this.falla[v], ensayo: true });
     }
     if (p.startsWith("/wso2/")) return this.wso2(req, res, url, p.slice("/wso2".length));
-    if (p === "/" || p === "/salud") return json(res, 200, { servidor: "ensayo de evidencias", ensayo: true });
+    if (p === "/" || p === "/salud")
+      return json(res, 200, { servidor: "ensayo de evidencias", ensayo: true });
     res.writeHead(404, { "content-type": "text/plain; charset=utf-8" }).end(`ensayo: ${p} no existe`);
   }
 
@@ -211,8 +265,14 @@ export class ServidorEnsayo {
     if (p.endsWith("/protocol/openid-connect/token")) {
       const b = cuerpoComo(await leer(req), req.headers["content-type"]);
       const auth = req.headers.authorization;
-      const cliente = auth?.startsWith("Basic ") ? Buffer.from(auth.slice(6), "base64").toString().split(":")[0] : undefined;
-      return json(res, 200, { access_token: tokenEnsayo(b.username ?? cliente ?? "aplicacion"), expires_in: 3600, token_type: "Bearer" });
+      const cliente = auth?.startsWith("Basic ")
+        ? Buffer.from(auth.slice(6), "base64").toString().split(":")[0]
+        : undefined;
+      return json(res, 200, {
+        access_token: tokenEnsayo(b.username ?? cliente ?? "aplicacion"),
+        expires_in: 3600,
+        token_type: "Bearer",
+      });
     }
     if (p.endsWith("/protocol/openid-connect/auth")) {
       const destino = `/realms/nexo/login-actions/authenticate?${new URLSearchParams({ redirect_uri: url.searchParams.get("redirect_uri") ?? "", state: url.searchParams.get("state") ?? "" })}`;
@@ -235,7 +295,10 @@ export class ServidorEnsayo {
       const b = cuerpoComo(await leer(req), req.headers["content-type"]);
       const vuelta = url.searchParams.get("redirect_uri") ?? "http://localhost:5173/auth/callback";
       const sep = vuelta.includes("?") ? "&" : "?";
-      return redirigir(res, `${vuelta}${sep}code=${encodeURIComponent(`ensayo.${b.username ?? "persona"}`)}&state=${encodeURIComponent(url.searchParams.get("state") ?? "")}`);
+      return redirigir(
+        res,
+        `${vuelta}${sep}code=${encodeURIComponent(`ensayo.${b.username ?? "persona"}`)}&state=${encodeURIComponent(url.searchParams.get("state") ?? "")}`,
+      );
     }
     if (p.endsWith("/protocol/openid-connect/logout")) {
       const vuelta = url.searchParams.get("post_logout_redirect_uri") ?? "http://localhost:5173/";
@@ -255,19 +318,30 @@ export class ServidorEnsayo {
 
   // ── API de la Consola ─────────────────────────────────────────────────────────────────────────────
   private async api(req: IncomingMessage, res: ServerResponse, metodo: string, p: string): Promise<void> {
-    const cuerpo = metodo === "GET" || metodo === "HEAD" ? {} : (cuerpoComo(await leer(req), req.headers["content-type"]) as Record<string, unknown>);
+    const cuerpo =
+      metodo === "GET" || metodo === "HEAD"
+        ? {}
+        : (cuerpoComo(await leer(req), req.headers["content-type"]) as Record<string, unknown>);
     const usuario = (() => {
       const t = req.headers.authorization?.replace(/^Bearer /, "") ?? "";
       try {
-        return (JSON.parse(Buffer.from(t.split(".")[1] ?? "", "base64url").toString()) as { preferred_username?: string }).preferred_username ?? "persona";
+        return (
+          (
+            JSON.parse(Buffer.from(t.split(".")[1] ?? "", "base64url").toString()) as {
+              preferred_username?: string;
+            }
+          ).preferred_username ?? "persona"
+        );
       } catch {
         return "persona";
       }
     })();
     if (p === "/traffic-routes" && metodo === "GET") return json(res, 200, [{ ...this.ruta }]);
-    if (p === "/rollouts" && metodo === "GET") return json(res, 200, [...this.rollouts.keys()].map((id) => this.rollout(id)).reverse());
+    if (p === "/rollouts" && metodo === "GET")
+      return json(res, 200, [...this.rollouts.keys()].map((id) => this.rollout(id)).reverse());
     if (p === "/rollouts" && metodo === "POST") {
-      if (this.ruta.rolloutId && this.rollout(this.ruta.rolloutId)?.status === "en_curso") return json(res, 409, { message: "ya hay un despliegue en curso (ensayo)" });
+      if (this.ruta.rolloutId && this.rollout(this.ruta.rolloutId)?.status === "en_curso")
+        return json(res, 409, { message: "ya hay un despliegue en curso (ensayo)" });
       const id = `ens-${String(++this.contador).padStart(3, "0")}`;
       const r: RolloutEnsayo = {
         id,
@@ -296,8 +370,14 @@ export class ServidorEnsayo {
       if (!r) return json(res, 404, { message: "no existe (ensayo)" });
       if (m[3] === "approve" && metodo === "POST") {
         if (r.status !== "pendiente_aprobacion") return json(res, 409, { message: "no está pendiente" });
-        if (r.requestedBy === usuario) return json(res, 403, { message: "quien solicita no aprueba (regla de cuatro ojos)" });
-        const aprobado: RolloutEnsayo = { ...r, status: "en_curso", approvedAt: new Date().toISOString(), approvedBy: usuario };
+        if (r.requestedBy === usuario)
+          return json(res, 403, { message: "quien solicita no aprueba (regla de cuatro ojos)" });
+        const aprobado: RolloutEnsayo = {
+          ...r,
+          status: "en_curso",
+          approvedAt: new Date().toISOString(),
+          approvedBy: usuario,
+        };
         this.rollouts.set(id, aprobado);
         this.aprobado.set(id, Date.now());
         this.fallaAlAprobar.set(id, aprobado.candidateEndpoint === V2 ? this.falla.v2 : this.falla.v1);
@@ -305,7 +385,12 @@ export class ServidorEnsayo {
         return json(res, 200, aprobado);
       }
       if (m[3] === "abort" && metodo === "POST") {
-        const ab: RolloutEnsayo = { ...r, status: "abortado", finishedAt: new Date().toISOString(), rollbackReason: String(cuerpo.reason ?? "abortado") };
+        const ab: RolloutEnsayo = {
+          ...r,
+          status: "abortado",
+          finishedAt: new Date().toISOString(),
+          rollbackReason: String(cuerpo.reason ?? "abortado"),
+        };
         this.rollouts.set(id, ab);
         this.abortados.add(id);
         this.ruta.rolloutId = undefined;
@@ -313,7 +398,8 @@ export class ServidorEnsayo {
       }
       return json(res, 200, r);
     }
-    if (p === "/ensayo/estado") return json(res, 200, { ensayo: true, llamadas: this.llamadas, ruta: this.ruta, falla: this.falla });
+    if (p === "/ensayo/estado")
+      return json(res, 200, { ensayo: true, llamadas: this.llamadas, ruta: this.ruta, falla: this.falla });
     if (metodo === "GET") return json(res, 200, []);
     if (metodo === "DELETE") {
       res.writeHead(204, { "x-ensayo": "1" }).end();
@@ -327,10 +413,12 @@ export class ServidorEnsayo {
     const n = this.llamadas++;
     const en = this.ruta.rolloutId ? this.rollout(this.ruta.rolloutId) : undefined;
     let endpoint = this.ruta.stableUrl;
-    if (en?.status === "en_curso" && en.currentWeight > 0 && n % 100 < en.currentWeight) endpoint = en.candidateEndpoint;
+    if (en?.status === "en_curso" && en.currentWeight > 0 && n % 100 < en.currentWeight)
+      endpoint = en.candidateEndpoint;
     const version = VERSION_DE[endpoint] ?? "1.0.0";
     const falla = endpoint === V2 ? this.falla.v2 : this.falla.v1;
-    if (falla > 0 && n % 100 < falla * 100) return json(res, 500, { error: "falla inyectada (ensayo)" }, { "x-backend-version": version });
+    if (falla > 0 && n % 100 < falla * 100)
+      return json(res, 500, { error: "falla inyectada (ensayo)" }, { "x-backend-version": version });
     json(
       res,
       200,
@@ -346,16 +434,37 @@ export class ServidorEnsayo {
   private async wso2(req: IncomingMessage, res: ServerResponse, url: URL, p: string): Promise<void> {
     if (p.startsWith("/api/am/devportal/v3/applications")) {
       if (/\/oauth-keys$/.test(p))
-        return json(res, 200, { count: 1, list: [{ keyManager: "Keycloak", keyType: "PRODUCTION", consumerKey: "ensayo-ck", consumerSecret: "ensayo-cs" }] });
+        return json(res, 200, {
+          count: 1,
+          list: [
+            {
+              keyManager: "Keycloak",
+              keyType: "PRODUCTION",
+              consumerKey: "ensayo-ck",
+              consumerSecret: "ensayo-cs",
+            },
+          ],
+        });
       return json(res, 200, {
         count: 2,
         list: [
-          { applicationId: "app-ensayo-1", name: "OperadorDemo", throttlingPolicy: "Unlimited", status: "APPROVED" },
-          { applicationId: "app-ensayo-2", name: "ReportesEnsayo", throttlingPolicy: "Unlimited", status: "APPROVED" },
+          {
+            applicationId: "app-ensayo-1",
+            name: "OperadorDemo",
+            throttlingPolicy: "Unlimited",
+            status: "APPROVED",
+          },
+          {
+            applicationId: "app-ensayo-2",
+            name: "ReportesEnsayo",
+            throttlingPolicy: "Unlimited",
+            status: "APPROVED",
+          },
         ],
       });
     }
-    if (p.startsWith("/api/am/")) return json(res, 200, req.method === "GET" ? { count: 0, list: [] } : { ensayo: true });
+    if (p.startsWith("/api/am/"))
+      return json(res, 200, req.method === "GET" ? { count: 0, list: [] } : { ensayo: true });
     if (p.startsWith("/authenticationendpoint/login.do")) {
       const portal = url.searchParams.get("portal") ?? "publisher";
       return html(
@@ -376,14 +485,18 @@ export class ServidorEnsayo {
       const sesion = `s${Date.now().toString(36)}`;
       this.sesionesWso2.add(sesion);
       const portal = url.searchParams.get("portal") ?? "publisher";
-      return redirigir(res, `/${portal}/${portal === "admin" ? "" : "apis"}`, { "set-cookie": `ensayo_wso2=${sesion}; Path=/; HttpOnly`, "x-usuario": b.username ?? "" });
+      return redirigir(res, `/${portal}/${portal === "admin" ? "" : "apis"}`, {
+        "set-cookie": `ensayo_wso2=${sesion}; Path=/; HttpOnly`,
+        "x-usuario": b.username ?? "",
+      });
     }
     const m = /^\/(publisher|devportal|admin)(\/.*)?$/.exec(p);
     if (m) {
       const portal = m[1]!;
       const sesion = /ensayo_wso2=([^;]+)/.exec(req.headers.cookie ?? "")?.[1];
       const conectado = sesion !== undefined && this.sesionesWso2.has(sesion);
-      if (!conectado && portal !== "devportal") return redirigir(res, `/authenticationendpoint/login.do?portal=${portal}`);
+      if (!conectado && portal !== "devportal")
+        return redirigir(res, `/authenticationendpoint/login.do?portal=${portal}`);
       return html(res, portalWso2(portal, conectado));
     }
     return json(res, 404, { message: "ensayo: no existe" });
@@ -391,11 +504,20 @@ export class ServidorEnsayo {
 }
 
 function portalWso2(portal: string, conectado: boolean): string {
-  const nombre = { publisher: "Publisher", devportal: "Developer Portal", admin: "Admin Portal" }[portal] ?? portal;
+  const nombre =
+    { publisher: "Publisher", devportal: "Developer Portal", admin: "Admin Portal" }[portal] ?? portal;
   const filas = ["Concesiones", "Tarifas", "Espectro", "Reclamos", "Numeración"]
-    .map((n, i) => `<tr><td>${n}</td><td>1.${i % 2}.0</td><td>${i === 3 ? "CREATED" : "PUBLISHED"}</td><td>/${n.toLowerCase()}</td></tr>`)
+    .map(
+      (n, i) =>
+        `<tr><td>${n}</td><td>1.${i % 2}.0</td><td>${i === 3 ? "CREATED" : "PUBLISHED"}</td><td>/${n.toLowerCase()}</td></tr>`,
+    )
     .join("");
-  const acceso = conectado ? `<span>admin</span>` : `<a href="/authenticationendpoint/login.do?portal=${portal}" class="boton">REGISTRARSE</a>`;
+  const acceso = conectado
+    ? `<span>admin</span>`
+    : `<a href="/authenticationendpoint/login.do?portal=${portal}" class="boton">REGISTRARSE</a>`;
   const plantilla = readFileSync(resolve(PAQUETE, "ensayo/wso2/portal.html"), "utf8");
-  return plantilla.replaceAll("{{nombre}}", esc(nombre)).replace("{{acceso}}", acceso).replace("{{filas}}", filas);
+  return plantilla
+    .replaceAll("{{nombre}}", esc(nombre))
+    .replace("{{acceso}}", acceso)
+    .replace("{{filas}}", filas);
 }

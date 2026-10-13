@@ -189,9 +189,11 @@
     b.innerHTML = "<span>ENSAYO</span>";
     document.body.appendChild(b);
     // Nada falso en pantalla: la portada del diseño dice «Demostración registrada» y «contra el laboratorio».
-    for (const el of document.querySelectorAll("#portada .sobretitulo, #p-sobretitulo")) el.textContent = "Ensayo del motor · no es evidencia";
+    for (const el of document.querySelectorAll("#portada .sobretitulo, #p-sobretitulo"))
+      el.textContent = "Ensayo del motor · no es evidencia";
     for (const el of document.querySelectorAll("#portada .nota, #p-nota"))
-      el.textContent = "ENSAYO sin laboratorio: páginas y respuestas simuladas por un servidor local. Sirve solo para probar el motor de grabación; no es evidencia y no se publica.";
+      el.textContent =
+        "ENSAYO sin laboratorio: páginas y respuestas simuladas por un servidor local. Sirve solo para probar el motor de grabación; no es evidencia y no se publica.";
   }
 
   function asegurarChip(id) {
@@ -397,7 +399,10 @@
     document.body.dataset.paso = String(p.n || 0);
     const lateral = $("lateral");
     if (lateral) {
-      const norm = (t) => String(t || "").trim().toLowerCase();
+      const norm = (t) =>
+        String(t || "")
+          .trim()
+          .toLowerCase();
       lateral.classList.toggle("repite", !!p.quePasa && norm(p.quePasa) === norm(p.titulo));
       if (lateral.dataset.n !== String(p.n)) {
         lateral.dataset.n = String(p.n);
@@ -482,13 +487,18 @@
           continue;
         }
         // Sin ✗ que mostrar, el recuadro del paso anterior cede su lugar (sus ✓ ya se leyeron en vivo).
-        if (!previos.some((li) => li.classList.contains("mal")) && !bloqueAnterior.classList.contains("sin-espacio")) {
+        if (
+          !previos.some((li) => li.classList.contains("mal")) &&
+          !bloqueAnterior.classList.contains("sin-espacio")
+        ) {
           bloqueAnterior.classList.add("sin-espacio");
           continue;
         }
       }
       if (ul.clientHeight <= 0) break;
-      const vivos = [...ul.children].filter((li) => li !== arriba && li !== abajo && !li.classList.contains("no-cabe"));
+      const vivos = [...ul.children].filter(
+        (li) => li !== arriba && li !== abajo && !li.classList.contains("no-cabe"),
+      );
       const cumplida = vivos.find((li) => li.classList.contains("ok"));
       const pendiente = [...vivos].reverse().find((li) => li.classList.contains("pendiente"));
       const quitar = cumplida || pendiente;
@@ -528,10 +538,13 @@
     }
     bloque.classList.add("visible");
     if (a.quedaMs !== undefined)
-      finAnterior = setTimeout(() => {
-        bloque.classList.remove("visible");
-        reacomodar();
-      }, Math.max(0, a.quedaMs));
+      finAnterior = setTimeout(
+        () => {
+          bloque.classList.remove("visible");
+          reacomodar();
+        },
+        Math.max(0, a.quedaMs),
+      );
   }
   function agregarComprobado(c, nuevo = true) {
     const ul = $("l-comprobado");
@@ -595,7 +608,8 @@
       seg.classList.toggle("actual", n === actual);
       const relleno = seg.firstElementChild;
       let u = n < actual ? 1 : 0;
-      if (n === actual && caps.inicioPaso) u = Math.min(0.97, (Date.now() - caps.inicioPaso) / 1000 / Math.max(minimo, caps.estimadoS || 20));
+      if (n === actual && caps.inicioPaso)
+        u = Math.min(0.97, (Date.now() - caps.inicioPaso) / 1000 / Math.max(minimo, caps.estimadoS || 20));
       if (relleno) relleno.style.width = `${(u * 100).toFixed(1)}%`;
     }
   }
@@ -615,7 +629,9 @@
     let pagina = 0;
     clearInterval(paginador);
     const mostrar = () => {
-      lista("r-verificaciones", todas.slice(pagina * porPagina, (pagina + 1) * porPagina), (v) => (v.ok ? "" : "mal"));
+      lista("r-verificaciones", todas.slice(pagina * porPagina, (pagina + 1) * porPagina), (v) =>
+        v.ok ? "" : "mal",
+      );
       texto("r-pagina", paginas > 1 ? `Verificaciones ${pagina + 1} de ${paginas}` : "");
     };
     mostrar();
@@ -707,8 +723,17 @@
     return r;
   }
   function informarMedidas() {
-    const cuerpo = { vistas: medir(), lienzo: { ancho: innerWidth, alto: innerHeight }, compat, escala: escalaCompat };
-    fetch("/__estudio/medidas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(cuerpo) }).catch(() => undefined);
+    const cuerpo = {
+      vistas: medir(),
+      lienzo: { ancho: innerWidth, alto: innerHeight },
+      compat,
+      escala: escalaCompat,
+    };
+    fetch("/__estudio/medidas", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    }).catch(() => undefined);
   }
 
   asegurarLateralCompat();

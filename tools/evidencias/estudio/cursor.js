@@ -57,7 +57,8 @@
     if (!padre) return false;
     host = document.createElement("nexo-capa-cursor");
     host.setAttribute("aria-hidden", "true");
-    host.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483647;display:block;contain:layout style";
+    host.style.cssText =
+      "position:fixed;inset:0;pointer-events:none;z-index:2147483647;display:block;contain:layout style";
     raiz = host.attachShadow({ mode: "open" });
     try {
       const hoja = new CSSStyleSheet();
@@ -139,7 +140,12 @@
       return;
     }
     const m = 6;
-    Object.assign(recuadro.style, { left: `${caja.x - m}px`, top: `${caja.y - m}px`, width: `${caja.width + 2 * m}px`, height: `${caja.height + 2 * m}px` });
+    Object.assign(recuadro.style, {
+      left: `${caja.x - m}px`,
+      top: `${caja.y - m}px`,
+      width: `${caja.width + 2 * m}px`,
+      height: `${caja.height + 2 * m}px`,
+    });
     recuadro.classList.add("visible");
   }
 
@@ -234,7 +240,15 @@
     });
     Object.assign(lista.style, { left: `${r.left}px`, top: `${top}px`, width: `${ancho}px` });
     lista.classList.add("visible");
-    return visibles.map((o, i) => ({ x: r.left, y: top + i * alto, width: ancho, height: alto, texto: o.textContent, valor: o.value, indice: desde + i }));
+    return visibles.map((o, i) => ({
+      x: r.left,
+      y: top + i * alto,
+      width: ancho,
+      height: alto,
+      texto: o.textContent,
+      valor: o.value,
+      indice: desde + i,
+    }));
   }
 
   function resaltar(i) {

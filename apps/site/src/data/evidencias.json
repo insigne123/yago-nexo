@@ -399,11 +399,7 @@
       ],
       "data": {
         "lenguajes": 5,
-        "operaciones": [
-          "listarConcesiones",
-          "registrarSolicitud",
-          "obtenerConcesion"
-        ]
+        "operaciones": ["listarConcesiones", "registrarSolicitud", "obtenerConcesion"]
       }
     },
     {
@@ -581,10 +577,7 @@
       "data": {
         "correlacion": "urn:uuid:30d813ba-0ab6-4aef-8dee-07d3cb75672c",
         "segundosHastaFallidos": 15.232,
-        "servicios": [
-          "WSO2-SYNAPSE",
-          "API:Gateway"
-        ]
+        "servicios": ["WSO2-SYNAPSE", "API:Gateway"]
       }
     },
     {
@@ -785,11 +778,7 @@
       ],
       "data": {
         "artefactos": 8,
-        "tipos": [
-          "api",
-          "flujo",
-          "metadatos"
-        ],
+        "tipos": ["api", "flujo", "metadatos"],
         "eventosAuditoria": 345
       }
     }

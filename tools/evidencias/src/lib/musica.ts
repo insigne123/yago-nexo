@@ -22,7 +22,8 @@ import { createHash } from "node:crypto";
 /** Frecuencia de muestreo (Hz). */
 export const FM = 48_000;
 export const ESTILO = "ambiental cálido";
-export const AUTORIA = "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)";
+export const AUTORIA =
+  "Música original de Yago Nexo, generada por código (síntesis determinista propia, sin muestras ni audio de terceros)";
 export const FUNDIDO_ENTRADA_S = 2;
 export const FUNDIDO_SALIDA_S = 3;
 
@@ -63,9 +64,36 @@ interface Parametros {
 }
 
 const PARAMETROS: Record<Variante, Parametros> = {
-  1: { orden: ["Cmaj9", "Am9", "Fmaj7", "G6sus"], acorde: 7, cents: 6, corte: 1000, periodoLfo: 26, rt60: 5, sala: 1, densidad: 0.3 },
-  2: { orden: ["Am9", "Fmaj7", "Cmaj9", "G6sus"], acorde: 7.5, cents: 5, corte: 880, periodoLfo: 30, rt60: 5.5, sala: 1.08, densidad: 0.25 },
-  3: { orden: ["Fmaj7", "G6sus", "Am9", "Cmaj9"], acorde: 6.5, cents: 7, corte: 1120, periodoLfo: 23, rt60: 4.6, sala: 0.94, densidad: 0.34 },
+  1: {
+    orden: ["Cmaj9", "Am9", "Fmaj7", "G6sus"],
+    acorde: 7,
+    cents: 6,
+    corte: 1000,
+    periodoLfo: 26,
+    rt60: 5,
+    sala: 1,
+    densidad: 0.3,
+  },
+  2: {
+    orden: ["Am9", "Fmaj7", "Cmaj9", "G6sus"],
+    acorde: 7.5,
+    cents: 5,
+    corte: 880,
+    periodoLfo: 30,
+    rt60: 5.5,
+    sala: 1.08,
+    densidad: 0.25,
+  },
+  3: {
+    orden: ["Fmaj7", "G6sus", "Am9", "Cmaj9"],
+    acorde: 6.5,
+    cents: 7,
+    corte: 1120,
+    periodoLfo: 23,
+    rt60: 4.6,
+    sala: 0.94,
+    densidad: 0.34,
+  },
 };
 
 /** FNV-1a de 32 bits (semillas estables a partir de un texto). */
@@ -131,7 +159,11 @@ export function cantidadAcordes(duracion: number, p: Pick<Parametros, "orden" | 
   const j = p.orden.indexOf(TONICA);
   const cerca = (k: number) => Math.abs(duracion / k - p.acorde);
   const enRango: number[] = [];
-  for (let k = Math.max(1, Math.floor(duracion / ACORDE_MAX_S)); k <= Math.ceil(duracion / ACORDE_MIN_S); k++) {
+  for (
+    let k = Math.max(1, Math.floor(duracion / ACORDE_MAX_S));
+    k <= Math.ceil(duracion / ACORDE_MIN_S);
+    k++
+  ) {
     const d = duracion / k;
     if (d >= ACORDE_MIN_S && d <= ACORDE_MAX_S) enRango.push(k);
   }
@@ -151,7 +183,11 @@ export function planificar(duracion: number, variante: Variante): Plan {
   const azar = generador(semilla);
   const k = cantidadAcordes(duracion, p);
   const d = duracion / k;
-  const acordes: TramoAcorde[] = Array.from({ length: k }, (_, i) => ({ acorde: p.orden[i % p.orden.length]!, inicio: i * d, fin: (i + 1) * d }));
+  const acordes: TramoAcorde[] = Array.from({ length: k }, (_, i) => ({
+    acorde: p.orden[i % p.orden.length]!,
+    inicio: i * d,
+    fin: (i + 1) * d,
+  }));
   const piano: NotaPiano[] = [];
   const tiempo = d / 8;
   let previa = 67;
@@ -169,7 +205,11 @@ export function planificar(duracion: number, variante: Variante): Plan {
       const tiradaVel = azar();
       if (tirada >= prob || enAcorde >= 3 || t < 1.5 || t > duracion - 3.5) continue;
       // Caminata suave: se prefieren las notas del acorde cercanas a la anterior y al centro (Sol 4 a Do 5).
-      const pesos = candidatas.map((m) => ((m === previa ? 0.4 : 1) / (1 + Math.abs(m - previa) / 2.5) ** 2) * (1 / (1 + Math.abs(m - 69) / 6)));
+      const pesos = candidatas.map(
+        (m) =>
+          ((m === previa ? 0.4 : 1) / (1 + Math.abs(m - previa) / 2.5) ** 2) *
+          (1 / (1 + Math.abs(m - 69) / 6)),
+      );
       const total = pesos.reduce((a, b2) => a + b2, 0);
       let r = tiradaNota * total;
       let elegida = candidatas[0]!;
@@ -341,7 +381,8 @@ function notaPiano(L: Float64Array, R: Float64Array, nota: NotaPiano, azar: () =
     // Fase inicial al azar por parcial: el mismo espectro, sin que todas las parciales sumen su pico en el ataque.
     const fase = 2 * Math.PI * azar();
     // Las dos primeras parciales en «dos cuerdas» apenas desafinadas: batido lento, más cálido.
-    if (k <= 2) parciales.push({ f: fk * 0.99965, a: a / 2, tau, fase }, { f: fk * 1.00035, a: a / 2, tau, fase });
+    if (k <= 2)
+      parciales.push({ f: fk * 0.99965, a: a / 2, tau, fase }, { f: fk * 1.00035, a: a / 2, tau, fase });
     else parciales.push({ f: fk, a, tau, fase });
   }
   const env = new Float64Array(largo);
@@ -375,7 +416,15 @@ function notaPiano(L: Float64Array, R: Float64Array, nota: NotaPiano, azar: () =
  * Reverb estéreo: red de retardos realimentada (8 líneas, matriz de Hadamard) con amortiguación de agudos. Suma
  * su salida, multiplicada por `mezcla`, a `outL`/`outR` (así no reserva otros dos canales del largo de la pieza).
  */
-function reverb(inL: Float64Array, inR: Float64Array, rt60: number, sala: number, outL: Float64Array, outR: Float64Array, mezcla: number): void {
+function reverb(
+  inL: Float64Array,
+  inR: Float64Array,
+  rt60: number,
+  sala: number,
+  outL: Float64Array,
+  outR: Float64Array,
+  mezcla: number,
+): void {
   const N = inL.length;
   const largos = [1433, 1601, 1867, 2053, 2251, 2399, 2617, 2803].map((l) => Math.round(l * sala));
   const lineas = largos.map((l) => new Float64Array(l));
@@ -476,7 +525,11 @@ function conReverb(plan: Plan, p: Parametros, N: number): [Float64Array, Float64
 }
 
 /** Colchón filtrado + sub-bajo + piano (mezcla seca, en L y R) y los envíos a la reverb. */
-function mezclaSeca(plan: Plan, p: Parametros, N: number): { L: Float64Array; R: Float64Array; envioL: Float64Array; envioR: Float64Array } {
+function mezclaSeca(
+  plan: Plan,
+  p: Parametros,
+  N: number,
+): { L: Float64Array; R: Float64Array; envioL: Float64Array; envioR: Float64Array } {
   const variante = plan.variante;
   const azar = generador(plan.semilla ^ 0x5bd1e995);
 
@@ -497,11 +550,23 @@ function mezclaSeca(plan: Plan, p: Parametros, N: number): { L: Float64Array; R:
       const faseLfo = ((h >>> 8) & 0xff) / 40;
       // Voces graves un poco más presentes; la más aguda, más suave.
       const peso = (v === acorde.notas.length - 1 ? 0.7 : 1) * (m < 50 ? 1.1 : 1) * 0.11;
-      const amp = (n: number) => env(n) * peso * (1 + 0.15 * Math.sin(2 * Math.PI * fLfo * (n / FM) + faseLfo));
+      const amp = (n: number) =>
+        env(n) * peso * (1 + 0.15 * Math.sin(2 * Math.PI * fLfo * (n / FM) + faseLfo));
       const centro = ((m - 54) / 12) * 0.5;
       for (const [j, cents] of [-p.cents, 0, p.cents].entries()) {
         const [gL, gR] = paneo(centro + (j - 1) * 0.35);
-        oscilador(padL, padR, ONDA_PAD, f * 2 ** (cents / 1200), ((h >>> (j * 5)) & 0x3ff) / 1024, desde, hasta, amp, gL / 3, gR / 3);
+        oscilador(
+          padL,
+          padR,
+          ONDA_PAD,
+          f * 2 ** (cents / 1200),
+          ((h >>> (j * 5)) & 0x3ff) / 1024,
+          desde,
+          hasta,
+          amp,
+          gL / 3,
+          gR / 3,
+        );
       }
     });
     // Sub-bajo (mono): fundamental y un poco de segundo armónico para que se oiga también en parlantes chicos.

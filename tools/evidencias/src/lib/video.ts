@@ -18,12 +18,45 @@
  */
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { closeSync, copyFileSync, createReadStream, existsSync, fstatSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  copyFileSync,
+  createReadStream,
+  existsSync,
+  fstatSync,
+  mkdtempSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { AUTORIA, describir, ESTILO, FUNDIDO_ENTRADA_S, FUNDIDO_SALIDA_S, huellaPcm, sintetizar, varianteParaVideo, wav, type Variante } from "./musica.js";
-import { capitulosIndice, capitulosVtt, nombresVtt, subtitulosVtt, validarPasos, type ArchivoPasos } from "./vtt.js";
+import {
+  AUTORIA,
+  describir,
+  ESTILO,
+  FUNDIDO_ENTRADA_S,
+  FUNDIDO_SALIDA_S,
+  huellaPcm,
+  sintetizar,
+  varianteParaVideo,
+  wav,
+  type Variante,
+} from "./musica.js";
+import {
+  capitulosIndice,
+  capitulosVtt,
+  nombresVtt,
+  subtitulosVtt,
+  validarPasos,
+  type ArchivoPasos,
+} from "./vtt.js";
 
 const run = promisify(execFile);
 const BUFFER = 64 * 1024 * 1024;
@@ -40,7 +73,15 @@ export const FFMPEG = existsSync("/usr/bin/ffmpeg") ? "/usr/bin/ffmpeg" : (ffmpe
 const FFPROBE = existsSync("/usr/bin/ffprobe") ? "/usr/bin/ffprobe" : undefined;
 
 /** Objetivos de audio: −18 LUFS integrado (±1 al verificar), pico real ≤ −1,5 dBTP; loudnorm apunta a −2 dBTP. */
-export const AUDIO = { lufs: -18, toleranciaLufs: 1, picoMaximo: -1.5, picoObjetivo: -2, lra: 20, kbps: 160, frecuencia: 48_000 } as const;
+export const AUDIO = {
+  lufs: -18,
+  toleranciaLufs: 1,
+  picoMaximo: -1.5,
+  picoObjetivo: -2,
+  lra: 20,
+  kbps: 160,
+  frecuencia: 48_000,
+} as const;
 
 // ── H.264 ───────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -61,7 +102,9 @@ export const CRF_POR_DEFECTO = 21;
 /** CRF de x264 desde el entorno, acotado a 18–26 (fuera de rango o vacío: CRF_POR_DEFECTO). */
 export function crfDesdeEntorno(v: string | undefined): number {
   const n = Number(v);
-  return v !== undefined && v.trim() !== "" && Number.isInteger(n) && n >= 18 && n <= 26 ? n : CRF_POR_DEFECTO;
+  return v !== undefined && v.trim() !== "" && Number.isInteger(n) && n >= 18 && n <= 26
+    ? n
+    : CRF_POR_DEFECTO;
 }
 
 export const H264: Required<OpcionesH264> = {
@@ -85,21 +128,35 @@ export function filtroH264(o: OpcionesH264 = {}): string {
 export function argumentosH264(o: OpcionesH264 = {}): string[] {
   const c = { ...H264, ...o };
   return [
-    "-c:v", "libx264",
-    "-preset", c.preset,
-    "-crf", String(c.crf),
-    "-pix_fmt", "yuv420p",
-    "-profile:v", "high",
-    "-g", String(c.cps * 2),
-    "-keyint_min", String(c.cps),
-    "-threads", String(c.hilos),
-    "-colorspace", "bt709",
-    "-color_primaries", "bt709",
-    "-color_trc", "bt709",
-    "-color_range", "tv",
+    "-c:v",
+    "libx264",
+    "-preset",
+    c.preset,
+    "-crf",
+    String(c.crf),
+    "-pix_fmt",
+    "yuv420p",
+    "-profile:v",
+    "high",
+    "-g",
+    String(c.cps * 2),
+    "-keyint_min",
+    String(c.cps),
+    "-threads",
+    String(c.hilos),
+    "-colorspace",
+    "bt709",
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "bt709",
+    "-color_range",
+    "tv",
     "-an",
-    "-movflags", "+faststart",
-    "-fflags", "+bitexact",
+    "-movflags",
+    "+faststart",
+    "-fflags",
+    "+bitexact",
   ];
 }
 
@@ -108,10 +165,34 @@ export function argumentosH264(o: OpcionesH264 = {}): string[] {
  * (1920×1080 a 30 cps por defecto), sin audio. Si es .webm (formato anterior): VP9 a 1280×720 y 15 cps.
  * `recorteSeg` descarta el comienzo de la captura (el instante previo a la portada).
  */
-export async function transcodificar(origen: string, destino: string, recorteSeg = 0, o: OpcionesH264 = {}): Promise<void> {
+export async function transcodificar(
+  origen: string,
+  destino: string,
+  recorteSeg = 0,
+  o: OpcionesH264 = {},
+): Promise<void> {
   if (destino.endsWith(".webm")) return transcodificarWebm(origen, destino, recorteSeg);
   await exigirX264();
-  await run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", "-ss", recorteSeg.toFixed(3), "-i", origen, "-vf", filtroH264(o), ...argumentosH264(o), "-f", "mp4", destino], { maxBuffer: BUFFER });
+  await run(
+    FFMPEG,
+    [
+      "-y",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-ss",
+      recorteSeg.toFixed(3),
+      "-i",
+      origen,
+      "-vf",
+      filtroH264(o),
+      ...argumentosH264(o),
+      "-f",
+      "mp4",
+      destino,
+    ],
+    { maxBuffer: BUFFER },
+  );
 }
 
 /**
@@ -122,13 +203,36 @@ export function codificadorCuadros(destino: string, o: OpcionesH264 & { formato?
   const c = { ...H264, ...o };
   const hijo = spawn(
     FFMPEG,
-    ["-y", "-hide_banner", "-loglevel", "error", "-f", "image2pipe", "-c:v", o.formato ?? "mjpeg", "-framerate", String(c.cps), "-i", "-", "-vf", filtroH264(c), ...argumentosH264(c), "-f", "mp4", destino],
+    [
+      "-y",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-f",
+      "image2pipe",
+      "-c:v",
+      o.formato ?? "mjpeg",
+      "-framerate",
+      String(c.cps),
+      "-i",
+      "-",
+      "-vf",
+      filtroH264(c),
+      ...argumentosH264(c),
+      "-f",
+      "mp4",
+      destino,
+    ],
     { stdio: ["pipe", "ignore", "pipe"] },
   );
   let error = "";
   hijo.stderr.on("data", (d: Buffer) => (error += d.toString()));
   const fin = new Promise<void>((ok, mal) =>
-    hijo.on("close", (codigo) => (codigo === 0 ? ok() : mal(new Error(`ffmpeg terminó con código ${codigo}: ${error.trim().slice(-400)}`)))),
+    hijo.on("close", (codigo) =>
+      codigo === 0
+        ? ok()
+        : mal(new Error(`ffmpeg terminó con código ${codigo}: ${error.trim().slice(-400)}`)),
+    ),
   );
   let cuadros = 0;
   return {
@@ -154,16 +258,71 @@ async function exigirX264(): Promise<void> {
     (r) => /libx264/.test(r.stdout),
     () => false,
   );
-  if (!(await x264)) throw new Error(`${FFMPEG} no trae libx264: instale ffmpeg del sistema (apt install ffmpeg)`);
+  if (!(await x264))
+    throw new Error(`${FFMPEG} no trae libx264: instale ffmpeg del sistema (apt install ffmpeg)`);
 }
 
 /** Formato anterior (1.0/1.1): VP9 en WebM a 1280×720 y 15 cps; VP8 a tasa fija si el ffmpeg no trae VP9. */
 async function transcodificarWebm(origen: string, destino: string, recorteSeg: number): Promise<void> {
   const vp9 = FFMPEG === "/usr/bin/ffmpeg";
   const codec = vp9
-    ? ["-c:v", "libvpx-vp9", "-crf", "40", "-b:v", "0", "-deadline", "good", "-cpu-used", "5", "-row-mt", "1", "-tile-columns", "2", "-threads", "4"]
-    : ["-c:v", "libvpx", "-b:v", "700k", "-crf", "12", "-qmin", "4", "-qmax", "48", "-deadline", "good", "-cpu-used", "4", "-threads", "3"];
-  await run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", "-ss", recorteSeg.toFixed(2), "-i", origen, "-an", "-vf", "scale=1280:720,fps=15", ...codec, "-g", "300", destino], { maxBuffer: 16 * 1024 * 1024 });
+    ? [
+        "-c:v",
+        "libvpx-vp9",
+        "-crf",
+        "40",
+        "-b:v",
+        "0",
+        "-deadline",
+        "good",
+        "-cpu-used",
+        "5",
+        "-row-mt",
+        "1",
+        "-tile-columns",
+        "2",
+        "-threads",
+        "4",
+      ]
+    : [
+        "-c:v",
+        "libvpx",
+        "-b:v",
+        "700k",
+        "-crf",
+        "12",
+        "-qmin",
+        "4",
+        "-qmax",
+        "48",
+        "-deadline",
+        "good",
+        "-cpu-used",
+        "4",
+        "-threads",
+        "3",
+      ];
+  await run(
+    FFMPEG,
+    [
+      "-y",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-ss",
+      recorteSeg.toFixed(2),
+      "-i",
+      origen,
+      "-an",
+      "-vf",
+      "scale=1280:720,fps=15",
+      ...codec,
+      "-g",
+      "300",
+      destino,
+    ],
+    { maxBuffer: 16 * 1024 * 1024 },
+  );
 }
 
 // ── Análisis ────────────────────────────────────────────────────────────────────────────────────────────
@@ -219,7 +378,13 @@ interface SalidaFfprobe {
     channels?: number;
     bit_rate?: string;
   }>;
-  format?: { duration?: string; size?: string; format_name?: string; bit_rate?: string; tags?: Record<string, string> };
+  format?: {
+    duration?: string;
+    size?: string;
+    format_name?: string;
+    bit_rate?: string;
+    tags?: Record<string, string>;
+  };
 }
 
 /** Interpreta la salida JSON de ffprobe (separado para probarlo sin archivos). */
@@ -241,9 +406,17 @@ export function leerFfprobe(j: SalidaFfprobe): InfoVideo {
     bytes: j.format?.size ? Number(j.format.size) : undefined,
     kbps: j.format?.bit_rate ? Number(j.format.bit_rate) / 1000 : undefined,
     audio: a
-      ? { codec: a.codec_name ?? "?", frecuencia: Number(a.sample_rate ?? 0), canales: a.channels ?? 0, kbps: Number(a.bit_rate ?? 0) / 1000, duracion: Number(a.duration ?? 0) }
+      ? {
+          codec: a.codec_name ?? "?",
+          frecuencia: Number(a.sample_rate ?? 0),
+          canales: a.channels ?? 0,
+          kbps: Number(a.bit_rate ?? 0) / 1000,
+          duracion: Number(a.duration ?? 0),
+        }
       : undefined,
-    etiquetas: Object.fromEntries(Object.entries(j.format?.tags ?? {}).map(([k, val]) => [k.toLowerCase(), val])),
+    etiquetas: Object.fromEntries(
+      Object.entries(j.format?.tags ?? {}).map(([k, val]) => [k.toLowerCase(), val]),
+    ),
   };
 }
 
@@ -257,11 +430,13 @@ export async function analizarVideo(archivo: string, o: { decodificar?: boolean 
     const { stdout } = await run(
       FFPROBE,
       [
-        "-v", "error",
+        "-v",
+        "error",
         ...(decodificar ? ["-count_frames"] : []),
         "-show_entries",
         "stream=codec_type,codec_name,profile,width,height,pix_fmt,r_frame_rate,avg_frame_rate,nb_frames,nb_read_frames,duration,sample_rate,channels,bit_rate:format=duration,size,format_name,bit_rate:format_tags",
-        "-of", "json",
+        "-of",
+        "json",
         archivo,
       ],
       { maxBuffer: BUFFER },
@@ -269,7 +444,9 @@ export async function analizarVideo(archivo: string, o: { decodificar?: boolean 
     return leerFfprobe(JSON.parse(stdout) as SalidaFfprobe);
   }
   // Sin ffprobe: decodifica todo y lee el último «frame= N … time=HH:MM:SS.xx» del informe de ffmpeg.
-  const r = await run(FFMPEG, ["-hide_banner", "-i", archivo, "-f", "null", "-"], { maxBuffer: BUFFER }).catch((e: { stderr?: string }) => ({ stderr: e.stderr ?? "" }));
+  const r = await run(FFMPEG, ["-hide_banner", "-i", archivo, "-f", "null", "-"], {
+    maxBuffer: BUFFER,
+  }).catch((e: { stderr?: string }) => ({ stderr: e.stderr ?? "" }));
   const err = String(r.stderr);
   const cuadros = [...err.matchAll(/frame=\s*(\d+)/g)].pop()?.[1];
   const t = [...err.matchAll(/time=(\d+):(\d+):([\d.]+)/g)].pop();
@@ -286,7 +463,11 @@ export async function analizarVideo(archivo: string, o: { decodificar?: boolean 
 
 /** MD5 del flujo de video sin decodificar (ffmpeg -map 0:v -c copy -f md5 -): igual ⇔ la imagen no se tocó. */
 export async function hashFlujoVideo(archivo: string): Promise<string> {
-  const { stdout } = await run(FFMPEG, ["-v", "error", "-i", archivo, "-map", "0:v", "-c", "copy", "-f", "md5", "-"], { maxBuffer: BUFFER });
+  const { stdout } = await run(
+    FFMPEG,
+    ["-v", "error", "-i", archivo, "-map", "0:v", "-c", "copy", "-f", "md5", "-"],
+    { maxBuffer: BUFFER },
+  );
   const m = /MD5=([0-9a-f]{32})/.exec(stdout);
   if (!m) throw new Error(`no se obtuvo el MD5 del flujo de video de ${archivo}`);
   return m[1]!;
@@ -347,12 +528,32 @@ export function leerEbur128(texto: string): Sonoridad {
     if (!m) throw new Error(`resumen de ebur128 incompleto (${re.source})`);
     return m[1] === "-inf" ? -Infinity : Number(m[1]);
   };
-  return { integrado: num(/I:\s+(-?[\d.]+|-inf)\s+LUFS/), lra: num(/LRA:\s+(-?[\d.]+)\s+LU/), picoReal: num(/True peak:\s+Peak:\s+(-?[\d.]+|-inf)\s+dBFS/) };
+  return {
+    integrado: num(/I:\s+(-?[\d.]+|-inf)\s+LUFS/),
+    lra: num(/LRA:\s+(-?[\d.]+)\s+LU/),
+    picoReal: num(/True peak:\s+Peak:\s+(-?[\d.]+|-inf)\s+dBFS/),
+  };
 }
 
 /** Mide sonoridad integrada, rango y pico real del primer flujo de audio (ITU-R BS.1770 / EBU R128). */
 export async function medirSonoridad(archivo: string): Promise<Sonoridad> {
-  const r = await run(FFMPEG, ["-hide_banner", "-nostats", "-i", archivo, "-map", "0:a:0", "-af", "ebur128=peak=true:framelog=verbose", "-f", "null", "-"], { maxBuffer: BUFFER });
+  const r = await run(
+    FFMPEG,
+    [
+      "-hide_banner",
+      "-nostats",
+      "-i",
+      archivo,
+      "-map",
+      "0:a:0",
+      "-af",
+      "ebur128=peak=true:framelog=verbose",
+      "-f",
+      "null",
+      "-",
+    ],
+    { maxBuffer: BUFFER },
+  );
   return leerEbur128(r.stderr);
 }
 
@@ -374,11 +575,21 @@ export function leerAstats(texto: string): Estadisticas {
     if (!m) throw new Error(`astats sin «${clave}»`);
     return /inf/.test(m[1]!) ? (m[1]!.startsWith("-") ? -Infinity : Infinity) : Number(m[1]);
   };
-  return { picoDb: num("Peak level dB"), rmsDb: num("RMS level dB"), dc: num("DC offset"), saltoMaximo: num("Max difference"), factorPlano: num("Flat factor") };
+  return {
+    picoDb: num("Peak level dB"),
+    rmsDb: num("RMS level dB"),
+    dc: num("DC offset"),
+    saltoMaximo: num("Max difference"),
+    factorPlano: num("Flat factor"),
+  };
 }
 
 export async function medirAstats(archivo: string): Promise<Estadisticas> {
-  const r = await run(FFMPEG, ["-hide_banner", "-nostats", "-i", archivo, "-map", "0:a:0", "-af", "astats", "-f", "null", "-"], { maxBuffer: BUFFER });
+  const r = await run(
+    FFMPEG,
+    ["-hide_banner", "-nostats", "-i", archivo, "-map", "0:a:0", "-af", "astats", "-f", "null", "-"],
+    { maxBuffer: BUFFER },
+  );
   return leerAstats(r.stderr);
 }
 
@@ -386,8 +597,26 @@ export async function medirAstats(archivo: string): Promise<Estadisticas> {
  * Espectrograma (PNG) del audio de 0 a 8 kHz, para revisarlo a ojo. Se remuestrea a 16 kHz en vez de usar la
  * opción stop= de showspectrumpic, que en ffmpeg 6.1 dibuja las frecuencias en el lugar equivocado.
  */
-export async function espectrograma(archivo: string, png: string, o: { ancho?: number; alto?: number } = {}): Promise<void> {
-  await run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", "-i", archivo, "-lavfi", `aresample=16000,showspectrumpic=s=${o.ancho ?? 1600}x${o.alto ?? 600}:legend=1:scale=log:color=intensity`, png], { maxBuffer: BUFFER });
+export async function espectrograma(
+  archivo: string,
+  png: string,
+  o: { ancho?: number; alto?: number } = {},
+): Promise<void> {
+  await run(
+    FFMPEG,
+    [
+      "-y",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-i",
+      archivo,
+      "-lavfi",
+      `aresample=16000,showspectrumpic=s=${o.ancho ?? 1600}x${o.alto ?? 600}:legend=1:scale=log:color=intensity`,
+      png,
+    ],
+    { maxBuffer: BUFFER },
+  );
 }
 
 /** Primera pasada de loudnorm: mide la entrada. */
@@ -404,7 +633,23 @@ export function leerLoudnorm(texto: string): MedicionLoudnorm {
 const objetivoLoudnorm = `I=${AUDIO.lufs}:TP=${AUDIO.picoObjetivo}:LRA=${AUDIO.lra}`;
 
 export async function medirLoudnorm(archivo: string): Promise<MedicionLoudnorm> {
-  const r = await run(FFMPEG, ["-hide_banner", "-nostats", "-i", archivo, "-map", "0:a:0", "-af", `loudnorm=${objetivoLoudnorm}:print_format=json`, "-f", "null", "-"], { maxBuffer: BUFFER });
+  const r = await run(
+    FFMPEG,
+    [
+      "-hide_banner",
+      "-nostats",
+      "-i",
+      archivo,
+      "-map",
+      "0:a:0",
+      "-af",
+      `loudnorm=${objetivoLoudnorm}:print_format=json`,
+      "-f",
+      "null",
+      "-",
+    ],
+    { maxBuffer: BUFFER },
+  );
   return leerLoudnorm(r.stderr);
 }
 
@@ -423,31 +668,55 @@ export function filtroLoudnorm(m: MedicionLoudnorm): string {
  * segunda pasada de loudnorm y se codifica en AAC de 160 kb/s a 48 kHz. Exige que loudnorm haya aplicado ganancia
  * lineal.
  */
-export async function mezclarMusica(o: { video: string; musica: string; destino: string; metadatos?: Record<string, string>; medicion?: MedicionLoudnorm }): Promise<MedicionLoudnorm> {
+export async function mezclarMusica(o: {
+  video: string;
+  musica: string;
+  destino: string;
+  metadatos?: Record<string, string>;
+  medicion?: MedicionLoudnorm;
+}): Promise<MedicionLoudnorm> {
   const medicion = o.medicion ?? (await medirLoudnorm(o.musica));
   const meta = Object.entries(o.metadatos ?? {}).flatMap(([k, v]) => ["-metadata", `${k}=${v}`]);
   const r = await run(
     FFMPEG,
     [
-      "-y", "-hide_banner", "-nostats",
-      "-i", o.video,
-      "-i", o.musica,
-      "-map", "0:v:0",
-      "-map", "1:a:0",
-      "-c:v", "copy",
-      "-af", `${filtroLoudnorm(medicion)},aresample=${AUDIO.frecuencia}`,
-      "-c:a", "aac",
-      "-b:a", `${AUDIO.kbps}k`,
-      "-ar", String(AUDIO.frecuencia),
-      "-ac", "2",
+      "-y",
+      "-hide_banner",
+      "-nostats",
+      "-i",
+      o.video,
+      "-i",
+      o.musica,
+      "-map",
+      "0:v:0",
+      "-map",
+      "1:a:0",
+      "-c:v",
+      "copy",
+      "-af",
+      `${filtroLoudnorm(medicion)},aresample=${AUDIO.frecuencia}`,
+      "-c:a",
+      "aac",
+      "-b:a",
+      `${AUDIO.kbps}k`,
+      "-ar",
+      String(AUDIO.frecuencia),
+      "-ac",
+      "2",
       ...meta,
       // Sin contenido lingüístico (ISO 639-2 «zxx»).
-      "-metadata:s:a:0", "language=zxx",
-      "-metadata:s:a:0", "handler_name=Musica original (sintesis propia)",
-      "-movflags", "+faststart",
-      "-fflags", "+bitexact",
-      "-flags:a", "+bitexact",
-      "-f", "mp4",
+      "-metadata:s:a:0",
+      "language=zxx",
+      "-metadata:s:a:0",
+      "handler_name=Musica original (sintesis propia)",
+      "-movflags",
+      "+faststart",
+      "-fflags",
+      "+bitexact",
+      "-flags:a",
+      "+bitexact",
+      "-f",
+      "mp4",
       o.destino,
     ],
     { maxBuffer: BUFFER },
@@ -455,7 +724,9 @@ export async function mezclarMusica(o: { video: string; musica: string; destino:
   const salida = leerLoudnorm(r.stderr);
   if (salida.normalization_type !== "linear") {
     rmSync(o.destino, { force: true });
-    throw new Error(`loudnorm no pudo aplicar ganancia lineal (${salida.normalization_type ?? "?"}): revise la música (pico ${medicion.input_tp} dBTP)`);
+    throw new Error(
+      `loudnorm no pudo aplicar ganancia lineal (${salida.normalization_type ?? "?"}): revise la música (pico ${medicion.input_tp} dBTP)`,
+    );
   }
   return salida;
 }
@@ -538,15 +809,21 @@ export async function terminarVideo(o: OpcionesTerminar): Promise<Publicacion> {
   const crudo = o.pasos ?? (JSON.parse(readFileSync(rutaPasos, "utf8")) as ArchivoPasos);
   const v = validarPasos(crudo);
   if (!v.ok || !v.pasos) throw new Error(`${n.pasos}: ${v.problemas.join("; ")}`);
-  const pasos: ArchivoPasos = { ...v.pasos, pasos: v.pasos.pasos.map((p) => ({ ...p, comprueba: [...p.comprueba] })) };
+  const pasos: ArchivoPasos = {
+    ...v.pasos,
+    pasos: v.pasos.pasos.map((p) => ({ ...p, comprueba: [...p.comprueba] })),
+  };
 
   const info = await analizarVideo(o.sinMusica, { decodificar: false });
   const problemas: string[] = [];
   if (info.codec !== "h264") problemas.push(`códec ${info.codec} (se espera h264)`);
   if (info.pixFmt !== "yuv420p") problemas.push(`formato de píxel ${info.pixFmt ?? "?"} (se espera yuv420p)`);
-  if (info.ancho !== pasos.ancho || info.alto !== pasos.alto) problemas.push(`resolución ${info.ancho}×${info.alto} y pasos.json declara ${pasos.ancho}×${pasos.alto}`);
-  if (info.cps === undefined || Math.abs(info.cps - pasos.cps) > 0.01) problemas.push(`${info.cps ?? "?"} cps y pasos.json declara ${pasos.cps}`);
-  if (Math.abs(info.duracion - pasos.duracion_s) > 1) problemas.push(`dura ${info.duracion.toFixed(2)} s y pasos.json declara ${pasos.duracion_s} s`);
+  if (info.ancho !== pasos.ancho || info.alto !== pasos.alto)
+    problemas.push(`resolución ${info.ancho}×${info.alto} y pasos.json declara ${pasos.ancho}×${pasos.alto}`);
+  if (info.cps === undefined || Math.abs(info.cps - pasos.cps) > 0.01)
+    problemas.push(`${info.cps ?? "?"} cps y pasos.json declara ${pasos.cps}`);
+  if (Math.abs(info.duracion - pasos.duracion_s) > 1)
+    problemas.push(`dura ${info.duracion.toFixed(2)} s y pasos.json declara ${pasos.duracion_s} s`);
   if (problemas.length) throw new Error(`${o.nombre}: ${problemas.join("; ")}`);
   pasos.duracion_s = redondear(info.duracion);
   const ultimo = pasos.pasos.at(-1)!;
@@ -575,7 +852,8 @@ export async function terminarVideo(o: OpcionesTerminar): Promise<Publicacion> {
       },
     });
     const md5Despues = await hashFlujoVideo(parcial);
-    if (md5Antes !== md5Despues) throw new Error(`la mezcla alteró el flujo de video (${md5Antes} ≠ ${md5Despues})`);
+    if (md5Antes !== md5Despues)
+      throw new Error(`la mezcla alteró el flujo de video (${md5Antes} ≠ ${md5Despues})`);
     const son = await medirSonoridad(parcial);
     if (Math.abs(son.integrado - AUDIO.lufs) > AUDIO.toleranciaLufs || son.picoReal > AUDIO.picoMaximo) {
       throw new Error(`audio fuera de norma: ${son.integrado} LUFS, pico real ${son.picoReal} dBTP`);
@@ -603,7 +881,11 @@ export async function terminarVideo(o: OpcionesTerminar): Promise<Publicacion> {
       chapters_file: n.capitulos,
       chapters: capitulosIndice(pasos),
       video_stream_md5: md5Despues,
-      without_music: { file: n.sinMusica, sha256: await sha256Archivo(sinMusica), size_bytes: statSync(sinMusica).size },
+      without_music: {
+        file: n.sinMusica,
+        sha256: await sha256Archivo(sinMusica),
+        size_bytes: statSync(sinMusica).size,
+      },
       music: {
         style: ESTILO,
         variant: variante,
@@ -628,5 +910,19 @@ export async function terminarVideo(o: OpcionesTerminar): Promise<Publicacion> {
 
 /** Imagen de portada (JPEG) tomada de la portada de la grabación, para el reproductor del sitio. */
 export async function portada(video: string, destino: string, segundo = 3): Promise<void> {
-  await run(FFMPEG, ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(segundo), "-i", video, "-frames:v", "1", "-q:v", "4", destino]);
+  await run(FFMPEG, [
+    "-y",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-ss",
+    String(segundo),
+    "-i",
+    video,
+    "-frames:v",
+    "1",
+    "-q:v",
+    "4",
+    destino,
+  ]);
 }

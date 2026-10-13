@@ -56,7 +56,9 @@ interface Evidencia {
 const evidencias = (indice as { evidencias: Evidencia[] }).evidencias.filter((e) => e.rehearsal !== true);
 const conMusica = evidencias.some((e) => e.video_stream_md5);
 // Capas que se dibujan en vivo durante la captura (la música se agrega después y se describe aparte).
-const capasEnVivo = [...new Set(evidencias.flatMap((e) => e.layers ?? []))].filter((c) => !/m[uú]sica/i.test(c));
+const capasEnVivo = [...new Set(evidencias.flatMap((e) => e.layers ?? []))].filter(
+  (c) => !/m[uú]sica/i.test(c),
+);
 
 /** Resumen del informe de rendimiento (lo genera tools/lab-bootstrap/src/rendimiento.ts; ver resultados.json). */
 interface Fase {
@@ -127,11 +129,14 @@ const duracion = (s: number) => {
 };
 
 const fecha = (iso: string) =>
-  new Intl.DateTimeFormat("es-CL", { dateStyle: "long", timeStyle: "short", timeZone: "America/Santiago" }).format(
-    new Date(iso),
-  );
+  new Intl.DateTimeFormat("es-CL", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "America/Santiago",
+  }).format(new Date(iso));
 
-const megas = (b?: number) => (b ? `${(b / 1048576).toLocaleString("es-CL", { maximumFractionDigits: 1 })} MB` : "");
+const megas = (b?: number) =>
+  b ? `${(b / 1048576).toLocaleString("es-CL", { maximumFractionDigits: 1 })} MB` : "";
 
 const esMp4 = (f: string) => f.endsWith(".mp4");
 
@@ -170,7 +175,12 @@ function Tarjeta({ e }: { e: Evidencia }): ReactNode {
       >
         <source src={url} type={esMp4(e.file) ? "video/mp4" : "video/webm"} />
         {e.subtitles && (
-          <track kind="subtitles" src={`/evidencias/${e.subtitles}`} srcLang="es" label="Español: pasos del guion" />
+          <track
+            kind="subtitles"
+            src={`/evidencias/${e.subtitles}`}
+            srcLang="es"
+            label="Español: pasos del guion"
+          />
         )}
         {e.chapters_file && (
           <track kind="chapters" src={`/evidencias/${e.chapters_file}`} srcLang="es" label="Capítulos" />
@@ -237,8 +247,8 @@ function Tarjeta({ e }: { e: Evidencia }): ReactNode {
           <>
             <dt>Música</dt>
             <dd>
-              Original, generada por código (estilo {e.music.style}, variante {e.music.variant}); sin muestras ni audio
-              de terceros
+              Original, generada por código (estilo {e.music.style}, variante {e.music.variant}); sin muestras
+              ni audio de terceros
             </dd>
           </>
         )}
@@ -311,11 +321,12 @@ export default function Evidencias(): ReactNode {
       <main className="container margin-vert--lg">
         <Heading as="h1">Demostraciones registradas</Heading>
         <p className={styles.intro}>
-          Cada video muestra una capacidad de Yago Nexo funcionando de verdad en el laboratorio de la versión indicada:
-          la Consola Nexo y los portales de WSO2 operan contra los servicios reales (sin datos simulados), mientras el
-          escenario corre y se verifica automáticamente. La grabación es continua, sin cortes ni aceleración: abre con
-          una portada (capacidad, versión, commit, fecha y ambiente), mantiene un banner con la fecha y hora de
-          Santiago y cierra con el resultado medido. Si alguna verificación falla, el video no se guarda.
+          Cada video muestra una capacidad de Yago Nexo funcionando de verdad en el laboratorio de la versión
+          indicada: la Consola Nexo y los portales de WSO2 operan contra los servicios reales (sin datos
+          simulados), mientras el escenario corre y se verifica automáticamente. La grabación es continua, sin
+          cortes ni aceleración: abre con una portada (capacidad, versión, commit, fecha y ambiente), mantiene
+          un banner con la fecha y hora de Santiago y cierra con el resultado medido. Si alguna verificación
+          falla, el video no se guarda.
         </p>
 
         <section className={styles.verificar} aria-labelledby="verificar">
@@ -328,8 +339,8 @@ export default function Evidencias(): ReactNode {
           </p>
           <ul>
             <li>
-              Linux: <code>sha256sum archivo</code>, o con todos los videos en la misma carpeta que SHA256SUMS.txt:{" "}
-              <code>sha256sum -c SHA256SUMS.txt</code>
+              Linux: <code>sha256sum archivo</code>, o con todos los videos en la misma carpeta que
+              SHA256SUMS.txt: <code>sha256sum -c SHA256SUMS.txt</code>
             </li>
             <li>
               macOS: <code>shasum -a 256 archivo</code>
@@ -340,15 +351,16 @@ export default function Evidencias(): ReactNode {
           </ul>
           {conMusica && (
             <p>
-              En los videos con música, la imagen se codifica una sola vez y la música se agrega después copiando el
-              flujo de video sin recodificarlo. Para comprobarlo, calcule el MD5 del flujo de video con{" "}
-              <code>ffmpeg -i archivo.mp4 -map 0:v -c copy -f md5 -</code>: debe coincidir con el «flujo de video
-              (MD5)» de la ficha, que se midió también sobre el archivo antes de agregar la música.
+              En los videos con música, la imagen se codifica una sola vez y la música se agrega después
+              copiando el flujo de video sin recodificarlo. Para comprobarlo, calcule el MD5 del flujo de
+              video con <code>ffmpeg -i archivo.mp4 -map 0:v -c copy -f md5 -</code>: debe coincidir con el
+              «flujo de video (MD5)» de la ficha, que se midió también sobre el archivo antes de agregar la
+              música.
             </p>
           )}
           <p>
-            El commit indicado en cada ficha identifica el código exacto con que se grabó. El laboratorio está descrito
-            en <Link to="/docs/laboratorio">Laboratorio</Link>.
+            El commit indicado en cada ficha identifica el código exacto con que se grabó. El laboratorio está
+            descrito en <Link to="/docs/laboratorio">Laboratorio</Link>.
           </p>
         </section>
 
@@ -360,20 +372,20 @@ export default function Evidencias(): ReactNode {
             <ul>
               {capasEnVivo.length > 0 && (
                 <li>
-                  Se dibujan en vivo durante la captura: {capasEnVivo.join(", ")}. No hay edición posterior de la
-                  imagen: ni cortes, ni aceleración, ni cuadros agregados.
+                  Se dibujan en vivo durante la captura: {capasEnVivo.join(", ")}. No hay edición posterior de
+                  la imagen: ni cortes, ni aceleración, ni cuadros agregados.
                 </li>
               )}
               {evidencias.some((e) => e.subtitles) && (
                 <li>
-                  Subtítulos y capítulos WebVTT generados desde el guion de pasos del video, con sus tiempos (se
-                  activan en el reproductor y se pueden descargar).
+                  Subtítulos y capítulos WebVTT generados desde el guion de pasos del video, con sus tiempos
+                  (se activan en el reproductor y se pueden descargar).
                 </li>
               )}
               {conMusica && (
                 <li>
-                  Música original generada por código (síntesis propia, sin muestras ni audio de terceros), a −18
-                  LUFS. Se agrega sin recodificar la imagen.
+                  Música original generada por código (síntesis propia, sin muestras ni audio de terceros), a
+                  −18 LUFS. Se agrega sin recodificar la imagen.
                 </li>
               )}
             </ul>
@@ -385,10 +397,10 @@ export default function Evidencias(): ReactNode {
             Informe de rendimiento
           </Heading>
           <p>
-            Prueba con k6 a tasa constante de llegadas, con la mezcla 50 % gateway de operadores, 30 % gateway público y
-            20 % integración (gateway, Micro Integrator con validación, llamada SOAP, transformación y cola). Umbrales:
-            error menor a 1 %, p99 menor a 1.000 ms en REST y a 2.000 ms en integración. {informe.version}, commit{" "}
-            {informe.commit}, {fecha(informe.fecha)}, {informe.maquina}.
+            Prueba con k6 a tasa constante de llegadas, con la mezcla 50 % gateway de operadores, 30 % gateway
+            público y 20 % integración (gateway, Micro Integrator con validación, llamada SOAP, transformación
+            y cola). Umbrales: error menor a 1 %, p99 menor a 1.000 ms en REST y a 2.000 ms en integración.{" "}
+            {informe.version}, commit {informe.commit}, {fecha(informe.fecha)}, {informe.maquina}.
           </p>
           <TablaFases fases={informe.fases} />
           {informe.estres.length > 0 && (
@@ -404,8 +416,8 @@ export default function Evidencias(): ReactNode {
           )}
           <p>{informe.nota}</p>
           <p>
-            Informe completo: <a href={informe.pdf}>PDF</a> · <a href={informe.html}>HTML</a>. Se reproduce con{" "}
-            <code>pnpm --filter @nexo/lab-bootstrap rendimiento</code>.
+            Informe completo: <a href={informe.pdf}>PDF</a> · <a href={informe.html}>HTML</a>. Se reproduce
+            con <code>pnpm --filter @nexo/lab-bootstrap rendimiento</code>.
           </p>
         </section>
 
@@ -414,10 +426,10 @@ export default function Evidencias(): ReactNode {
             Descargas de la versión {release.version}
           </Heading>
           <p>
-            La <a href={`${REPO}/releases/tag/v${release.version}`}>versión {release.version} en GitHub</a> publica el
-            inventario de componentes (SBOM CycloneDX), el inventario de licencias, las sumas SHA-256 y la lista de
-            imágenes, cada archivo con su firma Sigstore, y las imágenes de contenedor propias firmadas en GHCR. Para
-            verificar un archivo con <code>cosign</code>:
+            La <a href={`${REPO}/releases/tag/v${release.version}`}>versión {release.version} en GitHub</a>{" "}
+            publica el inventario de componentes (SBOM CycloneDX), el inventario de licencias, las sumas
+            SHA-256 y la lista de imágenes, cada archivo con su firma Sigstore, y las imágenes de contenedor
+            propias firmadas en GHCR. Para verificar un archivo con <code>cosign</code>:
           </p>
           <pre>
             <code>{`cosign verify-blob --bundle <archivo>.sigstore.json \\

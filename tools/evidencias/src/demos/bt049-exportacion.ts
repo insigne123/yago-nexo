@@ -21,7 +21,12 @@ import { prepararEnsayo } from "./bt0x-ensayo.js";
 
 export const DURACION_ESTIMADA_S = 90;
 
-type Manifiesto = { version: string; generadoEn: string; origen: string; items: Array<{ tipo: string; nombre: string; archivo: string; sha256: string }> };
+type Manifiesto = {
+  version: string;
+  generadoEn: string;
+  origen: string;
+  items: Array<{ tipo: string; nombre: string; archivo: string; sha256: string }>;
+};
 
 /** Busca la configuración de la plataforma dentro del paquete (cualquier ruta que termine en platform.yaml). */
 export function configuracionEnPaquete(archivos: string[]): string | undefined {
@@ -80,32 +85,41 @@ const RESUMEN_PLATAFORMA = [
 export const NARRACION_BT049: DefinicionPaso[] = [
   {
     titulo: "La administradora genera el paquete de exportación",
-    quePasa: "La administradora pide y descarga un paquete de exportación en la Consola. Trae APIs, flujos, metadatos, configuración y un manifiesto.",
-    porQueImporta: "La institución puede llevarse sus APIs y su configuración cuando quiera, sin depender del proveedor.",
+    quePasa:
+      "La administradora pide y descarga un paquete de exportación en la Consola. Trae APIs, flujos, metadatos, configuración y un manifiesto.",
+    porQueImporta:
+      "La institución puede llevarse sus APIs y su configuración cuando quiera, sin depender del proveedor.",
     comprueba: ["paquete con manifiesto"],
   },
   {
     titulo: "El manifiesto: una suma SHA-256 por artefacto",
-    quePasa: "Para cada artefacto se recalcula su suma SHA-256 y se compara con la que declara el manifiesto.",
+    quePasa:
+      "Para cada artefacto se recalcula su suma SHA-256 y se compara con la que declara el manifiesto.",
     porQueImporta: "Así se demuestra que el paquete está completo y no se alteró después de generarse.",
     comprueba: ["sumas SHA-256 del manifiesto", "incluye APIs (contrato y políticas), flujos y metadatos"],
   },
   {
     titulo: "Se leen con herramientas estándar",
-    quePasa: "Un programa de Python con bibliotecas estándar abre cada artefacto (ZIP, YAML, XML, JSON). Al lado, el contrato OpenAPI del paquete.",
-    porQueImporta: "Los formatos son abiertos y documentados: se pueden leer y migrar sin software de Yago Nexo ni de WSO2.",
+    quePasa:
+      "Un programa de Python con bibliotecas estándar abre cada artefacto (ZIP, YAML, XML, JSON). Al lado, el contrato OpenAPI del paquete.",
+    porQueImporta:
+      "Los formatos son abiertos y documentados: se pueden leer y migrar sin software de Yago Nexo ni de WSO2.",
     comprueba: ["todos los artefactos se leen con herramientas estándar"],
   },
   {
     titulo: "Configuración de la plataforma dentro del paquete",
-    quePasa: "Se busca en el paquete la configuración de la plataforma como código (platform.yaml) y se lee: ambientes, planes, aprobaciones y gobierno.",
-    porQueImporta: "No solo se exportan las APIs: también la configuración que las hace funcionar, para reconstruir el entorno.",
+    quePasa:
+      "Se busca en el paquete la configuración de la plataforma como código (platform.yaml) y se lee: ambientes, planes, aprobaciones y gobierno.",
+    porQueImporta:
+      "No solo se exportan las APIs: también la configuración que las hace funcionar, para reconstruir el entorno.",
     comprueba: ["el paquete incluye platform.yaml", "configuración de la plataforma legible (YAML)"],
   },
   {
     titulo: "Datos de gestión: auditoría y consumo, aparte",
-    quePasa: "Los datos de gestión salen aparte, por la API de la Consola: la auditoría en JSON con su cadena de hashes verificada y el consumo en CSV.",
-    porQueImporta: "La historia de quién hizo qué y cuánto se usó también es de la institución y sale en formatos abiertos.",
+    quePasa:
+      "Los datos de gestión salen aparte, por la API de la Consola: la auditoría en JSON con su cadena de hashes verificada y el consumo en CSV.",
+    porQueImporta:
+      "La historia de quién hizo qué y cuánto se usó también es de la institución y sale en formatos abiertos.",
     comprueba: ["auditoría exportable y verificable", "consumo exportable en CSV"],
   },
 ];
@@ -143,32 +157,61 @@ export const bt049: Demo = {
       mkdirSync(join(dir, f, ".."), { recursive: true });
       writeFileSync(join(dir, f), data);
     }
-    c.log(`contenido de nexo-export.zip (${(readFileSync(zipRuta).length / 1024).toFixed(0)} KB, leído con la biblioteca zip del guion):`, "cmd");
+    c.log(
+      `contenido de nexo-export.zip (${(readFileSync(zipRuta).length / 1024).toFixed(0)} KB, leído con la biblioteca zip del guion):`,
+      "cmd",
+    );
     for (const f of Object.keys(zip).sort()) c.log(`  ${String(zip[f]!.length).padStart(7)}  ${f}`);
-    const man = (zip["manifiesto.json"] ? JSON.parse(strFromU8(zip["manifiesto.json"])) : { items: [] }) as Manifiesto;
-    e.indicadores({ artefactos: man.items.length, "tamaño": `${(readFileSync(zipRuta).length / 1024).toFixed(0)} KB` });
-    e.exige("paquete con manifiesto", man.items.length > 0, `${man.items.length} artefactos · versión ${man.version ?? "?"}`);
+    const man = (
+      zip["manifiesto.json"] ? JSON.parse(strFromU8(zip["manifiesto.json"])) : { items: [] }
+    ) as Manifiesto;
+    e.indicadores({
+      artefactos: man.items.length,
+      tamaño: `${(readFileSync(zipRuta).length / 1024).toFixed(0)} KB`,
+    });
+    e.exige(
+      "paquete con manifiesto",
+      man.items.length > 0,
+      `${man.items.length} artefactos · versión ${man.version ?? "?"}`,
+    );
 
     // 2 ── Manifiesto ────────────────────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_BT049[1]!);
     let iguales = 0;
     for (const it of man.items) {
-      const h = createHash("sha256").update(zip[it.archivo] ?? new Uint8Array()).digest("hex");
+      const h = createHash("sha256")
+        .update(zip[it.archivo] ?? new Uint8Array())
+        .digest("hex");
       const ok = h === it.sha256;
       if (ok) iguales++;
       c.log(`${ok ? "✓" : "✗"} ${h.slice(0, 16)}…  ${it.tipo.padEnd(13)} ${it.archivo}`, ok ? "ok" : "mal");
     }
     e.indicadores({ artefactos: man.items.length, "SHA-256 iguales": iguales });
-    e.comprueba("sumas SHA-256 del manifiesto", iguales === man.items.length, `${iguales} de ${man.items.length}`);
+    e.comprueba(
+      "sumas SHA-256 del manifiesto",
+      iguales === man.items.length,
+      `${iguales} de ${man.items.length}`,
+    );
     const tipos = new Set(man.items.map((i) => i.tipo));
-    e.comprueba("incluye APIs (contrato y políticas), flujos y metadatos", ["api", "flujo", "metadatos"].every((t) => tipos.has(t)), [...tipos].join(", "));
+    e.comprueba(
+      "incluye APIs (contrato y políticas), flujos y metadatos",
+      ["api", "flujo", "metadatos"].every((t) => tipos.has(t)),
+      [...tipos].join(", "),
+    );
 
     // 3 ── Lectura con herramientas estándar ─────────────────────────────────────────────────────────
     await e.paso(NARRACION_BT049[2]!);
     writeFileSync(join(c.archivos, "leer_exportacion.py"), LECTOR);
     await c.vista("terminal");
-    const lectura = await c.ejecutarComando("python3", [join(c.archivos, "leer_exportacion.py"), dir], { mostrar: "python3 leer_exportacion.py export/", tablas: false });
-    e.comprueba("todos los artefactos se leen con herramientas estándar", lectura.codigo === 0 && lectura.salida.length >= man.items.length, `${lectura.salida.length} lecturas · código ${lectura.codigo}`);
+    const lectura = await c.ejecutarComando("python3", [join(c.archivos, "leer_exportacion.py"), dir], {
+      mostrar: "python3 leer_exportacion.py export/",
+      tablas: false,
+    });
+    e.comprueba(
+      "todos los artefactos se leen con herramientas estándar",
+      lectura.codigo === 0 && lectura.salida.length >= man.items.length,
+      `${lectura.salida.length} lecturas · código ${lectura.codigo}`,
+    );
     const concesiones = Object.keys(zip).find((f) => f.startsWith("apis/Concesiones-"));
     const interno = concesiones ? unzipSync(zip[concesiones]!) : {};
     const swagger = Object.entries(interno).find(([n]) => /swagger\.ya?ml$|openapi\.ya?ml$/.test(n));
@@ -184,40 +227,85 @@ export const bt049: Demo = {
     await e.paso(NARRACION_BT049[3]!);
     await c.vista("terminal");
     const plataforma = configuracionEnPaquete(Object.keys(zip));
-    c.log(`busca platform.yaml dentro de nexo-export.zip → ${plataforma ?? "no está en el paquete"}`, plataforma ? "cmd" : "mal");
+    c.log(
+      `busca platform.yaml dentro de nexo-export.zip → ${plataforma ?? "no está en el paquete"}`,
+      plataforma ? "cmd" : "mal",
+    );
     e.comprueba("el paquete incluye platform.yaml", !!plataforma, plataforma ?? "falta en el paquete");
     if (plataforma) {
-      const py = await c.ejecutarComando("python3", ["-c", RESUMEN_PLATAFORMA, join(dir, plataforma)], { mostrar: `python3 -c 'yaml.safe_load(open("export/${plataforma}"))'`, tablas: false });
+      const py = await c.ejecutarComando("python3", ["-c", RESUMEN_PLATAFORMA, join(dir, plataforma)], {
+        mostrar: `python3 -c 'yaml.safe_load(open("export/${plataforma}"))'`,
+        tablas: false,
+      });
       const texto = strFromU8(zip[plataforma]!);
-      e.comprueba("configuración de la plataforma legible (YAML)", py.codigo === 0 && /throttling/.test(texto), `export/${plataforma}`);
+      e.comprueba(
+        "configuración de la plataforma legible (YAML)",
+        py.codigo === 0 && /throttling/.test(texto),
+        `export/${plataforma}`,
+      );
     }
     await e.esperar(2000);
 
     // 5 ── Datos de gestión, por la API ──────────────────────────────────────────────────────────────
     await e.paso(NARRACION_BT049[4]!);
     await c.vista("dividido");
-    const aud = await fetch(`${CONSOLA_API}/audit-events?limit=1000`, { headers: { authorization: `Bearer ${auditor}` } });
-    const eventos = (await aud.json().catch(() => [])) as Array<{ seq?: number; action: string; hash?: string }>;
+    const aud = await fetch(`${CONSOLA_API}/audit-events?limit=1000`, {
+      headers: { authorization: `Bearer ${auditor}` },
+    });
+    const eventos = (await aud.json().catch(() => [])) as Array<{
+      seq?: number;
+      action: string;
+      hash?: string;
+    }>;
     writeFileSync(join(dir, "gestion-auditoria.json"), JSON.stringify(eventos, null, 1));
-    c.log(`→ GET /api/v1/audit-events?limit=1000 (pedro.auditoria) → ${aud.status} · ${Array.isArray(eventos) ? eventos.length : 0} eventos con hash encadenado`, "cmd");
-    const verifica = await fetch(`${CONSOLA_API}/audit-events/verify`, { headers: { authorization: `Bearer ${auditor}` } });
+    c.log(
+      `→ GET /api/v1/audit-events?limit=1000 (pedro.auditoria) → ${aud.status} · ${Array.isArray(eventos) ? eventos.length : 0} eventos con hash encadenado`,
+      "cmd",
+    );
+    const verifica = await fetch(`${CONSOLA_API}/audit-events/verify`, {
+      headers: { authorization: `Bearer ${auditor}` },
+    });
     const ver = (await verifica.json().catch(() => ({ ok: false }))) as { ok: boolean; checked?: number };
-    c.log(`→ GET /api/v1/audit-events/verify → cadena ${ver.ok ? "íntegra" : "ALTERADA"}${ver.checked ? ` (${ver.checked} eventos)` : ""}`, ver.ok ? "ok" : "mal");
+    c.log(
+      `→ GET /api/v1/audit-events/verify → cadena ${ver.ok ? "íntegra" : "ALTERADA"}${ver.checked ? ` (${ver.checked} eventos)` : ""}`,
+      ver.ok ? "ok" : "mal",
+    );
     const hoy = new Date().toISOString().slice(0, 10);
-    const uso = await fetch(`${CONSOLA_API}/usage/export?from=${hoy}&to=${hoy}`, { headers: { authorization: `Bearer ${adm}` } });
+    const uso = await fetch(`${CONSOLA_API}/usage/export?from=${hoy}&to=${hoy}`, {
+      headers: { authorization: `Bearer ${adm}` },
+    });
     const csv = await uso.text();
     writeFileSync(join(dir, "gestion-consumo.csv"), csv);
     const filas = csv.trim() ? csv.trim().split("\n").length - 1 : 0;
-    c.log(`→ GET /api/v1/usage/export → ${uso.status} ${uso.headers.get("content-type")} · ${filas} filas`, "cmd");
+    c.log(
+      `→ GET /api/v1/usage/export → ${uso.status} ${uso.headers.get("content-type")} · ${filas} filas`,
+      "cmd",
+    );
     for (const l of csv.split("\n").slice(0, 4)) c.log(`  ${l}`);
-    e.indicadores({ "eventos de auditoría": Array.isArray(eventos) ? eventos.length : 0, "filas de consumo": filas });
-    e.comprueba("auditoría exportable y verificable", aud.status === 200 && Array.isArray(eventos) && eventos.length > 0 && ver.ok, `${Array.isArray(eventos) ? eventos.length : 0} eventos · cadena ${ver.ok ? "íntegra" : "alterada"}`);
-    e.comprueba("consumo exportable en CSV", uso.status === 200 && csv.startsWith("tipo,clave,llamadas"), `${filas} filas`);
+    e.indicadores({
+      "eventos de auditoría": Array.isArray(eventos) ? eventos.length : 0,
+      "filas de consumo": filas,
+    });
+    e.comprueba(
+      "auditoría exportable y verificable",
+      aud.status === 200 && Array.isArray(eventos) && eventos.length > 0 && ver.ok,
+      `${Array.isArray(eventos) ? eventos.length : 0} eventos · cadena ${ver.ok ? "íntegra" : "alterada"}`,
+    );
+    e.comprueba(
+      "consumo exportable en CSV",
+      uso.status === 200 && csv.startsWith("tipo,clave,llamadas"),
+      `${filas} filas`,
+    );
     await e.esperar(2000);
 
     return {
       medido: `paquete con ${man.items.length} artefactos (${[...tipos].join(", ")}), ${iguales} sumas SHA-256 coincidentes, lectura con herramientas estándar y configuración de la plataforma ${plataforma ? "incluida" : "AUSENTE"}; auditoría (${Array.isArray(eventos) ? eventos.length : 0} eventos) y consumo exportados aparte por la API`,
-      datos: { artefactos: man.items.length, tipos: [...tipos], plataforma: plataforma ?? null, eventosAuditoria: Array.isArray(eventos) ? eventos.length : 0 },
+      datos: {
+        artefactos: man.items.length,
+        tipos: [...tipos],
+        plataforma: plataforma ?? null,
+        eventosAuditoria: Array.isArray(eventos) ? eventos.length : 0,
+      },
     };
   },
 };

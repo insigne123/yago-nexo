@@ -4,28 +4,95 @@
     <meta charset="utf-8" />
     <title>{{nombre}} · ENSAYO</title>
     <style>
-      body { margin: 0; font: 15px/1.45 "Liberation Sans", "DejaVu Sans", Arial, sans-serif; color: #1f2933; background: #f4f6f8; }
-      header { display: flex; align-items: center; gap: 16px; height: 58px; padding: 0 24px; background: #fff; border-bottom: 1px solid #dde3ea; }
-      header b { font-size: 18px; }
-      header .esp { flex: 1; }
-      .ensayo { background: #c62828; color: #fff; font: bold 12px/1 Arial; letter-spacing: .14em; padding: 6px 10px; border-radius: 4px; }
-      .boton { background: #ff7300; color: #fff; padding: 8px 14px; border-radius: 4px; text-decoration: none; font-weight: bold; }
-      main { padding: 26px 32px; }
-      table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-      th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid #e5e9ee; }
-      th { color: #52606d; font-weight: 600; background: #f9fafb; }
-      .nota { color: #7b8794; margin-top: 18px; }
+      body {
+        margin: 0;
+        font:
+          15px/1.45 "Liberation Sans",
+          "DejaVu Sans",
+          Arial,
+          sans-serif;
+        color: #1f2933;
+        background: #f4f6f8;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 58px;
+        padding: 0 24px;
+        background: #fff;
+        border-bottom: 1px solid #dde3ea;
+      }
+      header b {
+        font-size: 18px;
+      }
+      header .esp {
+        flex: 1;
+      }
+      .ensayo {
+        background: #c62828;
+        color: #fff;
+        font: bold 12px/1 Arial;
+        letter-spacing: 0.14em;
+        padding: 6px 10px;
+        border-radius: 4px;
+      }
+      .boton {
+        background: #ff7300;
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: bold;
+      }
+      main {
+        padding: 26px 32px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 12px 14px;
+        border-bottom: 1px solid #e5e9ee;
+      }
+      th {
+        color: #52606d;
+        font-weight: 600;
+        background: #f9fafb;
+      }
+      .nota {
+        color: #7b8794;
+        margin-top: 18px;
+      }
     </style>
   </head>
   <body>
-    <header><b>WSO2 {{nombre}}</b><span class="ensayo">ENSAYO</span><span class="esp"></span>{{acceso}}</header>
+    <header>
+      <b>WSO2 {{nombre}}</b><span class="ensayo">ENSAYO</span><span class="esp"></span>{{acceso}}
+    </header>
     <main>
       <h2>APIs</h2>
       <table>
-        <thead><tr><th>Nombre</th><th>Versión</th><th>Estado</th><th>Contexto</th></tr></thead>
-        <tbody>{{filas}}</tbody>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Versión</th>
+            <th>Estado</th>
+            <th>Contexto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{filas}}
+        </tbody>
       </table>
-      <p class="nota">Página simulada del servidor de ensayo: no es el portal real ni datos del laboratorio.</p>
+      <p class="nota">
+        Página simulada del servidor de ensayo: no es el portal real ni datos del laboratorio.
+      </p>
     </main>
   </body>
 </html>

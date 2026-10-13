@@ -24,14 +24,48 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { cpus, loadavg, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
-import { chromium, type Browser, type BrowserContext, type CDPSession, type Locator, type Page } from "playwright-core";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type CDPSession,
+  type Locator,
+  type Page,
+} from "playwright-core";
 import { ANCHO, ALTO, Captura, CPS, type EstadisticasCaptura } from "./captura.js";
-import { desdeRaiz, fechaSantiago, isoSantiago, PAQUETE, PRODUCTO, SALIDA, SALIDA_ENSAYO, type Meta } from "./entorno.js";
+import {
+  desdeRaiz,
+  fechaSantiago,
+  isoSantiago,
+  PAQUETE,
+  PRODUCTO,
+  SALIDA,
+  SALIDA_ENSAYO,
+  type Meta,
+} from "./entorno.js";
 import { Estudio, type Medidas } from "./estudio.js";
 import { CLAVE_LAB, dormir, enEnsayo, ENSAYO, reescribirUrlEnsayo, URL_LAB } from "./lab.js";
 import { RegistroPasos, validarPasos, type DefinicionPaso, type PasosJson } from "./pasos.js";
-import { arrastreAlCerrar, listaComprobaciones, ordenCierre, type Arrastre, resumenVerificaciones, textoFirma, textoOcultas } from "./panel.js";
-import { CIERRE_S, duracionMinimaMs, esperaAlCerrar, pausaLectura, PASO_MINIMO_S, PORTADA_S, presupuesto, RegistroZoom, TOPE_VIDEO_S } from "./ritmo.js";
+import {
+  arrastreAlCerrar,
+  listaComprobaciones,
+  ordenCierre,
+  type Arrastre,
+  resumenVerificaciones,
+  textoFirma,
+  textoOcultas,
+} from "./panel.js";
+import {
+  CIERRE_S,
+  duracionMinimaMs,
+  esperaAlCerrar,
+  pausaLectura,
+  PASO_MINIMO_S,
+  PORTADA_S,
+  presupuesto,
+  RegistroZoom,
+  TOPE_VIDEO_S,
+} from "./ritmo.js";
 import {
   dentroDeVista,
   distancia,
@@ -45,7 +79,15 @@ import {
 } from "./trayectoria.js";
 import { terminarVideo, type Publicacion } from "./video.js";
 import { Vigilante } from "./vigilancia.js";
-import { fueraDeVentana, textoInsignia, ventanaZoom, ZOOM_FACTOR_MIN, ZOOM_FACTOR_POR_DEFECTO, ZOOM_TRANSICION_MS, type Ventana } from "./zoom.js";
+import {
+  fueraDeVentana,
+  textoInsignia,
+  ventanaZoom,
+  ZOOM_FACTOR_MIN,
+  ZOOM_FACTOR_POR_DEFECTO,
+  ZOOM_TRANSICION_MS,
+  type Ventana,
+} from "./zoom.js";
 
 export type { DefinicionPaso } from "./pasos.js";
 export type Vista = "dividido" | "app" | "terminal" | "panel" | "terminal-panel" | "panel-completo";
@@ -183,16 +225,25 @@ export interface ApiEstudio {
 }
 
 /** Nombres del laboratorio (en /etc/hosts) que nunca deben pasar por un proxy de salida. */
-const HOSTS_LAB = "apim,keycloak,mi,rabbitmq,opensearch,prometheus,grafana,jaeger,otel-collector,dev.nexo.lab,qa.nexo.lab,operadores.nexo.lab,publico.nexo.lab";
+const HOSTS_LAB =
+  "apim,keycloak,mi,rabbitmq,opensearch,prometheus,grafana,jaeger,otel-collector,dev.nexo.lab,qa.nexo.lab,operadores.nexo.lab,publico.nexo.lab";
 export const ENV_HIJOS = (): Record<string, string> => {
   const np = [process.env.NO_PROXY ?? process.env.no_proxy ?? "", HOSTS_LAB].filter(Boolean).join(",");
-  return { ...(process.env as Record<string, string>), NO_PROXY: np, no_proxy: np, FORCE_COLOR: "0", NO_COLOR: "1" };
+  return {
+    ...(process.env as Record<string, string>),
+    NO_PROXY: np,
+    no_proxy: np,
+    FORCE_COLOR: "0",
+    NO_COLOR: "1",
+  };
 };
 /** Chromium sin proxy: el laboratorio es local (los nombres resuelven a 127.0.0.1). */
 export const lanzarNavegador = () =>
   chromium.launch({
     args: ["--disable-dev-shm-usage", "--hide-scrollbars", "--force-color-profile=srgb"],
-    env: Object.fromEntries(Object.entries(process.env).filter(([k, v]) => !/proxy/i.test(k) && v !== undefined)) as Record<string, string>,
+    env: Object.fromEntries(
+      Object.entries(process.env).filter(([k, v]) => !/proxy/i.test(k) && v !== undefined),
+    ) as Record<string, string>,
   });
 
 /** Ventana operada por vista cuando la narradora no informó medidas (diseño anterior, 1280×720). */
@@ -206,9 +257,21 @@ const VIEWPORT: Record<Vista, { width: number; height: number }> = {
 };
 
 const esCaja = (o: unknown): o is Caja =>
-  typeof o === "object" && o !== null && typeof (o as Caja).x === "number" && typeof (o as Caja).width === "number" && !("first" in (o as object));
+  typeof o === "object" &&
+  o !== null &&
+  typeof (o as Caja).x === "number" &&
+  typeof (o as Caja).width === "number" &&
+  !("first" in (o as object));
 
-const TECLAS: Record<string, string> = { Enter: "Enter ⏎", Tab: "Tab ⇥", Escape: "Esc", Backspace: "⌫", ArrowDown: "↓", ArrowUp: "↑", " ": "Espacio" };
+const TECLAS: Record<string, string> = {
+  Enter: "Enter ⏎",
+  Tab: "Tab ⇥",
+  Escape: "Esc",
+  Backspace: "⌫",
+  ArrowDown: "↓",
+  ArrowUp: "↑",
+  " ": "Espacio",
+};
 
 interface ZoomActivo {
   ventana: Ventana;
@@ -297,7 +360,13 @@ export class Contexto {
 
   /** Opciones comunes de los contextos operados. */
   opcionesContexto() {
-    return { viewport: this.viewport(this.vistaActual), locale: "es-CL", timezoneId: "America/Santiago", ignoreHTTPSErrors: true, acceptDownloads: true };
+    return {
+      viewport: this.viewport(this.vistaActual),
+      locale: "es-CL",
+      timezoneId: "America/Santiago",
+      ignoreHTTPSErrors: true,
+      acceptDownloads: true,
+    };
   }
 
   /** Prepara un contexto operado: capa del cursor y, en ensayo, desvío del laboratorio al servidor de ensayo. */
@@ -306,14 +375,19 @@ export class Contexto {
     if (enEnsayo()) {
       await ctx.route(URL_LAB, async (ruta) => {
         const original = ruta.request().url();
-        const r = await ruta.fetch({ url: reescribirUrlEnsayo(original), maxRedirects: 0 }).catch(() => undefined);
+        const r = await ruta
+          .fetch({ url: reescribirUrlEnsayo(original), maxRedirects: 0 })
+          .catch(() => undefined);
         if (!r) return ruta.abort();
         // Chromium no vuelve a interceptar el destino de un 3xx entregado con route.fulfill() (buscaría el host
         // del laboratorio en el DNS): en una navegación, el 3xx se convierte en una redirección en el navegador,
         // que sí vuelve a pasar por esta ruta. Las cookies de la respuesta se conservan.
         const destino = r.headers().location;
         if (ruta.request().isNavigationRequest() && r.status() >= 300 && r.status() < 400 && destino) {
-          const cookies = r.headersArray().filter((h) => h.name.toLowerCase() === "set-cookie").map((h) => h.value);
+          const cookies = r
+            .headersArray()
+            .filter((h) => h.name.toLowerCase() === "set-cookie")
+            .map((h) => h.value);
           return ruta.fulfill({
             status: 200,
             contentType: "text/html; charset=utf-8",
@@ -361,7 +435,13 @@ export class Contexto {
       cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => undefined);
     });
     // Sin reducción: el cuadro llega al tamaño de la ventana operada, que ya es el del área de pantalla.
-    await cdp.send("Page.startScreencast", { format: "jpeg", quality: Number(process.env.EVIDENCIAS_Q_OPERADO ?? 85), maxWidth: ANCHO, maxHeight: ALTO, everyNthFrame: Number(process.env.EVIDENCIAS_NTH ?? 2) });
+    await cdp.send("Page.startScreencast", {
+      format: "jpeg",
+      quality: Number(process.env.EVIDENCIAS_Q_OPERADO ?? 85),
+      maxWidth: ANCHO,
+      maxHeight: ALTO,
+      everyNthFrame: Number(process.env.EVIDENCIAS_NTH ?? 2),
+    });
     // Una página ya cargada y quieta no entrega cuadros hasta que algo se repinta: sin esto el monitor seguiría
     // mostrando la página anterior (o nada, al empezar el video) hasta el primer movimiento.
     this.repintarLuego(p, [0, 400]);
@@ -375,7 +455,14 @@ export class Contexto {
       });
       p.on("load", () => {
         const pos = this.posiciones.get(p);
-        if (pos) p.evaluate((q) => (window as unknown as { __nexoCursor?: { colocar(x: number, y: number): void } }).__nexoCursor?.colocar(q.x, q.y), pos).catch(() => undefined);
+        if (pos)
+          p.evaluate(
+            (q) =>
+              (
+                window as unknown as { __nexoCursor?: { colocar(x: number, y: number): void } }
+              ).__nexoCursor?.colocar(q.x, q.y),
+            pos,
+          ).catch(() => undefined);
         // Tras una navegación completa el screencast no siempre entrega el documento nuevo si nada cambia.
         if (this.enPantalla === p) this.repintarLuego(p, [250, 1200]);
       });
@@ -402,7 +489,8 @@ export class Contexto {
           new Promise<void>((listo) => {
             const d = document.createElement("div");
             d.setAttribute("aria-hidden", "true");
-            d.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;background:rgba(128,128,128,0.03);pointer-events:none;z-index:2147483646";
+            d.style.cssText =
+              "position:fixed;left:0;top:0;width:2px;height:2px;background:rgba(128,128,128,0.03);pointer-events:none;z-index:2147483646";
             (document.body ?? document.documentElement).appendChild(d);
             const fin = () => {
               d.remove();
@@ -463,13 +551,23 @@ export class Contexto {
   }
 
   /** Ingresa a un portal de WSO2 (Publisher, Dev Portal o Admin) con el usuario admin del laboratorio. */
-  async ingresarWso2(portal: "publisher" | "devportal" | "admin", usuario = "admin", clave = process.env.APIM_ADMIN_PASSWORD ?? "admin", p: Page = this.app) {
+  async ingresarWso2(
+    portal: "publisher" | "devportal" | "admin",
+    usuario = "admin",
+    clave = process.env.APIM_ADMIN_PASSWORD ?? "admin",
+    p: Page = this.app,
+  ) {
     await p.goto(`https://apim:9443/${portal}/${portal === "admin" ? "" : "apis"}`);
     if (portal === "devportal") {
       await p.waitForLoadState("networkidle").catch(() => undefined);
       // El Dev Portal en español rotula «REGISTRARSE» el botón que lleva al inicio de sesión.
       const entrar = p.getByText(/registrarse|sign-in|iniciar sesión/i).first();
-      if (!(await p.locator("#username").isVisible().catch(() => false))) {
+      if (
+        !(await p
+          .locator("#username")
+          .isVisible()
+          .catch(() => false))
+      ) {
         await entrar.waitFor({ timeout: 30_000 });
         await this.clicVisible(entrar, { pagina: p });
       }
@@ -478,7 +576,9 @@ export class Contexto {
     await this.escribirVisible("#username", usuario, { pagina: p });
     await this.escribirVisible("#password", clave, { pagina: p });
     await this.clicVisible("button[type=submit], input[type=submit]", { pagina: p });
-    await p.waitForURL((u) => u.pathname.startsWith(`/${portal}`) && !u.pathname.includes("/services/auth"), { timeout: 60_000 });
+    await p.waitForURL((u) => u.pathname.startsWith(`/${portal}`) && !u.pathname.includes("/services/auth"), {
+      timeout: 60_000,
+    });
   }
 
   marcarInicio(t0 = Date.now()) {
@@ -496,7 +596,13 @@ export class Contexto {
   }
 
   hora(): string {
-    return new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date());
+    return new Intl.DateTimeFormat("es-CL", {
+      timeZone: "America/Santiago",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date());
   }
 
   /** Compatibilidad: infracciones de la vigilancia de textos prohibidos. */
@@ -528,7 +634,10 @@ export class Contexto {
 
   /** Abre el paso siguiente; antes espera (con la imagen en vivo) a que el actual cumpla su mínimo. */
   async abrirPaso(def: DefinicionPaso): Promise<number> {
-    if (this.pasoAbriendo) throw new Error("estudio.paso() se llamó sin await: cada paso debe esperarse (await c.estudio.paso({...}))");
+    if (this.pasoAbriendo)
+      throw new Error(
+        "estudio.paso() se llamó sin await: cada paso debe esperarse (await c.estudio.paso({...}))",
+      );
     this.pasoAbriendo = true;
     try {
       await this.cerrarPaso();
@@ -553,7 +662,9 @@ export class Contexto {
           inicioMs: actual.inicioMs,
           ahoraMs: ahora,
           minimoS: minimo,
-          ...(this.ultimaComprobacionMs !== undefined ? { ultimaComprobacionMs: this.ultimaComprobacionMs } : {}),
+          ...(this.ultimaComprobacionMs !== undefined
+            ? { ultimaComprobacionMs: this.ultimaComprobacionMs }
+            : {}),
           restantesS: presupuesto(this.inicio, ahora).restantes,
         })
       : 0;
@@ -562,27 +673,49 @@ export class Contexto {
   }
 
   private publicarPaso(def: DefinicionPaso): number {
-    for (const t of [def.titulo, def.quePasa, def.porQueImporta, ...(def.comprueba ?? [])]) this.vigilar("panel", t);
+    for (const t of [def.titulo, def.quePasa, def.porQueImporta, ...(def.comprueba ?? [])])
+      this.vigilar("panel", t);
     const previo = this.pasos.actual;
     const abre = Date.now();
-    this.arrastre = previo ? arrastreAlCerrar(previo.n, previo.def.comprueba ?? [], previo.comprueba, this.llegadas, abre) : undefined;
+    this.arrastre = previo
+      ? arrastreAlCerrar(previo.n, previo.def.comprueba ?? [], previo.comprueba, this.llegadas, abre)
+      : undefined;
     const n = this.pasos.abrir(def, abre);
     this.llegadas = (this.pasos.actual?.comprueba ?? []).map(() => abre);
     const total = Math.max(this.totalPasos, n);
     const agenda = this.demo.agenda;
-    if (agenda && agenda[n - 1] !== undefined && agenda[n - 1] !== def.titulo) this.avisar(`el paso ${n} se titula «${def.titulo}» y la agenda dice «${agenda[n - 1]}»`);
+    if (agenda && agenda[n - 1] !== undefined && agenda[n - 1] !== def.titulo)
+      this.avisar(`el paso ${n} se titula «${def.titulo}» y la agenda dice «${agenda[n - 1]}»`);
     if (n > this.totalPasos) this.avisar(`el guion abrió el paso ${n} y anunció ${this.totalPasos}`);
     const ahora = Date.now();
     this.servidor.publicar({
-      paso: { n, total, titulo: def.titulo, quePasa: def.quePasa, porQueImporta: def.porQueImporta, comprueba: def.comprueba ?? [], inicioMs: ahora, comprobado: [] },
+      paso: {
+        n,
+        total,
+        titulo: def.titulo,
+        quePasa: def.quePasa,
+        porQueImporta: def.porQueImporta,
+        comprueba: def.comprueba ?? [],
+        inicioMs: ahora,
+        comprobado: [],
+      },
       comprobaciones: this.comprobacionesPanel(),
-      capitulos: { total, actual: n, agenda: agenda ?? this.pasos.titulos(), inicioPaso: ahora, minimoS: Math.max(PASO_MINIMO_S, def.minimoS ?? PASO_MINIMO_S) },
+      capitulos: {
+        total,
+        actual: n,
+        agenda: agenda ?? this.pasos.titulos(),
+        inicioPaso: ahora,
+        minimoS: Math.max(PASO_MINIMO_S, def.minimoS ?? PASO_MINIMO_S),
+      },
       rotulo: { paso: `Paso ${n} de ${total}`, texto: def.titulo },
     });
     this.log(`── Paso ${n} de ${total}: ${def.titulo}`, "titulo");
     if (this.grabando) {
       const p = presupuesto(this.inicio, ahora);
-      if (p.restantes < PASO_MINIMO_S) this.avisar(`al abrir el paso ${n} quedan ${Math.round(p.restantes)} s antes del cierre (tope ${TOPE_VIDEO_S} s)`);
+      if (p.restantes < PASO_MINIMO_S)
+        this.avisar(
+          `al abrir el paso ${n} quedan ${Math.round(p.restantes)} s antes del cierre (tope ${TOPE_VIDEO_S} s)`,
+        );
     }
     return n;
   }
@@ -599,7 +732,15 @@ export class Contexto {
       resumen: textoOcultas(l),
       ocultasOk: l.ocultasOk,
       ocultasPendientes: l.ocultasPendientes,
-      ...(vigente ? { anterior: { n: ar.n, items: ar.items, ...(ar.hastaMs !== undefined ? { quedaMs: ar.hastaMs - ahora } : {}) } } : {}),
+      ...(vigente
+        ? {
+            anterior: {
+              n: ar.n,
+              items: ar.items,
+              ...(ar.hastaMs !== undefined ? { quedaMs: ar.hastaMs - ahora } : {}),
+            },
+          }
+        : {}),
     };
   }
 
@@ -612,7 +753,9 @@ export class Contexto {
   paso(texto: string) {
     if (!this.avisadoLegado) {
       this.avisadoLegado = true;
-      this.avisar(`${this.demo.id}: guion con c.paso(texto); use await c.estudio.paso({ titulo, quePasa, porQueImporta }) para el panel y el mínimo de 7 s`);
+      this.avisar(
+        `${this.demo.id}: guion con c.paso(texto); use await c.estudio.paso({ titulo, quePasa, porQueImporta }) para el panel y el mínimo de 7 s`,
+      );
     }
     this.pasos.cerrar(Date.now());
     // Sin narración propia: «qué pasa» es el mismo texto del paso y «por qué importa», la afirmación que
@@ -624,7 +767,9 @@ export class Contexto {
   rotulo(texto: string) {
     this.vigilar("rótulo", texto);
     const n = this.pasos.cantidad;
-    this.servidor.publicar({ rotulo: { paso: n ? `Paso ${n} de ${Math.max(this.totalPasos, n)}` : "", texto } });
+    this.servidor.publicar({
+      rotulo: { paso: n ? `Paso ${n} de ${Math.max(this.totalPasos, n)}` : "", texto },
+    });
   }
 
   comprobar(texto: string, ok: boolean, valor?: string | number): boolean {
@@ -634,7 +779,13 @@ export class Contexto {
     this.verificaciones.push({ texto, ok, ...(detalle !== undefined ? { detalle } : {}) });
     const n = this.pasos.comprobar({ texto, ok, ...(valor !== undefined ? { valor } : {}) });
     if (this.pasos.actual) this.llegadas[this.pasos.actual.comprueba.length - 1] = Date.now();
-    this.servidor.evento("comprobado", { paso: n, texto, ok, valor, t: this.grabando ? Math.round(this.segundos() * 1000) / 1000 : 0 });
+    this.servidor.evento("comprobado", {
+      paso: n,
+      texto,
+      ok,
+      valor,
+      t: this.grabando ? Math.round(this.segundos() * 1000) / 1000 : 0,
+    });
     this.servidor.publicar({ comprobaciones: this.comprobacionesPanel() });
     this.log(`${ok ? "✓" : "✗"} ${texto}${detalle ? ` — ${detalle}` : ""}`, ok ? "ok" : "mal");
     return ok;
@@ -707,7 +858,9 @@ export class Contexto {
 
   /** Asegura la capa del cursor en la página (la inyecta si la página se abrió antes del script de inicio). */
   private async capa(p: Page): Promise<void> {
-    const hay = await p.evaluate(() => !!(window as unknown as { __nexoCursor?: unknown }).__nexoCursor).catch(() => false);
+    const hay = await p
+      .evaluate(() => !!(window as unknown as { __nexoCursor?: unknown }).__nexoCursor)
+      .catch(() => false);
     if (hay) return;
     await p.addScriptTag({ path: resolve(PAQUETE, "estudio/cursor.js") }).catch(() => undefined);
     const pos = this.posiciones.get(p);
@@ -718,7 +871,8 @@ export class Contexto {
     return p
       .evaluate(
         ([m, a]) => {
-          const capa = (window as unknown as { __nexoCursor?: Record<string, (...x: unknown[]) => unknown> }).__nexoCursor;
+          const capa = (window as unknown as { __nexoCursor?: Record<string, (...x: unknown[]) => unknown> })
+            .__nexoCursor;
           return capa?.[m as string]?.(...(a as unknown[]));
         },
         [metodo, args] as const,
@@ -736,7 +890,13 @@ export class Contexto {
     if (!caja || !dentroDeVista(caja, vp)) {
       if (this.visible(p)) {
         await this.capa(p);
-        await loc.evaluate((el) => (window as unknown as { __nexoCursor?: { desplazarHasta(e: Element): Promise<number> } }).__nexoCursor?.desplazarHasta(el)).catch(() => undefined);
+        await loc
+          .evaluate((el) =>
+            (
+              window as unknown as { __nexoCursor?: { desplazarHasta(e: Element): Promise<number> } }
+            ).__nexoCursor?.desplazarHasta(el),
+          )
+          .catch(() => undefined);
         await dormir(120);
       } else await loc.scrollIntoViewIfNeeded().catch(() => undefined);
       caja = await loc.boundingBox();
@@ -750,13 +910,18 @@ export class Contexto {
     const z = this.zoomActivo;
     if (!z || !z.seguir || !fueraDeVentana(caja, z.ventana)) return;
     z.ventana = ventanaZoom(caja, z.vista, z.factorPedido);
-    this.servidor.publicar({ zoom: { activo: true, ventana: z.ventana, vista: z.vista, insignia: textoInsignia(z.ventana.factor) } });
+    this.servidor.publicar({
+      zoom: { activo: true, ventana: z.ventana, vista: z.vista, insignia: textoInsignia(z.ventana.factor) },
+    });
   }
 
   /** Lleva el cursor (visible) hasta un punto. */
   private async viajar(p: Page, destino: Punto, anchoObjetivo = 40): Promise<void> {
     const vp = p.viewportSize() ?? { width: 1280, height: 720 };
-    const desde = this.posiciones.get(p) ?? { x: Math.round(vp.width * 0.55), y: Math.round(vp.height * 0.62) };
+    const desde = this.posiciones.get(p) ?? {
+      x: Math.round(vp.width * 0.55),
+      y: Math.round(vp.height * 0.62),
+    };
     if (this.visible(p)) {
       await this.capa(p);
       if (!this.posiciones.has(p)) await this.enCapa(p, "colocar", desde.x, desde.y);
@@ -783,7 +948,10 @@ export class Contexto {
     const vp = p.viewportSize() ?? undefined;
     if (!this.visible(p)) {
       if (loc) await (o.doble ? loc.dblclick() : loc.click());
-      else await (o.doble ? p.mouse.dblclick(caja.x + caja.width / 2, caja.y + caja.height / 2) : p.mouse.click(caja.x + caja.width / 2, caja.y + caja.height / 2));
+      else
+        await (o.doble
+          ? p.mouse.dblclick(caja.x + caja.width / 2, caja.y + caja.height / 2)
+          : p.mouse.click(caja.x + caja.width / 2, caja.y + caja.height / 2));
       return;
     }
     this.seguirZoom(caja);
@@ -803,7 +971,10 @@ export class Contexto {
     try {
       if (loc) {
         const b = (await loc.boundingBox()) ?? marco;
-        const posicion = { x: Math.max(1, Math.min(b.width - 1, destino.x - b.x)), y: Math.max(1, Math.min(b.height - 1, destino.y - b.y)) };
+        const posicion = {
+          x: Math.max(1, Math.min(b.width - 1, destino.x - b.x)),
+          y: Math.max(1, Math.min(b.height - 1, destino.y - b.y)),
+        };
         await (o.doble ? loc.dblclick({ position: posicion }) : loc.click({ position: posicion }));
       } else await (o.doble ? p.mouse.dblclick(destino.x, destino.y) : p.mouse.click(destino.x, destino.y));
     } finally {
@@ -816,7 +987,13 @@ export class Contexto {
     return loc
       .evaluate((el) => {
         const e = el as HTMLInputElement;
-        const l = e.labels?.[0]?.textContent ?? e.getAttribute("aria-label") ?? e.getAttribute("placeholder") ?? e.getAttribute("name") ?? e.id ?? "";
+        const l =
+          e.labels?.[0]?.textContent ??
+          e.getAttribute("aria-label") ??
+          e.getAttribute("placeholder") ??
+          e.getAttribute("name") ??
+          e.id ??
+          "";
         return l.replace(/\s+/g, " ").trim().slice(0, 40);
       })
       .catch(() => "");
@@ -839,7 +1016,9 @@ export class Contexto {
     const campo = o.campo ?? (await this.etiquetaCampo(loc));
     const mostrar = (t: string) => (enmascarar ? "•".repeat([...t].length) : t);
     if (o.pegar ?? [...texto].length > 120) {
-      this.servidor.publicar({ teclado: { activo: true, campo, tecla: `Ctrl+V · ${[...texto].length} caracteres` } });
+      this.servidor.publicar({
+        teclado: { activo: true, campo, tecla: `Ctrl+V · ${[...texto].length} caracteres` },
+      });
       await dormir(450);
       await loc.fill(texto);
       await dormir(500);
@@ -862,7 +1041,9 @@ export class Contexto {
   async teclaVisible(tecla: string, pagina?: Page): Promise<void> {
     const p = this.pagina(pagina);
     if (!this.visible(p)) return p.keyboard.press(tecla);
-    this.servidor.publicar({ teclado: { activo: true, tecla: TECLAS[tecla] ?? tecla.replace(/Control/g, "Ctrl") } });
+    this.servidor.publicar({
+      teclado: { activo: true, tecla: TECLAS[tecla] ?? tecla.replace(/Control/g, "Ctrl") },
+    });
     await dormir(260);
     await p.keyboard.press(tecla);
     await dormir(420);
@@ -873,11 +1054,20 @@ export class Contexto {
     const p = this.pagina(pagina);
     if (esCaja(objetivo)) throw new Error("elegir() necesita un <select> (selector o Locator)");
     const loc = this.locator(objetivo, p);
-    const opciones = await loc.evaluate((el) => Array.from((el as HTMLSelectElement).options).map((o) => ({ valor: o.value, texto: (o.textContent ?? "").trim() })));
+    const opciones = await loc.evaluate((el) =>
+      Array.from((el as HTMLSelectElement).options).map((o) => ({
+        valor: o.value,
+        texto: (o.textContent ?? "").trim(),
+      })),
+    );
     const indice =
       typeof opcion === "number"
         ? opcion
-        : opciones.findIndex((o) => (typeof opcion === "string" ? o.valor === opcion || o.texto === opcion : opcion.test(o.texto) || opcion.test(o.valor)));
+        : opciones.findIndex((o) =>
+            typeof opcion === "string"
+              ? o.valor === opcion || o.texto === opcion
+              : opcion.test(o.texto) || opcion.test(o.valor),
+          );
     const elegida = opciones[indice];
     if (!elegida) throw new Error(`el <select> no tiene la opción ${String(opcion)}`);
     this.vigilar("lista", elegida.texto);
@@ -893,13 +1083,20 @@ export class Contexto {
     await dormir(400);
     await this.enCapa(p, "onda", enSelect.x, enSelect.y);
     await this.enCapa(p, "recuadro", null);
-    const cajas = (await loc.evaluate((el, i) => (window as unknown as { __nexoCursor?: { desplegar(e: Element, i: number): unknown } }).__nexoCursor?.desplegar(el, i), indice)) as
-      | Array<Caja & { indice: number }>
-      | undefined;
+    const cajas = (await loc.evaluate(
+      (el, i) =>
+        (
+          window as unknown as { __nexoCursor?: { desplegar(e: Element, i: number): unknown } }
+        ).__nexoCursor?.desplegar(el, i),
+      indice,
+    )) as Array<Caja & { indice: number }> | undefined;
     await dormir(350);
     const destino = cajas?.find((c) => c.indice === indice);
     if (destino) {
-      const punto = { x: Math.round(destino.x + Math.min(destino.width / 2, 90)), y: Math.round(destino.y + destino.height / 2) };
+      const punto = {
+        x: Math.round(destino.x + Math.min(destino.width / 2, 90)),
+        y: Math.round(destino.y + destino.height / 2),
+      };
       await this.viajar(p, punto, destino.width);
       await this.enCapa(p, "resaltar", cajas!.indexOf(destino));
       await dormir(450);
@@ -926,7 +1123,13 @@ export class Contexto {
       const loc = this.locator(a, p);
       if (!this.visible(p)) return loc.scrollIntoViewIfNeeded();
       await this.capa(p);
-      await loc.evaluate((el) => (window as unknown as { __nexoCursor?: { desplazarHasta(e: Element): Promise<number> } }).__nexoCursor?.desplazarHasta(el)).catch(() => undefined);
+      await loc
+        .evaluate((el) =>
+          (
+            window as unknown as { __nexoCursor?: { desplazarHasta(e: Element): Promise<number> } }
+          ).__nexoCursor?.desplazarHasta(el),
+        )
+        .catch(() => undefined);
       await dormir(150);
       return;
     }
@@ -959,12 +1162,16 @@ export class Contexto {
     }
     const ahora = Date.now();
     if (!this.zoomActivo && !this.zooms.cabe(this.inicio, ahora, (o.ms ?? 4000) + ZOOM_TRANSICION_MS)) {
-      this.avisar(`ampliación omitida: superaría el 35 % del video ampliado (${Math.round(this.zooms.fraccion(this.inicio, ahora) * 100)} % hasta ahora)`);
+      this.avisar(
+        `ampliación omitida: superaría el 35 % del video ampliado (${Math.round(this.zooms.fraccion(this.inicio, ahora) * 100)} % hasta ahora)`,
+      );
       return;
     }
     this.zooms.abrir(ahora, ventana.factor);
     this.zoomActivo = { ventana, factorPedido, seguir: o.seguir !== false, vista };
-    this.servidor.publicar({ zoom: { activo: true, ventana, vista, insignia: textoInsignia(ventana.factor) } });
+    this.servidor.publicar({
+      zoom: { activo: true, ventana, vista, insignia: textoInsignia(ventana.factor) },
+    });
     if (!this.vigiaZoom) {
       this.vigiaZoom = setInterval(() => {
         if (this.zooms.excedido(this.inicio, Date.now())) {
@@ -992,7 +1199,10 @@ export class Contexto {
 
   /** Lleva el puntero hasta el elemento (con movimiento visible) y hace clic. */
   async clic(objetivo: Locator | string, pausa?: number) {
-    await this.clicVisible(objetivo, pausa !== undefined && pausa >= PAUSA_ANTES_DE_CLIC_MS ? { pausaMs: pausa } : {});
+    await this.clicVisible(
+      objetivo,
+      pausa !== undefined && pausa >= PAUSA_ANTES_DE_CLIC_MS ? { pausaMs: pausa } : {},
+    );
   }
 
   /** Escribe como una persona (80 ms por letra; el retardo anterior ya no se usa). */
@@ -1014,7 +1224,10 @@ export class Contexto {
     await Promise.race([salir.waitFor({ timeout: 20_000 }), entrar.waitFor({ timeout: 20_000 })]);
     if (await salir.isVisible()) {
       await this.clicVisible(salir);
-      await Promise.race([entrar.waitFor({ timeout: 20_000 }), p.waitForURL(/keycloak/, { timeout: 20_000 })]).catch(() => undefined);
+      await Promise.race([
+        entrar.waitFor({ timeout: 20_000 }),
+        p.waitForURL(/keycloak/, { timeout: 20_000 }),
+      ]).catch(() => undefined);
       if (/keycloak/.test(p.url())) {
         // Cierre de sesión en Keycloak con confirmación.
         const btn = p.locator("#kc-logout");
@@ -1029,12 +1242,19 @@ export class Contexto {
     await this.escribirVisible("#username", usuario);
     await this.escribirVisible("#password", CLAVE_LAB());
     await this.clicVisible("#kc-login");
-    await p.waitForURL((u) => u.host === `localhost:${this.servidor.puerto}` && !u.pathname.startsWith("/auth/"), { timeout: 30_000 });
+    await p.waitForURL(
+      (u) => u.host === `localhost:${this.servidor.puerto}` && !u.pathname.startsWith("/auth/"),
+      { timeout: 30_000 },
+    );
     await p.getByTestId("current-user").waitFor({ timeout: 30_000 });
   }
 
   /** Sigue la salida de un comando en segundo plano (p. ej. docker logs -f) hasta llamar a detener(). */
-  seguir(cmd: string, args: string[], o: { mostrar?: string; filtro?: (l: string) => string | undefined; tipo?: (l: string) => TipoLinea } = {}) {
+  seguir(
+    cmd: string,
+    args: string[],
+    o: { mostrar?: string; filtro?: (l: string) => string | undefined; tipo?: (l: string) => TipoLinea } = {},
+  ) {
     if (o.mostrar !== "") this.log(`$ ${o.mostrar ?? [cmd, ...args].join(" ")} &`, "cmd");
     if (this.ensayo) {
       this.log("(ensayo: no hay laboratorio; el comando no se ejecuta)", "tenue");
@@ -1063,21 +1283,34 @@ export class Contexto {
   /** Muestra una imagen de this.archivos en el panel lateral. */
   imagen(archivo: string, titulo?: string) {
     const rel = archivo.startsWith(this.archivos) ? archivo.slice(this.archivos.length + 1) : archivo;
-    this.panel(`${titulo ? `<h3>${escaparHtml(titulo)}</h3>` : ""}<img src="/__estudio/archivos/${encodeURIComponent(rel)}" style="max-height:${titulo ? 540 : 572}px" />`);
+    this.panel(
+      `${titulo ? `<h3>${escaparHtml(titulo)}</h3>` : ""}<img src="/__estudio/archivos/${encodeURIComponent(rel)}" style="max-height:${titulo ? 540 : 572}px" />`,
+    );
   }
 
   /** Ejecuta un comando y muestra su salida en la terminal, línea a línea, mientras corre. */
   async ejecutarComando(
     cmd: string,
     args: string[],
-    o: { cwd?: string; env?: Record<string, string>; mostrar?: string; filtro?: (l: string) => string | undefined; tipo?: (l: string) => TipoLinea; tablas?: boolean } = {},
+    o: {
+      cwd?: string;
+      env?: Record<string, string>;
+      mostrar?: string;
+      filtro?: (l: string) => string | undefined;
+      tipo?: (l: string) => TipoLinea;
+      tablas?: boolean;
+    } = {},
   ): Promise<{ codigo: number; salida: string[] }> {
     this.log(`$ ${o.mostrar ?? [cmd, ...args].join(" ")}`, "cmd");
     if (this.ensayo) {
       this.log("(ensayo: no hay laboratorio; el comando no se ejecuta)", "tenue");
       return { codigo: 0, salida: [] };
     }
-    const hijo = spawn(cmd, args, { cwd: o.cwd ?? desdeRaiz(), env: { ...ENV_HIJOS(), ...o.env }, stdio: ["ignore", "pipe", "pipe"] });
+    const hijo = spawn(cmd, args, {
+      cwd: o.cwd ?? desdeRaiz(),
+      env: { ...ENV_HIJOS(), ...o.env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     const salida: string[] = [];
     const tabla = new TablaConsola();
     const procesar = (bruta: string) => {
@@ -1105,7 +1338,10 @@ export function paginaRedireccionEnsayo(destino: string): string {
 }
 
 export function escaparHtml(t: string): string {
-  return t.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
+  return t.replace(
+    /[&<>"']/g,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!,
+  );
 }
 
 function tipoPorDefecto(l: string): TipoLinea {
@@ -1219,7 +1455,11 @@ const CONFIG_CONSOLA = (meta: Meta) => ({
   version: `${meta.version} (commit ${meta.commitProducto})`,
   auth: {
     provider: "oidc",
-    oidc: { authority: "http://keycloak:8080/realms/nexo", clientId: "nexo-console", rolesClaimPath: "resource_access.nexo-console.roles" },
+    oidc: {
+      authority: "http://keycloak:8080/realms/nexo",
+      clientId: "nexo-console",
+      rolesClaimPath: "resource_access.nexo-console.roles",
+    },
   },
   demoBanner: true,
 });
@@ -1234,18 +1474,32 @@ export async function grabar(demo: Demo, o: OpcionesGrabacion): Promise<Evidenci
 /** Graba una demostración y devuelve también las cifras de la captura y el pasos.json. */
 export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Grabacion> {
   const ensayo = o.meta.ensayo;
-  if (ensayo !== enEnsayo()) throw new Error(ensayo ? "modo ensayo sin servidor de ensayo (NEXO_EVIDENCIAS_ENSAYO_URL)" : "el servidor de ensayo está activo en una grabación oficial");
+  if (ensayo !== enEnsayo())
+    throw new Error(
+      ensayo
+        ? "modo ensayo sin servidor de ensayo (NEXO_EVIDENCIAS_ENSAYO_URL)"
+        : "el servidor de ensayo está activo en una grabación oficial",
+    );
   const perfil = o.perfil ?? { ancho: ANCHO, alto: ALTO, cps: CPS };
   const carpeta = o.salida ?? (ensayo ? SALIDA_ENSAYO : SALIDA);
   const trabajo = mkdtempSync(join(o.temporal ?? tmpdir(), `evid-${demo.id}-`));
   const archivos = join(trabajo, "archivos");
   mkdirSync(archivos, { recursive: true });
-  const servidor = new Estudio({ configConsola: CONFIG_CONSOLA(o.meta), archivos, ensayo, ...(ENSAYO ? { api: ENSAYO } : {}) });
+  const servidor = new Estudio({
+    configConsola: CONFIG_CONSOLA(o.meta),
+    archivos,
+    ensayo,
+    ...(ENSAYO ? { api: ENSAYO } : {}),
+  });
   await servidor.iniciar();
   const navegador = o.navegador ?? (await lanzarNavegador());
   const c = new Contexto(demo, servidor, o.meta, archivos);
   c.navegador = navegador;
-  c.zooms.minimoTotalMs = duracionMinimaMs(demo.agenda?.length ?? demo.pasos, o.portadaS ?? PORTADA_S, o.cierreS ?? CIERRE_S);
+  c.zooms.minimoTotalMs = duracionMinimaMs(
+    demo.agenda?.length ?? demo.pasos,
+    o.portadaS ?? PORTADA_S,
+    o.cierreS ?? CIERRE_S,
+  );
   c.ritmo = o.ritmo ?? 1;
   let narrador: BrowserContext | undefined;
   let captura: Captura | undefined;
@@ -1258,25 +1512,49 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
   let finPasosMs = 0;
   try {
     // Narrador (se graba): primero, para medir el área de pantalla de cada vista.
-    narrador = await navegador.newContext({ viewport: { width: ANCHO, height: ALTO }, deviceScaleFactor: 1, locale: "es-CL", timezoneId: "America/Santiago" });
+    narrador = await navegador.newContext({
+      viewport: { width: ANCHO, height: ALTO },
+      deviceScaleFactor: 1,
+      locale: "es-CL",
+      timezoneId: "America/Santiago",
+    });
     const pn = await narrador.newPage();
     c.narrador = pn;
     const total = demo.agenda?.length ?? demo.pasos;
     const commits = `commit ${o.meta.commitProducto} · grabación ${o.meta.commitHerramientas}`;
-    const firma = textoFirma({ producto: PRODUCTO, version: o.meta.version, commitProducto: o.meta.commitProducto, commitHerramientas: o.meta.commitHerramientas });
+    const firma = textoFirma({
+      producto: PRODUCTO,
+      version: o.meta.version,
+      commitProducto: o.meta.commitProducto,
+      commitHerramientas: o.meta.commitHerramientas,
+    });
     servidor.publicar({
       vista: "portada",
       ensayo,
       chip: demo.id,
-      banner: { producto: `${PRODUCTO} ${o.meta.version}`, ambiente: o.meta.ambiente, commits, version: o.meta.version, ensayo },
-      firma: { texto: firma, producto: PRODUCTO, version: o.meta.version, commitProducto: o.meta.commitProducto, commitHerramientas: o.meta.commitHerramientas },
+      banner: {
+        producto: `${PRODUCTO} ${o.meta.version}`,
+        ambiente: o.meta.ambiente,
+        commits,
+        version: o.meta.version,
+        ensayo,
+      },
+      firma: {
+        texto: firma,
+        producto: PRODUCTO,
+        version: o.meta.version,
+        commitProducto: o.meta.commitProducto,
+        commitHerramientas: o.meta.commitHerramientas,
+      },
       portada: {
         id: demo.id,
         nombre: demo.nombre,
         version: `${PRODUCTO} ${o.meta.version} (commit ${o.meta.commitProducto}; herramientas de grabación ${o.meta.commitHerramientas})`,
         producto: PRODUCTO,
         versionCorta: o.meta.version,
-        commitProducto: o.meta.etiquetaExiste ? `${o.meta.commitProducto} (etiqueta ${o.meta.etiqueta})` : o.meta.commitProducto,
+        commitProducto: o.meta.etiquetaExiste
+          ? `${o.meta.commitProducto} (etiqueta ${o.meta.etiqueta})`
+          : o.meta.commitProducto,
         commitHerramientas: `${o.meta.commitHerramientas} (herramientas de grabación)`,
         commits,
         fecha: fechaSantiago(fechaGrabacion),
@@ -1295,11 +1573,21 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
       teclado: { activo: false },
     });
     await pn.goto(`${servidor.url}/__estudio/`);
-    await pn.waitForFunction(() => (window as unknown as { __estudioListo?: boolean }).__estudioListo === true && document.getElementById("p-nombre")?.textContent !== "", undefined, { timeout: 20_000 });
+    await pn.waitForFunction(
+      () =>
+        (window as unknown as { __estudioListo?: boolean }).__estudioListo === true &&
+        document.getElementById("p-nombre")?.textContent !== "",
+      undefined,
+      { timeout: 20_000 },
+    );
     const medidas = await servidor.esperarMedidas(5000);
     c.usarMedidas(medidas);
-    if (!medidas) c.avisar("la narradora no informó el tamaño de la pantalla: se usa la ventana del diseño anterior");
-    else if (medidas.compat) c.avisar("index.html no declara data-lienzo=\"1920x1080\": se usa el diseño anterior escalado (modo de compatibilidad)");
+    if (!medidas)
+      c.avisar("la narradora no informó el tamaño de la pantalla: se usa la ventana del diseño anterior");
+    else if (medidas.compat)
+      c.avisar(
+        'index.html no declara data-lienzo="1920x1080": se usa el diseño anterior escalado (modo de compatibilidad)',
+      );
 
     // Contexto operado (no se graba directamente: se ve dentro del narrador).
     c.appContext = await navegador.newContext(c.opcionesContexto());
@@ -1310,7 +1598,13 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
     if (demo.usuarioInicial) await c.ingresarConsola(demo.usuarioInicial);
 
     // Captura: el primer cuadro es el segundo 0 del video (la portada).
-    captura = new Captura(pn, { destino: sinMusica, carpeta: trabajo, ancho: perfil.ancho, alto: perfil.alto, cps: perfil.cps });
+    captura = new Captura(pn, {
+      destino: sinMusica,
+      carpeta: trabajo,
+      ancho: perfil.ancho,
+      alto: perfil.alto,
+      cps: perfil.cps,
+    });
     const t0 = await captura.iniciar();
     c.marcarInicio(t0);
     await c.iniciarPantalla();
@@ -1324,15 +1618,22 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
     await c.cerrarPaso();
     finPasosMs = Date.now();
     await c.reducir();
-    if (c.infracciones.length) throw new Error(`apareció texto no publicable en el video: ${[...new Set(c.infracciones)].slice(0, 3).join(" · ")}`);
+    if (c.infracciones.length)
+      throw new Error(
+        `apareció texto no publicable en el video: ${[...new Set(c.infracciones)].slice(0, 3).join(" · ")}`,
+      );
     const fallidas = c.verificaciones.filter((v) => !v.ok);
-    if (!c.verificaciones.length && !o.soloCaptura) throw new Error("el escenario no registró verificaciones");
+    if (!c.verificaciones.length && !o.soloCaptura)
+      throw new Error("el escenario no registró verificaciones");
     if (fallidas.length) {
       const msg = `verificaciones fallidas: ${fallidas.map((v) => `${v.texto}${v.detalle ? ` (${v.detalle})` : ""}`).join("; ")}`;
       if (ensayo) c.avisar(`(ensayo) ${msg}`);
       else throw new Error(msg);
     }
-    if (c.pasos.cantidad && c.pasos.cantidad < total) c.avisar(`${demo.id}: el guion anunció ${total} pasos y abrió ${c.pasos.cantidad} (la barra de capítulos mostró «de ${total}» durante el video)`);
+    if (c.pasos.cantidad && c.pasos.cantidad < total)
+      c.avisar(
+        `${demo.id}: el guion anunció ${total} pasos y abrió ${c.pasos.cantidad} (la barra de capítulos mostró «de ${total}» durante el video)`,
+      );
     const ok = fallidas.length === 0;
     const cumplidas = `${c.verificaciones.filter((v) => v.ok).length} de ${c.verificaciones.length} verificaciones automáticas cumplidas`;
     const nota = ensayo
@@ -1342,13 +1643,21 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
       vista: "resultado",
       rotulo: { paso: "", texto: `${demo.id} · resultado: ${resultado.medido}` },
       // Al cierre, la barra muestra los pasos que de verdad ocurrieron (nunca un capítulo ✓ que no se grabó).
-      capitulos: { total: c.pasos.cantidad || total, actual: (c.pasos.cantidad || total) + 1, agenda: c.pasos.cantidad ? c.pasos.titulos() : (demo.agenda ?? []), minimoS: PASO_MINIMO_S },
+      capitulos: {
+        total: c.pasos.cantidad || total,
+        actual: (c.pasos.cantidad || total) + 1,
+        agenda: c.pasos.cantidad ? c.pasos.titulos() : (demo.agenda ?? []),
+        minimoS: PASO_MINIMO_S,
+      },
       resultado: {
         ok,
         titulo: `${demo.id} · ${demo.nombre}`,
         resumen: resumenVerificaciones(c.verificaciones).texto,
         medido: resultado.medido,
-        verificaciones: ordenCierre(c.verificaciones).map((v) => ({ ok: v.ok, texto: v.detalle ? `${v.texto}: ${v.detalle}` : v.texto })),
+        verificaciones: ordenCierre(c.verificaciones).map((v) => ({
+          ok: v.ok,
+          texto: v.detalle ? `${v.texto}: ${v.detalle}` : v.texto,
+        })),
         porPagina: 14,
         segundos: o.cierreS ?? CIERRE_S,
         capas: [...CAPAS],
@@ -1366,7 +1675,9 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
     const dep = process.env.EVIDENCIAS_DEPURACION;
     if (dep && c.app && !c.app.isClosed()) {
       mkdirSync(dep, { recursive: true });
-      await c.app.screenshot({ path: join(dep, `${demo.id}-fallo.png`), fullPage: true }).catch(() => undefined);
+      await c.app
+        .screenshot({ path: join(dep, `${demo.id}-fallo.png`), fullPage: true })
+        .catch(() => undefined);
     }
   } finally {
     await c.detenerPantalla();
@@ -1411,7 +1722,8 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
   // aviso (verificar.ts lo exige al publicar) hasta que el guion pase a await c.estudio.paso({...}).
   // Todo lo demás (tope de 240 s, verificaciones fallidas, commits) sigue siendo error.
   const blando = (p: string) => c.usaApiAnterior && /^paso \d+ dura .*\(mínimo/.test(p);
-  for (const p of todos.filter(blando)) c.avisar(`pasos.json (guion con c.paso(); migrar a await c.estudio.paso({...})): ${p}`);
+  for (const p of todos.filter(blando))
+    c.avisar(`pasos.json (guion con c.paso(); migrar a await c.estudio.paso({...})): ${p}`);
   const problemas = todos.filter((p) => !blando(p));
   if (problemas.length) {
     if (ensayo) for (const p of problemas) c.avisar(`(ensayo) pasos.json: ${p}`);
@@ -1459,7 +1771,12 @@ export async function grabarVideo(demo: Demo, o: OpcionesGrabacion): Promise<Gra
     zooms,
     zoom_fraction: Math.round(c.zooms.fraccion(t0, finVideoMs) * 1000) / 1000,
     capture: stats,
-    machine: { cpu: (cpus()[0]?.model ?? "?").replace(/\s+/g, " ").trim(), cores: cpus().length, load_start: Math.round(cargaInicio * 100) / 100, load_end: Math.round((loadavg()[0] ?? 0) * 100) / 100 },
+    machine: {
+      cpu: (cpus()[0]?.model ?? "?").replace(/\s+/g, " ").trim(),
+      cores: cpus().length,
+      load_start: Math.round(cargaInicio * 100) / 100,
+      load_end: Math.round((loadavg()[0] ?? 0) * 100) / 100,
+    },
   };
   return { evidencia, captura: stats, pasos, avisos: c.avisos };
 }

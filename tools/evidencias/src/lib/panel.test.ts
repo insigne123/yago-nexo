@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { ARRASTRE_MINIMO_MS, ARRASTRE_MS, arrastreAlCerrar, listaComprobaciones, MAX_COMPROBACIONES, normalizar, ordenCierre, recortar, resumenVerificaciones, textoFirma, textoOcultas, type ItemComprobacion } from "./panel.js";
+import {
+  ARRASTRE_MINIMO_MS,
+  ARRASTRE_MS,
+  arrastreAlCerrar,
+  listaComprobaciones,
+  MAX_COMPROBACIONES,
+  normalizar,
+  ordenCierre,
+  recortar,
+  resumenVerificaciones,
+  textoFirma,
+  textoOcultas,
+  type ItemComprobacion,
+} from "./panel.js";
 
 describe("normalizar", () => {
   it("ignora mayúsculas, tildes, comillas, espacios y puntuación final", () => {
@@ -19,8 +32,15 @@ describe("listaComprobaciones (Se comprueba, V04)", () => {
   });
 
   it("cada verificación en vivo marca su renglón declarado con el valor medido", () => {
-    const l = listaComprobaciones(declaradas, [{ texto: "El campo recibe exactamente lo escrito", ok: true, valor: "Concesiones de ensayo" }]);
-    expect(l.items[0]).toEqual({ clave: "d0", texto: declaradas[0], estado: "ok", valor: "Concesiones de ensayo" });
+    const l = listaComprobaciones(declaradas, [
+      { texto: "El campo recibe exactamente lo escrito", ok: true, valor: "Concesiones de ensayo" },
+    ]);
+    expect(l.items[0]).toEqual({
+      clave: "d0",
+      texto: declaradas[0],
+      estado: "ok",
+      valor: "Concesiones de ensayo",
+    });
     expect(l.items[1]!.estado).toBe("pendiente");
   });
 
@@ -38,19 +58,25 @@ describe("listaComprobaciones (Se comprueba, V04)", () => {
   });
 
   it("una verificación que se repite actualiza su renglón y una falla no se borra con un acierto posterior", () => {
-    const l = listaComprobaciones([], [
-      { texto: "sin errores", ok: false, valor: "3 errores" },
-      { texto: "sin errores", ok: true, valor: "0 errores" },
-    ]);
+    const l = listaComprobaciones(
+      [],
+      [
+        { texto: "sin errores", ok: false, valor: "3 errores" },
+        { texto: "sin errores", ok: true, valor: "0 errores" },
+      ],
+    );
     expect(l.items).toHaveLength(1);
     expect(l.items[0]).toMatchObject({ estado: "mal", valor: "0 errores" });
   });
 
   it("los valores numéricos se muestran como texto y el vacío no se muestra", () => {
-    const l = listaComprobaciones([], [
-      { texto: "a", ok: true, valor: 0 },
-      { texto: "b", ok: true, valor: "" },
-    ]);
+    const l = listaComprobaciones(
+      [],
+      [
+        { texto: "a", ok: true, valor: 0 },
+        { texto: "b", ok: true, valor: "" },
+      ],
+    );
     expect(l.items[0]!.valor).toBe("0");
     expect(l.items[1]).not.toHaveProperty("valor");
   });
@@ -66,17 +92,27 @@ describe("listaComprobaciones (Se comprueba, V04)", () => {
   });
 
   it("con todo fallido muestra todas las ✗ aunque pasen del máximo", () => {
-    const l = listaComprobaciones([], Array.from({ length: 9 }, (_, i) => ({ texto: `f${i}`, ok: false })));
+    const l = listaComprobaciones(
+      [],
+      Array.from({ length: 9 }, (_, i) => ({ texto: `f${i}`, ok: false })),
+    );
     expect(l.items).toHaveLength(9);
     expect(l.ocultasOk + l.ocultasPendientes).toBe(0);
   });
 });
 
 describe("recortar", () => {
-  const it_ = (clave: string, estado: ItemComprobacion["estado"]): ItemComprobacion => ({ clave, texto: clave, estado });
+  const it_ = (clave: string, estado: ItemComprobacion["estado"]): ItemComprobacion => ({
+    clave,
+    texto: clave,
+    estado,
+  });
 
   it("sin cumplidas que resumir, oculta las pendientes del final", () => {
-    const l = recortar([it_("a", "pendiente"), it_("b", "mal"), it_("c", "pendiente"), it_("d", "pendiente")], 3);
+    const l = recortar(
+      [it_("a", "pendiente"), it_("b", "mal"), it_("c", "pendiente"), it_("d", "pendiente")],
+      3,
+    );
     expect(l.items.map((i) => i.clave)).toEqual(["a", "b"]);
     expect(l.ocultasPendientes).toBe(2);
     expect(textoOcultas(l)).toBe("+ 2 más por comprobar");
@@ -86,22 +122,38 @@ describe("recortar", () => {
     const items = [it_("a", "ok"), it_("b", "pendiente")];
     expect(recortar(items, 2)).toEqual({ items, ocultasOk: 0, ocultasPendientes: 0 });
     expect(textoOcultas({ ocultasOk: 0, ocultasPendientes: 0 })).toBe("");
-    expect(textoOcultas({ ocultasOk: 1, ocultasPendientes: 1 })).toBe("+ 1 cumplida antes ✓ · 1 más por comprobar");
+    expect(textoOcultas({ ocultasOk: 1, ocultasPendientes: 1 })).toBe(
+      "+ 1 cumplida antes ✓ · 1 más por comprobar",
+    );
   });
 });
 
 describe("firma inferior y cierre (V07, V10)", () => {
   it("firma con producto, versión y los dos commits", () => {
-    expect(textoFirma({ producto: "Yago Nexo", version: "1.2.0", commitProducto: "abc1234", commitHerramientas: "def5678" })).toBe(
-      "Yago Nexo 1.2.0 · commit abc1234 · herramientas def5678",
-    );
+    expect(
+      textoFirma({
+        producto: "Yago Nexo",
+        version: "1.2.0",
+        commitProducto: "abc1234",
+        commitHerramientas: "def5678",
+      }),
+    ).toBe("Yago Nexo 1.2.0 · commit abc1234 · herramientas def5678");
   });
 
   it("resumen del cierre", () => {
-    expect(resumenVerificaciones([{ ok: true }, { ok: true }]).texto).toBe("✓ 2 de 2 verificaciones cumplidas");
+    expect(resumenVerificaciones([{ ok: true }, { ok: true }]).texto).toBe(
+      "✓ 2 de 2 verificaciones cumplidas",
+    );
     expect(resumenVerificaciones([{ ok: true }]).texto).toBe("✓ 1 de 1 verificación cumplida");
-    expect(resumenVerificaciones([{ ok: true }, { ok: false }, { ok: true }])).toEqual({ cumplidas: 2, total: 3, fallidas: 1, texto: "✗ 1 de 3 verificaciones no se cumplió" });
-    expect(resumenVerificaciones([{ ok: false }, { ok: false }]).texto).toBe("✗ 2 de 2 verificaciones no se cumplieron");
+    expect(resumenVerificaciones([{ ok: true }, { ok: false }, { ok: true }])).toEqual({
+      cumplidas: 2,
+      total: 3,
+      fallidas: 1,
+      texto: "✗ 1 de 3 verificaciones no se cumplió",
+    });
+    expect(resumenVerificaciones([{ ok: false }, { ok: false }]).texto).toBe(
+      "✗ 2 de 2 verificaciones no se cumplieron",
+    );
     expect(resumenVerificaciones([]).texto).toBe("Sin verificaciones registradas");
   });
 
@@ -120,8 +172,18 @@ describe("arrastreAlCerrar (lo comprobado justo antes de cambiar de paso)", () =
   const T = 1_000_000;
 
   it("una verificación recién llegada sigue a la vista en el paso siguiente", () => {
-    const a = arrastreAlCerrar(3, [], [{ texto: "canary completado", ok: true, valor: "50 s" }], [T - 500], T);
-    expect(a).toEqual({ n: 3, items: [{ clave: "v0", texto: "canary completado", estado: "ok", valor: "50 s" }], hastaMs: T - 500 + ARRASTRE_MS });
+    const a = arrastreAlCerrar(
+      3,
+      [],
+      [{ texto: "canary completado", ok: true, valor: "50 s" }],
+      [T - 500],
+      T,
+    );
+    expect(a).toEqual({
+      n: 3,
+      items: [{ clave: "v0", texto: "canary completado", estado: "ok", valor: "50 s" }],
+      hastaMs: T - 500 + ARRASTRE_MS,
+    });
   });
 
   it("lo que llegó hace rato no se arrastra; si todo es antiguo no hay bloque", () => {

@@ -36,7 +36,8 @@ export function huellaTermino(termino: string): string {
 export function huellasConfiguradas(env: NodeJS.ProcessEnv = process.env): Set<string> {
   const s = new Set(HUELLAS_MOTOR);
   for (const t of (env.EVIDENCIAS_PROHIBIDOS ?? "").split(",")) if (normalizar(t)) s.add(huellaTermino(t));
-  for (const h of (env.EVIDENCIAS_PROHIBIDOS_HUELLAS ?? "").split(",")) if (/^[0-9a-f]{64}$/.test(h.trim())) s.add(h.trim());
+  for (const h of (env.EVIDENCIAS_PROHIBIDOS_HUELLAS ?? "").split(","))
+    if (/^[0-9a-f]{64}$/.test(h.trim())) s.add(h.trim());
   return s;
 }
 
@@ -47,7 +48,10 @@ export interface Hallazgo {
 }
 
 /** Busca términos prohibidos en un texto. Devuelve un hallazgo por aparición. */
-export function buscarProhibidos(texto: string, huellas: ReadonlySet<string> = huellasConfiguradas()): Hallazgo[] {
+export function buscarProhibidos(
+  texto: string,
+  huellas: ReadonlySet<string> = huellasConfiguradas(),
+): Hallazgo[] {
   const palabras = normalizar(texto).split(" ").filter(Boolean);
   const r: Hallazgo[] = [];
   const cache = new Map<string, boolean>();
@@ -60,7 +64,8 @@ export function buscarProhibidos(texto: string, huellas: ReadonlySet<string> = h
         prohibida = huellas.has(createHash("sha256").update(frase).digest("hex"));
         cache.set(frase, prohibida);
       }
-      if (prohibida) r.push({ contexto: palabras.slice(Math.max(0, i - 4), i + n + 4).join(" "), palabras: n });
+      if (prohibida)
+        r.push({ contexto: palabras.slice(Math.max(0, i - 4), i + n + 4).join(" "), palabras: n });
     }
   }
   return r;

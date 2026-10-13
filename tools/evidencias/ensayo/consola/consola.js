@@ -3,12 +3,19 @@
 // ensayo (/api/v1, simulado) y todo lleva el rótulo ENSAYO. No es la Consola real.
 (() => {
   const app = document.getElementById("app");
-  const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const esc = (t) =>
+    String(t ?? "").replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
   const usuario = () => sessionStorage.getItem("ensayo-usuario");
   const api = async (metodo, ruta, cuerpo) => {
     const r = await fetch(`/api/v1${ruta}`, {
       method: metodo,
-      headers: { authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}`, ...(cuerpo ? { "content-type": "application/json" } : {}) },
+      headers: {
+        authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}`,
+        ...(cuerpo ? { "content-type": "application/json" } : {}),
+      },
       body: cuerpo ? JSON.stringify(cuerpo) : undefined,
     });
     return { status: r.status, data: await r.json().catch(() => null) };
@@ -29,7 +36,14 @@
   }
 
   const NAV = [
-    ["General", [["/", "Inicio"], ["/catalogo", "Catálogo"], ["/dependencias", "Dependencias e impacto"]]],
+    [
+      "General",
+      [
+        ["/", "Inicio"],
+        ["/catalogo", "Catálogo"],
+        ["/dependencias", "Dependencias e impacto"],
+      ],
+    ],
     [
       "Capacidades",
       [
@@ -40,7 +54,15 @@
         ["/continuidad", "Continuidad", "D-05"],
       ],
     ],
-    ["Operación", [["/consumo", "Consumo"], ["/auditoria", "Auditoría"], ["/exportacion", "Exportación"], ["/ensayo/formulario", "Formulario de ensayo"]]],
+    [
+      "Operación",
+      [
+        ["/consumo", "Consumo"],
+        ["/auditoria", "Auditoría"],
+        ["/exportacion", "Exportación"],
+        ["/ensayo/formulario", "Formulario de ensayo"],
+      ],
+    ],
   ];
 
   function shell(contenido) {
@@ -68,7 +90,13 @@
     app.innerHTML = `<div class="login"><div class="tarjeta"><span class="ensayo-pill">ENSAYO</span><h1 style="margin-top:14px">Consola Nexo</h1>
       <p class="sub">Inicie sesión con su cuenta institucional.</p><button class="btn" data-testid="btn-oidc-login">Ingresar con Keycloak</button></div></div>`;
     app.querySelector("[data-testid=btn-oidc-login]").onclick = () => {
-      const q = new URLSearchParams({ client_id: "nexo-console", response_type: "code", scope: "openid", state: "ensayo", redirect_uri: `${location.origin}/auth/callback` });
+      const q = new URLSearchParams({
+        client_id: "nexo-console",
+        response_type: "code",
+        scope: "openid",
+        state: "ensayo",
+        redirect_uri: `${location.origin}/auth/callback`,
+      });
       location.href = `http://keycloak:8080/realms/nexo/protocol/openid-connect/auth?${q}`;
     };
   }
@@ -78,15 +106,27 @@
       <div class="kpis"><div class="kpi"><small>APIs gobernadas</small><b>24</b></div><div class="kpi"><small>Llamadas última hora</small><b>18.240</b></div>
       <div class="kpi"><small>Errores 5xx</small><b>0,02 %</b></div><div class="kpi"><small>Despliegues en curso</small><b id="kpi-despliegues">0</b></div></div>
       <div class="tarjeta"><h3 style="margin-top:0">Actividad reciente</h3><table><thead><tr><th>Hora</th><th>Evento</th><th>Persona</th></tr></thead><tbody>
-      ${["Despliegue aprobado", "Contrato validado", "Regla de anomalías creada", "Exportación generada", "API publicada"]
-        .map((e, i) => `<tr><td>10:${String(12 + i * 7).padStart(2, "0")}</td><td>${e}</td><td>${["luis.aprobador", "ana.desarrollo", "admin.nexo"][i % 3]}</td></tr>`)
+      ${[
+        "Despliegue aprobado",
+        "Contrato validado",
+        "Regla de anomalías creada",
+        "Exportación generada",
+        "API publicada",
+      ]
+        .map(
+          (e, i) =>
+            `<tr><td>10:${String(12 + i * 7).padStart(2, "0")}</td><td>${e}</td><td>${["luis.aprobador", "ana.desarrollo", "admin.nexo"][i % 3]}</td></tr>`,
+        )
         .join("")}</tbody></table></div>`);
   }
 
   async function despliegues() {
     const { data } = await api("GET", "/rollouts");
     const filas = (data || [])
-      .map((r) => `<tr><td><a href="/despliegues/${r.id}">${esc(r.id)}</a></td><td>${esc(r.apiName)}</td><td>${esc(r.strategy)}</td><td><span class="estado ${r.status}">${esc(r.status)}</span></td><td>${r.currentWeight} %</td></tr>`)
+      .map(
+        (r) =>
+          `<tr><td><a href="/despliegues/${r.id}">${esc(r.id)}</a></td><td>${esc(r.apiName)}</td><td>${esc(r.strategy)}</td><td><span class="estado ${r.status}">${esc(r.status)}</span></td><td>${r.currentWeight} %</td></tr>`,
+      )
       .join("");
     shell(`<h1>Despliegues</h1><p class="sub">Canary y blue-green con reversión automática (simulación de ensayo).</p>
       <div class="tarjeta"><button class="btn" data-testid="btn-new-rollout">Nuevo despliegue</button>
@@ -110,7 +150,7 @@
         steps: [5, 25, 50, 100],
         stepDurationSec: 6,
       });
-      if (r.status === 201) history.pushState({}, "", `/despliegues/${r.data.id}`), render();
+      if (r.status === 201) (history.pushState({}, "", `/despliegues/${r.data.id}`), render());
     };
   }
 
@@ -127,7 +167,12 @@
             : r.status === "completado"
               ? `<div class="aviso bien" data-testid="rollout-completed">Completado: la versión candidata recibe el 100 % del tráfico.</div>`
               : "";
-      const pasos = (r.stepsDone || []).map((s) => `<tr><td>${s.kind}</td><td>${s.weight} %</td><td>${s.requests}</td><td>${Math.round(s.errorRate * 100)} %</td><td>${s.decision}</td></tr>`).join("");
+      const pasos = (r.stepsDone || [])
+        .map(
+          (s) =>
+            `<tr><td>${s.kind}</td><td>${s.weight} %</td><td>${s.requests}</td><td>${Math.round(s.errorRate * 100)} %</td><td>${s.decision}</td></tr>`,
+        )
+        .join("");
       const html = `<h1>Despliegue ${esc(r.id)} <span class="estado ${r.status}">${esc(r.status)}</span></h1>
         <p class="sub">${esc(r.apiName)} · ${esc(r.strategy)} · candidata ${esc(r.candidateEndpoint)}</p>${avisos}
         <div class="tarjeta">${r.status === "pendiente_aprobacion" ? '<button class="btn" data-testid="btn-approve-rollout">Aprobar despliegue</button> <button class="btn sec" data-testid="btn-abort-rollout">Rechazar</button>' : ""}
@@ -146,7 +191,11 @@
   }
 
   function formulario() {
-    const filas = Array.from({ length: 40 }, (_, i) => `<tr><td>API-${String(i + 1).padStart(3, "0")}</td><td>${["Concesiones", "Tarifas", "Espectro", "Reclamos"][i % 4]} ${i + 1}</td><td>${(i * 37) % 900} ms</td><td>${["publicada", "en revisión", "obsoleta"][i % 3]}</td></tr>`).join("");
+    const filas = Array.from(
+      { length: 40 },
+      (_, i) =>
+        `<tr><td>API-${String(i + 1).padStart(3, "0")}</td><td>${["Concesiones", "Tarifas", "Espectro", "Reclamos"][i % 4]} ${i + 1}</td><td>${(i * 37) % 900} ms</td><td>${["publicada", "en revisión", "obsoleta"][i % 3]}</td></tr>`,
+    ).join("");
     shell(`<h1>Formulario de ensayo</h1><p class="sub">Página para ejercitar el motor: escritura, listas desplegables, casillas y desplazamiento.</p>
       <div class="tarjeta"><form id="f">
         <div class="campo"><label for="nombre">Nombre de la API</label><input id="nombre" data-testid="ensayo-nombre" placeholder="Ej.: Concesiones"></div>

@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { bloquesSubtitulo, capitulosIndice, capitulosVtt, envolver, equilibrar, leerVtt, subtitulosVtt, textoVtt, tiempoVtt, validarPasos, type ArchivoPasos } from "./vtt.js";
+import {
+  bloquesSubtitulo,
+  capitulosIndice,
+  capitulosVtt,
+  envolver,
+  equilibrar,
+  leerVtt,
+  subtitulosVtt,
+  textoVtt,
+  tiempoVtt,
+  validarPasos,
+  type ArchivoPasos,
+} from "./vtt.js";
 
 const ejemplo = (): ArchivoPasos => ({
   producto: "Yago Nexo",
@@ -17,7 +29,8 @@ const ejemplo = (): ArchivoPasos => ({
       inicio_s: 11,
       fin_s: 22,
       titulo: "Inventario vacío",
-      que_pasa: "La Consola muestra el inventario de APIs descubiertas: todavía no hay hallazgos. El motor recorre el perímetro (gateways heredados y servicios de la red autorizada) y anota cada endpoint.",
+      que_pasa:
+        "La Consola muestra el inventario de APIs descubiertas: todavía no hay hallazgos. El motor recorre el perímetro (gateways heredados y servicios de la red autorizada) y anota cada endpoint.",
       por_que_importa: "Parte de un estado conocido.",
       comprueba: [{ texto: "inventario vacío", ok: true, valor: "0 hallazgos" }],
     },
@@ -81,8 +94,15 @@ describe("validación del archivo de pasos", () => {
     sinNarracion.pasos[0]!.que_pasa = " ";
     sinNarracion.pasos[1]!.por_que_importa = "";
     expect(validarPasos(sinNarracion).ok).toBe(true);
-    expect(validarPasos(sinNarracion, { publicar: true }).problemas).toEqual(["paso 1: «que_pasa» vacío", "paso 2: «por_que_importa» vacío"]);
-    expect(leerVtt(subtitulosVtt(sinNarracion)).filter((s) => s.id?.startsWith("paso-1-")).map((s) => s.texto)).toEqual(["<b>Paso 1 de 2 · Inventario vacío</b>"]);
+    expect(validarPasos(sinNarracion, { publicar: true }).problemas).toEqual([
+      "paso 1: «que_pasa» vacío",
+      "paso 2: «por_que_importa» vacío",
+    ]);
+    expect(
+      leerVtt(subtitulosVtt(sinNarracion))
+        .filter((s) => s.id?.startsWith("paso-1-"))
+        .map((s) => s.texto),
+    ).toEqual(["<b>Paso 1 de 2 · Inventario vacío</b>"]);
     const fallida = ejemplo();
     fallida.pasos[0]!.comprueba.push({ texto: "algo", ok: false });
     expect(validarPasos(fallida, { publicar: true }).problemas.join()).toMatch(/no cumplida: algo/);
@@ -145,7 +165,11 @@ describe("WebVTT", () => {
 
   it("subtítulos: si «qué pasa» repite el título (guion con la API anterior), el texto no se muestra dos veces", () => {
     const a = ejemplo();
-    a.pasos[1] = { ...a.pasos[1]!, titulo: "La operadora inicia un escaneo desde la Consola", que_pasa: "La operadora inicia un escaneo desde la Consola." };
+    a.pasos[1] = {
+      ...a.pasos[1]!,
+      titulo: "La operadora inicia un escaneo desde la Consola",
+      que_pasa: "La operadora inicia un escaneo desde la Consola.",
+    };
     const propias = leerVtt(subtitulosVtt(a)).filter((s) => s.id?.startsWith("paso-2-"));
     expect(propias).toHaveLength(1);
     expect(propias[0]!.texto).toBe("<b>Paso 2 de 2 · La operadora inicia un escaneo desde la Consola</b>");
@@ -167,6 +191,8 @@ describe("WebVTT", () => {
 
   it("el lector rechaza archivos que no son WebVTT", () => {
     expect(() => leerVtt("hola\n\n00:00.000 --> 00:01.000\nx")).toThrow(/WEBVTT/);
-    expect(leerVtt("WEBVTT\n\nNOTE algo\n\n00:01.500 --> 00:02.000 line:90%\nx")).toEqual([{ inicio: 1.5, fin: 2, texto: "x" }]);
+    expect(leerVtt("WEBVTT\n\nNOTE algo\n\n00:01.500 --> 00:02.000 line:90%\nx")).toEqual([
+      { inicio: 1.5, fin: 2, texto: "x" },
+    ]);
   });
 });

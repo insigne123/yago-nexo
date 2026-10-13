@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { RegistroPasos, validarPasos, type PasosJson } from "./pasos.js";
-import { CIERRE_S, duracionMinimaMs, esperaAlCerrar, esperaParaMinimo, LECTURA_COMPROBADO_MS, pausaLectura, PASO_MINIMO_S, PORTADA_S, presupuesto, RegistroZoom, TOPE_VIDEO_S, ZOOM_MAX_FRACCION } from "./ritmo.js";
+import {
+  CIERRE_S,
+  duracionMinimaMs,
+  esperaAlCerrar,
+  esperaParaMinimo,
+  LECTURA_COMPROBADO_MS,
+  pausaLectura,
+  PASO_MINIMO_S,
+  PORTADA_S,
+  presupuesto,
+  RegistroZoom,
+  TOPE_VIDEO_S,
+  ZOOM_MAX_FRACCION,
+} from "./ritmo.js";
 
 describe("ritmo (V03)", () => {
   it("mínimo de 7 s por paso y tope de 240 s por video", () => {
@@ -17,14 +30,18 @@ describe("ritmo (V03)", () => {
 
   it("esperaAlCerrar deja a la vista la última verificación antes de cambiar de paso", () => {
     // Paso de 9 s cuya última verificación llegó hace 0,5 s: se esperan 2 s más.
-    expect(esperaAlCerrar({ inicioMs: 0, ahoraMs: 9000, ultimaComprobacionMs: 8500, restantesS: 100 })).toBe(LECTURA_COMPROBADO_MS - 500);
+    expect(esperaAlCerrar({ inicioMs: 0, ahoraMs: 9000, ultimaComprobacionMs: 8500, restantesS: 100 })).toBe(
+      LECTURA_COMPROBADO_MS - 500,
+    );
     // Sin verificaciones en el paso (o de un paso anterior): solo el mínimo.
     expect(esperaAlCerrar({ inicioMs: 10_000, ahoraMs: 12_000, ultimaComprobacionMs: 9000 })).toBe(5000);
     expect(esperaAlCerrar({ inicioMs: 0, ahoraMs: 9000 })).toBe(0);
     // El mínimo manda si es mayor.
     expect(esperaAlCerrar({ inicioMs: 0, ahoraMs: 3000, ultimaComprobacionMs: 2900 })).toBe(4000);
     // Cerca del tope no se agrega la pausa de lectura.
-    expect(esperaAlCerrar({ inicioMs: 0, ahoraMs: 9000, ultimaComprobacionMs: 8900, restantesS: 10 })).toBe(0);
+    expect(esperaAlCerrar({ inicioMs: 0, ahoraMs: 9000, ultimaComprobacionMs: 8900, restantesS: 10 })).toBe(
+      0,
+    );
   });
 
   it("pausaLectura escala solo entre 0,5 y 2 (nadie acelera con el ritmo)", () => {
@@ -103,7 +120,11 @@ describe("RegistroZoom (como máximo 35 % del video ampliado)", () => {
 });
 
 describe("RegistroPasos y pasos.json", () => {
-  const def = (titulo: string) => ({ titulo, quePasa: `qué pasa en ${titulo}`, porQueImporta: `por qué importa ${titulo}` });
+  const def = (titulo: string) => ({
+    titulo,
+    quePasa: `qué pasa en ${titulo}`,
+    porQueImporta: `por qué importa ${titulo}`,
+  });
 
   it("registra pasos con tiempos relativos al primer cuadro y las verificaciones en vivo de cada uno", () => {
     const r = new RegistroPasos(() => 10_000);
@@ -116,7 +137,14 @@ describe("RegistroPasos y pasos.json", () => {
     r.comprobar({ texto: "tras cerrar", ok: true });
     const p = r.pasos(50_000);
     expect(p).toHaveLength(2);
-    expect(p[0]).toMatchObject({ n: 1, inicio_s: 11, fin_s: 20.5, titulo: "uno", que_pasa: "qué pasa en uno", por_que_importa: "por qué importa uno" });
+    expect(p[0]).toMatchObject({
+      n: 1,
+      inicio_s: 11,
+      fin_s: 20.5,
+      titulo: "uno",
+      que_pasa: "qué pasa en uno",
+      por_que_importa: "por qué importa uno",
+    });
     expect(p[0]!.comprueba).toEqual([
       { texto: "antes del primer paso", ok: true },
       { texto: "a", ok: true, valor: 3 },
@@ -147,7 +175,15 @@ describe("RegistroPasos y pasos.json", () => {
     cps: 30,
     duracion_s: 60,
     pasos: [
-      { n: 1, inicio_s: 11, fin_s: 25, titulo: "uno", que_pasa: "q", por_que_importa: "p", comprueba: [{ texto: "x", ok: true }] },
+      {
+        n: 1,
+        inicio_s: 11,
+        fin_s: 25,
+        titulo: "uno",
+        que_pasa: "q",
+        por_que_importa: "p",
+        comprueba: [{ texto: "x", ok: true }],
+      },
       { n: 2, inicio_s: 25, fin_s: 46, titulo: "dos", que_pasa: "q", por_que_importa: "p", comprueba: [] },
     ],
   });
@@ -174,7 +210,9 @@ describe("RegistroPasos y pasos.json", () => {
     const p = base();
     p.commit_herramientas = "";
     p.version = "";
-    expect(validarPasos(p)).toEqual(expect.arrayContaining(["falta producto o versión", "faltan los commits de producto y herramientas"]));
+    expect(validarPasos(p)).toEqual(
+      expect.arrayContaining(["falta producto o versión", "faltan los commits de producto y herramientas"]),
+    );
   });
 
   it("validarPasos detecta pasos superpuestos o fuera del video", () => {

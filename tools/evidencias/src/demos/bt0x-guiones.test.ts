@@ -62,7 +62,11 @@ describe.each(GUIONES)("narración de $demo.id", ({ demo, narracion, estimada })
   });
 
   it("no hay textos no publicables en lo que se ve (vigilancia del motor)", () => {
-    const todo = [demo.nombre, demo.afirmacion, ...narracion.flatMap((p) => [p.titulo, p.quePasa, p.porQueImporta, ...(p.comprueba ?? [])])].join("\n");
+    const todo = [
+      demo.nombre,
+      demo.afirmacion,
+      ...narracion.flatMap((p) => [p.titulo, p.quePasa, p.porQueImporta, ...(p.comprueba ?? [])]),
+    ].join("\n");
     expect(buscarProhibidos(todo)).toEqual([]);
   });
 });
@@ -85,9 +89,13 @@ describe("BT-008: RUT de las solicitudes", () => {
 
 describe("BT-049: configuración de la plataforma dentro del paquete", () => {
   it("encuentra platform.yaml en cualquier carpeta del paquete y no en otros archivos", () => {
-    expect(bt049m.configuracionEnPaquete(["manifiesto.json", "configuracion/platform.yaml"])).toBe("configuracion/platform.yaml");
+    expect(bt049m.configuracionEnPaquete(["manifiesto.json", "configuracion/platform.yaml"])).toBe(
+      "configuracion/platform.yaml",
+    );
     expect(bt049m.configuracionEnPaquete(["platform.yml"])).toBe("platform.yml");
-    expect(bt049m.configuracionEnPaquete(["apis/x.zip", "platform.yaml.bak", "metadatos/catalogo.json"])).toBeUndefined();
+    expect(
+      bt049m.configuracionEnPaquete(["apis/x.zip", "platform.yaml.bak", "metadatos/catalogo.json"]),
+    ).toBeUndefined();
   });
 });
 
@@ -101,10 +109,18 @@ describe("D-07: nombres de las operaciones por lenguaje", () => {
 
 describe("ensayo de estos guiones", () => {
   it("urlLab desvía solo los puertos locales del laboratorio, y solo en ensayo", () => {
-    expect(urlLab("http://localhost:7001/_estadisticas", "http://localhost:5174")).toBe("http://localhost:5174/bt0x/7001/_estadisticas");
-    expect(urlLab("http://localhost:15672/api/queues/%2F/solicitudes.dlq", "http://localhost:5174")).toBe("http://localhost:5174/bt0x/15672/api/queues/%2F/solicitudes.dlq");
-    expect(urlLab("http://localhost:8090/api/v1", "http://localhost:5174")).toBe("http://localhost:8090/api/v1");
-    expect(urlLab("http://localhost:7001/_estadisticas", undefined)).toBe("http://localhost:7001/_estadisticas");
+    expect(urlLab("http://localhost:7001/_estadisticas", "http://localhost:5174")).toBe(
+      "http://localhost:5174/bt0x/7001/_estadisticas",
+    );
+    expect(urlLab("http://localhost:15672/api/queues/%2F/solicitudes.dlq", "http://localhost:5174")).toBe(
+      "http://localhost:5174/bt0x/15672/api/queues/%2F/solicitudes.dlq",
+    );
+    expect(urlLab("http://localhost:8090/api/v1", "http://localhost:5174")).toBe(
+      "http://localhost:8090/api/v1",
+    );
+    expect(urlLab("http://localhost:7001/_estadisticas", undefined)).toBe(
+      "http://localhost:7001/_estadisticas",
+    );
   });
 
   const puerto = 5300 + Math.floor(Math.random() * 400);
@@ -121,17 +137,31 @@ describe("ensayo de estos guiones", () => {
 
   it("GraphQL: con token responde, sin token 401 y un campo fuera del esquema 400", async () => {
     const q = (h: Record<string, string>, query: string) =>
-      fetch(`${base}/gateway/graphql/concesiones/1.0.0`, { method: "POST", headers: { "content-type": "application/json", ...h }, body: JSON.stringify({ query }) });
+      fetch(`${base}/gateway/graphql/concesiones/1.0.0`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...h },
+        body: JSON.stringify({ query }),
+      });
     const ok = await q(token("ck-operadordemo"), "{ totalPorEstado { estado total } }");
     expect(ok.status).toBe(200);
-    expect(((await ok.json()) as { data: { totalPorEstado: unknown[] } }).data.totalPorEstado.length).toBeGreaterThan(0);
+    expect(
+      ((await ok.json()) as { data: { totalPorEstado: unknown[] } }).data.totalPorEstado.length,
+    ).toBeGreaterThan(0);
     expect((await q({}, "{ totalPorEstado { estado } }")).status).toBe(401);
     expect((await q(token("x"), "{ concesiones { id campoInexistente } }")).status).toBe(400);
   });
 
   it("solicitudes: 202 con correlación, misma clave sin duplicar, inválida 422", async () => {
     const post = (clave: string, b: unknown) =>
-      fetch(`${base}/gateway/solicitudes/1.0.0/`, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": clave, ...token("ck-operadordemo") }, body: JSON.stringify(b) });
+      fetch(`${base}/gateway/solicitudes/1.0.0/`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": clave,
+          ...token("ck-operadordemo"),
+        },
+        body: JSON.stringify(b),
+      });
     const b = { rutEmpresa: bt008m.RUT_VALIDA, servicio: "Internet", region: "Los Lagos" };
     const r1 = (await (await post("k1", b)).json()) as { correlacion: string };
     const r2 = (await (await post("k1", b)).json()) as { correlacion: string };
@@ -141,45 +171,100 @@ describe("ensayo de estos guiones", () => {
   });
 
   it("la cola de fallidos se lee como cantidad (solo lectura) y el destino informa sus registros", async () => {
-    const cola = (await (await fetch(`${base}/bt0x/15672/api/queues/%2F/solicitudes.dlq`)).json()) as { messages: number };
+    const cola = (await (await fetch(`${base}/bt0x/15672/api/queues/%2F/solicitudes.dlq`)).json()) as {
+      messages: number;
+    };
     expect(cola.messages).toBe(0);
-    const destino = (await (await fetch(`${base}/bt0x/7001/_estadisticas`)).json()) as { registrosCreados: number };
+    const destino = (await (await fetch(`${base}/bt0x/7001/_estadisticas`)).json()) as {
+      registrosCreados: number;
+    };
     expect(typeof destino.registrosCreados).toBe("number");
   });
 
   it("autoservicio: registro pendiente, aprobación y suscripción que habilita el gateway", async () => {
     const form = (ruta: string, datos: Record<string, string>, h: Record<string, string> = {}) =>
-      fetch(`${base}/wso2${ruta}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...h }, body: new URLSearchParams(datos).toString() });
-    await form("/accountrecoveryendpoint/register.do", { paso: "datos", username: "operador.prueba", password: "x" });
-    const pend = (await (await fetch(`${base}/wso2/api/am/admin/v4/workflows?workflowType=AM_USER_SIGNUP`, { headers: basico("admin") })).json()) as { list: Array<{ referenceId: string; properties: { tenantAwareUserName: string } }> };
+      fetch(`${base}/wso2${ruta}`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", ...h },
+        body: new URLSearchParams(datos).toString(),
+      });
+    await form("/accountrecoveryendpoint/register.do", {
+      paso: "datos",
+      username: "operador.prueba",
+      password: "x",
+    });
+    const pend = (await (
+      await fetch(`${base}/wso2/api/am/admin/v4/workflows?workflowType=AM_USER_SIGNUP`, {
+        headers: basico("admin"),
+      })
+    ).json()) as { list: Array<{ referenceId: string; properties: { tenantAwareUserName: string } }> };
     const t = pend.list.find((x) => x.properties.tenantAwareUserName === "operador.prueba")!;
     expect(t).toBeDefined();
-    const aprobar = (ref: string) => fetch(`${base}/wso2/api/am/admin/v4/workflows/update-workflow-status?workflowReferenceId=${ref}`, { method: "POST", headers: { "content-type": "application/json", ...basico("admin") }, body: JSON.stringify({ status: "APPROVED" }) });
+    const aprobar = (ref: string) =>
+      fetch(`${base}/wso2/api/am/admin/v4/workflows/update-workflow-status?workflowReferenceId=${ref}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...basico("admin") },
+        body: JSON.stringify({ status: "APPROVED" }),
+      });
     expect((await aprobar(t.referenceId)).status).toBe(200);
     // Aplicación, llaves y suscripción por REST, cada una con su aprobación.
-    const app = (await (await fetch(`${base}/wso2/api/am/devportal/v3/applications`, { method: "POST", headers: { "content-type": "application/json", ...basico("operador.prueba") }, body: JSON.stringify({ name: "App prueba" }) })).json()) as { applicationId: string };
-    await fetch(`${base}/wso2/api/am/devportal/v3/applications/${app.applicationId}/generate-keys`, { method: "POST", headers: basico("operador.prueba") });
-    await fetch(`${base}/wso2/api/am/devportal/v3/subscriptions`, { method: "POST", headers: { "content-type": "application/json", ...basico("operador.prueba") }, body: JSON.stringify({ applicationId: app.applicationId, apiId: "api-concesiones", throttlingPolicy: "OperadoresEstandar" }) });
-    const todas = (await (await fetch(`${base}/wso2/api/am/admin/v4/workflows`, { headers: basico("admin") })).json()) as { list: Array<{ referenceId: string; workflowType: string }> };
+    const app = (await (
+      await fetch(`${base}/wso2/api/am/devportal/v3/applications`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...basico("operador.prueba") },
+        body: JSON.stringify({ name: "App prueba" }),
+      })
+    ).json()) as { applicationId: string };
+    await fetch(`${base}/wso2/api/am/devportal/v3/applications/${app.applicationId}/generate-keys`, {
+      method: "POST",
+      headers: basico("operador.prueba"),
+    });
+    await fetch(`${base}/wso2/api/am/devportal/v3/subscriptions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...basico("operador.prueba") },
+      body: JSON.stringify({
+        applicationId: app.applicationId,
+        apiId: "api-concesiones",
+        throttlingPolicy: "OperadoresEstandar",
+      }),
+    });
+    const todas = (await (
+      await fetch(`${base}/wso2/api/am/admin/v4/workflows`, { headers: basico("admin") })
+    ).json()) as { list: Array<{ referenceId: string; workflowType: string }> };
     const sus = todas.list.find((x) => x.workflowType === "AM_SUBSCRIPTION_CREATION")!;
     for (const w of todas.list.filter((x) => x !== sus)) await aprobar(w.referenceId);
-    const llaves = (await (await fetch(`${base}/wso2/api/am/devportal/v3/applications/${app.applicationId}/oauth-keys`, { headers: basico("operador.prueba") })).json()) as { list: Array<{ consumerKey: string }> };
+    const llaves = (await (
+      await fetch(`${base}/wso2/api/am/devportal/v3/applications/${app.applicationId}/oauth-keys`, {
+        headers: basico("operador.prueba"),
+      })
+    ).json()) as { list: Array<{ consumerKey: string }> };
     const ck = llaves.list[0]!.consumerKey;
-    const gw = () => fetch(`${base}/gateway/concesiones/1.0.0/concesiones?estado=vigente`, { headers: token(ck) });
+    const gw = () =>
+      fetch(`${base}/gateway/concesiones/1.0.0/concesiones?estado=vigente`, { headers: token(ck) });
     expect((await gw()).status).toBe(403);
     await aprobar(sus.referenceId);
     expect((await gw()).status).toBe(200);
   });
 
   it("el plan OperadoresEstandar limita a 20 llamadas por segundo (429)", async () => {
-    const r = await Promise.all(Array.from({ length: 30 }, () => fetch(`${base}/gateway/concesiones/1.0.0/concesiones/CON-000002`, { headers: token("ck-fiscalizacion") })));
+    const r = await Promise.all(
+      Array.from({ length: 30 }, () =>
+        fetch(`${base}/gateway/concesiones/1.0.0/concesiones/CON-000002`, {
+          headers: token("ck-fiscalizacion"),
+        }),
+      ),
+    );
     expect(r.filter((x) => x.status === 429).length).toBeGreaterThan(0);
   });
 
   it("exportación: el paquete trae manifiesto y platform.yaml, y el lector estándar lo lee", async () => {
-    const creado = (await (await fetch(`${base}/api/v1/exports`, { method: "POST", headers: token("admin.nexo") })).json()) as { downloadUrl: string };
+    const creado = (await (
+      await fetch(`${base}/api/v1/exports`, { method: "POST", headers: token("admin.nexo") })
+    ).json()) as { downloadUrl: string };
     const zip = unzipSync(new Uint8Array(await (await fetch(`${base}${creado.downloadUrl}`)).arrayBuffer()));
-    const man = JSON.parse(strFromU8(zip["manifiesto.json"]!)) as { items: Array<{ archivo: string; tipo: string }> };
+    const man = JSON.parse(strFromU8(zip["manifiesto.json"]!)) as {
+      items: Array<{ archivo: string; tipo: string }>;
+    };
     expect(man.items.map((i) => i.tipo)).toEqual(expect.arrayContaining(["api", "flujo", "metadatos"]));
     expect(bt049m.configuracionEnPaquete(Object.keys(zip))).toBe("configuracion/platform.yaml");
     let python = true;
@@ -196,7 +281,9 @@ describe("ensayo de estos guiones", () => {
         writeFileSync(join(dir, f), d);
       }
       writeFileSync(join(dir, "leer.py"), bt049m.LECTOR);
-      const salida = execFileSync("python3", [join(dir, "leer.py"), dir], { encoding: "utf8" }).trim().split("\n");
+      const salida = execFileSync("python3", [join(dir, "leer.py"), dir], { encoding: "utf8" })
+        .trim()
+        .split("\n");
       expect(salida.length).toBeGreaterThanOrEqual(man.items.length);
       expect(salida.some((l) => l.startsWith("yaml configuracion/platform.yaml"))).toBe(true);
     } finally {

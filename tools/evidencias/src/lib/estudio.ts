@@ -12,7 +12,13 @@
  *     ventana operada se vea 1 píxel = 1 píxel.
  */
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
-import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import {
+  createServer,
+  request as httpRequest,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { desdeRaiz, PAQUETE } from "./entorno.js";
 
@@ -69,7 +75,11 @@ export class Estudio {
     this.puerto = o.puerto ?? 5173;
     this.dist = o.ensayo ? resolve(PAQUETE, "ensayo/consola") : desdeRaiz("apps/console-web/dist");
     if (!existsSync(join(this.dist, "index.html"))) {
-      throw new Error(o.ensayo ? `faltan las páginas de ensayo en ${this.dist}` : "falta apps/console-web/dist: ejecute pnpm --filter @nexo/console-web build");
+      throw new Error(
+        o.ensayo
+          ? `faltan las páginas de ensayo en ${this.dist}`
+          : "falta apps/console-web/dist: ejecute pnpm --filter @nexo/console-web build",
+      );
     }
   }
 
@@ -154,7 +164,11 @@ export class Estudio {
     }
     if (p.startsWith("/api/")) return this.reenviar(req, res, url);
     if (p === "/__estudio/eventos") {
-      res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive" });
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-store",
+        connection: "keep-alive",
+      });
       res.write(`data: ${JSON.stringify(this.estado)}\n\n`);
       this.sse.add(res);
       req.on("close", () => this.sse.delete(res));
@@ -173,14 +187,20 @@ export class Estudio {
       return;
     }
     if (p === "/__estudio/monitor.mjpg") {
-      res.writeHead(200, { "content-type": "multipart/x-mixed-replace; boundary=cuadro", "cache-control": "no-store", connection: "keep-alive" });
+      res.writeHead(200, {
+        "content-type": "multipart/x-mixed-replace; boundary=cuadro",
+        "cache-control": "no-store",
+        connection: "keep-alive",
+      });
       this.mjpeg.add(res);
       if (this.ultimoCuadro) this.escribirCuadro(res, this.ultimoCuadro);
       req.on("close", () => this.mjpeg.delete(res));
       return;
     }
-    if (p.startsWith("/__estudio/archivos/")) return this.estatico(res, this.o.archivos, p.slice("/__estudio/archivos/".length), false);
-    if (p === "/__estudio/logo.svg") return this.estatico(res, desdeRaiz("apps/site/static/img"), "logo.svg", false);
+    if (p.startsWith("/__estudio/archivos/"))
+      return this.estatico(res, this.o.archivos, p.slice("/__estudio/archivos/".length), false);
+    if (p === "/__estudio/logo.svg")
+      return this.estatico(res, desdeRaiz("apps/site/static/img"), "logo.svg", false);
     if (p === "/__estudio" || p.startsWith("/__estudio/")) {
       const rel = p.replace(/^\/__estudio\/?/, "") || "index.html";
       return this.estatico(res, this.narrador, rel, false);

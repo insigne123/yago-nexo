@@ -49,14 +49,18 @@ type ApiWso2 = {
 export const NARRACION_BT018: DefinicionPaso[] = [
   {
     titulo: "El catálogo se sincroniza con WSO2",
-    quePasa: "Se sincroniza el catálogo: la Consola lee de WSO2, donde corren las APIs, cada API con sus consumidores y suscripciones.",
-    porQueImporta: "El catálogo no es una planilla aparte: se alimenta del entorno de ejecución, así que refleja lo que de verdad está publicado.",
+    quePasa:
+      "Se sincroniza el catálogo: la Consola lee de WSO2, donde corren las APIs, cada API con sus consumidores y suscripciones.",
+    porQueImporta:
+      "El catálogo no es una planilla aparte: se alimenta del entorno de ejecución, así que refleja lo que de verdad está publicado.",
     comprueba: ["catálogo sincronizado con WSO2"],
   },
   {
     titulo: "La ficha de una API: dueño, contrato, versión y estado",
-    quePasa: "Se abre la ficha de Concesiones: propósito, equipo dueño y contacto, contrato, versión, autenticación, consumidores, dependencias y estado.",
-    porQueImporta: "Cada API tiene un responsable y un contrato conocidos: quien la usa o la cambia sabe a quién acudir y qué se comprometió.",
+    quePasa:
+      "Se abre la ficha de Concesiones: propósito, equipo dueño y contacto, contrato, versión, autenticación, consumidores, dependencias y estado.",
+    porQueImporta:
+      "Cada API tiene un responsable y un contrato conocidos: quien la usa o la cambia sabe a quién acudir y qué se comprometió.",
     comprueba: ["ficha completa: los campos comprometidos tienen valor"],
   },
   {
@@ -67,9 +71,16 @@ export const NARRACION_BT018: DefinicionPaso[] = [
   },
   {
     titulo: "Consistencia con el entorno de ejecución",
-    quePasa: "Se abre la API en el Publisher de WSO2 y cada campo de la ficha se compara con lo que informa WSO2, incluidas las suscripciones.",
-    porQueImporta: "Lo que dice el catálogo coincide con lo que corre en el gateway: no hay fichas desactualizadas.",
-    comprueba: ["nombre, versión, contexto y estado coinciden con WSO2", "propietario, contacto, contrato y propósito coinciden con WSO2", "autenticación coincide con WSO2", "consumidores coinciden con las suscripciones activas"],
+    quePasa:
+      "Se abre la API en el Publisher de WSO2 y cada campo de la ficha se compara con lo que informa WSO2, incluidas las suscripciones.",
+    porQueImporta:
+      "Lo que dice el catálogo coincide con lo que corre en el gateway: no hay fichas desactualizadas.",
+    comprueba: [
+      "nombre, versión, contexto y estado coinciden con WSO2",
+      "propietario, contacto, contrato y propósito coinciden con WSO2",
+      "autenticación coincide con WSO2",
+      "consumidores coinciden con las suscripciones activas",
+    ],
   },
 ];
 
@@ -102,11 +113,16 @@ export const bt018: Demo = {
     await c.vista("dividido");
     await c.ir("/catalogo");
     await c.app.getByTestId("table-apis").waitFor();
-    const respuestaSync = c.app.waitForResponse((r) => r.url().includes("/catalog/sync") && r.request().method() === "POST", { timeout: 60_000 }).catch(() => undefined);
+    const respuestaSync = c.app
+      .waitForResponse((r) => r.url().includes("/catalog/sync") && r.request().method() === "POST", {
+        timeout: 60_000,
+      })
+      .catch(() => undefined);
     await e.clic(c.app.getByTestId("btn-sync-wso2"));
     const rs = await respuestaSync;
     type Sync = { apis: number; consumers: number; subscriptions: number; durationMs: number };
-    let sync = (rs?.status() === 200 ? await rs.json().catch(() => undefined) : undefined) as Sync | undefined;
+    let sync = (rs?.status() === 200 ? await rs.json().catch(() => undefined) : undefined) as
+      Sync | undefined;
     let estadoSync = rs?.status();
     if (!sync) {
       // Si no se alcanzó a leer la respuesta del botón, la misma sincronización por la API de la Consola.
@@ -114,11 +130,25 @@ export const bt018: Demo = {
       sync = r.status === 200 ? r.data : undefined;
       estadoSync = r.status;
     }
-    if (sync) c.log(`→ POST /api/v1/catalog/sync → ${estadoSync}: ${sync.apis} APIs · ${sync.consumers} consumidores · ${sync.subscriptions} suscripciones en ${sync.durationMs} ms`, "cmd");
+    if (sync)
+      c.log(
+        `→ POST /api/v1/catalog/sync → ${estadoSync}: ${sync.apis} APIs · ${sync.consumers} consumidores · ${sync.subscriptions} suscripciones en ${sync.durationMs} ms`,
+        "cmd",
+      );
     const lista = (await consola<Ficha[]>(dev, "GET", "/apis")).data;
-    for (const a of lista) c.log(`${a.name.padEnd(22)} ${a.version}  ${a.type.padEnd(8)} ${a.state.padEnd(10)} completitud ${a.completeness} %`);
-    e.indicadores({ "APIs en el catálogo": lista.length, ...(sync ? { suscripciones: sync.subscriptions } : {}) });
-    e.exige("catálogo sincronizado con WSO2", estadoSync === 200 && !!sync && lista.length >= 5, `${lista.length} APIs · ${sync?.durationMs ?? "?"} ms`);
+    for (const a of lista)
+      c.log(
+        `${a.name.padEnd(22)} ${a.version}  ${a.type.padEnd(8)} ${a.state.padEnd(10)} completitud ${a.completeness} %`,
+      );
+    e.indicadores({
+      "APIs en el catálogo": lista.length,
+      ...(sync ? { suscripciones: sync.subscriptions } : {}),
+    });
+    e.exige(
+      "catálogo sincronizado con WSO2",
+      estadoSync === 200 && !!sync && lista.length >= 5,
+      `${lista.length} APIs · ${sync?.durationMs ?? "?"} ms`,
+    );
 
     // 2 ── Ficha ─────────────────────────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_BT018[1]!);
@@ -136,7 +166,10 @@ export const bt018: Demo = {
     const ficha = (await consola<Ficha>(dev, "GET", `/apis/${encodeURIComponent(ficha0.id)}`)).data;
     const campos: Array<[string, unknown]> = [
       ["propósito", ficha.purpose],
-      ["propietario", ficha.ownerTeam && ficha.ownerContact ? `${ficha.ownerTeam} <${ficha.ownerContact}>` : undefined],
+      [
+        "propietario",
+        ficha.ownerTeam && ficha.ownerContact ? `${ficha.ownerTeam} <${ficha.ownerContact}>` : undefined,
+      ],
       ["contrato", ficha.contractRef],
       ["versión", ficha.version],
       ["autenticación", ficha.authType],
@@ -145,7 +178,11 @@ export const bt018: Demo = {
       ["estado", ficha.state],
     ];
     for (const [k, v] of campos) c.log(`${k.padEnd(14)} ${String(v ?? "—").slice(0, 120)}`);
-    e.comprueba("ficha completa: los campos comprometidos tienen valor", campos.every(([, v]) => v !== undefined && v !== "") && ficha.completeness === 100, `completitud ${ficha.completeness} %`);
+    e.comprueba(
+      "ficha completa: los campos comprometidos tienen valor",
+      campos.every(([, v]) => v !== undefined && v !== "") && ficha.completeness === 100,
+      `completitud ${ficha.completeness} %`,
+    );
 
     // 3 ── Grafo ─────────────────────────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_BT018[2]!);
@@ -159,7 +196,11 @@ export const bt018: Demo = {
       await e.clic(nodo);
       await e.zoom(nodo, { factor: 1.6, ms: 2500 });
     }
-    e.comprueba("la API aparece en el grafo de dependencias", hayNodo, `${(ficha.dependencies ?? []).length} dependencias · ${(ficha.consumers ?? []).length} consumidores`);
+    e.comprueba(
+      "la API aparece en el grafo de dependencias",
+      hayNodo,
+      `${(ficha.dependencies ?? []).length} dependencias · ${(ficha.consumers ?? []).length} consumidores`,
+    );
     await e.esperar(1500);
 
     // 4 ── Consistencia con WSO2 ─────────────────────────────────────────────────────────────────────
@@ -173,12 +214,17 @@ export const bt018: Demo = {
     }
     const enWso2 = (await w.publisher.getApi(ficha.wso2ApiId)) as unknown as ApiWso2;
     const prop = (n: string) => enWso2.additionalProperties?.find((p) => p.name === n)?.value;
-    const subs = await w.request<{ list: Array<{ applicationInfo?: { name?: string }; subscriptionStatus?: string }> }>({
+    const subs = await w.request<{
+      list: Array<{ applicationInfo?: { name?: string }; subscriptionStatus?: string }>;
+    }>({
       method: "GET",
       path: `/api/am/publisher/v4/subscriptions?apiId=${ficha.wso2ApiId}&limit=100`,
     });
     const activas = subs.list.filter((s) => (s.subscriptionStatus ?? "UNBLOCKED") === "UNBLOCKED");
-    c.log(`→ GET /api/am/publisher/v4/apis/${ficha.wso2ApiId.slice(0, 8)}… y /subscriptions   # lo que informa WSO2`, "cmd");
+    c.log(
+      `→ GET /api/am/publisher/v4/apis/${ficha.wso2ApiId.slice(0, 8)}… y /subscriptions   # lo que informa WSO2`,
+      "cmd",
+    );
     const pares: Array<[string, unknown, unknown]> = [
       ["nombre y versión", `${ficha.name} ${ficha.version}`, `${enWso2.name} ${enWso2.version}`],
       ["contexto", ficha.context, enWso2.context],
@@ -188,15 +234,35 @@ export const bt018: Demo = {
       ["contrato", ficha.contractRef, prop("contrato")],
       ["propósito", ficha.purpose, prop("proposito")],
     ];
-    for (const [k, a, b] of pares) c.log(`  ${String(a) === String(b) ? "=" : "≠"} ${k.padEnd(16)} catálogo «${String(a).slice(0, 44)}» · WSO2 «${String(b).slice(0, 44)}»`, String(a) === String(b) ? "ok" : "mal");
-    const iguales = (desde: number, hasta: number) => pares.slice(desde, hasta).every(([, a, b]) => String(a) === String(b));
-    e.comprueba("nombre, versión, contexto y estado coinciden con WSO2", iguales(0, 3), `${enWso2.name} ${enWso2.version} · ${enWso2.context} · ${enWso2.lifeCycleStatus}`);
-    e.comprueba("propietario, contacto, contrato y propósito coinciden con WSO2", iguales(3, 7), `${String(enWso2.businessInformation?.businessOwner ?? "—").slice(0, 40)}`);
+    for (const [k, a, b] of pares)
+      c.log(
+        `  ${String(a) === String(b) ? "=" : "≠"} ${k.padEnd(16)} catálogo «${String(a).slice(0, 44)}» · WSO2 «${String(b).slice(0, 44)}»`,
+        String(a) === String(b) ? "ok" : "mal",
+      );
+    const iguales = (desde: number, hasta: number) =>
+      pares.slice(desde, hasta).every(([, a, b]) => String(a) === String(b));
+    e.comprueba(
+      "nombre, versión, contexto y estado coinciden con WSO2",
+      iguales(0, 3),
+      `${enWso2.name} ${enWso2.version} · ${enWso2.context} · ${enWso2.lifeCycleStatus}`,
+    );
+    e.comprueba(
+      "propietario, contacto, contrato y propósito coinciden con WSO2",
+      iguales(3, 7),
+      `${String(enWso2.businessInformation?.businessOwner ?? "—").slice(0, 40)}`,
+    );
     const autenticacion = (enWso2.securityScheme ?? []).includes(String(ficha.authType));
     const consumidores = (ficha.consumers ?? []).length === activas.length;
     e.comprueba("autenticación coincide con WSO2", autenticacion, (enWso2.securityScheme ?? []).join(", "));
-    e.comprueba("consumidores coinciden con las suscripciones activas", consumidores, `${activas.length} suscripción(es): ${activas.map((s) => s.applicationInfo?.name).join(", ")}`);
-    const igualesTotal = pares.filter(([, a, b]) => String(a) === String(b)).length + (autenticacion ? 1 : 0) + (consumidores ? 1 : 0);
+    e.comprueba(
+      "consumidores coinciden con las suscripciones activas",
+      consumidores,
+      `${activas.length} suscripción(es): ${activas.map((s) => s.applicationInfo?.name).join(", ")}`,
+    );
+    const igualesTotal =
+      pares.filter(([, a, b]) => String(a) === String(b)).length +
+      (autenticacion ? 1 : 0) +
+      (consumidores ? 1 : 0);
     e.indicadores({ "campos comparados": pares.length + 2, "iguales a WSO2": igualesTotal });
     await e.esperar(2000);
 

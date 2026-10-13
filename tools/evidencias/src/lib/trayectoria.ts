@@ -39,7 +39,11 @@ export function distancia(a: Punto, b: Punto): number {
  * Duración del movimiento según la distancia y el tamaño del objetivo (índice de dificultad de Fitts,
  * log2(1 + D/W)). Un desplazamiento de pocos píxeles no se anima (0 ms); el resto queda entre 0,7 y 1,6 s.
  */
-export function duracionMovimiento(distanciaPx: number, anchoObjetivo = 40, o: { minMs?: number; maxMs?: number } = {}): number {
+export function duracionMovimiento(
+  distanciaPx: number,
+  anchoObjetivo = 40,
+  o: { minMs?: number; maxMs?: number } = {},
+): number {
   const min = o.minMs ?? MOVIMIENTO_MIN_MS;
   const max = o.maxMs ?? MOVIMIENTO_MAX_MS;
   if (!(distanciaPx >= 4)) return 0;

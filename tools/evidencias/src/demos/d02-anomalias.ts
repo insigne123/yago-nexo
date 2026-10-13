@@ -21,7 +21,22 @@ import type { Page } from "playwright-core";
 import type { Contexto, Demo } from "../lib/grabador.js";
 import { consola, credencialesDe, GATEWAY, tokenAplicacion, tokenPersona, wso2 } from "../lib/lab.js";
 import { esperarHasta } from "./comun.js";
-import { abrir, agendaDe, alertasVigentes, ampliar, aparece, asegurarConsumidor, cargaContinua, clicSiHay, curl, n, seg, ventanasConTrafico, type CargaD, type PasoGuion } from "./ayudas-d.js";
+import {
+  abrir,
+  agendaDe,
+  alertasVigentes,
+  ampliar,
+  aparece,
+  asegurarConsumidor,
+  cargaContinua,
+  clicSiHay,
+  curl,
+  n,
+  seg,
+  ventanasConTrafico,
+  type CargaD,
+  type PasoGuion,
+} from "./ayudas-d.js";
 import { nuevaSesionD, prepararEnsayoD } from "./d0x-ensayo.js";
 
 const URL = `${GATEWAY}/concesiones/1.0.0/concesiones`;
@@ -35,37 +50,76 @@ const RPS_RAFAGA = 20;
 export const VENTANAS_LINEA_BASE = 61;
 export const VENTANA_S = 30;
 
-type Rule = { id: string; name: string; enabled: boolean; metric: string; sensitivity: number; minVolume: number; action: string; blockTtlMinutes: number; apiId?: string };
-type Anomaly = { id: string; ruleId: string; status: string; blockId?: string; observed: number; baseline: number; score: number; consumer?: string };
+type Rule = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  metric: string;
+  sensitivity: number;
+  minVolume: number;
+  action: string;
+  blockTtlMinutes: number;
+  apiId?: string;
+};
+type Anomaly = {
+  id: string;
+  ruleId: string;
+  status: string;
+  blockId?: string;
+  observed: number;
+  baseline: number;
+  score: number;
+  consumer?: string;
+};
 type Block = { id: string; active: boolean; conditionValue: string; releasedBy?: string; expiresAt?: string };
 
 export const PASOS_D02: PasoGuion[] = [
   {
     titulo: "Parte 1 · La línea base: 31 min de tráfico normal",
-    quePasa: "Durante 31 min antes de grabar, A llamó 2 veces por segundo y B, de alto volumen, 25. Cada ventana de 30 s se compara con las 60 anteriores.",
-    porQueImporta: "Cada consumidor se compara con su propio comportamiento, no con un umbral fijo igual para todos.",
-    comprueba: ["consumidor A: 60 de 60 ventanas previas con tráfico", "consumidor B: 60 de 60 ventanas previas con tráfico"],
+    quePasa:
+      "Durante 31 min antes de grabar, A llamó 2 veces por segundo y B, de alto volumen, 25. Cada ventana de 30 s se compara con las 60 anteriores.",
+    porQueImporta:
+      "Cada consumidor se compara con su propio comportamiento, no con un umbral fijo igual para todos.",
+    comprueba: [
+      "consumidor A: 60 de 60 ventanas previas con tráfico",
+      "consumidor B: 60 de 60 ventanas previas con tráfico",
+    ],
     estimadoS: 12,
   },
   {
     titulo: "Parte 2 · El administrador configura la regla",
-    quePasa: "En la Consola crea la regla: volumen anómalo en la API Concesiones, con su sensibilidad y un mínimo de llamadas; si se cumple, bloquea 2 minutos.",
-    porQueImporta: "La institución decide qué se vigila y qué se hace: solo alertar, bloquear con aprobación o bloquear de inmediato.",
+    quePasa:
+      "En la Consola crea la regla: volumen anómalo en la API Concesiones, con su sensibilidad y un mínimo de llamadas; si se cumple, bloquea 2 minutos.",
+    porQueImporta:
+      "La institución decide qué se vigila y qué se hace: solo alertar, bloquear con aprobación o bloquear de inmediato.",
     comprueba: ["regla creada y activa"],
     estimadoS: 30,
   },
   {
     titulo: "Parte 3 · Ráfaga de A: alerta y bloqueo en el gateway",
-    quePasa: "A pasa de 2 a 20 llamadas por segundo. El guardián lo compara con su línea base, lo bloquea en el gateway y avisa. B sigue atendido como siempre.",
-    porQueImporta: "Un abuso o una aplicación descontrolada se corta sola, sin afectar a quien consume de forma normal.",
-    comprueba: ["A bloqueado en el gateway (HTTP 403)", "B sigue atendido sin rechazos", "política de denegación activa en WSO2", "evento con lo observado y su línea base", "alerta enviada"],
+    quePasa:
+      "A pasa de 2 a 20 llamadas por segundo. El guardián lo compara con su línea base, lo bloquea en el gateway y avisa. B sigue atendido como siempre.",
+    porQueImporta:
+      "Un abuso o una aplicación descontrolada se corta sola, sin afectar a quien consume de forma normal.",
+    comprueba: [
+      "A bloqueado en el gateway (HTTP 403)",
+      "B sigue atendido sin rechazos",
+      "política de denegación activa en WSO2",
+      "evento con lo observado y su línea base",
+      "alerta enviada",
+    ],
     estimadoS: 80,
   },
   {
     titulo: "Parte 4 · Un aprobador libera el bloqueo",
-    quePasa: "Otra persona, con su propia sesión, revisa el caso y libera el bloqueo indicando el motivo. El consumidor A vuelve a recibir respuestas.",
+    quePasa:
+      "Otra persona, con su propia sesión, revisa el caso y libera el bloqueo indicando el motivo. El consumidor A vuelve a recibir respuestas.",
     porQueImporta: "El bloqueo es reversible y cada decisión queda registrada con quién la tomó y por qué.",
-    comprueba: ["bloqueo liberado por el aprobador", "acceso restablecido (HTTP 200)", "bloqueo y liberación en la auditoría"],
+    comprueba: [
+      "bloqueo liberado por el aprobador",
+      "acceso restablecido (HTTP 200)",
+      "bloqueo y liberación en la auditoría",
+    ],
     estimadoS: 40,
   },
 ];
@@ -77,7 +131,16 @@ let cargaB: CargaD | undefined;
 let cargaA: CargaD | undefined;
 
 async function activar(tok: string, r: Rule, enabled: boolean) {
-  await consola(tok, "PATCH", `/anomaly-rules/${r.id}`, { name: r.name, apiId: r.apiId, metric: r.metric, sensitivity: r.sensitivity, minVolume: r.minVolume, action: r.action, blockTtlMinutes: r.blockTtlMinutes, enabled });
+  await consola(tok, "PATCH", `/anomaly-rules/${r.id}`, {
+    name: r.name,
+    apiId: r.apiId,
+    metric: r.metric,
+    sensitivity: r.sensitivity,
+    minVolume: r.minVolume,
+    action: r.action,
+    blockTtlMinutes: r.blockTtlMinutes,
+    enabled,
+  });
 }
 
 /** Mueve el control deslizante de la sensibilidad con el teclado visible hasta el valor pedido. */
@@ -106,30 +169,69 @@ export const d02: Demo = {
   async preparar(c) {
     await prepararEnsayoD(c);
     const notas: string[] = [];
-    notas.push(...(await asegurarConsumidor(B, "Sistema de reportes masivos de un operador (sintético, alto volumen)", "Concesiones", "Unlimited")));
+    notas.push(
+      ...(await asegurarConsumidor(
+        B,
+        "Sistema de reportes masivos de un operador (sintético, alto volumen)",
+        "Concesiones",
+        "Unlimited",
+      )),
+    );
     // La línea base se genera ANTES de grabar (≥ 31 min); aquí solo se mide y, si falta, no se graba.
-    const base = await ventanasConTrafico({ apiNombre: "Concesiones", aplicaciones: [A, B], ventanaS: VENTANA_S, n: VENTANAS_LINEA_BASE - 1 });
+    const base = await ventanasConTrafico({
+      apiNombre: "Concesiones",
+      aplicaciones: [A, B],
+      ventanaS: VENTANA_S,
+      n: VENTANAS_LINEA_BASE - 1,
+    });
     for (const app of [A, B]) {
       const v = base[app]!;
       if (v.ventanas < VENTANAS_LINEA_BASE - 1)
-        throw new Error(`línea base insuficiente para ${app}: ${v.ventanas} de ${VENTANAS_LINEA_BASE - 1} ventanas de ${VENTANA_S} s con tráfico. Antes de grabar: pnpm --filter @nexo/evidencias exec tsx src/demos/d02-anomalias.ts --linea-base 32`);
-      notas.push(`línea base de ${app}: ${v.ventanas} ventanas de ${VENTANA_S} s con tráfico (≈ ${v.porVentana} llamadas por ventana)`);
+        throw new Error(
+          `línea base insuficiente para ${app}: ${v.ventanas} de ${VENTANAS_LINEA_BASE - 1} ventanas de ${VENTANA_S} s con tráfico. Antes de grabar: pnpm --filter @nexo/evidencias exec tsx src/demos/d02-anomalias.ts --linea-base 32`,
+        );
+      notas.push(
+        `línea base de ${app}: ${v.ventanas} ventanas de ${VENTANA_S} s con tráfico (≈ ${v.porVentana} llamadas por ventana)`,
+      );
     }
     const adm = await tokenPersona("admin.nexo");
     previas = (await consola<Rule[]>(adm, "GET", "/anomaly-rules")).data.filter((r) => r.enabled);
     for (const r of previas) await activar(adm, r, false);
     const apr = await tokenPersona("luis.aprobador");
-    for (const b of (await consola<Block[]>(apr, "GET", "/blocks")).data.filter((x) => x.active)) await consola(apr, "POST", `/blocks/${b.id}/release`, { reason: "Preparación de la demostración D-02" });
+    for (const b of (await consola<Block[]>(apr, "GET", "/blocks")).data.filter((x) => x.active))
+      await consola(apr, "POST", `/blocks/${b.id}/release`, {
+        reason: "Preparación de la demostración D-02",
+      });
     // A y B siguen llamando como siempre hasta la ráfaga (su tráfico normal no se interrumpe al grabar).
-    cargaB = cargaContinua(c, { url: URL, rps: RPS_NORMAL[B]!, segundos: 600, etiqueta: "consumidor B, tráfico normal", cadaSeg: 1000, app: B });
-    cargaA = cargaContinua(c, { url: URL, rps: RPS_NORMAL[A]!, segundos: 600, etiqueta: "consumidor A, tráfico normal", cadaSeg: 1000 });
+    cargaB = cargaContinua(c, {
+      url: URL,
+      rps: RPS_NORMAL[B]!,
+      segundos: 600,
+      etiqueta: "consumidor B, tráfico normal",
+      cadaSeg: 1000,
+      app: B,
+    });
+    cargaA = cargaContinua(c, {
+      url: URL,
+      rps: RPS_NORMAL[A]!,
+      segundos: 600,
+      etiqueta: "consumidor A, tráfico normal",
+      cadaSeg: 1000,
+    });
     const sesionWso2 = await nuevaSesionD(c);
     // Si el Admin Portal no responde, el video sigue sin esa vista (la política se verifica igual por el 403).
     await c
       .ingresarWso2("admin", "admin", undefined, sesionWso2)
       .then(() => (adminWso2 = sesionWso2))
-      .catch((err: unknown) => notas.push(`Admin Portal de WSO2 no disponible: ${err instanceof Error ? err.message.split("\n")[0] : err}`));
-    notas.push("otras reglas del guardián en pausa: solo actúa la regla que se configura en el video", "sin bloqueos activos en el gateway al empezar");
+      .catch((err: unknown) =>
+        notas.push(
+          `Admin Portal de WSO2 no disponible: ${err instanceof Error ? err.message.split("\n")[0] : err}`,
+        ),
+      );
+    notas.push(
+      "otras reglas del guardián en pausa: solo actúa la regla que se configura en el video",
+      "sin bloqueos activos en el gateway al empezar",
+    );
     return notas;
   },
 
@@ -138,20 +240,47 @@ export const d02: Demo = {
     const adm = await tokenPersona("admin.nexo");
     const apr = await tokenPersona("luis.aprobador");
     const tokenA = await tokenAplicacion(await credencialesDe(A));
-    const apis = (await consola<Array<{ id: string; wso2ApiId: string; name: string }>>(apr, "GET", "/apis?q=Concesiones")).data;
-    if (!apis.find((a) => a.name === "Concesiones")) throw new Error("falta la API Concesiones en el catálogo");
+    const apis = (
+      await consola<Array<{ id: string; wso2ApiId: string; name: string }>>(apr, "GET", "/apis?q=Concesiones")
+    ).data;
+    if (!apis.find((a) => a.name === "Concesiones"))
+      throw new Error("falta la API Concesiones en el catálogo");
     const erroresB0 = cargaB?.errores() ?? 0;
 
     // ── Parte 1 · Línea base ───────────────────────────────────────────────────────────────────────
     await abrir(c, PASOS_D02[0]!);
     await c.ir("/anomalias?pestana=eventos");
-    c.log(`GET ${"http://localhost:9200"}/nexo-apim-metrics-*/_search   # analítica del gateway: ventanas de ${VENTANA_S} s con tráfico, últimas ${VENTANAS_LINEA_BASE}`, "cmd");
-    const base = await ventanasConTrafico({ apiNombre: "Concesiones", aplicaciones: [A, B], ventanaS: VENTANA_S, n: VENTANAS_LINEA_BASE - 1 });
-    for (const app of [A, B]) c.log(`  ${app}: ${base[app]!.ventanas} ventanas con tráfico · ${n(base[app]!.llamadas)} llamadas · ≈ ${n(base[app]!.porVentana)} por ventana`, base[app]!.ventanas >= VENTANAS_LINEA_BASE - 1 ? "ok" : "mal");
-    e.indicadores({ "A · llamadas por ventana": n(base[A]!.porVentana), "B · llamadas por ventana": n(base[B]!.porVentana), "ventanas de línea base": `${VENTANAS_LINEA_BASE} × ${VENTANA_S} s` });
+    c.log(
+      `GET ${"http://localhost:9200"}/nexo-apim-metrics-*/_search   # analítica del gateway: ventanas de ${VENTANA_S} s con tráfico, últimas ${VENTANAS_LINEA_BASE}`,
+      "cmd",
+    );
+    const base = await ventanasConTrafico({
+      apiNombre: "Concesiones",
+      aplicaciones: [A, B],
+      ventanaS: VENTANA_S,
+      n: VENTANAS_LINEA_BASE - 1,
+    });
+    for (const app of [A, B])
+      c.log(
+        `  ${app}: ${base[app]!.ventanas} ventanas con tráfico · ${n(base[app]!.llamadas)} llamadas · ≈ ${n(base[app]!.porVentana)} por ventana`,
+        base[app]!.ventanas >= VENTANAS_LINEA_BASE - 1 ? "ok" : "mal",
+      );
+    e.indicadores({
+      "A · llamadas por ventana": n(base[A]!.porVentana),
+      "B · llamadas por ventana": n(base[B]!.porVentana),
+      "ventanas de línea base": `${VENTANAS_LINEA_BASE} × ${VENTANA_S} s`,
+    });
     // La línea base son las 60 ventanas completas anteriores a la actual (61 con la actual, ≈ 31 min).
-    e.comprueba("consumidor A: 60 de 60 ventanas previas con tráfico", base[A]!.ventanas >= VENTANAS_LINEA_BASE - 1, `${base[A]!.ventanas} de 60 · ≈ ${n(base[A]!.porVentana)} llamadas por ventana`);
-    e.comprueba("consumidor B: 60 de 60 ventanas previas con tráfico", base[B]!.ventanas >= VENTANAS_LINEA_BASE - 1, `${base[B]!.ventanas} de 60 · ≈ ${n(base[B]!.porVentana)} llamadas por ventana`);
+    e.comprueba(
+      "consumidor A: 60 de 60 ventanas previas con tráfico",
+      base[A]!.ventanas >= VENTANAS_LINEA_BASE - 1,
+      `${base[A]!.ventanas} de 60 · ≈ ${n(base[A]!.porVentana)} llamadas por ventana`,
+    );
+    e.comprueba(
+      "consumidor B: 60 de 60 ventanas previas con tráfico",
+      base[B]!.ventanas >= VENTANAS_LINEA_BASE - 1,
+      `${base[B]!.ventanas} de 60 · ≈ ${n(base[B]!.porVentana)} llamadas por ventana`,
+    );
     await e.esperar(3500); // lectura de la línea base declarada
 
     // ── Parte 2 · Regla ────────────────────────────────────────────────────────────────────────────
@@ -168,9 +297,22 @@ export const d02: Demo = {
     await e.elegir(c.app.getByTestId("rule-action"), "bloquear_automatico");
     await e.escribir("#rule-ttl", "2");
     await e.clic(c.app.getByTestId("btn-save-rule"));
-    const regla = await esperarHasta(async () => (await consola<Rule[]>(adm, "GET", "/anomaly-rules")).data.find((r) => r.name === NOMBRE && r.enabled), (r) => !!r, 15);
+    const regla = await esperarHasta(
+      async () =>
+        (await consola<Rule[]>(adm, "GET", "/anomaly-rules")).data.find(
+          (r) => r.name === NOMBRE && r.enabled,
+        ),
+      (r) => !!r,
+      15,
+    );
     nuestra = regla?.valor?.id;
-    e.exige("regla creada y activa", !!regla?.valor, regla?.valor ? `volumen · sensibilidad ${regla.valor.sensitivity} · mínimo ${regla.valor.minVolume} · bloqueo de ${regla.valor.blockTtlMinutes} min` : "no encontrada");
+    e.exige(
+      "regla creada y activa",
+      !!regla?.valor,
+      regla?.valor
+        ? `volumen · sensibilidad ${regla.valor.sensitivity} · mínimo ${regla.valor.minVolume} · bloqueo de ${regla.valor.blockTtlMinutes} min`
+        : "no encontrada",
+    );
 
     // ── Parte 3 · Ráfaga, bloqueo y alerta ─────────────────────────────────────────────────────────
     await abrir(c, PASOS_D02[2]!);
@@ -178,10 +320,20 @@ export const d02: Demo = {
     cargaA?.detener();
     const t0 = Date.now();
     let bloqueadoEn: number | undefined;
-    const rafaga = cargaContinua(c, { url: URL, rps: RPS_RAFAGA, segundos: 150, etiqueta: "consumidor A, ráfaga anómala", cadaSeg: 3 });
+    const rafaga = cargaContinua(c, {
+      url: URL,
+      rps: RPS_RAFAGA,
+      segundos: 150,
+      etiqueta: "consumidor A, ráfaga anómala",
+      cadaSeg: 3,
+    });
     const vigilar = setInterval(() => {
       const s = rafaga.segundos.at(-1);
-      e.indicadores({ "A · llamadas por segundo": s ? s.ok + s.errores : 0, "A · rechazadas": rafaga.errores(), "B · errores": (cargaB?.errores() ?? 0) - erroresB0 });
+      e.indicadores({
+        "A · llamadas por segundo": s ? s.ok + s.errores : 0,
+        "A · rechazadas": rafaga.errores(),
+        "B · errores": (cargaB?.errores() ?? 0) - erroresB0,
+      });
       if (s && s.ok === 0 && s.errores > 0 && bloqueadoEn === undefined) {
         bloqueadoEn = Date.now();
         setTimeout(() => rafaga.detener(), 3000);
@@ -190,26 +342,73 @@ export const d02: Demo = {
     const rr = await rafaga.resultado;
     clearInterval(vigilar);
     const segBloqueo = bloqueadoEn ? (bloqueadoEn - t0) / 1000 : undefined;
-    c.log(`códigos que recibió A: ${Object.entries(rr.porCodigo).map(([k, v]) => `${k}×${v}`).join("  ")}`);
+    c.log(
+      `códigos que recibió A: ${Object.entries(rr.porCodigo)
+        .map(([k, v]) => `${k}×${v}`)
+        .join("  ")}`,
+    );
     const r403 = await curl(c, URL_MOSTRADA, { token: tokenA, comentario: "consumidor A tras el bloqueo" });
-    e.exige("A bloqueado en el gateway (HTTP 403)", segBloqueo !== undefined && r403.status === 403, segBloqueo !== undefined ? `HTTP ${r403.status ?? "?"} a los ${seg(segBloqueo, 0)} de empezar la ráfaga` : "sin bloqueo");
+    e.exige(
+      "A bloqueado en el gateway (HTTP 403)",
+      segBloqueo !== undefined && r403.status === 403,
+      segBloqueo !== undefined
+        ? `HTTP ${r403.status ?? "?"} a los ${seg(segBloqueo, 0)} de empezar la ráfaga`
+        : "sin bloqueo",
+    );
     const erroresB = (cargaB?.errores() ?? 0) - erroresB0;
-    const okB = cargaB?.segundos.slice(-Math.ceil((Date.now() - t0) / 1000)).reduce((s, x) => s + x.ok, 0) ?? 0;
-    e.comprueba("B sigue atendido sin rechazos", erroresB === 0 && okB > 0, `${n(okB)} respuestas a B durante la ráfaga · ${erroresB} rechazos`);
-    c.log("admin → GET https://apim:9443/api/am/admin/v4/throttling/deny-policies   # políticas de denegación vigentes en WSO2", "cmd");
+    const okB =
+      cargaB?.segundos.slice(-Math.ceil((Date.now() - t0) / 1000)).reduce((s, x) => s + x.ok, 0) ?? 0;
+    e.comprueba(
+      "B sigue atendido sin rechazos",
+      erroresB === 0 && okB > 0,
+      `${n(okB)} respuestas a B durante la ráfaga · ${erroresB} rechazos`,
+    );
+    c.log(
+      "admin → GET https://apim:9443/api/am/admin/v4/throttling/deny-policies   # políticas de denegación vigentes en WSO2",
+      "cmd",
+    );
     const denegaciones = await wso2()
-      .request<{ list?: Array<{ conditionType?: string; conditionValue?: string; conditionStatus?: boolean }> }>({ method: "GET", path: "/api/am/admin/v4/throttling/deny-policies" })
+      .request<{
+        list?: Array<{ conditionType?: string; conditionValue?: string; conditionStatus?: boolean }>;
+      }>({ method: "GET", path: "/api/am/admin/v4/throttling/deny-policies" })
       .catch(() => ({ list: [] }));
-    const politica = (denegaciones.list ?? []).find((p) => String(p.conditionValue ?? "").endsWith(A) && p.conditionStatus !== false);
-    e.comprueba("política de denegación activa en WSO2", !!politica, politica ? `${politica.conditionType ?? "APPLICATION"} · ${politica.conditionValue}` : "sin política para A");
+    const politica = (denegaciones.list ?? []).find(
+      (p) => String(p.conditionValue ?? "").endsWith(A) && p.conditionStatus !== false,
+    );
+    e.comprueba(
+      "política de denegación activa en WSO2",
+      !!politica,
+      politica
+        ? `${politica.conditionType ?? "APPLICATION"} · ${politica.conditionValue}`
+        : "sin política para A",
+    );
     const ev = (await consola<Anomaly[]>(apr, "GET", "/anomalies")).data.find((x) => x.ruleId === nuestra);
     await c.app.reload();
     await aparece(c.app.getByTestId("table-anomalies").locator("tbody tr").first(), 15_000);
     await ampliar(c, c.app.getByTestId("table-anomalies").locator("tbody tr").first(), 3000, 1.5);
-    e.comprueba("evento con lo observado y su línea base", ev?.status === "bloqueada" && ev.baseline > 0, ev ? `${n(Math.round(ev.observed))} llamadas en la ventana frente a una línea base de ${n(Math.round(ev.baseline))} · puntaje ${ev.score}` : "sin evento");
-    const alerta = (await alertasVigentes().catch(() => [])).find((a) => a.labels.alertname === "ConsumidorBloqueado");
-    if (alerta) c.log(`Alertmanager: ${alerta.labels.alertname} [${alerta.labels.severidad ?? ""}] ${alerta.annotations.resumen ?? ""}`.slice(0, 200), "aviso");
-    e.comprueba("alerta enviada", !!alerta, alerta ? `ConsumidorBloqueado · ${alerta.labels.consumidor ?? A}` : "sin alerta en Alertmanager");
+    e.comprueba(
+      "evento con lo observado y su línea base",
+      ev?.status === "bloqueada" && ev.baseline > 0,
+      ev
+        ? `${n(Math.round(ev.observed))} llamadas en la ventana frente a una línea base de ${n(Math.round(ev.baseline))} · puntaje ${ev.score}`
+        : "sin evento",
+    );
+    const alerta = (await alertasVigentes().catch(() => [])).find(
+      (a) => a.labels.alertname === "ConsumidorBloqueado",
+    );
+    if (alerta)
+      c.log(
+        `Alertmanager: ${alerta.labels.alertname} [${alerta.labels.severidad ?? ""}] ${alerta.annotations.resumen ?? ""}`.slice(
+          0,
+          200,
+        ),
+        "aviso",
+      );
+    e.comprueba(
+      "alerta enviada",
+      !!alerta,
+      alerta ? `ConsumidorBloqueado · ${alerta.labels.consumidor ?? A}` : "sin alerta en Alertmanager",
+    );
     await clicSiHay(c, c.app.getByTestId("tab-bloqueos"));
     await e.esperar(1500);
     if (adminWso2) {
@@ -230,9 +429,15 @@ export const d02: Demo = {
     await c.mostrar(pantalla);
     await c.ingresarConsola("luis.aprobador");
     await c.ir("/anomalias?pestana=bloqueos");
-    const bloqueo = (await consola<Block[]>(apr, "GET", "/blocks")).data.find((b) => b.id === ev?.blockId) ?? (await consola<Block[]>(apr, "GET", "/blocks")).data.find((b) => b.active);
+    const bloqueo =
+      (await consola<Block[]>(apr, "GET", "/blocks")).data.find((b) => b.id === ev?.blockId) ??
+      (await consola<Block[]>(apr, "GET", "/blocks")).data.find((b) => b.active);
     await e.clic(c.app.getByTestId(`btn-release-${bloqueo?.id ?? ""}`));
-    await e.escribir(c.app.getByTestId("release-dialog-reason"), "Consumidor contactado: la ráfaga fue una carga masiva", { ms: 45 });
+    await e.escribir(
+      c.app.getByTestId("release-dialog-reason"),
+      "Consumidor contactado: la ráfaga fue una carga masiva",
+      { ms: 45 },
+    );
     await e.clic(c.app.getByTestId("release-dialog-confirm"));
     const tLib = Date.now();
     let vuelta: number | undefined;
@@ -242,11 +447,33 @@ export const d02: Demo = {
       else await dormir(1500);
     }
     const liberado = (await consola<Block[]>(apr, "GET", "/blocks")).data.find((b) => b.id === bloqueo?.id);
-    e.comprueba("bloqueo liberado por el aprobador", liberado?.active === false && liberado.releasedBy === "luis.aprobador", liberado?.releasedBy ?? "sigue activo");
-    e.comprueba("acceso restablecido (HTTP 200)", vuelta !== undefined, vuelta !== undefined ? `HTTP 200 a los ${seg(vuelta, 0)} de liberar` : "sigue bloqueado");
-    const audit = (await consola<Array<{ action: string }>>(await tokenPersona("pedro.auditoria"), "GET", "/audit-events?limit=200")).data.map((x) => x.action);
-    const faltan = ["anomalias.bloqueo.automatico", "anomalias.bloqueo.liberar"].filter((a) => !audit.includes(a));
-    e.comprueba("bloqueo y liberación en la auditoría", !faltan.length, faltan.length ? `faltan ${faltan.join(", ")}` : "anomalias.bloqueo.automatico · anomalias.bloqueo.liberar");
+    e.comprueba(
+      "bloqueo liberado por el aprobador",
+      liberado?.active === false && liberado.releasedBy === "luis.aprobador",
+      liberado?.releasedBy ?? "sigue activo",
+    );
+    e.comprueba(
+      "acceso restablecido (HTTP 200)",
+      vuelta !== undefined,
+      vuelta !== undefined ? `HTTP 200 a los ${seg(vuelta, 0)} de liberar` : "sigue bloqueado",
+    );
+    const audit = (
+      await consola<Array<{ action: string }>>(
+        await tokenPersona("pedro.auditoria"),
+        "GET",
+        "/audit-events?limit=200",
+      )
+    ).data.map((x) => x.action);
+    const faltan = ["anomalias.bloqueo.automatico", "anomalias.bloqueo.liberar"].filter(
+      (a) => !audit.includes(a),
+    );
+    e.comprueba(
+      "bloqueo y liberación en la auditoría",
+      !faltan.length,
+      faltan.length
+        ? `faltan ${faltan.join(", ")}`
+        : "anomalias.bloqueo.automatico · anomalias.bloqueo.liberar",
+    );
     await c.app.reload();
     await e.esperar(1500);
 
@@ -271,11 +498,14 @@ export const d02: Demo = {
     cargaA = undefined;
     const adm = await tokenPersona("admin.nexo");
     const reglas = (await consola<Rule[]>(adm, "GET", "/anomaly-rules")).data;
-    const r = reglas.find((x) => x.id === nuestra) ?? reglas.find((x) => x.name.startsWith("Ráfaga de consumo en Concesiones") && x.enabled);
+    const r =
+      reglas.find((x) => x.id === nuestra) ??
+      reglas.find((x) => x.name.startsWith("Ráfaga de consumo en Concesiones") && x.enabled);
     if (r) await activar(adm, r, false);
     for (const p of previas) await activar(adm, p, true);
     const apr = await tokenPersona("luis.aprobador");
-    for (const b of (await consola<Block[]>(apr, "GET", "/blocks")).data.filter((x) => x.active)) await consola(apr, "POST", `/blocks/${b.id}/release`, { reason: "Fin de la demostración D-02" });
+    for (const b of (await consola<Block[]>(apr, "GET", "/blocks")).data.filter((x) => x.active))
+      await consola(apr, "POST", `/blocks/${b.id}/release`, { reason: "Fin de la demostración D-02" });
     previas = [];
     nuestra = undefined;
     adminWso2 = undefined;
@@ -285,8 +515,16 @@ export const d02: Demo = {
 // ── Línea base: tráfico normal de A y B antes de grabar (CLI) ───────────────────────────────────────
 
 /** Genera la línea base: A y B llaman a su ritmo normal durante `minutos` (≥ 31). Uso: --linea-base 32 */
-export async function generarLineaBase(minutos: number, log: (l: string) => void = console.log): Promise<void> {
-  const notas = await asegurarConsumidor(B, "Sistema de reportes masivos de un operador (sintético, alto volumen)", "Concesiones", "Unlimited");
+export async function generarLineaBase(
+  minutos: number,
+  log: (l: string) => void = console.log,
+): Promise<void> {
+  const notas = await asegurarConsumidor(
+    B,
+    "Sistema de reportes masivos de un operador (sintético, alto volumen)",
+    "Concesiones",
+    "Unlimited",
+  );
   for (const nota of notas) log(nota);
   const { runLoad } = await import("../../../lab-bootstrap/src/load.js");
   // Las reglas activas del guardián quedan en pausa mientras se genera la línea base (como en grabar.ts): sin
@@ -294,22 +532,41 @@ export async function generarLineaBase(minutos: number, log: (l: string) => void
   const adm = await tokenPersona("admin.nexo");
   const enPausa = (await consola<Rule[]>(adm, "GET", "/anomaly-rules")).data.filter((r) => r.enabled);
   for (const r of enPausa) await activar(adm, r, false);
-  if (enPausa.length) log(`reglas del guardián en pausa durante la línea base: ${enPausa.map((r) => r.name).join(", ")}`);
-  log(`línea base D-02: ${minutos} min · ${A} ${RPS_NORMAL[A]} llamadas/s · ${B} ${RPS_NORMAL[B]} llamadas/s`);
+  if (enPausa.length)
+    log(`reglas del guardián en pausa durante la línea base: ${enPausa.map((r) => r.name).join(", ")}`);
+  log(
+    `línea base D-02: ${minutos} min · ${A} ${RPS_NORMAL[A]} llamadas/s · ${B} ${RPS_NORMAL[B]} llamadas/s`,
+  );
   const t0 = Date.now();
-  const cada = setInterval(() => log(`  ${((Date.now() - t0) / 60000).toFixed(1)} de ${minutos} min`), 60_000);
+  const cada = setInterval(
+    () => log(`  ${((Date.now() - t0) / 60000).toFixed(1)} de ${minutos} min`),
+    60_000,
+  );
   let r: Awaited<ReturnType<typeof runLoad>>[];
   try {
-    r = await Promise.all([A, B].map((app) => runLoad({ url: URL, rps: RPS_NORMAL[app]!, seconds: minutos * 60, app })));
+    r = await Promise.all(
+      [A, B].map((app) => runLoad({ url: URL, rps: RPS_NORMAL[app]!, seconds: minutos * 60, app })),
+    );
   } finally {
     clearInterval(cada);
     const tok = await tokenPersona("admin.nexo");
-    for (const x of enPausa) await activar(tok, x, true).catch((e: unknown) => log(`  no se pudo reactivar la regla ${x.name}: ${e instanceof Error ? e.message : String(e)}`));
+    for (const x of enPausa)
+      await activar(tok, x, true).catch((e: unknown) =>
+        log(`  no se pudo reactivar la regla ${x.name}: ${e instanceof Error ? e.message : String(e)}`),
+      );
     if (enPausa.length) log(`reglas reactivadas: ${enPausa.map((x) => x.name).join(", ")}`);
   }
   [A, B].forEach((app, i) => log(`  ${app}: ${r[i]!.llamadas} llamadas · ${r[i]!.errores} errores`));
-  const base = await ventanasConTrafico({ apiNombre: "Concesiones", aplicaciones: [A, B], ventanaS: VENTANA_S, n: VENTANAS_LINEA_BASE - 1 });
-  for (const app of [A, B]) log(`  ${app}: ${base[app]!.ventanas} de ${VENTANAS_LINEA_BASE - 1} ventanas de ${VENTANA_S} s con tráfico`);
+  const base = await ventanasConTrafico({
+    apiNombre: "Concesiones",
+    aplicaciones: [A, B],
+    ventanaS: VENTANA_S,
+    n: VENTANAS_LINEA_BASE - 1,
+  });
+  for (const app of [A, B])
+    log(
+      `  ${app}: ${base[app]!.ventanas} de ${VENTANAS_LINEA_BASE - 1} ventanas de ${VENTANA_S} s con tráfico`,
+    );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

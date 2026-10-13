@@ -47,16 +47,25 @@ export function leerArgumentos(argv: string[]): Argumentos {
   for (let i = 0; i < a.length; i++) {
     const x = a[i]!;
     if (x.startsWith("--")) {
-      if (conValor.has(x) && a[i + 1] && !a[i + 1]!.startsWith("--") && (x !== "--rendimiento" || /^\d+$/.test(a[i + 1]!))) i++;
+      if (
+        conValor.has(x) &&
+        a[i + 1] &&
+        !a[i + 1]!.startsWith("--") &&
+        (x !== "--rendimiento" || /^\d+$/.test(a[i + 1]!))
+      )
+        i++;
       continue;
     }
     ids.push(normalizarId(x));
   }
-  const rend = a.some((x) => x === "--rendimiento" || x.startsWith("--rendimiento=")) ? Number(valor("--rendimiento") ?? 20) : undefined;
+  const rend = a.some((x) => x === "--rendimiento" || x.startsWith("--rendimiento="))
+    ? Number(valor("--rendimiento") ?? 20)
+    : undefined;
   const ritmo = Number(valor("--ritmo") ?? 1);
   const perfilTexto = valor("--perfil");
   const perfil = perfilTexto ? leerPerfil(perfilTexto) : undefined;
-  if (perfilTexto && !perfil) throw new Error(`--perfil ${perfilTexto}: use ANCHOxALTO[@cps], p. ej. 1600x900 o 1920x1080@25`);
+  if (perfilTexto && !perfil)
+    throw new Error(`--perfil ${perfilTexto}: use ANCHOxALTO[@cps], p. ej. 1600x900 o 1920x1080@25`);
   return {
     ensayo: a.includes("--ensayo"),
     etiqueta: valor("--etiqueta") ?? ETIQUETA_POR_DEFECTO,
@@ -70,7 +79,10 @@ export function leerArgumentos(argv: string[]): Argumentos {
 }
 
 /** Las demostraciones pedidas, en el orden en que se pidieron y sin repetir (los ids ya vienen normalizados). */
-export function elegirEnOrden<T extends { id: string }>(disponibles: readonly T[], ids: readonly string[]): T[] {
+export function elegirEnOrden<T extends { id: string }>(
+  disponibles: readonly T[],
+  ids: readonly string[],
+): T[] {
   const elegidas: T[] = [];
   for (const id of ids) {
     const d = disponibles.find((x) => x.id === id);

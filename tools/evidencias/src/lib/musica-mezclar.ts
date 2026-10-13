@@ -36,9 +36,18 @@ export interface Indice<T extends EntradaMezcla = EntradaMezcla> {
 export const nombreBase = (file: string) => file.replace(/\.mp4$/, "");
 
 /** El índice con la entrada `id` reemplazada por los datos nuevos del archivo (el resto de sus campos se conserva). */
-export function actualizarIndice<T extends EntradaMezcla>(indice: Indice<T>, id: string, pub: Publicacion, generado = new Date().toISOString()): Indice<T> {
+export function actualizarIndice<T extends EntradaMezcla>(
+  indice: Indice<T>,
+  id: string,
+  pub: Publicacion,
+  generado = new Date().toISOString(),
+): Indice<T> {
   if (!indice.evidencias.some((e) => e.id === id)) throw new Error(`${id} no está en evidencias.json`);
-  return { ...indice, generado, evidencias: indice.evidencias.map((e) => (e.id === id ? { ...e, ...pub } : e)) };
+  return {
+    ...indice,
+    generado,
+    evidencias: indice.evidencias.map((e) => (e.id === id ? { ...e, ...pub } : e)),
+  };
 }
 
 /** SHA256SUMS.txt del índice (mismo formato que escribe grabar.ts). */
@@ -66,11 +75,22 @@ export async function remezclar(o: OpcionesRemezcla): Promise<Publicacion[]> {
   for (const id of o.ids) {
     const e = indice.evidencias.find((x) => x.id === id);
     if (!e) throw new Error(`${id} no está en ${rutaIndice}`);
-    if (!e.file.endsWith(".mp4")) throw new Error(`${id}: ${e.file} es del formato anterior (sin pasos ni archivo sin música): hay que regrabarlo`);
+    if (!e.file.endsWith(".mp4"))
+      throw new Error(
+        `${id}: ${e.file} es del formato anterior (sin pasos ni archivo sin música): hay que regrabarlo`,
+      );
     const nombre = nombreBase(e.file);
     const sinMusica = join(carpeta, `${nombre}.sin-musica.mp4`);
     if (!existsSync(sinMusica)) throw new Error(`${id}: falta ${sinMusica}`);
-    const pub = await terminarVideo({ sinMusica, carpeta, nombre, id, titulo: `${id} · ${e.title}`, ...(o.variante ? { variante: o.variante } : {}), ...(o.temporal ? { temporal: o.temporal } : {}) });
+    const pub = await terminarVideo({
+      sinMusica,
+      carpeta,
+      nombre,
+      id,
+      titulo: `${id} · ${e.title}`,
+      ...(o.variante ? { variante: o.variante } : {}),
+      ...(o.temporal ? { temporal: o.temporal } : {}),
+    });
     indice = actualizarIndice(indice, id, pub);
     // Se escribe después de cada video: si uno falla, los anteriores ya quedan registrados con su suma nueva.
     writeFileSync(rutaIndice, `${JSON.stringify(indice, null, 2)}\n`);
@@ -97,15 +117,27 @@ async function principal(args: string[]): Promise<number> {
     return 2;
   }
   const conValor = new Set(["--variante", "--dir"]);
-  const ids = args.filter((a, i) => !a.startsWith("--") && !conValor.has(args[i - 1] ?? "")).map(normalizarId);
+  const ids = args
+    .filter((a, i) => !a.startsWith("--") && !conValor.has(args[i - 1] ?? ""))
+    .map(normalizarId);
   if (!ids.length) {
-    console.error("Indique los videos: musica-mezclar.ts D-01 [BT-005 …] [--variante 1|2|3] [--dir <carpeta>]");
+    console.error(
+      "Indique los videos: musica-mezclar.ts D-01 [BT-005 …] [--variante 1|2|3] [--dir <carpeta>]",
+    );
     return 2;
   }
   const trabajo = mkdtempSync(join(tmpdir(), "remezcla-"));
   try {
-    const hechos = await remezclar({ carpeta: valor("--dir") ?? SALIDA, ids, ...(variante ? { variante } : {}), temporal: trabajo });
-    for (const p of hechos) console.log(`${p.file}: variante ${p.music.variant}, ${p.music.integrated_lufs} LUFS, pico real ${p.music.true_peak_dbtp} dBTP · flujo de video ${p.video_stream_md5} (sin cambios) · SHA-256 ${p.sha256}`);
+    const hechos = await remezclar({
+      carpeta: valor("--dir") ?? SALIDA,
+      ids,
+      ...(variante ? { variante } : {}),
+      temporal: trabajo,
+    });
+    for (const p of hechos)
+      console.log(
+        `${p.file}: variante ${p.music.variant}, ${p.music.integrated_lufs} LUFS, pico real ${p.music.true_peak_dbtp} dBTP · flujo de video ${p.video_stream_md5} (sin cambios) · SHA-256 ${p.sha256}`,
+      );
     console.log("Listo. Revise con: pnpm --filter @nexo/evidencias verificar");
     return 0;
   } catch (e) {

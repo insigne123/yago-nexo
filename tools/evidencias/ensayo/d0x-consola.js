@@ -4,11 +4,18 @@
 // inicio en el contexto del navegador solo con `grabar --ensayo`; todo lleva el rótulo ENSAYO. No es la Consola.
 (() => {
   if (location.port !== "5173") return;
-  const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const esc = (t) =>
+    String(t ?? "").replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
   const api = async (metodo, ruta, cuerpo) => {
     const r = await fetch(`/api/v1${ruta}`, {
       method: metodo,
-      headers: { authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}`, ...(cuerpo ? { "content-type": "application/json" } : {}) },
+      headers: {
+        authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}`,
+        ...(cuerpo ? { "content-type": "application/json" } : {}),
+      },
       body: cuerpo ? JSON.stringify(cuerpo) : undefined,
     });
     return { status: r.status, data: await r.json().catch(() => null) };
@@ -75,7 +82,9 @@
     document.querySelector("[data-testid=btn-new-scan]").onclick = () => abrirDlg("scan-dialog");
     // Descarga como la Consola: pedido con la sesión y archivo desde un blob.
     document.querySelector("[data-testid=btn-download-discovery-report]").onclick = async () => {
-      const r = await fetch("/api/v1/discovery/report?format=csv", { headers: { authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}` } });
+      const r = await fetch("/api/v1/discovery/report?format=csv", {
+        headers: { authorization: `Bearer ${sessionStorage.getItem("ensayo-token") || ""}` },
+      });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(await r.blob());
       a.download = "reporte-exposicion.csv";
@@ -85,13 +94,22 @@
     };
     document.getElementById("d0x-scan-form").onsubmit = async (e) => {
       e.preventDefault();
-      await api("POST", "/discovery/scans", { sources: ["apisix", "nginx", "red"], targets: document.getElementById("scan-targets").value.split("\n") });
+      await api("POST", "/discovery/scans", {
+        sources: ["apisix", "nginx", "red"],
+        targets: document.getElementById("scan-targets").value.split("\n"),
+      });
       cerrarDlg("scan-dialog");
     };
     cada(1500, async () => {
       const [s, h] = await Promise.all([api("GET", "/discovery/scans"), api("GET", "/discovery/findings")]);
       const scans = s.data || [];
-      document.getElementById("d0x-scans").innerHTML = scans.map((x) => `<tr><td>${esc(x.id)}</td><td><span class="estado ${x.status}" data-testid="scan-status-${esc(x.id)}">${esc(x.status)}</span></td><td>${esc(x.requestedBy)}</td></tr>`).join("") || '<tr><td colspan="3">Sin escaneos.</td></tr>';
+      document.getElementById("d0x-scans").innerHTML =
+        scans
+          .map(
+            (x) =>
+              `<tr><td>${esc(x.id)}</td><td><span class="estado ${x.status}" data-testid="scan-status-${esc(x.id)}">${esc(x.status)}</span></td><td>${esc(x.requestedBy)}</td></tr>`,
+          )
+          .join("") || '<tr><td colspan="3">Sin escaneos.</td></tr>';
       const t = scans[0]?.totals;
       if (t) {
         document.getElementById("d0x-nog").textContent = t.noGobernados;
@@ -101,7 +119,10 @@
       }
       document.getElementById("d0x-hallazgos").innerHTML =
         (h.data || [])
-          .map((f) => `<tr><td><span class="d0x-badge ${f.exposureScore >= 70 ? "mal" : f.exposureScore >= 40 ? "aviso" : ""}" data-testid="finding-score-${esc(f.id)}">${f.exposureScore}</span></td><td>${esc(f.source)}</td><td><code>${esc(f.host)}${f.port ? `:${f.port}` : ""}${esc(f.path)}</code></td><td>${esc(f.authDetected)}</td><td>${f.personalDataSuspected ? "sí" : "no"}</td><td>${f.matchedApiId ? "ligado a API gobernada" : "no gobernada"}</td></tr>`)
+          .map(
+            (f) =>
+              `<tr><td><span class="d0x-badge ${f.exposureScore >= 70 ? "mal" : f.exposureScore >= 40 ? "aviso" : ""}" data-testid="finding-score-${esc(f.id)}">${f.exposureScore}</span></td><td>${esc(f.source)}</td><td><code>${esc(f.host)}${f.port ? `:${f.port}` : ""}${esc(f.path)}</code></td><td>${esc(f.authDetected)}</td><td>${f.personalDataSuspected ? "sí" : "no"}</td><td>${f.matchedApiId ? "ligado a API gobernada" : "no gobernada"}</td></tr>`,
+          )
           .join("") || '<tr><td colspan="6">Sin hallazgos todavía.</td></tr>';
     });
   }
@@ -111,7 +132,16 @@
     const pestana = new URLSearchParams(location.search).get("pestana") || "eventos";
     if (
       !pintar(`<h1>Anomalías de consumo</h1><p class="sub">D-02 · El guardián compara cada consumidor con su línea base (simulación de ensayo).</p>
-        <div class="d0x-tabs" role="tablist">${[["eventos", "Eventos"], ["bloqueos", "Bloqueos activos"], ["reglas", "Reglas"]].map(([id, l]) => `<button role="tab" data-testid="tab-${id}" data-p="${id}" aria-selected="${id === pestana}">${l}</button>`).join("")}</div>
+        <div class="d0x-tabs" role="tablist">${[
+          ["eventos", "Eventos"],
+          ["bloqueos", "Bloqueos activos"],
+          ["reglas", "Reglas"],
+        ]
+          .map(
+            ([id, l]) =>
+              `<button role="tab" data-testid="tab-${id}" data-p="${id}" aria-selected="${id === pestana}">${l}</button>`,
+          )
+          .join("")}</div>
         <div class="tarjeta" data-p="eventos"><table data-testid="table-anomalies"><thead><tr><th>Consumidor</th><th>Métrica</th><th>Observado</th><th>Línea base</th><th>Puntaje</th><th>Estado</th></tr></thead><tbody id="d0x-anom"></tbody></table></div>
         <div class="tarjeta" data-p="bloqueos"><table data-testid="table-blocks"><thead><tr><th>Consumidor bloqueado</th><th>Vence</th><th>Estado</th><th></th></tr></thead><tbody id="d0x-bloq"></tbody></table></div>
         <div class="tarjeta" data-p="reglas"><button class="btn" data-testid="btn-new-rule">Nueva regla</button><table data-testid="table-rules" style="margin-top:12px"><thead><tr><th>Regla</th><th>Métrica</th><th>Acción</th><th>Activa</th></tr></thead><tbody id="d0x-reglas"></tbody></table></div>
@@ -132,8 +162,12 @@
     )
       return;
     const mostrar = (id) => {
-      document.querySelectorAll(".tarjeta[data-p]").forEach((t) => (t.style.display = t.dataset.p === id ? "block" : "none"));
-      document.querySelectorAll("[role=tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.p === id)));
+      document
+        .querySelectorAll(".tarjeta[data-p]")
+        .forEach((t) => (t.style.display = t.dataset.p === id ? "block" : "none"));
+      document
+        .querySelectorAll("[role=tab]")
+        .forEach((b) => b.setAttribute("aria-selected", String(b.dataset.p === id)));
       history.replaceState({}, "", `/anomalias?pestana=${id}`);
     };
     document.querySelectorAll("[role=tab]").forEach((b) => (b.onclick = () => mostrar(b.dataset.p)));
@@ -157,16 +191,44 @@
     };
     let liberar;
     document.querySelector("[data-testid=release-dialog-confirm]").onclick = async () => {
-      if (liberar) await api("POST", `/blocks/${liberar}/release`, { reason: document.getElementById("release-dialog-reason").value });
+      if (liberar)
+        await api("POST", `/blocks/${liberar}/release`, {
+          reason: document.getElementById("release-dialog-reason").value,
+        });
       cerrarDlg("release-dialog");
     };
     cada(1500, async () => {
-      const [a, b, r] = await Promise.all([api("GET", "/anomalies"), api("GET", "/blocks"), api("GET", "/anomaly-rules")]);
-      document.getElementById("d0x-anom").innerHTML = (a.data || []).map((x) => `<tr><td>${esc(x.consumer)}</td><td>${esc(x.metric || "volumen")}</td><td>${Math.round(x.observed)}</td><td>${Math.round(x.baseline)}</td><td>${x.score}</td><td><span class="d0x-badge mal">${esc(x.status)}</span></td></tr>`).join("") || '<tr><td colspan="6">Sin eventos.</td></tr>';
+      const [a, b, r] = await Promise.all([
+        api("GET", "/anomalies"),
+        api("GET", "/blocks"),
+        api("GET", "/anomaly-rules"),
+      ]);
+      document.getElementById("d0x-anom").innerHTML =
+        (a.data || [])
+          .map(
+            (x) =>
+              `<tr><td>${esc(x.consumer)}</td><td>${esc(x.metric || "volumen")}</td><td>${Math.round(x.observed)}</td><td>${Math.round(x.baseline)}</td><td>${x.score}</td><td><span class="d0x-badge mal">${esc(x.status)}</span></td></tr>`,
+          )
+          .join("") || '<tr><td colspan="6">Sin eventos.</td></tr>';
       const tb = document.getElementById("d0x-bloq");
-      tb.innerHTML = (b.data || []).filter((x) => x.active).map((x) => `<tr><td>${esc(x.conditionValue)}</td><td>${esc(new Date(x.expiresAt).toLocaleTimeString("es-CL"))}</td><td><span class="d0x-badge mal">activo</span></td><td><button class="btn sec" data-testid="btn-release-${esc(x.id)}" data-id="${esc(x.id)}">Liberar</button></td></tr>`).join("") || '<tr><td colspan="4">Sin bloqueos activos.</td></tr>';
-      tb.querySelectorAll("button[data-id]").forEach((btn) => (btn.onclick = () => ((liberar = btn.dataset.id), abrirDlg("release-dialog"))));
-      document.getElementById("d0x-reglas").innerHTML = (r.data || []).map((x) => `<tr><td>${esc(x.name)}</td><td>${esc(x.metric)}</td><td>${esc(x.action)}</td><td>${x.enabled ? "sí" : "no"}</td></tr>`).join("") || '<tr><td colspan="4">Sin reglas.</td></tr>';
+      tb.innerHTML =
+        (b.data || [])
+          .filter((x) => x.active)
+          .map(
+            (x) =>
+              `<tr><td>${esc(x.conditionValue)}</td><td>${esc(new Date(x.expiresAt).toLocaleTimeString("es-CL"))}</td><td><span class="d0x-badge mal">activo</span></td><td><button class="btn sec" data-testid="btn-release-${esc(x.id)}" data-id="${esc(x.id)}">Liberar</button></td></tr>`,
+          )
+          .join("") || '<tr><td colspan="4">Sin bloqueos activos.</td></tr>';
+      tb.querySelectorAll("button[data-id]").forEach(
+        (btn) => (btn.onclick = () => ((liberar = btn.dataset.id), abrirDlg("release-dialog"))),
+      );
+      document.getElementById("d0x-reglas").innerHTML =
+        (r.data || [])
+          .map(
+            (x) =>
+              `<tr><td>${esc(x.name)}</td><td>${esc(x.metric)}</td><td>${esc(x.action)}</td><td>${x.enabled ? "sí" : "no"}</td></tr>`,
+          )
+          .join("") || '<tr><td colspan="4">Sin reglas.</td></tr>';
     });
   }
 
@@ -188,11 +250,16 @@
       return;
     let pendiente;
     document.querySelector("[data-testid=failback-request-dialog-confirm]").onclick = async () => {
-      await api("POST", "/continuity/failback/requests", { reason: document.getElementById("failback-request-dialog-reason").value });
+      await api("POST", "/continuity/failback/requests", {
+        reason: document.getElementById("failback-request-dialog-reason").value,
+      });
       cerrarDlg("failback-request-dialog");
     };
     document.querySelector("[data-testid=failback-dialog-confirm]").onclick = async () => {
-      if (pendiente) await api("POST", `/continuity/failback/requests/${pendiente.id}/approve`, { reason: document.getElementById("failback-dialog-reason").value || undefined });
+      if (pendiente)
+        await api("POST", `/continuity/failback/requests/${pendiente.id}/approve`, {
+          reason: document.getElementById("failback-dialog-reason").value || undefined,
+        });
       cerrarDlg("failback-dialog");
     };
     let accionesClave = "";
@@ -201,14 +268,25 @@
       const st = s.data;
       if (!st) return;
       pendiente = st.pendingFailback;
-      document.getElementById("d0x-activo").textContent = st.activeSite === "cpd" ? "CPD" : "GCP (Google Cloud)";
-      document.getElementById("d0x-activo-nota").textContent = st.activeSite === "cpd" ? "" : pendiente ? "Operando en el respaldo. Retorno solicitado, falta la aprobación." : "Operando en el respaldo. El retorno no se ha solicitado.";
+      document.getElementById("d0x-activo").textContent =
+        st.activeSite === "cpd" ? "CPD" : "GCP (Google Cloud)";
+      document.getElementById("d0x-activo-nota").textContent =
+        st.activeSite === "cpd"
+          ? ""
+          : pendiente
+            ? "Operando en el respaldo. Retorno solicitado, falta la aprobación."
+            : "Operando en el respaldo. El retorno no se ha solicitado.";
       const sanos = st.sites.filter((x) => x.vote === "primario_sano").length;
-      document.getElementById("d0x-votos").textContent = `${sanos} votos «primario sano» · ${st.votosPrimarioCaido} «primario caído»`;
+      document.getElementById("d0x-votos").textContent =
+        `${sanos} votos «primario sano» · ${st.votosPrimarioCaido} «primario caído»`;
       document.getElementById("d0x-modo").textContent = st.mode === "automatico" ? "Automático" : "Manual";
       document.getElementById("d0x-sitios").innerHTML = st.sites
-        .map((x) => `<div class="d0x-caja" data-testid="continuity-site-${x.id}"><div class="d0x-fila"><b style="font-size:16px">${esc(x.name)}</b><small>${esc(x.role)}</small>${x.active ? `<span class="d0x-badge bien" data-testid="site-active-${x.id}">activo</span>` : ""}</div>
-          <div style="margin-top:8px">Voto: <span class="d0x-badge ${x.vote === "primario_caido" ? "mal" : "bien"}" data-testid="site-vote-${x.id}">${x.vote === "primario_caido" ? "primario caído" : "primario sano"}</span></div></div>`)
+        .map(
+          (
+            x,
+          ) => `<div class="d0x-caja" data-testid="continuity-site-${x.id}"><div class="d0x-fila"><b style="font-size:16px">${esc(x.name)}</b><small>${esc(x.role)}</small>${x.active ? `<span class="d0x-badge bien" data-testid="site-active-${x.id}">activo</span>` : ""}</div>
+          <div style="margin-top:8px">Voto: <span class="d0x-badge ${x.vote === "primario_caido" ? "mal" : "bien"}" data-testid="site-vote-${x.id}">${x.vote === "primario_caido" ? "primario caído" : "primario sano"}</span></div></div>`,
+        )
         .join("");
       document.getElementById("d0x-pendiente").innerHTML = pendiente
         ? `<div class="aviso pend" data-testid="pending-failback">Retorno al sitio principal solicitado por ${esc(pendiente.requestedBy)} · Motivo: ${esc(pendiente.reason)} · Debe aprobarlo otra persona con el rol aprobador.</div>`
@@ -226,8 +304,12 @@
         if (aprobar) aprobar.onclick = () => abrirDlg("failback-dialog");
       }
       document.getElementById("d0x-eventos").innerHTML = (ev.data || [])
-        .map((x) => `<li data-testid="failover-event-${esc(x.id)}" class="d0x-caja" style="margin-bottom:8px"><div class="d0x-fila"><b>${x.kind === "retorno" ? "Retorno" : "Conmutación"} ${esc(x.from)} → ${esc(x.to)}</b><span class="d0x-badge">${esc(x.trigger)}</span><span class="d0x-badge ${x.status === "completado" ? "bien" : "aviso"}" data-testid="failover-status-${esc(x.id)}">${esc(x.status)}</span>
-          ${x.rtoSeconds ? `<span class="d0x-badge bien" data-testid="failover-rto-${esc(x.id)}">RTO ${String(x.rtoSeconds).replace(".", ",")} s</span>` : ""}<span class="d0x-badge" data-testid="failover-rpo-${esc(x.id)}">RPO no medido</span>${x.approvedBy ? `<small>pidió ${esc(x.requestedBy)} · aprobó ${esc(x.approvedBy)}</small>` : ""}</div></li>`)
+        .map(
+          (
+            x,
+          ) => `<li data-testid="failover-event-${esc(x.id)}" class="d0x-caja" style="margin-bottom:8px"><div class="d0x-fila"><b>${x.kind === "retorno" ? "Retorno" : "Conmutación"} ${esc(x.from)} → ${esc(x.to)}</b><span class="d0x-badge">${esc(x.trigger)}</span><span class="d0x-badge ${x.status === "completado" ? "bien" : "aviso"}" data-testid="failover-status-${esc(x.id)}">${esc(x.status)}</span>
+          ${x.rtoSeconds ? `<span class="d0x-badge bien" data-testid="failover-rto-${esc(x.id)}">RTO ${String(x.rtoSeconds).replace(".", ",")} s</span>` : ""}<span class="d0x-badge" data-testid="failover-rpo-${esc(x.id)}">RPO no medido</span>${x.approvedBy ? `<small>pidió ${esc(x.requestedBy)} · aprobó ${esc(x.approvedBy)}</small>` : ""}</div></li>`,
+        )
         .join("");
     });
   }
@@ -240,7 +322,10 @@
       const tarjeta = document.createElement("div");
       tarjeta.id = "d0x-endpoints";
       tarjeta.className = "tarjeta";
-      tarjeta.innerHTML = "<style>" + estilo + "</style><div class='d0x-grid' id='d0x-endpoints-grid'></div><h3 style='margin:6px 0 0'>Peso en el tiempo</h3><div class='d0x-barras' data-testid='chart-weight' id='d0x-barras'></div>";
+      tarjeta.innerHTML =
+        "<style>" +
+        estilo +
+        "</style><div class='d0x-grid' id='d0x-endpoints-grid'></div><h3 style='margin:6px 0 0'>Peso en el tiempo</h3><div class='d0x-barras' data-testid='chart-weight' id='d0x-barras'></div>";
       const ancla = main.querySelector(".tarjeta");
       if (ancla) ancla.after(tarjeta);
       else main.appendChild(tarjeta);
@@ -251,9 +336,19 @@
         g.innerHTML = `<div><dt><small>Endpoint candidato</small></dt><dd style="margin:0"><code>${esc(r.candidateEndpoint)}</code></dd></div><div><dt>Endpoint estable</dt><dd style="margin:0"><code>${esc(r.stableEndpoint)}</code></dd></div>
           <div><dt><small>Plan de pasos</small></dt><dd style="margin:0">${(r.steps || []).map((s) => `${s} %`).join(" → ")}</dd></div><div><dt><small>Aprobado por</small></dt><dd style="margin:0">${esc(r.approvedBy || "Sin aprobación")}</dd></div>`;
       const b = document.getElementById("d0x-barras");
-      if (b) b.innerHTML = (r.stepsDone || []).map((s) => `<i title="${s.weight} %" style="height:${Math.max(4, s.weight * 1.1)}px;background:${s.decision === "revierte" ? "#c62828" : "#1d4f91"}"></i>`).join("") + `<i style="height:${Math.max(4, (r.currentWeight || 0) * 1.1)}px;opacity:.5"></i>`;
+      if (b)
+        b.innerHTML =
+          (r.stepsDone || [])
+            .map(
+              (s) =>
+                `<i title="${s.weight} %" style="height:${Math.max(4, s.weight * 1.1)}px;background:${s.decision === "revierte" ? "#c62828" : "#1d4f91"}"></i>`,
+            )
+            .join("") + `<i style="height:${Math.max(4, (r.currentWeight || 0) * 1.1)}px;opacity:.5"></i>`;
     };
-    new MutationObserver(() => void agregar()).observe(document.documentElement, { childList: true, subtree: true });
+    new MutationObserver(() => void agregar()).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
   }
 
   function iniciar() {

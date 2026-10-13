@@ -50,7 +50,12 @@
         margin: 0;
         background: var(--fondo);
         color: var(--texto);
-        font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        font:
+          15px/1.45 system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
       }
       header {
         display: flex;
@@ -240,7 +245,11 @@
         overflow-wrap: anywhere;
       }
       code {
-        font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+        font:
+          13px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
       }
       .tabular {
         font-variant-numeric: tabular-nums;
@@ -257,8 +266,12 @@
         <p>Revisión local antes de publicar. Los archivos no salen de este equipo.</p>
       </div>
       <div class="elegir">
-        <label class="boton">Elegir carpeta… <input id="carpeta" type="file" webkitdirectory multiple /></label>
-        <label class="boton">Elegir archivos… <input id="archivos" type="file" multiple accept=".mp4,.webm,.vtt,.json" /></label>
+        <label class="boton"
+          >Elegir carpeta… <input id="carpeta" type="file" webkitdirectory multiple
+        /></label>
+        <label class="boton"
+          >Elegir archivos… <input id="archivos" type="file" multiple accept=".mp4,.webm,.vtt,.json"
+        /></label>
       </div>
     </header>
 
@@ -268,11 +281,13 @@
       <nav id="lista" aria-label="Videos"></nav>
 
       <section>
-        <p id="ensayo" hidden>ENSAYO · grabación sin laboratorio para revisar el motor. No es evidencia y no se publica.</p>
+        <p id="ensayo" hidden>
+          ENSAYO · grabación sin laboratorio para revisar el motor. No es evidencia y no se publica.
+        </p>
         <video id="video" controls playsinline preload="metadata"></video>
         <p id="sin-codec" class="mal" hidden>
-          Este navegador no decodifica el video (H.264/AAC). Abra esta página en Chrome, Edge, Firefox o Safari; los
-          capítulos, los pasos y las reglas se revisan igual.
+          Este navegador no decodifica el video (H.264/AAC). Abra esta página en Chrome, Edge, Firefox o
+          Safari; los capítulos, los pasos y las reglas se revisan igual.
         </p>
         <div id="barra" aria-label="Capítulos"><span id="cursor"></span></div>
         <p class="tabular" id="reloj"></p>
@@ -302,7 +317,12 @@
 
     <script>
       "use strict";
-      const REGLAS = { duracionMaxima: 240, pasoMinimo: 7, resoluciones: ["1920x1080", "1600x900"], cps: [30, 25] };
+      const REGLAS = {
+        duracionMaxima: 240,
+        pasoMinimo: 7,
+        resoluciones: ["1920x1080", "1600x900"],
+        cps: [30, 25],
+      };
       const $ = (id) => document.getElementById(id);
       const urls = [];
       let grupos = new Map();
@@ -318,7 +338,8 @@
         for (const h of hijos) e.append(h);
         return e;
       };
-      const marca = (ok, texto) => el("li", { className: ok ? "ok" : "mal", textContent: `${ok ? "✓" : "✗"} ${texto}` });
+      const marca = (ok, texto) =>
+        el("li", { className: ok ? "ok" : "mal", textContent: `${ok ? "✓" : "✗"} ${texto}` });
 
       function base(nombre) {
         return nombre.replace(/\.capitulos\.vtt$|\.pasos\.json$|\.sin-musica\.mp4$|\.(mp4|webm|vtt)$/, "");
@@ -372,22 +393,39 @@
       function mostrar(b) {
         const g = grupos.get(b);
         actual = g;
-        for (const boton of $("lista").children) boton.setAttribute("aria-current", String(boton.firstChild.textContent === b));
+        for (const boton of $("lista").children)
+          boton.setAttribute("aria-current", String(boton.firstChild.textContent === b));
         const v = $("video");
         v.pause();
         v.replaceChildren();
         v.src = url(g.video);
-        if (g.subtitulos) v.append(el("track", { kind: "subtitles", srclang: "es", label: "Pasos", src: url(g.subtitulos), default: true }));
-        if (g.capitulos) v.append(el("track", { kind: "chapters", srclang: "es", label: "Capítulos", src: url(g.capitulos) }));
+        if (g.subtitulos)
+          v.append(
+            el("track", {
+              kind: "subtitles",
+              srclang: "es",
+              label: "Pasos",
+              src: url(g.subtitulos),
+              default: true,
+            }),
+          );
+        if (g.capitulos)
+          v.append(
+            el("track", { kind: "chapters", srclang: "es", label: "Capítulos", src: url(g.capitulos) }),
+          );
         v.load();
         $("sin-codec").hidden = true;
         $("ensayo").hidden = !g.datos?.ensayo;
         dibujarBarra();
         actualizarPaso();
-        v.addEventListener("loadedmetadata", () => {
-          dibujarBarra();
-          revisar();
-        }, { once: true });
+        v.addEventListener(
+          "loadedmetadata",
+          () => {
+            dibujarBarra();
+            revisar();
+          },
+          { once: true },
+        );
         revisar();
       }
 
@@ -401,13 +439,19 @@
         const total = $("video").duration || actual?.datos?.duracion_s || 0;
         if (!total) return;
         for (const p of pasos()) {
-          const b = el("button", { type: "button", textContent: `${p.n}. ${p.titulo}`, title: `${mmss(p.inicio_s)} · ${p.titulo}` });
+          const b = el("button", {
+            type: "button",
+            textContent: `${p.n}. ${p.titulo}`,
+            title: `${mmss(p.inicio_s)} · ${p.titulo}`,
+          });
           b.style.left = `${(100 * p.inicio_s) / total}%`;
           b.style.width = `${(100 * (p.fin_s - p.inicio_s)) / total}%`;
           b.dataset.n = p.n;
           b.addEventListener("click", () => {
             $("video").currentTime = p.inicio_s;
-            $("video").play().catch(() => undefined);
+            $("video")
+              .play()
+              .catch(() => undefined);
           });
           barra.append(b);
         }
@@ -421,12 +465,19 @@
         $("reloj").textContent = `${mmss(t)} / ${mmss(total)}`;
         const lista = pasos();
         const p = lista.find((x) => t >= x.inicio_s && t < x.fin_s);
-        for (const b of $("barra").querySelectorAll("button")) b.classList.toggle("actual", p !== undefined && b.dataset.n === String(p.n));
-        $("p-paso").textContent = p ? `Paso ${p.n} de ${lista.length} · ${mmss(p.inicio_s)}–${mmss(p.fin_s)}` : "Sin paso en curso (portada, transición o cierre)";
+        for (const b of $("barra").querySelectorAll("button"))
+          b.classList.toggle("actual", p !== undefined && b.dataset.n === String(p.n));
+        $("p-paso").textContent = p
+          ? `Paso ${p.n} de ${lista.length} · ${mmss(p.inicio_s)}–${mmss(p.fin_s)}`
+          : "Sin paso en curso (portada, transición o cierre)";
         $("p-titulo").textContent = p?.titulo ?? "";
         $("p-que").textContent = p?.que_pasa ?? "";
         $("p-por").textContent = p?.por_que_importa ?? "";
-        $("p-comprueba").replaceChildren(...(p?.comprueba ?? []).map((c) => marca(c.ok, `${c.texto}${c.valor !== undefined ? `: ${c.valor}` : ""}`)));
+        $("p-comprueba").replaceChildren(
+          ...(p?.comprueba ?? []).map((c) =>
+            marca(c.ok, `${c.texto}${c.valor !== undefined ? `: ${c.valor}` : ""}`),
+          ),
+        );
       }
 
       function revisar() {
@@ -439,21 +490,68 @@
         if (!d) {
           reglas.append(marca(false, "falta <nombre>.pasos.json"));
         } else {
-          reglas.append(marca(d.ensayo === false, d.ensayo === false ? "grabación registrada (no es ensayo)" : "ENSAYO: no se publica"));
+          reglas.append(
+            marca(
+              d.ensayo === false,
+              d.ensayo === false ? "grabación registrada (no es ensayo)" : "ENSAYO: no se publica",
+            ),
+          );
           const dur = v.duration || d.duracion_s;
-          reglas.append(marca(dur > 0 && dur <= REGLAS.duracionMaxima, `duración ${dur ? dur.toFixed(1) : "?"} s (máximo ${REGLAS.duracionMaxima} s)`));
+          reglas.append(
+            marca(
+              dur > 0 && dur <= REGLAS.duracionMaxima,
+              `duración ${dur ? dur.toFixed(1) : "?"} s (máximo ${REGLAS.duracionMaxima} s)`,
+            ),
+          );
           const cortos = pasos().filter((p) => p.fin_s - p.inicio_s < REGLAS.pasoMinimo - 0.05);
-          reglas.append(marca(cortos.length === 0, cortos.length ? `pasos de menos de ${REGLAS.pasoMinimo} s: ${cortos.map((p) => p.n).join(", ")}` : `${pasos().length} pasos, todos de ${REGLAS.pasoMinimo} s o más`));
+          reglas.append(
+            marca(
+              cortos.length === 0,
+              cortos.length
+                ? `pasos de menos de ${REGLAS.pasoMinimo} s: ${cortos.map((p) => p.n).join(", ")}`
+                : `${pasos().length} pasos, todos de ${REGLAS.pasoMinimo} s o más`,
+            ),
+          );
           const declarada = `${d.ancho}x${d.alto}`;
           const real = v.videoWidth ? `${v.videoWidth}x${v.videoHeight}` : null;
-          reglas.append(marca(REGLAS.resoluciones.includes(declarada) && (!real || real === declarada), `resolución ${real ?? "?"} (declarada ${declarada})`));
+          reglas.append(
+            marca(
+              REGLAS.resoluciones.includes(declarada) && (!real || real === declarada),
+              `resolución ${real ?? "?"} (declarada ${declarada})`,
+            ),
+          );
           reglas.append(marca(REGLAS.cps.includes(d.cps), `${d.cps} cuadros por segundo declarados`));
-          const fallidas = pasos().flatMap((p) => (p.comprueba ?? []).filter((c) => !c.ok).map((c) => `${p.n}: ${c.texto}`));
-          reglas.append(marca(fallidas.length === 0, fallidas.length ? `comprobaciones no cumplidas: ${fallidas.join("; ")}` : "todas las comprobaciones cumplidas"));
+          const fallidas = pasos().flatMap((p) =>
+            (p.comprueba ?? []).filter((c) => !c.ok).map((c) => `${p.n}: ${c.texto}`),
+          );
+          reglas.append(
+            marca(
+              fallidas.length === 0,
+              fallidas.length
+                ? `comprobaciones no cumplidas: ${fallidas.join("; ")}`
+                : "todas las comprobaciones cumplidas",
+            ),
+          );
         }
-        reglas.append(marca(!!g.subtitulos, g.subtitulos ? `subtítulos: ${g.subtitulos.name}` : "faltan los subtítulos .vtt"));
-        reglas.append(marca(!!g.capitulos, g.capitulos ? `capítulos: ${g.capitulos.name}` : "faltan los capítulos .capitulos.vtt"));
-        reglas.append(el("li", { className: "", textContent: "La sonoridad (−18 LUFS), el SHA-256 y la imagen intacta tras la música los comprueba pnpm --filter @nexo/evidencias verificar." }));
+        reglas.append(
+          marca(
+            !!g.subtitulos,
+            g.subtitulos ? `subtítulos: ${g.subtitulos.name}` : "faltan los subtítulos .vtt",
+          ),
+        );
+        reglas.append(
+          marca(
+            !!g.capitulos,
+            g.capitulos ? `capítulos: ${g.capitulos.name}` : "faltan los capítulos .capitulos.vtt",
+          ),
+        );
+        reglas.append(
+          el("li", {
+            className: "",
+            textContent:
+              "La sonoridad (−18 LUFS), el SHA-256 y la imagen intacta tras la música los comprueba pnpm --filter @nexo/evidencias verificar.",
+          }),
+        );
 
         const ficha = $("ficha");
         ficha.replaceChildren();
@@ -471,7 +569,8 @@
       $("video").addEventListener("timeupdate", actualizarPaso);
       $("video").addEventListener("error", () => ($("sin-codec").hidden = false));
       $("video").addEventListener("seeked", actualizarPaso);
-      for (const id of ["carpeta", "archivos"]) $(id).addEventListener("change", (e) => cargar([...e.target.files]));
+      for (const id of ["carpeta", "archivos"])
+        $(id).addEventListener("change", (e) => cargar([...e.target.files]));
 
       async function leerEntrada(entrada, salida) {
         if (entrada.isFile) {
@@ -509,7 +608,10 @@
         const lista = pasos();
         if (!lista.length || (e.key !== "ArrowRight" && e.key !== "ArrowLeft") || !e.altKey) return;
         const t = v.currentTime;
-        const destino = e.key === "ArrowRight" ? lista.find((p) => p.inicio_s > t + 0.1) : [...lista].reverse().find((p) => p.inicio_s < t - 1);
+        const destino =
+          e.key === "ArrowRight"
+            ? lista.find((p) => p.inicio_s > t + 0.1)
+            : [...lista].reverse().find((p) => p.inicio_s < t - 1);
         if (destino) v.currentTime = destino.inicio_s;
       });
     </script>

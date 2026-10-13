@@ -33,7 +33,13 @@ export function esperaParaMinimo(inicioMs: number, ahoraMs: number, minimoS = PA
  * Espera al cerrar un paso: lo que falte para su mínimo y, si su última verificación es reciente, lo que falte
  * para que se lea (salvo que el video ya esté cerca del tope: `restantesS` < RESERVA_LECTURA_S).
  */
-export function esperaAlCerrar(o: { inicioMs: number; ahoraMs: number; minimoS?: number; ultimaComprobacionMs?: number; restantesS?: number }): number {
+export function esperaAlCerrar(o: {
+  inicioMs: number;
+  ahoraMs: number;
+  minimoS?: number;
+  ultimaComprobacionMs?: number;
+  restantesS?: number;
+}): number {
   const minimo = esperaParaMinimo(o.inicioMs, o.ahoraMs, o.minimoS ?? PASO_MINIMO_S);
   const u = o.ultimaComprobacionMs;
   if (u === undefined || u < o.inicioMs || (o.restantesS ?? Infinity) < RESERVA_LECTURA_S) return minimo;
@@ -55,7 +61,12 @@ export interface Presupuesto {
 }
 
 /** Cuánto video queda, dado que el cierre se agrega al final. */
-export function presupuesto(inicioMs: number, ahoraMs: number, tope = TOPE_VIDEO_S, cierre = CIERRE_S): Presupuesto {
+export function presupuesto(
+  inicioMs: number,
+  ahoraMs: number,
+  tope = TOPE_VIDEO_S,
+  cierre = CIERRE_S,
+): Presupuesto {
   const usados = Math.max(0, (ahoraMs - inicioMs) / 1000);
   const restantes = tope - cierre - usados;
   return { usados, restantes, excedido: restantes < 0 };
@@ -68,7 +79,12 @@ export interface IntervaloZoom {
 }
 
 /** Duración mínima que tendrá el video: portada, cada paso con su mínimo de 7 s y cierre (en ms). */
-export function duracionMinimaMs(pasos: number, portadaS = PORTADA_S, cierreS = CIERRE_S, pasoMinimoS = PASO_MINIMO_S): number {
+export function duracionMinimaMs(
+  pasos: number,
+  portadaS = PORTADA_S,
+  cierreS = CIERRE_S,
+  pasoMinimoS = PASO_MINIMO_S,
+): number {
   return Math.max(0, (portadaS + Math.max(0, pasos) * pasoMinimoS + cierreS) * 1000);
 }
 
@@ -125,7 +141,10 @@ export class RegistroZoom {
   }
 
   /** Intervalos en segundos relativos al inicio del video (para evidencias.json). */
-  enSegundos(inicioVideoMs: number, finVideoMs: number): Array<{ inicio_s: number; fin_s: number; factor: number }> {
+  enSegundos(
+    inicioVideoMs: number,
+    finVideoMs: number,
+  ): Array<{ inicio_s: number; fin_s: number; factor: number }> {
     return this.intervalos.map((i) => ({
       inicio_s: redondear((i.inicioMs - inicioVideoMs) / 1000),
       fin_s: redondear(((i.finMs ?? finVideoMs) - inicioVideoMs) / 1000),

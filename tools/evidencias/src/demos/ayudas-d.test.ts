@@ -1,7 +1,20 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PASO_MINIMO_S, TOPE_VIDEO_S } from "../lib/ritmo.js";
-import { agendaDe, backendDeUrl, codigoHttp, definicion, duracionEstimada, lineaEnsayo, lineaShell, n, nombreBackend, revisarGuion, seg, type PasoGuion } from "./ayudas-d.js";
+import {
+  agendaDe,
+  backendDeUrl,
+  codigoHttp,
+  definicion,
+  duracionEstimada,
+  lineaEnsayo,
+  lineaShell,
+  n,
+  nombreBackend,
+  revisarGuion,
+  seg,
+  type PasoGuion,
+} from "./ayudas-d.js";
 import { bt005, PASOS_BT005 } from "./bt005-gateway.js";
 import { d01, PASOS_D01 } from "./d01-descubrimiento.js";
 import { d02, PASOS_D02, VENTANAS_LINEA_BASE } from "./d02-anomalias.js";
@@ -50,11 +63,20 @@ describe("guiones D-01..D-05 y BT-005: narración y duración (V03, V11)", () =>
   });
 
   it("D-05 se cuenta en 3 actos, mide el RTO desde la falla y el retorno lo aprueban dos personas", () => {
-    expect(PASOS_D05.filter((p) => /^Acto \d/.test(p.titulo)).map((p) => p.titulo.slice(0, 6))).toEqual(["Acto 1", "Acto 2", "Acto 3"]);
+    expect(PASOS_D05.filter((p) => /^Acto \d/.test(p.titulo)).map((p) => p.titulo.slice(0, 6))).toEqual([
+      "Acto 1",
+      "Acto 2",
+      "Acto 3",
+    ]);
     expect(PASOS_D05[3]!.titulo).toMatch(/RTO medido desde la falla/);
     expect(PASOS_D05[1]!.comprueba).toContain("1 de 3 votos «primario caído»");
     // Variante de respaldo: su narración cumple las mismas reglas y declara las mismas verificaciones.
-    expect(revisarGuion(PASOS_D05_AGENTES, PASOS_D05_AGENTES.map((p) => p.titulo))).toEqual([]);
+    expect(
+      revisarGuion(
+        PASOS_D05_AGENTES,
+        PASOS_D05_AGENTES.map((p) => p.titulo),
+      ),
+    ).toEqual([]);
     expect(PASOS_D05_AGENTES.map((p) => p.comprueba)).toEqual(PASOS_D05.map((p) => p.comprueba));
     expect(PASOS_D05_AGENTES[1]!.quePasa).toMatch(/cae la base del CPD/);
     expect(PASOS_D05.at(-1)!.titulo).toMatch(/lo pide una persona y lo aprueba otra/);
@@ -74,13 +96,21 @@ describe("guiones D-01..D-05 y BT-005: narración y duración (V03, V11)", () =>
 });
 
 describe("revisarGuion y duracionEstimada", () => {
-  const base: PasoGuion = { titulo: "Paso", quePasa: "Qué pasa.", porQueImporta: "Por qué.", comprueba: ["algo"], estimadoS: 10 };
+  const base: PasoGuion = {
+    titulo: "Paso",
+    quePasa: "Qué pasa.",
+    porQueImporta: "Por qué.",
+    comprueba: ["algo"],
+    estimadoS: 10,
+  };
 
   it("suma portada, pasos (con la lectura de la última verificación) y cierre", () => {
     const una = duracionEstimada([base]);
     const dos = duracionEstimada([base, base]);
     expect(dos - una).toBeCloseTo(12.5, 5);
-    expect(duracionEstimada([{ ...base, estimadoS: 2, comprueba: [] }]) - duracionEstimada([])).toBe(PASO_MINIMO_S);
+    expect(duracionEstimada([{ ...base, estimadoS: 2, comprueba: [] }]) - duracionEstimada([])).toBe(
+      PASO_MINIMO_S,
+    );
   });
 
   it("detecta pasos cortos, textos vacíos o largos, jerga y videos de más de 240 s", () => {
@@ -88,14 +118,20 @@ describe("revisarGuion y duracionEstimada", () => {
     expect(revisarGuion([{ ...base, quePasa: " " }])[0]).toMatch(/quePasa vacío/);
     expect(revisarGuion([{ ...base, titulo: "x".repeat(71) }])[0]).toMatch(/titulo de 71/);
     expect(revisarGuion([{ ...base, quePasa: "Se hace el failover." }])[0]).toMatch(/jerga/);
-    expect(revisarGuion(Array.from({ length: 12 }, () => ({ ...base, estimadoS: 20 }))).at(-1)).toMatch(/tope de 240 s/);
-    expect(revisarGuion([base], ["otro título"])).toEqual(["la agenda no coincide con los títulos de los pasos"]);
+    expect(revisarGuion(Array.from({ length: 12 }, () => ({ ...base, estimadoS: 20 }))).at(-1)).toMatch(
+      /tope de 240 s/,
+    );
+    expect(revisarGuion([base], ["otro título"])).toEqual([
+      "la agenda no coincide con los títulos de los pasos",
+    ]);
   });
 });
 
 describe("comandos reales y formato", () => {
   it("lineaShell pone comillas solo donde hace falta", () => {
-    expect(lineaShell(["api", "deploy", "/tmp/x/tarifas", "-s", "prod", "-m", "Gobierno de la API"])).toBe('api deploy /tmp/x/tarifas -s prod -m "Gobierno de la API"');
+    expect(lineaShell(["api", "deploy", "/tmp/x/tarifas", "-s", "prod", "-m", "Gobierno de la API"])).toBe(
+      'api deploy /tmp/x/tarifas -s prod -m "Gobierno de la API"',
+    );
     expect(lineaShell(['di "hola" $HOME'])).toBe('"di \\"hola\\" \\$HOME"');
   });
 
@@ -107,8 +143,12 @@ describe("comandos reales y formato", () => {
 
   it("en ensayo, las URL del laboratorio de una línea van al servidor de ensayo (lo demás no cambia)", () => {
     const base = "http://localhost:5174";
-    expect(lineaEnsayo("curl -sk https://apim:8243/tarifas/1.0.0/tarifas   # sin token", base)).toBe(`curl -sk ${base}/gateway/tarifas/1.0.0/tarifas   # sin token`);
-    expect(lineaEnsayo("curl -s 'http://localhost:9200/nexo-apim-metrics-*/_search' -d @q.json", base)).toBe(`curl -s '${base}/d0x/opensearch/nexo-apim-metrics-*/_search' -d @q.json`);
+    expect(lineaEnsayo("curl -sk https://apim:8243/tarifas/1.0.0/tarifas   # sin token", base)).toBe(
+      `curl -sk ${base}/gateway/tarifas/1.0.0/tarifas   # sin token`,
+    );
+    expect(lineaEnsayo("curl -s 'http://localhost:9200/nexo-apim-metrics-*/_search' -d @q.json", base)).toBe(
+      `curl -s '${base}/d0x/opensearch/nexo-apim-metrics-*/_search' -d @q.json`,
+    );
     expect(lineaEnsayo("seq 60 | xargs echo", base)).toBe("seq 60 | xargs echo");
     expect(lineaEnsayo("curl https://apim:8243/x", undefined)).toBe("curl https://apim:8243/x");
   });
@@ -163,13 +203,22 @@ describe("ensayo de D-01..D-05 (d0x-ensayo.ts)", () => {
     expect(s.aprobar(id, "luis.aprobador")[0]).toBe(202);
     s.avanzar(t + 9000);
     expect(s.activo).toBe("cpd");
-    expect(s.eventos[0]).toMatchObject({ kind: "retorno", requestedBy: "carla.operacion", approvedBy: "luis.aprobador", status: "completado" });
+    expect(s.eventos[0]).toMatchObject({
+      kind: "retorno",
+      requestedBy: "carla.operacion",
+      approvedBy: "luis.aprobador",
+      status: "completado",
+    });
   });
 
   it("descubrimiento: hallazgos ordenados por puntaje con las rutas que verifica check-d01", () => {
     const h = hallazgosEnsayo();
-    expect(h.every((f, i) => i === 0 || Number(h[i - 1]!.exposureScore) >= Number(f.exposureScore))).toBe(true);
-    expect(h.map((f) => f.path)).toEqual(expect.arrayContaining(["/interno/reportes/titulares", "/fiscalizacion", "/espectro/asignaciones"]));
+    expect(h.every((f, i) => i === 0 || Number(h[i - 1]!.exposureScore) >= Number(f.exposureScore))).toBe(
+      true,
+    );
+    expect(h.map((f) => f.path)).toEqual(
+      expect.arrayContaining(["/interno/reportes/titulares", "/fiscalizacion", "/espectro/asignaciones"]),
+    );
   });
 
   it("PDF mínimo válido y sujeto del token de ensayo", () => {
@@ -177,15 +226,33 @@ describe("ensayo de D-01..D-05 (d0x-ensayo.ts)", () => {
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.toString("latin1")).toMatch(/startxref\n\d+\n%%EOF/);
     const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
-    expect(sujetoToken(`Bearer ${b64({ alg: "none" })}.${b64({ preferred_username: "luis.aprobador" })}.x`)).toBe("luis.aprobador");
+    expect(
+      sujetoToken(`Bearer ${b64({ alg: "none" })}.${b64({ preferred_username: "luis.aprobador" })}.x`),
+    ).toBe("luis.aprobador");
     expect(sujetoToken(undefined)).toBeUndefined();
   });
 });
 
 describe("veracidad de la terminal (V12)", () => {
-  const ARCHIVOS = ["d01-descubrimiento.ts", "d02-anomalias.ts", "d03-contratos.ts", "d04-despliegues.ts", "d05-continuidad.ts", "bt005-gateway.ts"];
+  const ARCHIVOS = [
+    "d01-descubrimiento.ts",
+    "d02-anomalias.ts",
+    "d03-contratos.ts",
+    "d04-despliegues.ts",
+    "d05-continuidad.ts",
+    "bt005-gateway.ts",
+  ];
   // Los 13 guiones: una línea «$ …» es siempre un comando que se ejecuta (las llamadas REST se rotulan «→ …»).
-  const TODOS = [...ARCHIVOS, "d06-graphql-asyncapi.ts", "d07-sdk.ts", "d08-autoservicio.ts", "bt008-integracion.ts", "bt018-catalogo.ts", "bt021-consumo.ts", "bt049-exportacion.ts"];
+  const TODOS = [
+    ...ARCHIVOS,
+    "d06-graphql-asyncapi.ts",
+    "d07-sdk.ts",
+    "d08-autoservicio.ts",
+    "bt008-integracion.ts",
+    "bt018-catalogo.ts",
+    "bt021-consumo.ts",
+    "bt049-exportacion.ts",
+  ];
   for (const f of TODOS) {
     it(`${f}: no escribe a mano líneas «$ …» en la terminal`, () => {
       const fuente = readFileSync(new URL(`./${f}`, import.meta.url), "utf8");
@@ -198,7 +265,9 @@ describe("veracidad de la terminal (V12)", () => {
       const fuente = readFileSync(new URL(`./${f}`, import.meta.url), "utf8");
       expect(fuente).not.toMatch(/c\.log\(\s*[`"']\$ /);
       // Sin clics, escritura ni selección instantáneos de Playwright sobre la pantalla grabada.
-      expect(fuente).not.toMatch(/c\.app\.(getByTestId|locator|getByRole|getByText)\([^)]*\)\.(click|fill|selectOption)\(/);
+      expect(fuente).not.toMatch(
+        /c\.app\.(getByTestId|locator|getByRole|getByText)\([^)]*\)\.(click|fill|selectOption)\(/,
+      );
       expect(fuente).not.toMatch(/c\.app\.mouse\.(wheel|click)\(/);
       // Toda la narración pasa por estudio.paso (nada de la API anterior c.paso(texto)).
       expect(fuente).not.toMatch(/\bc\.paso\(/);
@@ -207,7 +276,9 @@ describe("veracidad de la terminal (V12)", () => {
 
   for (const { demo, pasos } of GUIONES) {
     it(`${demo.id}: cada «Se comprueba» declarado se mide en vivo con el mismo texto, y nada se mide sin declararse`, () => {
-      const f = ARCHIVOS.find((a) => a.startsWith(demo.id.toLowerCase().replace("-", "").replace("bt", "bt")))!;
+      const f = ARCHIVOS.find((a) =>
+        a.startsWith(demo.id.toLowerCase().replace("-", "").replace("bt", "bt")),
+      )!;
       const fuente = readFileSync(new URL(`./${f}`, import.meta.url), "utf8");
       const medidas = [...fuente.matchAll(/e\.(?:comprueba|exige)\(\s*"([^"]+)"/g)].map((m) => m[1]!);
       const declaradas = pasos.flatMap((p) => p.comprueba ?? []);
@@ -216,6 +287,11 @@ describe("veracidad de la terminal (V12)", () => {
   }
 
   it("en ensayo, la falla inyectable de concesiones-v2 se desvía al servidor de ensayo", () => {
-    expect(lineaEnsayo("curl -s -X POST -d '{\"failRate\":1}' http://localhost:7011/_chaos   # falla", "http://localhost:5174")).toBe("curl -s -X POST -d '{\"failRate\":1}' http://localhost:5174/chaos-v2/_chaos   # falla");
+    expect(
+      lineaEnsayo(
+        "curl -s -X POST -d '{\"failRate\":1}' http://localhost:7011/_chaos   # falla",
+        "http://localhost:5174",
+      ),
+    ).toBe("curl -s -X POST -d '{\"failRate\":1}' http://localhost:5174/chaos-v2/_chaos   # falla");
   });
 });

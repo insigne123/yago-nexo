@@ -15,8 +15,27 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { PAQUETE } from "./entorno.js";
-import { AUTORIA, describir, ESTILO, FUNDIDO_ENTRADA_S, FUNDIDO_SALIDA_S, huellaPcm, sintetizar, VARIANTES, wav } from "./musica.js";
-import { AUDIO, espectrograma, FFMPEG, filtroLoudnorm, leerLoudnorm, medirAstats, medirLoudnorm, medirSonoridad } from "./video.js";
+import {
+  AUTORIA,
+  describir,
+  ESTILO,
+  FUNDIDO_ENTRADA_S,
+  FUNDIDO_SALIDA_S,
+  huellaPcm,
+  sintetizar,
+  VARIANTES,
+  wav,
+} from "./musica.js";
+import {
+  AUDIO,
+  espectrograma,
+  FFMPEG,
+  filtroLoudnorm,
+  leerLoudnorm,
+  medirAstats,
+  medirLoudnorm,
+  medirSonoridad,
+} from "./video.js";
 
 const run = promisify(execFile);
 const duracion = Number(process.argv.slice(2).find((a) => /^\d+(\.\d+)?$/.test(a)) ?? 50);
@@ -35,7 +54,36 @@ try {
     const destino = join(salida, archivo);
     const r = await run(
       FFMPEG,
-      ["-y", "-hide_banner", "-nostats", "-i", rutaWav, "-af", `${filtroLoudnorm(medicion)},aresample=${AUDIO.frecuencia}`, "-c:a", "aac", "-b:a", `${AUDIO.kbps}k`, "-ar", String(AUDIO.frecuencia), "-ac", "2", "-map_metadata", "-1", "-metadata", `title=Yago Nexo · ${ESTILO} · variante ${v}`, "-metadata", `comment=${AUTORIA}`, "-movflags", "+faststart", "-fflags", "+bitexact", "-flags:a", "+bitexact", destino],
+      [
+        "-y",
+        "-hide_banner",
+        "-nostats",
+        "-i",
+        rutaWav,
+        "-af",
+        `${filtroLoudnorm(medicion)},aresample=${AUDIO.frecuencia}`,
+        "-c:a",
+        "aac",
+        "-b:a",
+        `${AUDIO.kbps}k`,
+        "-ar",
+        String(AUDIO.frecuencia),
+        "-ac",
+        "2",
+        "-map_metadata",
+        "-1",
+        "-metadata",
+        `title=Yago Nexo · ${ESTILO} · variante ${v}`,
+        "-metadata",
+        `comment=${AUTORIA}`,
+        "-movflags",
+        "+faststart",
+        "-fflags",
+        "+bitexact",
+        "-flags:a",
+        "+bitexact",
+        destino,
+      ],
       { maxBuffer: 64 * 1024 * 1024 },
     );
     const normalizacion = leerLoudnorm(r.stderr).normalization_type;
@@ -66,7 +114,9 @@ try {
       factor_plano: est.factorPlano,
     };
     variantes.push(fila);
-    console.log(`variante ${v}: ${son.integrado} LUFS, pico real ${son.picoReal} dBTP, LRA ${son.lra} LU, ${normalizacion} · ${Date.now() - t0} ms`);
+    console.log(
+      `variante ${v}: ${son.integrado} LUFS, pico real ${son.picoReal} dBTP, LRA ${son.lra} LU, ${normalizacion} · ${Date.now() - t0} ms`,
+    );
   }
 } finally {
   rmSync(trabajo, { recursive: true, force: true });
@@ -75,7 +125,8 @@ writeFileSync(
   join(salida, "muestras.json"),
   `${JSON.stringify(
     {
-      $comment: "Muestras de la música original de los videos. Las genera pnpm --filter @nexo/evidencias musica (tools/evidencias/src/lib/musica-muestras.ts); no editar a mano.",
+      $comment:
+        "Muestras de la música original de los videos. Las genera pnpm --filter @nexo/evidencias musica (tools/evidencias/src/lib/musica-muestras.ts); no editar a mano.",
       estilo: ESTILO,
       autoria: AUTORIA,
       sintesis: "tools/evidencias/src/lib/musica.ts",

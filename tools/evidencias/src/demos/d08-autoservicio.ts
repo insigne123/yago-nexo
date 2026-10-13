@@ -25,43 +25,64 @@ let admin: Page | undefined;
 export const NARRACION_D08: DefinicionPaso[] = [
   {
     titulo: "Autorregistro de una persona de un operador",
-    quePasa: "Una persona externa entra al portal de desarrolladores y crea su cuenta sola: usuario, nombre, correo, organización y clave.",
-    porQueImporta: "Los operadores no dependen de que la institución les cree cuentas a mano: el alta empieza por autoservicio.",
+    quePasa:
+      "Una persona externa entra al portal de desarrolladores y crea su cuenta sola: usuario, nombre, correo, organización y clave.",
+    porQueImporta:
+      "Los operadores no dependen de que la institución les cree cuentas a mano: el alta empieza por autoservicio.",
     comprueba: ["la cuenta queda registrada"],
   },
   {
     titulo: "Sin aprobación no hay acceso",
-    quePasa: "La persona intenta entrar con su cuenta nueva. El portal la rechaza: el registro está pendiente de la institución.",
+    quePasa:
+      "La persona intenta entrar con su cuenta nueva. El portal la rechaza: el registro está pendiente de la institución.",
     porQueImporta: "El autoservicio no abre la puerta por sí solo: la institución decide quién entra.",
     comprueba: ["registro pendiente: la persona no entra al portal"],
   },
   {
     titulo: "La institución aprueba el registro",
-    quePasa: "En el portal de administración, una persona de la institución revisa las tareas pendientes de creación de usuarios y aprueba la solicitud.",
-    porQueImporta: "Cada alta queda decidida por una persona responsable, en una bandeja de tareas propia de la plataforma.",
+    quePasa:
+      "En el portal de administración, una persona de la institución revisa las tareas pendientes de creación de usuarios y aprueba la solicitud.",
+    porQueImporta:
+      "Cada alta queda decidida por una persona responsable, en una bandeja de tareas propia de la plataforma.",
     comprueba: ["registro aprobado por la institución"],
   },
   {
     titulo: "Aplicación y credenciales en Keycloak, con aprobación",
-    quePasa: "La persona crea una aplicación y pide sus credenciales de producción a Keycloak. Las dos solicitudes esperan y la institución las aprueba.",
+    quePasa:
+      "La persona crea una aplicación y pide sus credenciales de producción a Keycloak. Las dos solicitudes esperan y la institución las aprueba.",
     porQueImporta: "Ninguna credencial de producción se emite sin una decisión institucional registrada.",
-    comprueba: ["creación de la aplicación aprobada", "credenciales de producción emitidas en Keycloak tras la aprobación"],
+    comprueba: [
+      "creación de la aplicación aprobada",
+      "credenciales de producción emitidas en Keycloak tras la aprobación",
+    ],
   },
   {
     titulo: "Suscripción a una API: pendiente hasta aprobarla",
-    quePasa: "La persona pide suscribirse a la API Concesiones con el plan OperadoresEstandar. Mientras se aprueba, el gateway rechaza sus llamadas.",
-    porQueImporta: "Tener credenciales no basta para consumir una API: cada acceso a una API también pasa por aprobación.",
+    quePasa:
+      "La persona pide suscribirse a la API Concesiones con el plan OperadoresEstandar. Mientras se aprueba, el gateway rechaza sus llamadas.",
+    porQueImporta:
+      "Tener credenciales no basta para consumir una API: cada acceso a una API también pasa por aprobación.",
     comprueba: ["con la suscripción pendiente el gateway la rechaza"],
   },
   {
     titulo: "Con todo aprobado, la persona consume la API",
-    quePasa: "Con la suscripción aprobada, la misma credencial llama a Concesiones por el gateway y recibe datos. No queda ninguna solicitud pendiente.",
-    porQueImporta: "El circuito completo, del registro al consumo, ocurrió por autoservicio y con cuatro aprobaciones institucionales.",
-    comprueba: ["suscripción aprobada: acceso a la API", "cuatro aprobaciones resueltas: registro, aplicación, credenciales y suscripción"],
+    quePasa:
+      "Con la suscripción aprobada, la misma credencial llama a Concesiones por el gateway y recibe datos. No queda ninguna solicitud pendiente.",
+    porQueImporta:
+      "El circuito completo, del registro al consumo, ocurrió por autoservicio y con cuatro aprobaciones institucionales.",
+    comprueba: [
+      "suscripción aprobada: acceso a la API",
+      "cuatro aprobaciones resueltas: registro, aplicación, credenciales y suscripción",
+    ],
   },
 ];
 
-const clienteDe = (u: string) => new Wso2Client({ baseUrl: WSO2, auth: { type: "basic", username: u, password: CLAVE }, tls: { rejectUnauthorized: false } });
+const clienteDe = (u: string) =>
+  new Wso2Client({
+    baseUrl: WSO2,
+    auth: { type: "basic", username: u, password: CLAVE },
+    tls: { rejectUnauthorized: false },
+  });
 
 /** Elimina la cuenta de laboratorio creada por la demostración (servicio de administración de usuarios de WSO2). */
 async function borrarUsuario(u: string) {
@@ -80,7 +101,9 @@ async function borrarUsuario(u: string) {
 }
 
 async function pendientes(tipo: string, filtro: (p: Record<string, unknown>) => boolean) {
-  return (await wso2().admin.listWorkflows(tipo)).list.filter((w) => filtro((w.properties ?? {}) as Record<string, unknown>));
+  return (await wso2().admin.listWorkflows(tipo)).list.filter((w) =>
+    filtro((w.properties ?? {}) as Record<string, unknown>),
+  );
 }
 
 const exprUsuario = () => new RegExp(usuario.replace(".", "\\."));
@@ -103,7 +126,10 @@ export const d08: Demo = {
     await c.ingresarWso2("admin", "admin", undefined, admin);
     await c.app.goto("https://apim:9443/devportal/apis");
     await c.app.getByText("Concesiones").first().waitFor({ timeout: 60_000 });
-    return [`cuenta nueva para la demostración: ${usuario} (se elimina al terminar)`, "sesión de la institución abierta en el Admin Portal de WSO2 (usuario admin)"];
+    return [
+      `cuenta nueva para la demostración: ${usuario} (se elimina al terminar)`,
+      "sesión de la institución abierta en el Admin Portal de WSO2 (usuario admin)",
+    ];
   },
 
   async ejecutar(c) {
@@ -148,8 +174,16 @@ export const d08: Demo = {
     await c.vista("dividido");
     const reg = await pendientes("AM_USER_SIGNUP", (p) => p.tenantAwareUserName === usuario);
     c.log("→ GET /api/am/admin/v4/workflows?workflowType=AM_USER_SIGNUP", "cmd");
-    for (const r of reg) c.log(`  ${r.workflowType} · ${r.workflowStatus} · ${String(r.description ?? "").slice(0, 90)}`, "aviso");
-    e.comprueba("registro pendiente: la persona no entra al portal", reg.length === 1 && (await rechazo.isVisible().catch(() => false)), `Error 403 · ${reg.length} solicitud pendiente`);
+    for (const r of reg)
+      c.log(
+        `  ${r.workflowType} · ${r.workflowStatus} · ${String(r.description ?? "").slice(0, 90)}`,
+        "aviso",
+      );
+    e.comprueba(
+      "registro pendiente: la persona no entra al portal",
+      reg.length === 1 && (await rechazo.isVisible().catch(() => false)),
+      `Error 403 · ${reg.length} solicitud pendiente`,
+    );
 
     // 3 ── La institución aprueba el registro ───────────────────────────────────────────────────────
     await e.paso(NARRACION_D08[2]!);
@@ -161,7 +195,11 @@ export const d08: Demo = {
     await verPagina(c, filaU);
     await e.zoom(filaU, { factor: 1.5 });
     await e.clic(filaU.getByText("Approve"));
-    const aprobadoU = await esperarHasta(async () => pendientes("AM_USER_SIGNUP", (p) => p.tenantAwareUserName === usuario), (l) => l.length === 0, 20);
+    const aprobadoU = await esperarHasta(
+      async () => pendientes("AM_USER_SIGNUP", (p) => p.tenantAwareUserName === usuario),
+      (l) => l.length === 0,
+      20,
+    );
     e.comprueba("registro aprobado por la institución", !!aprobadoU, `${usuario} · por admin`);
 
     // 4 ── Aplicación y credenciales ────────────────────────────────────────────────────────────────
@@ -171,7 +209,12 @@ export const d08: Demo = {
     await u.waitForTimeout(2500);
     await u.goto("https://apim:9443/devportal/apis");
     await e.clic(u.getByText(/registrarse/i).first());
-    if (await u.locator("#username").isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (
+      await u
+        .locator("#username")
+        .isVisible({ timeout: 5000 })
+        .catch(() => false)
+    ) {
       await e.escribir("#username", usuario);
       await e.escribir("#password", CLAVE);
       await e.clic("button[type=submit]");
@@ -189,7 +232,11 @@ export const d08: Demo = {
     const filaA = adm.getByRole("row", { name: new RegExp(aplicacion) });
     await filaA.waitFor();
     await e.clic(filaA.getByText("Approve"));
-    const aprobadaA = await esperarHasta(async () => pendientes("AM_APPLICATION_CREATION", (p) => p.applicationName === aplicacion), (l) => l.length === 0, 20);
+    const aprobadaA = await esperarHasta(
+      async () => pendientes("AM_APPLICATION_CREATION", (p) => p.applicationName === aplicacion),
+      (l) => l.length === 0,
+      20,
+    );
     e.comprueba("creación de la aplicación aprobada", !!aprobadaA, aplicacion);
     await c.mostrar(u);
     await u.goto("https://apim:9443/devportal/applications");
@@ -205,7 +252,12 @@ export const d08: Demo = {
     const filaK = adm.getByRole("row", { name: new RegExp(aplicacion) });
     await filaK.waitFor();
     await e.clic(filaK.getByText("Approve"));
-    await esperarHasta(async () => pendientes("AM_APPLICATION_REGISTRATION_PRODUCTION", (p) => p.applicationName === aplicacion), (l) => l.length === 0, 20);
+    await esperarHasta(
+      async () =>
+        pendientes("AM_APPLICATION_REGISTRATION_PRODUCTION", (p) => p.applicationName === aplicacion),
+      (l) => l.length === 0,
+      20,
+    );
     await c.mostrar(u);
     await u.reload();
     await e.clic("button#Keycloak");
@@ -214,13 +266,24 @@ export const d08: Demo = {
     await e.zoom(llaveVisible, { factor: 1.5, ms: 1500 });
     const cu = clienteDe(usuario);
     const app = (await cu.devportal.listApplications()).list.find((a) => a.name === aplicacion)!;
-    const llave = (await cu.devportal.listKeys(app.applicationId)).list.find((k) => k.keyManager === "Keycloak" && k.keyType === "PRODUCTION");
-    e.comprueba("credenciales de producción emitidas en Keycloak tras la aprobación", !!llave?.consumerKey, llave?.consumerKey ? `${llave.consumerKey.slice(0, 8)}…` : "sin llaves");
+    const llave = (await cu.devportal.listKeys(app.applicationId)).list.find(
+      (k) => k.keyManager === "Keycloak" && k.keyType === "PRODUCTION",
+    );
+    e.comprueba(
+      "credenciales de producción emitidas en Keycloak tras la aprobación",
+      !!llave?.consumerKey,
+      llave?.consumerKey ? `${llave.consumerKey.slice(0, 8)}…` : "sin llaves",
+    );
 
     // 5 ── Suscripción pendiente ────────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_D08[4]!);
     await e.clic("#left-menu-subscriptions");
-    await e.clic(u.locator("button, a").filter({ hasText: /subscribe|suscribir/i }).first());
+    await e.clic(
+      u
+        .locator("button, a")
+        .filter({ hasText: /subscribe|suscribir/i })
+        .first(),
+    );
     const dialogo = u.getByRole("dialog");
     const fila = dialogo.locator("tr", { has: u.locator(`#policy-subscribe-btn-${conc.id}`) });
     await e.clic(fila.locator("#policy-select"));
@@ -230,11 +293,17 @@ export const d08: Demo = {
     await e.tecla("Escape");
     await u.reload();
     await c.vista("dividido");
-    const token = await tokenAplicacion({ consumerKey: llave!.consumerKey!, consumerSecret: llave!.consumerSecret! });
+    const token = await tokenAplicacion({
+      consumerKey: llave!.consumerKey!,
+      consumerSecret: llave!.consumerSecret!,
+    });
     c.log(`→ token de Keycloak con la credencial de «${aplicacion}» (client_credentials) → emitido`, "cmd");
     const antes = await gateway(URL, { token });
     const rechazada = antes.status === 401 || antes.status === 403;
-    c.log(`→ GET gateway/concesiones/1.0.0/concesiones   # suscripción pendiente → HTTP ${antes.status}`, rechazada ? "ok" : "mal");
+    c.log(
+      `→ GET gateway/concesiones/1.0.0/concesiones   # suscripción pendiente → HTTP ${antes.status}`,
+      rechazada ? "ok" : "mal",
+    );
     e.comprueba("con la suscripción pendiente el gateway la rechaza", rechazada, `HTTP ${antes.status}`);
     await c.mostrar(adm);
     await c.vista("app");
@@ -244,7 +313,11 @@ export const d08: Demo = {
     await verPagina(c, filaS);
     await e.zoom(filaS, { factor: 1.5 });
     await e.clic(filaS.getByText("Approve"));
-    await esperarHasta(async () => pendientes("AM_SUBSCRIPTION_CREATION", (p) => p.applicationName === aplicacion), (l) => l.length === 0, 20);
+    await esperarHasta(
+      async () => pendientes("AM_SUBSCRIPTION_CREATION", (p) => p.applicationName === aplicacion),
+      (l) => l.length === 0,
+      20,
+    );
 
     // 6 ── Consumo con todo aprobado ────────────────────────────────────────────────────────────────
     await e.paso(NARRACION_D08[5]!);
@@ -257,17 +330,30 @@ export const d08: Demo = {
       await c.esperar(1000);
       despues = await gateway(URL, { token });
     }
-    c.log(`→ GET gateway/concesiones/1.0.0/concesiones   # suscripción aprobada → HTTP ${despues.status}`, despues.status === 200 ? "ok" : "mal");
+    c.log(
+      `→ GET gateway/concesiones/1.0.0/concesiones   # suscripción aprobada → HTTP ${despues.status}`,
+      despues.status === 200 ? "ok" : "mal",
+    );
     c.log(`  total vigentes: ${(despues.data as { total?: number }).total ?? "?"}`);
-    e.indicadores({ "suscripción pendiente": `HTTP ${antes.status}`, "suscripción aprobada": `HTTP ${despues.status}` });
+    e.indicadores({
+      "suscripción pendiente": `HTTP ${antes.status}`,
+      "suscripción aprobada": `HTTP ${despues.status}`,
+    });
     e.comprueba("suscripción aprobada: acceso a la API", despues.status === 200, `HTTP ${despues.status}`);
     const quedan = [
       ...(await pendientes("AM_USER_SIGNUP", (p) => p.tenantAwareUserName === usuario)),
       ...(await pendientes("AM_APPLICATION_CREATION", (p) => p.applicationName === aplicacion)),
-      ...(await pendientes("AM_APPLICATION_REGISTRATION_PRODUCTION", (p) => p.applicationName === aplicacion)),
+      ...(await pendientes(
+        "AM_APPLICATION_REGISTRATION_PRODUCTION",
+        (p) => p.applicationName === aplicacion,
+      )),
       ...(await pendientes("AM_SUBSCRIPTION_CREATION", (p) => p.applicationName === aplicacion)),
     ];
-    e.comprueba("cuatro aprobaciones resueltas: registro, aplicación, credenciales y suscripción", quedan.length === 0, `${quedan.length} pendientes`);
+    e.comprueba(
+      "cuatro aprobaciones resueltas: registro, aplicación, credenciales y suscripción",
+      quedan.length === 0,
+      `${quedan.length} pendientes`,
+    );
     await e.esperar(2000);
 
     return {
@@ -280,12 +366,14 @@ export const d08: Demo = {
     if (usuario) {
       try {
         const cu = clienteDe(usuario);
-        for (const a of (await cu.devportal.listApplications()).list.filter((x) => x.name === aplicacion)) await cu.devportal.deleteApplication(a.applicationId);
+        for (const a of (await cu.devportal.listApplications()).list.filter((x) => x.name === aplicacion))
+          await cu.devportal.deleteApplication(a.applicationId);
       } catch {
         /* la cuenta pudo no llegar a aprobarse */
       }
       try {
-        for (const p of await pendientes("AM_USER_SIGNUP", (x) => x.tenantAwareUserName === usuario)) await wso2().admin.resolveWorkflow(p.referenceId, "REJECTED", "Fin de la demostración");
+        for (const p of await pendientes("AM_USER_SIGNUP", (x) => x.tenantAwareUserName === usuario))
+          await wso2().admin.resolveWorkflow(p.referenceId, "REJECTED", "Fin de la demostración");
       } catch {
         /* sin pendientes */
       }

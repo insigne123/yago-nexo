@@ -61,7 +61,12 @@ export function ventanaZoom(caja: Caja, vista: Dimensiones, factorPedido = ZOOM_
 export function fueraDeVentana(caja: Caja, v: Caja, margen = 0.08): boolean {
   const mx = v.width * margen;
   const my = v.height * margen;
-  return caja.x < v.x + mx || caja.y < v.y + my || caja.x + caja.width > v.x + v.width - mx || caja.y + caja.height > v.y + v.height - my;
+  return (
+    caja.x < v.x + mx ||
+    caja.y < v.y + my ||
+    caja.x + caja.width > v.x + v.width - mx ||
+    caja.y + caja.height > v.y + v.height - my
+  );
 }
 
 /** Texto de la insignia: «Ampliación ×1,8 · imagen en vivo». */

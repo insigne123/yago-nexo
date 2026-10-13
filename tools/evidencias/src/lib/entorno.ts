@@ -29,7 +29,11 @@ export const ETIQUETA_POR_DEFECTO = "v1.2.0";
 /** Rutas que pueden diferir de la etiqueta en el worktree de grabación. */
 export const EXCLUIDAS_DE_LA_ETIQUETA = ["tools/evidencias", "tools/aceptacion"];
 /** Archivos que escribe la propia grabación (no cuentan como cambios sin confirmar). */
-export const SALIDAS_DE_GRABACION = ["release/evidencias", "apps/site/src/data/evidencias.json", "apps/site/src/data/SHA256SUMS"];
+export const SALIDAS_DE_GRABACION = [
+  "release/evidencias",
+  "apps/site/src/data/evidencias.json",
+  "apps/site/src/data/SHA256SUMS",
+];
 
 /** Carga deploy/compose/.env en process.env sin pisar lo que ya venga definido. */
 export function cargarEnv(): void {
@@ -69,7 +73,10 @@ export interface RevisionEtiqueta {
 /** Cambios sin confirmar del árbol de trabajo, sin contar lo que escribe la grabación. */
 export function cambiosSinConfirmar(): string[] {
   // Sin trim: la primera columna de --porcelain puede ser un espacio (« M archivo»).
-  return execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: RAIZ, encoding: "utf8" })
+  return execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], {
+    cwd: RAIZ,
+    encoding: "utf8",
+  })
     .split("\n")
     .filter(Boolean)
     .map((l) => l.slice(3))
@@ -79,13 +86,28 @@ export function cambiosSinConfirmar(): string[] {
 /** Compara el worktree con la etiqueta: `git diff --quiet <etiqueta> HEAD -- . ':(exclude)tools/evidencias' …`. */
 export function revisarEtiqueta(etiqueta: string): RevisionEtiqueta {
   const head = git("rev-parse", "HEAD");
-  const base: RevisionEtiqueta = { etiqueta, existe: false, diferencias: [], sinConfirmar: cambiosSinConfirmar(), head, headCorto: head.slice(0, 7) };
-  const r = spawnSync("git", ["rev-parse", "-q", "--verify", `refs/tags/${etiqueta}^{commit}`], { cwd: RAIZ, encoding: "utf8" });
+  const base: RevisionEtiqueta = {
+    etiqueta,
+    existe: false,
+    diferencias: [],
+    sinConfirmar: cambiosSinConfirmar(),
+    head,
+    headCorto: head.slice(0, 7),
+  };
+  const r = spawnSync("git", ["rev-parse", "-q", "--verify", `refs/tags/${etiqueta}^{commit}`], {
+    cwd: RAIZ,
+    encoding: "utf8",
+  });
   if (r.status !== 0) return base;
   const commit = r.stdout.trim();
   const excluir = EXCLUIDAS_DE_LA_ETIQUETA.map((p) => `:(exclude)${p}`);
   const diff = spawnSync("git", ["diff", "--quiet", etiqueta, "HEAD", "--", ".", ...excluir], { cwd: RAIZ });
-  const diferencias = diff.status === 0 ? [] : git("diff", "--name-only", etiqueta, "HEAD", "--", ".", ...excluir).split("\n").filter(Boolean);
+  const diferencias =
+    diff.status === 0
+      ? []
+      : git("diff", "--name-only", etiqueta, "HEAD", "--", ".", ...excluir)
+          .split("\n")
+          .filter(Boolean);
   let versionEtiqueta: string | undefined;
   try {
     versionEtiqueta = (JSON.parse(git("show", `${etiqueta}:package.json`)) as { version?: string }).version;
@@ -99,18 +121,25 @@ export function revisarEtiqueta(etiqueta: string): RevisionEtiqueta {
 export function problemasModoOficial(r: RevisionEtiqueta, version: string): string[] {
   const p: string[] = [];
   if (!r.existe) {
-    p.push(`la etiqueta ${r.etiqueta} no existe: publique la versión (o indique otra con --etiqueta) o use --ensayo para iterar sin laboratorio`);
+    p.push(
+      `la etiqueta ${r.etiqueta} no existe: publique la versión (o indique otra con --etiqueta) o use --ensayo para iterar sin laboratorio`,
+    );
     return p;
   }
   const esperada = r.etiqueta.replace(/^v/, "");
-  if (r.versionEtiqueta !== esperada) p.push(`la etiqueta ${r.etiqueta} tiene version ${r.versionEtiqueta ?? "?"} en package.json (se espera ${esperada})`);
+  if (r.versionEtiqueta !== esperada)
+    p.push(
+      `la etiqueta ${r.etiqueta} tiene version ${r.versionEtiqueta ?? "?"} en package.json (se espera ${esperada})`,
+    );
   if (version !== esperada) p.push(`package.json dice ${version} y la etiqueta es ${r.etiqueta}`);
   if (r.diferencias.length)
     p.push(
       `HEAD difiere de ${r.etiqueta} fuera de ${EXCLUIDAS_DE_LA_ETIQUETA.join(" y ")} (${r.diferencias.length} archivos: ${r.diferencias.slice(0, 5).join(", ")}${r.diferencias.length > 5 ? "…" : ""}); grabe desde un worktree limpio de la etiqueta`,
     );
   if (r.sinConfirmar.length)
-    p.push(`hay cambios sin confirmar (${r.sinConfirmar.slice(0, 5).join(", ")}${r.sinConfirmar.length > 5 ? "…" : ""}); el commit de herramientas no los identificaría`);
+    p.push(
+      `hay cambios sin confirmar (${r.sinConfirmar.slice(0, 5).join(", ")}${r.sinConfirmar.length > 5 ? "…" : ""}); el commit de herramientas no los identificaría`,
+    );
   return p;
 }
 
@@ -147,7 +176,9 @@ export function metaGrabacion(o: { ensayo: boolean; etiqueta?: string }): Meta {
     etiquetaExiste: r.existe,
     cambiosLocales: r.sinConfirmar,
     maquina,
-    ambiente: o.ensayo ? `ENSAYO sin laboratorio · servidor de ensayo local · ${maquina}` : `Laboratorio Yago Nexo · Docker Compose · ${maquina}`,
+    ambiente: o.ensayo
+      ? `ENSAYO sin laboratorio · servidor de ensayo local · ${maquina}`
+      : `Laboratorio Yago Nexo · Docker Compose · ${maquina}`,
     ensayo: o.ensayo,
   };
 }
@@ -166,7 +197,8 @@ export function fechaSantiago(d = new Date()): string {
   }).format(d);
   const off = new Intl.DateTimeFormat("en-US", { timeZone: ZONA, timeZoneName: "longOffset" })
     .formatToParts(d)
-    .find((p) => p.type === "timeZoneName")?.value.replace("GMT", "UTC");
+    .find((p) => p.type === "timeZoneName")
+    ?.value.replace("GMT", "UTC");
   return `${f} (${ZONA}, ${off ?? ""})`;
 }
 

@@ -38,8 +38,21 @@ export interface Umbrales {
  * contenedores) y avisa desde 0,6; la memoria aborta bajo 1,5 GB (Chromium con dos contextos a 1080p) y avisa
  * bajo 3 GB. El disco exige 8 GB (§5.4).
  */
-export const UMBRALES_OFICIAL: Umbrales = { discoMinGB: 8, memoriaMinGB: 1.5, memoriaAvisoGB: 3, nucleosMin: 4, cargaMaxPorNucleo: 1.5, cargaAvisoPorNucleo: 0.6 };
-export const UMBRALES_ENSAYO: Umbrales = { discoMinGB: 2, memoriaMinGB: 1.5, nucleosMin: 2, cargaMaxPorNucleo: Infinity, cargaAvisoPorNucleo: 0.5 };
+export const UMBRALES_OFICIAL: Umbrales = {
+  discoMinGB: 8,
+  memoriaMinGB: 1.5,
+  memoriaAvisoGB: 3,
+  nucleosMin: 4,
+  cargaMaxPorNucleo: 1.5,
+  cargaAvisoPorNucleo: 0.6,
+};
+export const UMBRALES_ENSAYO: Umbrales = {
+  discoMinGB: 2,
+  memoriaMinGB: 1.5,
+  nucleosMin: 2,
+  cargaMaxPorNucleo: Infinity,
+  cargaAvisoPorNucleo: 0.5,
+};
 
 export interface ResultadoChequeo {
   ok: boolean;
@@ -55,18 +68,28 @@ export function evaluarRecursos(r: Recursos, u: Umbrales): ResultadoChequeo {
   const problemas: string[] = [];
   const avisos: string[] = [];
   if (r.discoLibreBytes < u.discoMinGB * GB)
-    problemas.push(`disco: ${fmtGB(r.discoLibreBytes)} libres en ${r.rutaDisco}; se exigen ${u.discoMinGB} GB. Libere espacio o amplíe el disco antes de grabar.`);
+    problemas.push(
+      `disco: ${fmtGB(r.discoLibreBytes)} libres en ${r.rutaDisco}; se exigen ${u.discoMinGB} GB. Libere espacio o amplíe el disco antes de grabar.`,
+    );
   if (r.memoriaDisponibleBytes < u.memoriaMinGB * GB)
-    problemas.push(`memoria: ${fmtGB(r.memoriaDisponibleBytes)} disponibles; se exigen ${u.memoriaMinGB} GB. Cierre otros procesos.`);
+    problemas.push(
+      `memoria: ${fmtGB(r.memoriaDisponibleBytes)} disponibles; se exigen ${u.memoriaMinGB} GB. Cierre otros procesos.`,
+    );
   else if (u.memoriaAvisoGB !== undefined && r.memoriaDisponibleBytes < u.memoriaAvisoGB * GB)
-    avisos.push(`memoria: ${fmtGB(r.memoriaDisponibleBytes)} disponibles (menos de ${u.memoriaAvisoGB} GB): Chromium puede ir lento.`);
-  if (r.nucleos < u.nucleosMin) problemas.push(`CPU: ${r.nucleos} núcleos; se exigen ${u.nucleosMin} para capturar 1920×1080 a 30 cps.`);
+    avisos.push(
+      `memoria: ${fmtGB(r.memoriaDisponibleBytes)} disponibles (menos de ${u.memoriaAvisoGB} GB): Chromium puede ir lento.`,
+    );
+  if (r.nucleos < u.nucleosMin)
+    problemas.push(`CPU: ${r.nucleos} núcleos; se exigen ${u.nucleosMin} para capturar 1920×1080 a 30 cps.`);
   const porNucleo = r.carga1 / Math.max(1, r.nucleos);
   const carga = `carga ${r.carga1.toFixed(2)} en ${r.nucleos} núcleos (${Math.round(porNucleo * 100)} %)`;
-  if (porNucleo > u.cargaMaxPorNucleo) problemas.push(`CPU ocupada: ${carga}; nadie debe compilar ni levantar contenedores mientras se graba.`);
-  else if (porNucleo > u.cargaAvisoPorNucleo) avisos.push(`CPU con ${carga}: la captura puede perder cuadros.`);
+  if (porNucleo > u.cargaMaxPorNucleo)
+    problemas.push(`CPU ocupada: ${carga}; nadie debe compilar ni levantar contenedores mientras se graba.`);
+  else if (porNucleo > u.cargaAvisoPorNucleo)
+    avisos.push(`CPU con ${carga}: la captura puede perder cuadros.`);
   if (!r.ffmpegH264) problemas.push("ffmpeg: no se encontró /usr/bin/ffmpeg con libx264 (H.264).");
-  if (!r.navegador) problemas.push("Chromium: no está instalado en PLAYWRIGHT_BROWSERS_PATH (/opt/pw-browsers).");
+  if (!r.navegador)
+    problemas.push("Chromium: no está instalado en PLAYWRIGHT_BROWSERS_PATH (/opt/pw-browsers).");
   const resumen = `disco ${fmtGB(r.discoLibreBytes)} libres · memoria ${fmtGB(r.memoriaDisponibleBytes)} · ${r.nucleos} núcleos (${r.modeloCpu}) · carga ${r.carga1.toFixed(2)}`;
   return { ok: problemas.length === 0, problemas, avisos, resumen };
 }
@@ -91,7 +114,12 @@ function discoLibre(ruta: string): number {
 export function ffmpegConH264(bin = "/usr/bin/ffmpeg"): boolean {
   if (!existsSync(bin)) return false;
   try {
-    return /libx264/.test(execFileSync(bin, ["-hide_banner", "-encoders"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
+    return /libx264/.test(
+      execFileSync(bin, ["-hide_banner", "-encoders"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }),
+    );
   } catch {
     return false;
   }

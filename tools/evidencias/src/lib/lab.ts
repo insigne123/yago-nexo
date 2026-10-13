@@ -33,31 +33,43 @@ export const ORIGENES_LAB: ReadonlyArray<readonly [string, string]> = [
 export function reescribirUrlEnsayo(url: string, base: string | undefined = ENSAYO): string {
   if (!base) return url;
   for (const [origen, prefijo] of ORIGENES_LAB) {
-    if (url === origen || url.startsWith(`${origen}/`) || url.startsWith(`${origen}?`)) return `${base}${prefijo}${url.slice(origen.length)}`;
+    if (url === origen || url.startsWith(`${origen}/`) || url.startsWith(`${origen}?`))
+      return `${base}${prefijo}${url.slice(origen.length)}`;
   }
   return url;
 }
 
 /** Expresión para page.route(): cualquier URL de un origen del laboratorio. */
-export const URL_LAB = /^(https:\/\/apim:(9443|8243)|http:\/\/keycloak:8080|http:\/\/localhost:(8090|7011|7012))(\/|\?|$)/;
+export const URL_LAB =
+  /^(https:\/\/apim:(9443|8243)|http:\/\/keycloak:8080|http:\/\/localhost:(8090|7011|7012))(\/|\?|$)/;
 
 /** Dispatcher que, en ensayo, reescribe los orígenes del laboratorio hacia el servidor de ensayo. */
 function despachador(base: Agent): Dispatcher {
   if (!ENSAYO) return base;
   const destino = new URL(ENSAYO);
-  return base.compose(
-    (despachar) => (opts, handler) => {
-      const origen = typeof opts.origin === "string" ? opts.origin.replace(/\/$/, "") : opts.origin ? opts.origin.toString().replace(/\/$/, "") : "";
-      const par = ORIGENES_LAB.find(([o]) => o === origen);
-      if (!par) return despachar(opts, handler);
-      return despachar({ ...opts, origin: destino.origin, path: `${par[1]}${opts.path}`, headers: opts.headers }, handler);
-    },
-  );
+  return base.compose((despachar) => (opts, handler) => {
+    const origen =
+      typeof opts.origin === "string"
+        ? opts.origin.replace(/\/$/, "")
+        : opts.origin
+          ? opts.origin.toString().replace(/\/$/, "")
+          : "";
+    const par = ORIGENES_LAB.find(([o]) => o === origen);
+    if (!par) return despachar(opts, handler);
+    return despachar(
+      { ...opts, origin: destino.origin, path: `${par[1]}${opts.path}`, headers: opts.headers },
+      handler,
+    );
+  });
 }
 
 const base = (): string => ENSAYO ?? "";
-export const CONSOLA_API = ENSAYO ? `${base()}/api/v1` : (process.env.NEXO_CONSOLE_URL ?? "http://localhost:8090/api/v1");
-export const KEYCLOAK = ENSAYO ? `${base()}/keycloak/realms/nexo` : (process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo");
+export const CONSOLA_API = ENSAYO
+  ? `${base()}/api/v1`
+  : (process.env.NEXO_CONSOLE_URL ?? "http://localhost:8090/api/v1");
+export const KEYCLOAK = ENSAYO
+  ? `${base()}/keycloak/realms/nexo`
+  : (process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo");
 export const CLAVE_LAB = () => process.env.NEXO_LAB_USER_PASSWORD ?? "Nexo-Lab-2026!";
 export const GATEWAY = ENSAYO ? `${base()}/gateway` : "https://apim:8243";
 export const WSO2 = ENSAYO ? `${base()}/wso2` : (process.env.NEXO_WSO2_URL ?? "https://apim:9443");
@@ -87,15 +99,24 @@ export async function tokenPersona(usuario: string): Promise<string> {
   const res = await fetch(`${KEYCLOAK}/protocol/openid-connect/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "password", client_id: "nexo-console", username: usuario, password: CLAVE_LAB() }).toString(),
+    body: new URLSearchParams({
+      grant_type: "password",
+      client_id: "nexo-console",
+      username: usuario,
+      password: CLAVE_LAB(),
+    }).toString(),
   });
   const b = (await res.json()) as { access_token?: string; error_description?: string };
-  if (!b.access_token) throw new Error(`Keycloak no entregó token para ${usuario}: ${b.error_description ?? res.status}`);
+  if (!b.access_token)
+    throw new Error(`Keycloak no entregó token para ${usuario}: ${b.error_description ?? res.status}`);
   return b.access_token;
 }
 
 /** Token client_credentials de una aplicación del Dev Portal con llaves en Keycloak. */
-export async function tokenAplicacion(credenciales: { consumerKey: string; consumerSecret: string }): Promise<string> {
+export async function tokenAplicacion(credenciales: {
+  consumerKey: string;
+  consumerSecret: string;
+}): Promise<string> {
   const res = await fetch(`${KEYCLOAK}/protocol/openid-connect/token`, {
     method: "POST",
     headers: {
@@ -105,17 +126,27 @@ export async function tokenAplicacion(credenciales: { consumerKey: string; consu
     body: "grant_type=client_credentials",
   });
   const b = (await res.json()) as { access_token?: string; error_description?: string };
-  if (!b.access_token) throw new Error(`Keycloak no entregó token de aplicación: ${b.error_description ?? res.status}`);
+  if (!b.access_token)
+    throw new Error(`Keycloak no entregó token de aplicación: ${b.error_description ?? res.status}`);
   return b.access_token;
 }
 
-export async function credencialesDe(appName: string): Promise<{ consumerKey: string; consumerSecret: string; applicationId: string }> {
+export async function credencialesDe(
+  appName: string,
+): Promise<{ consumerKey: string; consumerSecret: string; applicationId: string }> {
   const w = wso2();
   const app = (await w.devportal.listApplications()).list.find((a) => a.name === appName);
   if (!app) throw new Error(`no existe la aplicación ${appName}`);
-  const key = (await w.devportal.listKeys(app.applicationId)).list.find((k) => k.keyManager === "Keycloak" && k.keyType === "PRODUCTION");
-  if (!key?.consumerKey || !key.consumerSecret) throw new Error(`la aplicación ${appName} no tiene llaves de producción en Keycloak`);
-  return { consumerKey: key.consumerKey, consumerSecret: key.consumerSecret, applicationId: app.applicationId };
+  const key = (await w.devportal.listKeys(app.applicationId)).list.find(
+    (k) => k.keyManager === "Keycloak" && k.keyType === "PRODUCTION",
+  );
+  if (!key?.consumerKey || !key.consumerSecret)
+    throw new Error(`la aplicación ${appName} no tiene llaves de producción en Keycloak`);
+  return {
+    consumerKey: key.consumerKey,
+    consumerSecret: key.consumerSecret,
+    applicationId: app.applicationId,
+  };
 }
 
 export interface Respuesta<T> {
@@ -126,10 +157,18 @@ export interface Respuesta<T> {
 }
 
 /** Llamada a la API de la Consola con el token de una persona. */
-export async function consola<T = unknown>(token: string, metodo: string, ruta: string, cuerpo?: unknown): Promise<Respuesta<T>> {
+export async function consola<T = unknown>(
+  token: string,
+  metodo: string,
+  ruta: string,
+  cuerpo?: unknown,
+): Promise<Respuesta<T>> {
   const res = await fetch(`${CONSOLA_API}${ruta}`, {
     method: metodo,
-    headers: { authorization: `Bearer ${token}`, ...(cuerpo !== undefined ? { "content-type": "application/json" } : {}) },
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(cuerpo !== undefined ? { "content-type": "application/json" } : {}),
+    },
     body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
   });
   const texto = await res.text();
@@ -143,7 +182,10 @@ export async function consola<T = unknown>(token: string, metodo: string, ruta: 
 }
 
 /** Llamada a una API a través del gateway de WSO2. */
-export async function gateway(url: string, init: { metodo?: string; token?: string; cuerpo?: unknown; headers?: Record<string, string> } = {}) {
+export async function gateway(
+  url: string,
+  init: { metodo?: string; token?: string; cuerpo?: unknown; headers?: Record<string, string> } = {},
+) {
   const destino = url.startsWith("http") ? reescribirUrlEnsayo(url) : `${GATEWAY}${url}`;
   const res = await fetch(destino, {
     method: init.metodo ?? "GET",
@@ -153,7 +195,12 @@ export async function gateway(url: string, init: { metodo?: string; token?: stri
       ...(init.cuerpo !== undefined ? { "content-type": "application/json" } : {}),
       ...init.headers,
     },
-    body: init.cuerpo !== undefined ? (typeof init.cuerpo === "string" ? init.cuerpo : JSON.stringify(init.cuerpo)) : undefined,
+    body:
+      init.cuerpo !== undefined
+        ? typeof init.cuerpo === "string"
+          ? init.cuerpo
+          : JSON.stringify(init.cuerpo)
+        : undefined,
   });
   const texto = await res.text();
   let data: unknown = texto;
@@ -183,7 +230,21 @@ export function sqlConsola(sql: string): string {
   }
   return execFileSync(
     "docker",
-    ["exec", "-e", `PGPASSWORD=${process.env.NEXO_DB_PASSWORD ?? ""}`, contenedor("postgres"), "psql", "-U", "nexo", "-d", "nexo", "-h", "localhost", "-tAc", sql],
+    [
+      "exec",
+      "-e",
+      `PGPASSWORD=${process.env.NEXO_DB_PASSWORD ?? ""}`,
+      contenedor("postgres"),
+      "psql",
+      "-U",
+      "nexo",
+      "-d",
+      "nexo",
+      "-h",
+      "localhost",
+      "-tAc",
+      sql,
+    ],
     { encoding: "utf8" },
   ).trim();
 }

@@ -63,7 +63,8 @@ describe("plan de la pieza", () => {
   });
 
   it("desde ≈ 100 s siempre termina en la tónica (Cmaj9)", () => {
-    for (let d = 100; d <= 240; d += 7) for (const v of VARIANTES) expect(planificar(d, v).acordes.at(-1)!.acorde).toBe("Cmaj9");
+    for (let d = 100; d <= 240; d += 7)
+      for (const v of VARIANTES) expect(planificar(d, v).acordes.at(-1)!.acorde).toBe("Cmaj9");
   });
 
   it("videos muy cortos: un acorde", () => {
@@ -81,7 +82,10 @@ describe("plan de la pieza", () => {
         expect(n.inicio).toBeGreaterThanOrEqual(1.5);
         expect(n.inicio).toBeLessThanOrEqual(180 - 3.5);
       }
-      for (const a of plan.acordes) expect(plan.piano.filter((n) => n.inicio >= a.inicio && n.inicio < a.fin).length).toBeLessThanOrEqual(3);
+      for (const a of plan.acordes)
+        expect(plan.piano.filter((n) => n.inicio >= a.inicio && n.inicio < a.fin).length).toBeLessThanOrEqual(
+          3,
+        );
     }
   });
 
@@ -91,7 +95,21 @@ describe("plan de la pieza", () => {
   });
 
   it("la variante de cada video es estable y las 13 demostraciones usan más de una", () => {
-    const ids = ["D-01", "D-02", "D-03", "D-04", "D-05", "D-06", "D-07", "D-08", "BT-005", "BT-008", "BT-018", "BT-021", "BT-049"];
+    const ids = [
+      "D-01",
+      "D-02",
+      "D-03",
+      "D-04",
+      "D-05",
+      "D-06",
+      "D-07",
+      "D-08",
+      "BT-005",
+      "BT-008",
+      "BT-018",
+      "BT-021",
+      "BT-049",
+    ];
     const vs = ids.map(varianteParaVideo);
     expect(ids.map(varianteParaVideo)).toEqual(vs);
     for (const v of vs) expect([1, 2, 3]).toContain(v);
@@ -198,7 +216,8 @@ describe("sonoridad y control de picos", () => {
       R[n] = L[n]!;
     }
     // Un golpe de 0,9 a mitad del segundo.
-    for (let n = 0; n < 2000; n++) L[FM / 2 + n]! += 0.8 * Math.sin((2 * Math.PI * 660 * n) / FM) * Math.exp(-n / 600);
+    for (let n = 0; n < 2000; n++)
+      L[FM / 2 + n]! += 0.8 * Math.sin((2 * Math.PI * 660 * n) / FM) * Math.exp(-n / 600);
     const antes = Float64Array.from(L);
     const reduccion = controlarPicos(L, R, -6);
     expect(reduccion).toBeGreaterThan(0);
@@ -219,20 +238,41 @@ describe("sonoridad y control de picos", () => {
     expect(L[1000]).toBe(antes[1000]);
   });
 
-  it.skipIf(!existsSync(FFMPEG))("la estimación de sonoridad coincide con ebur128 de ffmpeg (±0,3 LU)", () => {
-    const dir = mkdtempSync(join(tmpdir(), "sonoridad-"));
-    try {
-      for (const v of VARIANTES) {
-        const p = sintetizar(15, v);
-        const ruta = join(dir, `v${v}.wav`);
-        writeFileSync(ruta, wav(p));
-        const r = spawnSync(FFMPEG, ["-hide_banner", "-nostats", "-i", ruta, "-af", "ebur128=peak=true:framelog=verbose", "-f", "null", "-"], { encoding: "utf8" });
-        const medida = leerEbur128(r.stderr);
-        expect(Math.abs(medida.integrado - sonoridadIntegrada(p.izquierda, p.derecha))).toBeLessThanOrEqual(0.3);
-        expect(medida.picoReal).toBeLessThanOrEqual(SONORIDAD_SINTESIS + PICO_SOBRE_SONORIDAD_DB + 0.5);
+  it.skipIf(!existsSync(FFMPEG))(
+    "la estimación de sonoridad coincide con ebur128 de ffmpeg (±0,3 LU)",
+    () => {
+      const dir = mkdtempSync(join(tmpdir(), "sonoridad-"));
+      try {
+        for (const v of VARIANTES) {
+          const p = sintetizar(15, v);
+          const ruta = join(dir, `v${v}.wav`);
+          writeFileSync(ruta, wav(p));
+          const r = spawnSync(
+            FFMPEG,
+            [
+              "-hide_banner",
+              "-nostats",
+              "-i",
+              ruta,
+              "-af",
+              "ebur128=peak=true:framelog=verbose",
+              "-f",
+              "null",
+              "-",
+            ],
+            { encoding: "utf8" },
+          );
+          const medida = leerEbur128(r.stderr);
+          expect(Math.abs(medida.integrado - sonoridadIntegrada(p.izquierda, p.derecha))).toBeLessThanOrEqual(
+            0.3,
+          );
+          expect(medida.picoReal).toBeLessThanOrEqual(SONORIDAD_SINTESIS + PICO_SOBRE_SONORIDAD_DB + 0.5);
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
       }
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
+    },
+    // Sintetiza y mide 3 variantes con ffmpeg: con la máquina cargada pasa de 10 s.
+    60_000,
+  );
 });

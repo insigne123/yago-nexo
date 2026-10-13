@@ -173,7 +173,8 @@ export class Captura {
   private detenida = false;
   private readonly cuadros: Array<{ archivo: string; veces: number }> = [];
   private readonly dir: string;
-  readonly o: Required<Omit<OpcionesCaptura, "metadatos" | "preset">> & Pick<OpcionesCaptura, "metadatos" | "preset">;
+  readonly o: Required<Omit<OpcionesCaptura, "metadatos" | "preset">> &
+    Pick<OpcionesCaptura, "metadatos" | "preset">;
   /** Instantes de llegada (s desde el primero) para diagnóstico: EVIDENCIAS_TRAZA=<archivo.json>. */
   readonly traza: number[] = [];
 
@@ -181,7 +182,13 @@ export class Captura {
     private readonly pagina: Page,
     o: OpcionesCaptura,
   ) {
-    this.o = { ancho: ANCHO, alto: ALTO, cps: CPS, calidadJpeg: Number(process.env.EVIDENCIAS_Q_NARRADOR ?? 88), ...o };
+    this.o = {
+      ancho: ANCHO,
+      alto: ALTO,
+      cps: CPS,
+      calidadJpeg: Number(process.env.EVIDENCIAS_Q_NARRADOR ?? 88),
+      ...o,
+    };
     this.m = new MuestreadorCFR(this.o.cps);
     this.dir = join(this.o.carpeta, "cuadros");
   }
@@ -197,14 +204,29 @@ export class Captura {
     const cdp = await this.pagina.context().newCDPSession(this.pagina);
     this.cdp = cdp;
     const listo = new Promise<void>((ok) => (this.primero = ok));
-    cdp.on("Page.screencastFrame", (f: { data: string; sessionId: number; metadata: { timestamp?: number } }) => {
-      cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => undefined);
-      if (!this.detenida) this.recibir(f.data, f.metadata.timestamp ?? Date.now() / 1000);
-    });
+    cdp.on(
+      "Page.screencastFrame",
+      (f: { data: string; sessionId: number; metadata: { timestamp?: number } }) => {
+        cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => undefined);
+        if (!this.detenida) this.recibir(f.data, f.metadata.timestamp ?? Date.now() / 1000);
+      },
+    );
     this.cpu0 = process.cpuUsage();
-    await cdp.send("Page.startScreencast", { format: "jpeg", quality: this.o.calidadJpeg, maxWidth: this.o.ancho, maxHeight: this.o.alto, everyNthFrame: 1 });
+    await cdp.send("Page.startScreencast", {
+      format: "jpeg",
+      quality: this.o.calidadJpeg,
+      maxWidth: this.o.ancho,
+      maxHeight: this.o.alto,
+      everyNthFrame: 1,
+    });
     let espera: NodeJS.Timeout | undefined;
-    await Promise.race([listo, new Promise((_, mal) => (espera = setTimeout(() => mal(new Error("la captura no recibió cuadros en 10 s")), 10_000)))]).finally(() => clearTimeout(espera));
+    await Promise.race([
+      listo,
+      new Promise(
+        (_, mal) =>
+          (espera = setTimeout(() => mal(new Error("la captura no recibió cuadros en 10 s")), 10_000)),
+      ),
+    ]).finally(() => clearTimeout(espera));
     return this.t0Pared;
   }
 
@@ -241,14 +263,22 @@ export class Captura {
     await this.cdp?.send("Page.stopScreencast").catch(() => undefined);
     await this.cdp?.detach().catch(() => undefined);
     const cpu = process.cpuUsage(this.cpu0);
-    if (this.anterior) this.cuadros.push({ archivo: this.anterior, veces: this.m.cerrar((fin - this.t0Pared) / 1000) });
+    if (this.anterior)
+      this.cuadros.push({ archivo: this.anterior, veces: this.m.cerrar((fin - this.t0Pared) / 1000) });
     if (process.env.EVIDENCIAS_TRAZA) writeFileSync(process.env.EVIDENCIAS_TRAZA, JSON.stringify(this.traza));
     const total = this.m.escritosTotal;
     const lista = join(this.dir, "lista.ffconcat");
     writeFileSync(lista, listaConcat(this.cuadros, this.o.cps));
     const t = Date.now();
     try {
-      await codificar(lista, this.o.destino, { ancho: this.o.ancho, alto: this.o.alto, cps: this.o.cps, cuadros: total, ...(this.o.preset ? { preset: this.o.preset } : {}), metadatos: this.o.metadatos ?? {} });
+      await codificar(lista, this.o.destino, {
+        ancho: this.o.ancho,
+        alto: this.o.alto,
+        cps: this.o.cps,
+        cuadros: total,
+        ...(this.o.preset ? { preset: this.o.preset } : {}),
+        metadatos: this.o.metadatos ?? {},
+      });
     } finally {
       rmSync(this.dir, { recursive: true, force: true });
     }
@@ -284,10 +314,41 @@ export class Captura {
 }
 
 /** Codifica la lista ffconcat a H.264 (una sola vez) con exactamente `cuadros` cuadros. */
-function codificar(lista: string, destino: string, o: { ancho: number; alto: number; cps: number; cuadros: number; preset?: string; metadatos: Record<string, string> }): Promise<void> {
+function codificar(
+  lista: string,
+  destino: string,
+  o: {
+    ancho: number;
+    alto: number;
+    cps: number;
+    cuadros: number;
+    preset?: string;
+    metadatos: Record<string, string>;
+  },
+): Promise<void> {
   const h = { ancho: o.ancho, alto: o.alto, cps: o.cps, ...(o.preset ? { preset: o.preset } : {}) };
   const meta = Object.entries(o.metadatos).flatMap(([k, v]) => ["-metadata", `${k}=${v}`]);
-  const args = ["-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lista, "-vf", filtroH264(h), ...argumentosH264(h), "-frames:v", String(o.cuadros), ...meta, "-f", "mp4", destino];
+  const args = [
+    "-y",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-f",
+    "concat",
+    "-safe",
+    "0",
+    "-i",
+    lista,
+    "-vf",
+    filtroH264(h),
+    ...argumentosH264(h),
+    "-frames:v",
+    String(o.cuadros),
+    ...meta,
+    "-f",
+    "mp4",
+    destino,
+  ];
   return new Promise((ok, mal) => {
     const hijo = spawn(FFMPEG, args, { stdio: ["ignore", "ignore", "pipe"] });
     let error = "";

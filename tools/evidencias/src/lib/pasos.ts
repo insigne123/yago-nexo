@@ -123,7 +123,11 @@ export class RegistroPasos {
       titulo: p.def.titulo,
       que_pasa: p.def.quePasa,
       por_que_importa: p.def.porQueImporta,
-      comprueba: p.comprueba.map((c) => ({ texto: c.texto, ok: c.ok, ...(c.valor !== undefined ? { valor: c.valor } : {}) })),
+      comprueba: p.comprueba.map((c) => ({
+        texto: c.texto,
+        ok: c.ok,
+        ...(c.valor !== undefined ? { valor: c.valor } : {}),
+      })),
     }));
   }
 
@@ -148,7 +152,8 @@ export function validarPasos(p: PasosJson, o: { minimoS?: number; topeS?: number
     if (s.inicio_s + 1e-6 < anterior) r.push(`paso ${s.n} empieza antes de que termine el anterior`);
     if (s.fin_s > p.duracion_s + 0.5) r.push(`paso ${s.n} termina después del final del video`);
     if (!s.titulo.trim()) r.push(`paso ${s.n} sin título`);
-    if (!s.que_pasa.trim() || !s.por_que_importa.trim()) r.push(`paso ${s.n} sin «qué pasa» o «por qué importa»`);
+    if (!s.que_pasa.trim() || !s.por_que_importa.trim())
+      r.push(`paso ${s.n} sin «qué pasa» o «por qué importa»`);
     if (s.comprueba.some((c) => !c.ok)) r.push(`paso ${s.n} tiene verificaciones fallidas`);
     anterior = s.fin_s;
   }

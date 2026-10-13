@@ -56,7 +56,11 @@ function escena(segundos: number): Demo {
     async ejecutar(c) {
       const e = c.estudio;
       const u = c.app;
-      await e.paso({ titulo: "Actividad continua", quePasa: "Cursor, escritura, desplazamiento y ampliación sin pausa.", porQueImporta: "Medir la captura en el peor caso." });
+      await e.paso({
+        titulo: "Actividad continua",
+        quePasa: "Cursor, escritura, desplazamiento y ampliación sin pausa.",
+        porQueImporta: "Medir la captura en el peor caso.",
+      });
       const fin = Date.now() + segundos * 1000;
       let i = 0;
       const vista = u.viewportSize() ?? { width: 1280, height: 720 };
@@ -71,7 +75,12 @@ function escena(segundos: number): Demo {
         // Movimiento continuo (cursor cruzando la pantalla): mide el máximo que rinde la captura (p90).
         for (const q of esquinas) await e.mover(q);
         await e.escribir(u.getByTestId("ensayo-nombre"), `API ${i}`);
-        await e.mover(u.getByTestId("ensayo-tabla").locator("tbody tr").nth((i * 7) % 12));
+        await e.mover(
+          u
+            .getByTestId("ensayo-tabla")
+            .locator("tbody tr")
+            .nth((i * 7) % 12),
+        );
         await e.desplazar(600);
         await e.zoom(u.getByTestId("ensayo-tabla").locator("tbody tr").nth(18), { ms: 900, factor: 1.8 });
         await e.desplazar(-600);
@@ -82,14 +91,24 @@ function escena(segundos: number): Demo {
   };
 }
 
-export async function medirRendimiento(o: { segundos: number; perfiles?: Perfil[] }): Promise<Array<Record<string, string | number>>> {
+export async function medirRendimiento(o: {
+  segundos: number;
+  perfiles?: Perfil[];
+}): Promise<Array<Record<string, string | number>>> {
   const meta = metaGrabacion({ ensayo: true });
   const navegador = await lanzarNavegador();
   const filas: Array<Record<string, string | number>> = [];
   try {
     for (const perfil of o.perfiles ?? PERFILES) {
       const cpu0 = cpuMaquina();
-      const g = await grabarVideo(escena(o.segundos), { meta, navegador, perfil, soloCaptura: true, portadaS: 2, cierreS: 2 });
+      const g = await grabarVideo(escena(o.segundos), {
+        meta,
+        navegador,
+        perfil,
+        soloCaptura: true,
+        portadaS: 2,
+        cierreS: 2,
+      });
       const cpu1 = cpuMaquina();
       const s = g.captura;
       let mbMin = 0;
@@ -106,16 +125,19 @@ export async function medirRendimiento(o: { segundos: number; perfiles?: Perfil[
         "cuadros del archivo": cuadros,
         "distintos/s (prom.)": s.cps_efectivos,
         "distintos/s en movimiento p90": s.cps_movimiento_p90 ?? "?",
-        "p50": s.cps_movimiento_p50,
-        "p10": s.cps_movimiento_p10,
+        p50: s.cps_movimiento_p50,
+        p10: s.cps_movimiento_p10,
         "% distintos": Math.round((s.cuadros_unicos / Math.max(1, s.cuadros_video)) * 100),
-        "descartados": s.cuadros_descartados,
+        descartados: s.cuadros_descartados,
         "hueco p95 (s)": s.hueco_p95_s,
         "hueco máx. (s)": s.hueco_max_s,
         "cuadros en disco (MB)": s.disco_mb,
         "H.264 después (s)": s.codificacion_s,
         "CPU Node (%)": s.cpu_node_pct,
-        "CPU máquina (%)": cpu0 && cpu1 ? Math.round(((cpu1.ocupado - cpu0.ocupado) / Math.max(1, cpu1.total - cpu0.total)) * 100) : "?",
+        "CPU máquina (%)":
+          cpu0 && cpu1
+            ? Math.round(((cpu1.ocupado - cpu0.ocupado) / Math.max(1, cpu1.total - cpu0.total)) * 100)
+            : "?",
         "MB/min": Math.round(mbMin * 10) / 10,
       });
     }
