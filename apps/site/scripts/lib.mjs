@@ -73,7 +73,8 @@ export const FORBIDDEN = [
   { re: /\bPlanificad[oa]s?\b/, motivo: "estado de beta o futuro" },
   { re: /hoja de ruta/i, motivo: "estado de beta o futuro" },
   { re: /vista previa/i, motivo: "estado de beta o futuro" },
-  { re: /qu[eé] sigue/i, motivo: "estado de beta o futuro" },
+  // «Qué sigue» como anuncio de lo próximo; no «el CPD, que sigue atendiendo» (relativo, sin tilde).
+  { re: /qu\u00e9 sigue|^\s*#*\s*que sigue\b/im, motivo: "estado de beta o futuro" },
 ];
 
 export function findForbidden(text) {
