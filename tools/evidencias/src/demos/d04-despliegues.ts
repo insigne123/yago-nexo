@@ -93,7 +93,7 @@ export const PASOS_D04: PasoGuion[] = [
       "La versión nueva llega al 100 % solo si se comportó bien en cada etapa; mientras, el resto del tráfico sigue en la estable.",
     comprueba: [
       "canary completado al 100 %",
-      "sin errores para el consumidor",
+      "sin errores nuevos para el consumidor en este paso",
       "endpoint estable ahora: concesiones-v2",
     ],
     estimadoS: 62,
@@ -192,7 +192,7 @@ export const d04: Demo = {
       e.indicadores({
         "llamadas a concesiones-v1": n(b["concesiones-v1"] ?? 0),
         "llamadas a concesiones-v2": n(b["concesiones-v2"] ?? 0),
-        "errores del consumidor": errores(),
+        "errores acumulados del consumidor": errores(),
         "tráfico a concesiones-v2": `${pesoActual} %`,
       });
     };
@@ -382,7 +382,7 @@ export const d04: Demo = {
       const r2 = fin2?.valor;
       const plan = r2?.stepsDone.map((s) => (s.kind === "sombra" ? "sombra" : `${s.weight} %`)).join(" → ");
       e.exige("canary completado al 100 %", r2?.status === "completado", `${plan ?? "?"} en ${seg(seg2, 0)}`);
-      e.comprueba("sin errores para el consumidor", errores() - e2 === 0, `${errores() - e2} errores`);
+      e.comprueba("sin errores nuevos para el consumidor en este paso", errores() - e2 === 0, `${errores() - e2} errores`);
       await e.desplazar(-2000).catch(() => undefined);
       const tarjeta = c.app.getByText("Endpoint estable", { exact: true }).first().locator("..");
       const rutaV2 = (await consola<Ruta[]>(apr, "GET", "/traffic-routes")).data.find(
