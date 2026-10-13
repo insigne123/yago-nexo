@@ -73,7 +73,61 @@
 }
 
 .acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
+}
+
+.capitulos {
+  max-width: 1280px;
+  margin: -0.25rem 0 1rem;
+}
+
+.capitulosTitulo {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+
+.capitulos ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.capitulos button {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--nexo-borde);
+  border-radius: 6px;
+  background: var(--nexo-superficie);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.capitulos button:hover,
+.capitulos button:focus-visible {
+  border-color: var(--ifm-color-primary);
+}
+
+.capitulos .capituloActual {
+  border-color: var(--ifm-color-primary);
+  box-shadow: inset 0 0 0 1px var(--ifm-color-primary);
+}
+
+.tiempo {
+  font-variant-numeric: tabular-nums;
+  color: var(--nexo-texto-suave);
+}
+
+.nota {
+  color: var(--nexo-texto-suave);
+  font-size: 0.9rem;
 }
 
 .verificaciones summary {

@@ -1,59 +1,135 @@
 /**
- * Graba las demostraciones registradas contra el laboratorio y actualiza el índice de evidencias.
+ * Graba las demostraciones registradas y actualiza el índice de evidencias.
  *
- *   pnpm --filter @nexo/evidencias grabar                 # todas
- *   pnpm --filter @nexo/evidencias grabar -- D-01 BT-005  # solo algunas
- *   pnpm --filter @nexo/evidencias grabar -- --permitir-cambios   # con cambios sin confirmar (pruebas)
+ *   pnpm --filter @nexo/evidencias grabar                         # todas, contra el laboratorio (modo oficial)
+ *   pnpm --filter @nexo/evidencias grabar -- D-01 BT-005          # solo algunas
+ *   pnpm --filter @nexo/evidencias grabar -- --etiqueta v1.2.0    # etiqueta de la versión (por defecto v1.2.0)
+ *   pnpm --filter @nexo/evidencias grabar --ensayo d04            # ENSAYO sin laboratorio (servidor de ensayo)
+ *   pnpm --filter @nexo/evidencias grabar --ensayo motor          # ensayo propio del motor (todas las capas)
+ *   pnpm --filter @nexo/evidencias grabar --rendimiento 20        # prueba de rendimiento de la captura
  *
- * Requisitos: laboratorio arriba (make up, make legado, make continuidad) y el bootstrap aplicado. Compila la
- * Consola antes de grabar (--sin-compilar lo omite).
+ * Opciones: --salida <carpeta>, --sin-compilar, --ritmo <0,5–2> (solo pausas de lectura),
+ * --perfil 1600x900 | 1920x1080@25 (captura alternativa si 1920×1080 a 30 cps no rinde).
  *
- * Salida: release/evidencias/<ID>_<tema>.webm, evidencias.json y SHA256SUMS.txt; copia del índice y de las
- * sumas en apps/site/src/data/ para la página /evidencias del sitio.
+ * Modo oficial: exige la etiqueta (HEAD = etiqueta + cambios solo en tools/evidencias y tools/aceptacion, sin
+ * cambios sin confirmar), el chequeo previo de la máquina (disco ≥ 8 GB, memoria, CPU), el laboratorio arriba
+ * (make up, make legado, make continuidad) y el bootstrap aplicado. Compila la Consola antes de grabar.
+ * Salida: release/evidencias/<ID>_<tema>.mp4 (+ .sin-musica.mp4, .pasos.json, .vtt, .capitulos.vtt, .jpg),
+ * evidencias.json y SHA256SUMS.txt; copia del índice y de las sumas en apps/site/src/data/.
+ *
+ * Modo ensayo: sin laboratorio ni Docker; los guiones corren contra un servidor local que imita la Consola,
+ * Keycloak, el gateway y los portales. Todo el video va rotulado ENSAYO, su pasos.json dice ensayo:true, se
+ * escribe en release/evidencias/ensayo y nunca entra en evidencias.json (verificar.ts lo rechaza).
  */
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEMOS } from "./demos/index.js";
-import { cargarEnv, desdeRaiz, meta, SALIDA } from "./lib/entorno.js";
-import { grabar, lanzarNavegador, type Evidencia } from "./lib/grabador.js";
-import { consola, tokenPersona } from "./lib/lab.js";
+import { chromium } from "playwright-core";
+import { evaluarRecursos, medirRecursos, rutaMasLlena, UMBRALES_ENSAYO, UMBRALES_OFICIAL } from "./lib/chequeo.js";
+import { leerArgumentos } from "./lib/cli.js";
+import { ServidorEnsayo } from "./lib/ensayo.js";
+import { cargarEnv, desdeRaiz, metaGrabacion, problemasModoOficial, revisarEtiqueta, SALIDA, SALIDA_ENSAYO } from "./lib/entorno.js";
+import type { Evidencia } from "./lib/grabador.js";
 
-cargarEnv();
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= "/opt/pw-browsers";
 
-const args = process.argv.slice(2).filter((a) => a !== "--");
-const permitirCambios = args.includes("--permitir-cambios");
-const pedidas = args.filter((a) => !a.startsWith("--"));
-const elegidas = pedidas.length ? DEMOS.filter((d) => pedidas.includes(d.id)) : DEMOS;
-if (pedidas.length && elegidas.length !== pedidas.length) {
-  const conocidas = DEMOS.map((d) => d.id).join(", ");
-  console.error(`Demostración desconocida. Disponibles: ${conocidas}`);
+let args: ReturnType<typeof leerArgumentos>;
+try {
+  args = leerArgumentos(process.argv.slice(2));
+} catch (e) {
+  console.error(e instanceof Error ? e.message : e);
   process.exit(2);
+}
+const ensayo = args.ensayo || args.rendimiento !== undefined;
+
+// ── Modo ensayo: el servidor de ensayo se levanta ANTES de cargar los guiones (sus URL se fijan al cargar) ──
+let servidorEnsayo: ServidorEnsayo | undefined;
+if (ensayo) {
+  servidorEnsayo = new ServidorEnsayo();
+  await servidorEnsayo.iniciar();
+  const u = servidorEnsayo.url;
+  process.env.NEXO_EVIDENCIAS_ENSAYO_URL = u;
+  process.env.KEYCLOAK_URL = `${u}/keycloak/realms/nexo`;
+  process.env.NEXO_WSO2_URL = `${u}/wso2`;
+  process.env.NEXO_CONSOLE_URL = `${u}/api/v1`;
+  process.env.NEXO_LAB_CHAOS_V2 = `${u}/chaos-v2/_chaos`;
+  console.log(`ENSAYO sin laboratorio: servidor de ensayo en ${u}. Nada de lo que se grabe es evidencia ni se publica.`);
+} else cargarEnv();
+
+const lab = await import("./lib/lab.js");
+await lab.instalarDespachadorEnsayo();
+const { DEMOS } = await import("./demos/index.js");
+const { guionMotor } = await import("./lib/guion-ensayo.js");
+const { grabarVideo, lanzarNavegador } = await import("./lib/grabador.js");
+
+const terminar = async (codigo: number): Promise<never> => {
+  await servidorEnsayo?.detener();
+  process.exit(codigo);
+};
+
+const salida = args.salida ?? (ensayo ? SALIDA_ENSAYO : SALIDA);
+
+// ── Chequeo previo de la máquina (V10) ──────────────────────────────────────────────────────────────────
+function chequeo(): boolean {
+  mkdirSync(salida, { recursive: true });
+  const r = evaluarRecursos(
+    medirRecursos(rutaMasLlena([salida, tmpdir()]), () => existsSync(chromium.executablePath())),
+    ensayo ? UMBRALES_ENSAYO : UMBRALES_OFICIAL,
+  );
+  console.log(`Chequeo previo: ${r.resumen}`);
+  for (const a of r.avisos) console.log(`  ⚠ ${a}`);
+  if (!r.ok) {
+    console.error(`No se puede grabar:\n  ${r.problemas.join("\n  ")}`);
+    return false;
+  }
+  return true;
 }
 
-const m = meta();
-const sucios = m.cambiosLocales.filter((f) => !f.startsWith("release/evidencias") && !f.startsWith("apps/site/src/data/evidencias") && !f.startsWith("apps/site/src/data/SHA256SUMS"));
-if (sucios.length && !permitirCambios) {
-  console.error(`Hay cambios sin confirmar; el commit del video no los incluiría:\n  ${sucios.join("\n  ")}\nConfirme los cambios o use --permitir-cambios (solo para pruebas).`);
-  process.exit(2);
+// ── Prueba de rendimiento de la captura (V01) ───────────────────────────────────────────────────────────
+if (args.rendimiento !== undefined) {
+  const { medirRendimiento } = await import("./lib/rendimiento.js");
+  if (!chequeo()) await terminar(2);
+  const perfiles = args.perfil ? [args.perfil] : undefined;
+  const filas = await medirRendimiento({ segundos: args.rendimiento, ...(perfiles ? { perfiles } : {}) });
+  console.table(filas);
+  await terminar(0);
 }
+
+// ── Modo oficial: la versión grabada es la etiqueta (V10) ───────────────────────────────────────────────
+const meta = metaGrabacion({ ensayo, etiqueta: args.etiqueta });
+if (!ensayo) {
+  const problemas = problemasModoOficial(revisarEtiqueta(args.etiqueta), meta.version);
+  if (problemas.length) {
+    console.error(`Modo oficial: no se puede grabar.\n  ${problemas.join("\n  ")}`);
+    await terminar(2);
+  }
+}
+console.log(`Yago Nexo ${meta.version} · producto ${meta.commitProducto}${meta.etiquetaExiste ? ` (${meta.etiqueta})` : " (HEAD: la etiqueta aún no existe)"} · herramientas ${meta.commitHerramientas}`);
+
+const disponibles = ensayo ? [...DEMOS, guionMotor] : DEMOS;
+const elegidas = args.ids.length ? disponibles.filter((d) => args.ids.includes(d.id)) : ensayo ? [guionMotor] : DEMOS;
+if (args.ids.length && elegidas.length !== args.ids.length) {
+  console.error(`Demostración desconocida: ${args.ids.filter((i) => !disponibles.some((d) => d.id === i)).join(", ")}. Disponibles: ${disponibles.map((d) => d.id).join(", ")}`);
+  await terminar(2);
+}
+if (!chequeo()) await terminar(2);
 
 // La Consola que se graba se compila desde el mismo commit (apps/console-web/dist).
-if (!args.includes("--sin-compilar")) {
+if (!ensayo && !args.sinCompilar) {
   console.log("Compilando la Consola (apps/console-web)…");
   execFileSync("pnpm", ["--filter", "@nexo/console-web", "build"], { cwd: desdeRaiz(), stdio: ["ignore", "ignore", "inherit"] });
 }
 
 const INDICE = join(SALIDA, "evidencias.json");
-mkdirSync(SALIDA, { recursive: true });
-const previas: Evidencia[] = existsSync(INDICE) ? (JSON.parse(readFileSync(INDICE, "utf8")) as { evidencias: Evidencia[] }).evidencias : [];
+mkdirSync(salida, { recursive: true });
+const previas: Evidencia[] = !ensayo && existsSync(INDICE) ? (JSON.parse(readFileSync(INDICE, "utf8")) as { evidencias: Evidencia[] }).evidencias : [];
 
 function escribirIndice(lista: Evidencia[]) {
   const orden = DEMOS.map((d) => d.id);
-  // Solo demostraciones vigentes cuyo video existe (se descartan pruebas y entradas sin archivo).
+  // Solo demostraciones vigentes cuyo video existe (se descartan pruebas, ensayos y entradas sin archivo).
   const ordenadas = lista
-    .filter((e) => orden.includes(e.id) && existsSync(join(SALIDA, e.file)))
+    .filter((e) => orden.includes(e.id) && !e.rehearsal && existsSync(join(SALIDA, e.file)))
     .sort((a, b) => orden.indexOf(a.id) - orden.indexOf(b.id));
   const indice = {
     $comment: "Índice de las demostraciones registradas de Yago Nexo. Lo genera tools/evidencias (pnpm --filter @nexo/evidencias grabar). Los videos se publican junto al sitio en /evidencias/<archivo>.",
@@ -75,24 +151,35 @@ function escribirIndice(lista: Evidencia[]) {
  * reactivan, cuando ya no queda carga reciente en la ventana del guardián.
  */
 type Regla = { id: string; name: string; enabled: boolean; metric: string; sensitivity: number; minVolume: number; action: string; blockTtlMinutes: number; apiId?: string };
-const adm = await tokenPersona("admin.nexo");
-const pausadas = (await consola<Regla[]>(adm, "GET", "/anomaly-rules")).data.filter((r) => r.enabled);
+const pausadas: Regla[] = [];
 const activar = async (r: Regla, enabled: boolean) =>
-  consola(await tokenPersona("admin.nexo"), "PATCH", `/anomaly-rules/${r.id}`, { name: r.name, apiId: r.apiId, metric: r.metric, sensitivity: r.sensitivity, minVolume: r.minVolume, action: r.action, blockTtlMinutes: r.blockTtlMinutes, enabled });
-for (const r of pausadas) await activar(r, false);
-if (pausadas.length) console.log(`Reglas del guardián en pausa durante la grabación: ${pausadas.map((r) => r.name).join(", ")}`);
+  lab.consola(await lab.tokenPersona("admin.nexo"), "PATCH", `/anomaly-rules/${r.id}`, { name: r.name, apiId: r.apiId, metric: r.metric, sensitivity: r.sensitivity, minVolume: r.minVolume, action: r.action, blockTtlMinutes: r.blockTtlMinutes, enabled });
+if (!ensayo) {
+  const adm = await lab.tokenPersona("admin.nexo");
+  pausadas.push(...(await lab.consola<Regla[]>(adm, "GET", "/anomaly-rules")).data.filter((r) => r.enabled));
+  for (const r of pausadas) await activar(r, false);
+  if (pausadas.length) console.log(`Reglas del guardián en pausa durante la grabación: ${pausadas.map((r) => r.name).join(", ")}`);
+}
 
 const navegador = await lanzarNavegador();
 const lista = new Map(previas.map((e) => [e.id, e]));
 const fallas: string[] = [];
 for (const demo of elegidas) {
-  console.log(`\n▶ ${demo.id} · ${demo.nombre}`);
+  console.log(`\n▶ ${demo.id} · ${demo.nombre}${ensayo ? " · ENSAYO" : ""}`);
   const t0 = Date.now();
+  if (!chequeo()) {
+    fallas.push(`${demo.id}: chequeo previo`);
+    break;
+  }
   try {
-    const ev = await grabar(demo, { meta: m, navegador });
-    lista.set(ev.id, ev);
-    escribirIndice([...lista.values()]);
-    console.log(`✔ ${demo.id}: ${ev.file} · ${ev.duration_seconds} s · ${ev.result}`);
+    const g = await grabarVideo(demo, { meta, navegador, salida, ritmo: args.ritmo, ...(args.perfil ? { perfil: args.perfil } : {}) });
+    const ev = g.evidencia!;
+    if (!ensayo) {
+      lista.set(ev.id, ev);
+      escribirIndice([...lista.values()]);
+    }
+    for (const a of g.avisos) console.log(`  ⚠ ${a}`);
+    console.log(`✔ ${demo.id}: ${join(salida, ev.file)} · ${ev.duration_seconds} s · ${ev.result}`);
   } catch (e) {
     fallas.push(`${demo.id}: ${e instanceof Error ? e.message : String(e)}`);
     console.error(`✘ ${demo.id} NO se guardó (${Math.round((Date.now() - t0) / 1000)} s): ${e instanceof Error ? e.message : e}`);
@@ -107,6 +194,7 @@ if (pausadas.length) {
 }
 if (fallas.length) {
   console.error(`\n${fallas.length} demostraciones fallaron:\n  ${fallas.join("\n  ")}`);
-  process.exit(1);
+  await terminar(1);
 }
-console.log(`\nListo: ${elegidas.length} demostraciones en ${SALIDA}`);
+console.log(`\nListo: ${elegidas.length} ${ensayo ? "ensayos (no publicables)" : "demostraciones"} en ${salida}`);
+await terminar(0);

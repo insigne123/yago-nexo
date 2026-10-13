@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="es-CL">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vista previa de videos · Yago Nexo</title>
+    <!--
+      Revisión local de los videos de demostración (ensayos y tomas definitivas) antes de publicarlos.
+      Se abre directo desde el disco (file://), sin servidor ni conexión: elija la carpeta de salida
+      (release/evidencias o la de ensayo) o arrastre sus archivos. Por cada video lee <nombre>.mp4, <nombre>.vtt,
+      <nombre>.capitulos.vtt y <nombre>.pasos.json, y muestra el video con subtítulos, los capítulos, el paso en
+      curso con sus comprobaciones y las reglas de publicación (≤ 240 s, pasos ≥ 7 s, resolución y cps, ensayo).
+    -->
+    <style>
+      :root {
+        --fondo: #f5f7fa;
+        --superficie: #ffffff;
+        --borde: #d6dde8;
+        --texto: #18202b;
+        --suave: #556274;
+        --acento: #1f5fbf;
+        --ok: #1b6b3a;
+        --ok-fondo: #e6f4ea;
+        --mal: #a12622;
+        --mal-fondo: #fbe9e7;
+        --ensayo: #b45309;
+        --ensayo-fondo: #fff4e0;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fondo: #12161c;
+          --superficie: #1b2129;
+          --borde: #313a46;
+          --texto: #e6ebf2;
+          --suave: #a7b2c2;
+          --acento: #79a8f2;
+          --ok: #7fd49c;
+          --ok-fondo: rgba(127, 212, 156, 0.12);
+          --mal: #f2958f;
+          --mal-fondo: rgba(242, 149, 143, 0.12);
+          --ensayo: #f6b45a;
+          --ensayo-fondo: rgba(246, 180, 90, 0.14);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--fondo);
+        color: var(--texto);
+        font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 20px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--borde);
+        background: var(--superficie);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 18px;
+      }
+      header p {
+        margin: 0;
+        color: var(--suave);
+      }
+      .elegir {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      label.boton,
+      button {
+        display: inline-block;
+        padding: 6px 12px;
+        border: 1px solid var(--borde);
+        border-radius: 6px;
+        background: var(--superficie);
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      label.boton:hover,
+      button:hover {
+        border-color: var(--acento);
+      }
+      label.boton input {
+        display: none;
+      }
+      #zona {
+        margin: 20px;
+        padding: 40px 20px;
+        border: 2px dashed var(--borde);
+        border-radius: 10px;
+        text-align: center;
+        color: var(--suave);
+      }
+      #zona.encima {
+        border-color: var(--acento);
+        color: var(--texto);
+      }
+      main {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr) 360px;
+        gap: 16px;
+        padding: 16px 20px 40px;
+      }
+      @media (max-width: 1200px) {
+        main {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      nav#lista {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      nav#lista button {
+        text-align: left;
+      }
+      nav#lista button[aria-current="true"] {
+        border-color: var(--acento);
+        box-shadow: inset 0 0 0 1px var(--acento);
+      }
+      .marca-ensayo {
+        margin-left: 6px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: var(--ensayo-fondo);
+        color: var(--ensayo);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      #ensayo {
+        margin: 0 0 10px;
+        padding: 10px 14px;
+        border: 2px solid var(--ensayo);
+        border-radius: 8px;
+        background: var(--ensayo-fondo);
+        color: var(--ensayo);
+        font-weight: 700;
+      }
+      video {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 8px;
+        background: #0b1626;
+      }
+      #barra {
+        position: relative;
+        display: flex;
+        height: 30px;
+        margin: 8px 0 4px;
+        border-radius: 6px;
+        overflow: hidden;
+        background: var(--borde);
+      }
+      #barra button {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        padding: 0 6px;
+        border: 0;
+        border-right: 2px solid var(--fondo);
+        border-radius: 0;
+        background: color-mix(in srgb, var(--acento) 30%, var(--superficie));
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #barra button.actual {
+        background: var(--acento);
+        color: #fff;
+      }
+      #cursor {
+        position: absolute;
+        top: 0;
+        width: 2px;
+        height: 100%;
+        background: var(--texto);
+        pointer-events: none;
+      }
+      .tarjeta {
+        padding: 14px 16px;
+        border: 1px solid var(--borde);
+        border-radius: 8px;
+        background: var(--superficie);
+      }
+      .tarjeta + .tarjeta {
+        margin-top: 12px;
+      }
+      .tarjeta h2 {
+        margin: 0 0 8px;
+        font-size: 15px;
+      }
+      .tarjeta h3 {
+        margin: 12px 0 4px;
+        color: var(--suave);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .tarjeta p {
+        margin: 0;
+      }
+      ul.marcas {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      ul.marcas li {
+        padding: 2px 0;
+      }
+      .ok {
+        color: var(--ok);
+      }
+      .mal {
+        color: var(--mal);
+      }
+      dl {
+        margin: 0;
+      }
+      dt {
+        margin-top: 6px;
+        color: var(--suave);
+        font-size: 12px;
+      }
+      dd {
+        margin: 0;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      code {
+        font: 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .tabular {
+        font-variant-numeric: tabular-nums;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Vista previa de videos · Yago Nexo</h1>
+        <p>Revisión local antes de publicar. Los archivos no salen de este equipo.</p>
+      </div>
+      <div class="elegir">
+        <label class="boton">Elegir carpeta… <input id="carpeta" type="file" webkitdirectory multiple /></label>
+        <label class="boton">Elegir archivos… <input id="archivos" type="file" multiple accept=".mp4,.webm,.vtt,.json" /></label>
+      </div>
+    </header>
+
+    <div id="zona">Arrastre aquí la carpeta de salida (o sus archivos .mp4, .vtt y .pasos.json).</div>
+
+    <main id="principal" hidden>
+      <nav id="lista" aria-label="Videos"></nav>
+
+      <section>
+        <p id="ensayo" hidden>ENSAYO · grabación sin laboratorio para revisar el motor. No es evidencia y no se publica.</p>
+        <video id="video" controls playsinline preload="metadata"></video>
+        <p id="sin-codec" class="mal" hidden>
+          Este navegador no decodifica el video (H.264/AAC). Abra esta página en Chrome, Edge, Firefox o Safari; los
+          capítulos, los pasos y las reglas se revisan igual.
+        </p>
+        <div id="barra" aria-label="Capítulos"><span id="cursor"></span></div>
+        <p class="tabular" id="reloj"></p>
+        <div class="tarjeta" style="margin-top: 12px">
+          <h2>Reglas de publicación</h2>
+          <ul class="marcas" id="reglas"></ul>
+        </div>
+      </section>
+
+      <aside>
+        <div class="tarjeta">
+          <h2 id="p-paso">Sin paso en curso</h2>
+          <p id="p-titulo"></p>
+          <h3>Qué está pasando</h3>
+          <p id="p-que"></p>
+          <h3>Por qué importa</h3>
+          <p id="p-por"></p>
+          <h3>Se comprueba</h3>
+          <ul class="marcas" id="p-comprueba"></ul>
+        </div>
+        <div class="tarjeta">
+          <h2>Ficha</h2>
+          <dl id="ficha"></dl>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+      "use strict";
+      const REGLAS = { duracionMaxima: 240, pasoMinimo: 7, resoluciones: ["1920x1080", "1600x900"], cps: [30, 25] };
+      const $ = (id) => document.getElementById(id);
+      const urls = [];
+      let grupos = new Map();
+      let actual = null;
+
+      const mmss = (s) => {
+        const t = Math.max(0, Math.round(s));
+        return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+      };
+      const el = (tag, props = {}, ...hijos) => {
+        const e = document.createElement(tag);
+        Object.assign(e, props);
+        for (const h of hijos) e.append(h);
+        return e;
+      };
+      const marca = (ok, texto) => el("li", { className: ok ? "ok" : "mal", textContent: `${ok ? "✓" : "✗"} ${texto}` });
+
+      function base(nombre) {
+        return nombre.replace(/\.capitulos\.vtt$|\.pasos\.json$|\.sin-musica\.mp4$|\.(mp4|webm|vtt)$/, "");
+      }
+
+      async function cargar(lista) {
+        for (const u of urls.splice(0)) URL.revokeObjectURL(u);
+        grupos = new Map();
+        for (const f of lista) {
+          const n = f.name;
+          if (!/\.(mp4|webm|vtt|json)$/.test(n) || /\.sin-musica\.mp4$/.test(n)) continue;
+          const b = base(n);
+          if (!grupos.has(b)) grupos.set(b, {});
+          const g = grupos.get(b);
+          if (/\.capitulos\.vtt$/.test(n)) g.capitulos = f;
+          else if (/\.pasos\.json$/.test(n)) g.pasos = f;
+          else if (/\.vtt$/.test(n)) g.subtitulos = f;
+          else if (/\.(mp4|webm)$/.test(n)) g.video = f;
+        }
+        for (const [b, g] of grupos) {
+          if (!g.video) grupos.delete(b);
+          else if (g.pasos) {
+            try {
+              g.datos = JSON.parse(await g.pasos.text());
+            } catch {
+              g.error = `${g.pasos.name} no es JSON válido`;
+            }
+          }
+        }
+        const nav = $("lista");
+        nav.replaceChildren();
+        for (const [b, g] of [...grupos].sort(([a], [c]) => a.localeCompare(c))) {
+          const boton = el("button", { type: "button", textContent: b });
+          if (g.datos?.ensayo) boton.append(el("span", { className: "marca-ensayo", textContent: "ENSAYO" }));
+          boton.addEventListener("click", () => mostrar(b));
+          nav.append(boton);
+        }
+        $("principal").hidden = grupos.size === 0;
+        $("zona").textContent = grupos.size
+          ? `${grupos.size === 1 ? "1 video cargado" : `${grupos.size} videos cargados`}. Arrastre otra carpeta para cambiar.`
+          : "No se encontraron videos (.mp4 o .webm) en lo elegido.";
+        if (grupos.size) mostrar([...grupos.keys()].sort()[0]);
+      }
+
+      function url(f) {
+        const u = URL.createObjectURL(f);
+        urls.push(u);
+        return u;
+      }
+
+      function mostrar(b) {
+        const g = grupos.get(b);
+        actual = g;
+        for (const boton of $("lista").children) boton.setAttribute("aria-current", String(boton.firstChild.textContent === b));
+        const v = $("video");
+        v.pause();
+        v.replaceChildren();
+        v.src = url(g.video);
+        if (g.subtitulos) v.append(el("track", { kind: "subtitles", srclang: "es", label: "Pasos", src: url(g.subtitulos), default: true }));
+        if (g.capitulos) v.append(el("track", { kind: "chapters", srclang: "es", label: "Capítulos", src: url(g.capitulos) }));
+        v.load();
+        $("sin-codec").hidden = true;
+        $("ensayo").hidden = !g.datos?.ensayo;
+        dibujarBarra();
+        actualizarPaso();
+        v.addEventListener("loadedmetadata", () => {
+          dibujarBarra();
+          revisar();
+        }, { once: true });
+        revisar();
+      }
+
+      function pasos() {
+        return Array.isArray(actual?.datos?.pasos) ? actual.datos.pasos : [];
+      }
+
+      function dibujarBarra() {
+        const barra = $("barra");
+        for (const b of [...barra.querySelectorAll("button")]) b.remove();
+        const total = $("video").duration || actual?.datos?.duracion_s || 0;
+        if (!total) return;
+        for (const p of pasos()) {
+          const b = el("button", { type: "button", textContent: `${p.n}. ${p.titulo}`, title: `${mmss(p.inicio_s)} · ${p.titulo}` });
+          b.style.left = `${(100 * p.inicio_s) / total}%`;
+          b.style.width = `${(100 * (p.fin_s - p.inicio_s)) / total}%`;
+          b.dataset.n = p.n;
+          b.addEventListener("click", () => {
+            $("video").currentTime = p.inicio_s;
+            $("video").play().catch(() => undefined);
+          });
+          barra.append(b);
+        }
+      }
+
+      function actualizarPaso() {
+        const v = $("video");
+        const t = v.currentTime || 0;
+        const total = v.duration || actual?.datos?.duracion_s || 0;
+        $("cursor").style.left = total ? `${(100 * t) / total}%` : "0";
+        $("reloj").textContent = `${mmss(t)} / ${mmss(total)}`;
+        const lista = pasos();
+        const p = lista.find((x) => t >= x.inicio_s && t < x.fin_s);
+        for (const b of $("barra").querySelectorAll("button")) b.classList.toggle("actual", p !== undefined && b.dataset.n === String(p.n));
+        $("p-paso").textContent = p ? `Paso ${p.n} de ${lista.length} · ${mmss(p.inicio_s)}–${mmss(p.fin_s)}` : "Sin paso en curso (portada, transición o cierre)";
+        $("p-titulo").textContent = p?.titulo ?? "";
+        $("p-que").textContent = p?.que_pasa ?? "";
+        $("p-por").textContent = p?.por_que_importa ?? "";
+        $("p-comprueba").replaceChildren(...(p?.comprueba ?? []).map((c) => marca(c.ok, `${c.texto}${c.valor !== undefined ? `: ${c.valor}` : ""}`)));
+      }
+
+      function revisar() {
+        const g = actual;
+        const d = g.datos;
+        const v = $("video");
+        const reglas = $("reglas");
+        reglas.replaceChildren();
+        if (g.error) reglas.append(marca(false, g.error));
+        if (!d) {
+          reglas.append(marca(false, "falta <nombre>.pasos.json"));
+        } else {
+          reglas.append(marca(d.ensayo === false, d.ensayo === false ? "grabación registrada (no es ensayo)" : "ENSAYO: no se publica"));
+          const dur = v.duration || d.duracion_s;
+          reglas.append(marca(dur > 0 && dur <= REGLAS.duracionMaxima, `duración ${dur ? dur.toFixed(1) : "?"} s (máximo ${REGLAS.duracionMaxima} s)`));
+          const cortos = pasos().filter((p) => p.fin_s - p.inicio_s < REGLAS.pasoMinimo - 0.05);
+          reglas.append(marca(cortos.length === 0, cortos.length ? `pasos de menos de ${REGLAS.pasoMinimo} s: ${cortos.map((p) => p.n).join(", ")}` : `${pasos().length} pasos, todos de ${REGLAS.pasoMinimo} s o más`));
+          const declarada = `${d.ancho}x${d.alto}`;
+          const real = v.videoWidth ? `${v.videoWidth}x${v.videoHeight}` : null;
+          reglas.append(marca(REGLAS.resoluciones.includes(declarada) && (!real || real === declarada), `resolución ${real ?? "?"} (declarada ${declarada})`));
+          reglas.append(marca(REGLAS.cps.includes(d.cps), `${d.cps} cuadros por segundo declarados`));
+          const fallidas = pasos().flatMap((p) => (p.comprueba ?? []).filter((c) => !c.ok).map((c) => `${p.n}: ${c.texto}`));
+          reglas.append(marca(fallidas.length === 0, fallidas.length ? `comprobaciones no cumplidas: ${fallidas.join("; ")}` : "todas las comprobaciones cumplidas"));
+        }
+        reglas.append(marca(!!g.subtitulos, g.subtitulos ? `subtítulos: ${g.subtitulos.name}` : "faltan los subtítulos .vtt"));
+        reglas.append(marca(!!g.capitulos, g.capitulos ? `capítulos: ${g.capitulos.name}` : "faltan los capítulos .capitulos.vtt"));
+        reglas.append(el("li", { className: "", textContent: "La sonoridad (−18 LUFS), el SHA-256 y la imagen intacta tras la música los comprueba pnpm --filter @nexo/evidencias verificar." }));
+
+        const ficha = $("ficha");
+        ficha.replaceChildren();
+        const fila = (k, val) => ficha.append(el("dt", { textContent: k }), el("dd", { textContent: val }));
+        fila("Archivo", `${g.video.name} (${(g.video.size / 1048576).toFixed(1)} MB)`);
+        if (d) {
+          fila("Producto", `${d.producto} ${d.version}`);
+          fila("Commit del producto", d.commit_producto);
+          fila("Commit de herramientas", d.commit_herramientas);
+          fila("Imagen", `${d.ancho}×${d.alto} a ${d.cps} cps`);
+          fila("Duración declarada", `${d.duracion_s} s`);
+        }
+      }
+
+      $("video").addEventListener("timeupdate", actualizarPaso);
+      $("video").addEventListener("error", () => ($("sin-codec").hidden = false));
+      $("video").addEventListener("seeked", actualizarPaso);
+      for (const id of ["carpeta", "archivos"]) $(id).addEventListener("change", (e) => cargar([...e.target.files]));
+
+      async function leerEntrada(entrada, salida) {
+        if (entrada.isFile) {
+          salida.push(await new Promise((ok, mal) => entrada.file(ok, mal)));
+        } else if (entrada.isDirectory) {
+          const lector = entrada.createReader();
+          for (;;) {
+            const lote = await new Promise((ok, mal) => lector.readEntries(ok, mal));
+            if (!lote.length) break;
+            for (const h of lote) await leerEntrada(h, salida);
+          }
+        }
+      }
+      for (const objetivo of [$("zona"), document.body]) {
+        objetivo.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          $("zona").classList.add("encima");
+        });
+        objetivo.addEventListener("dragleave", () => $("zona").classList.remove("encima"));
+        objetivo.addEventListener("drop", async (e) => {
+          e.preventDefault();
+          $("zona").classList.remove("encima");
+          const archivos = [];
+          for (const item of [...e.dataTransfer.items]) {
+            const entrada = item.webkitGetAsEntry?.();
+            if (entrada) await leerEntrada(entrada, archivos);
+            else if (item.getAsFile()) archivos.push(item.getAsFile());
+          }
+          cargar(archivos);
+        });
+      }
+      document.addEventListener("keydown", (e) => {
+        if (!actual || e.target.closest?.("input")) return;
+        const v = $("video");
+        const lista = pasos();
+        if (!lista.length || (e.key !== "ArrowRight" && e.key !== "ArrowLeft") || !e.altKey) return;
+        const t = v.currentTime;
+        const destino = e.key === "ArrowRight" ? lista.find((p) => p.inicio_s > t + 0.1) : [...lista].reverse().find((p) => p.inicio_s < t - 1);
+        if (destino) v.currentTime = destino.inicio_s;
+      });
+    </script>
+  </body>
+</html>

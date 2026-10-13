@@ -3,9 +3,13 @@
  * nexo-console en Keycloak):
  *   - sirve la Consola Nexo compilada (apps/console-web/dist) con un /config.json OIDC contra el Keycloak del
  *     laboratorio, y reenvía /api a la API de la Consola que corre en Docker (sin datos simulados);
- *   - sirve la página «narradora» (/__estudio/), que es lo único que se graba: muestra el banner, los
- *     rótulos, la terminal con la salida del escenario y, en vivo, la pantalla del navegador que opera
- *     la Consola y los portales (MJPEG desde el screencast de Chromium).
+ *   - en modo ensayo (sin laboratorio) sirve en cambio las páginas de ensayo de tools/evidencias/ensayo/consola
+ *     y reenvía /api al servidor de ensayo (src/lib/ensayo.ts): todo queda rotulado ENSAYO y nunca se publica;
+ *   - sirve la página «narradora» (/__estudio/), que es lo único que se graba: banner, panel, rótulos,
+ *     terminal y, en vivo, la pantalla del navegador que opera la Consola y los portales (MJPEG desde el
+ *     screencast de Chromium);
+ *   - recibe de la narradora el tamaño del área de pantalla de cada vista (/__estudio/medidas) para que la
+ *     ventana operada se vea 1 píxel = 1 píxel.
  */
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -29,14 +33,24 @@ export interface EstadoEstudio {
   [k: string]: unknown;
 }
 
+/** Tamaño (píxeles del lienzo) del área de pantalla operada en cada vista, medido por la narradora. */
+export interface Medidas {
+  vistas: Record<string, { ancho: number; alto: number }>;
+  lienzo: { ancho: number; alto: number };
+  /** true: la narradora usa el diseño anterior de 1280×720 escalado (falta data-lienzo en index.html). */
+  compat: boolean;
+}
+
 export interface OpcionesEstudio {
   puerto?: number;
-  /** API de la Consola en el laboratorio. */
+  /** API de la Consola en el laboratorio (o el servidor de ensayo). */
   api?: string;
   /** Contenido de /config.json para la Consola. */
   configConsola: Record<string, unknown>;
   /** Carpeta con archivos generados durante la demostración (se sirven en /__estudio/archivos/). */
   archivos: string;
+  /** Modo ensayo: sirve las páginas simuladas en vez de la Consola compilada. */
+  ensayo?: boolean;
 }
 
 export class Estudio {
@@ -45,19 +59,26 @@ export class Estudio {
   private mjpeg = new Set<ServerResponse>();
   private ultimoCuadro?: Buffer;
   private estado: EstadoEstudio = {};
+  private medidas?: Medidas;
+  private esperandoMedidas: Array<(m: Medidas) => void> = [];
   readonly puerto: number;
-  private readonly dist = desdeRaiz("apps/console-web/dist");
+  private readonly dist: string;
   private readonly narrador = resolve(PAQUETE, "estudio");
 
   constructor(private readonly o: OpcionesEstudio) {
     this.puerto = o.puerto ?? 5173;
+    this.dist = o.ensayo ? resolve(PAQUETE, "ensayo/consola") : desdeRaiz("apps/console-web/dist");
     if (!existsSync(join(this.dist, "index.html"))) {
-      throw new Error("falta apps/console-web/dist: ejecute pnpm --filter @nexo/console-web build");
+      throw new Error(o.ensayo ? `faltan las páginas de ensayo en ${this.dist}` : "falta apps/console-web/dist: ejecute pnpm --filter @nexo/console-web build");
     }
   }
 
   get url(): string {
     return `http://localhost:${this.puerto}`;
+  }
+
+  get ensayo(): boolean {
+    return this.o.ensayo === true;
   }
 
   async iniciar(): Promise<void> {
@@ -88,6 +109,11 @@ export class Estudio {
     for (const r of this.sse) r.write(msg);
   }
 
+  /** Estado acumulado (lo que vería una narradora que se conecta ahora). */
+  get estadoActual(): Readonly<EstadoEstudio> {
+    return this.estado;
+  }
+
   /** Un evento puntual (no queda en el estado), p. ej. una línea de terminal. */
   evento(tipo: string, datos: unknown): void {
     const msg = `event: ${tipo}\ndata: ${JSON.stringify(datos)}\n\n`;
@@ -98,6 +124,18 @@ export class Estudio {
   cuadro(jpeg: Buffer): void {
     this.ultimoCuadro = jpeg;
     for (const r of this.mjpeg) this.escribirCuadro(r, jpeg);
+  }
+
+  /** Medidas informadas por la narradora (espera hasta `ms`; undefined si no llegaron). */
+  esperarMedidas(ms = 5000): Promise<Medidas | undefined> {
+    if (this.medidas) return Promise.resolve(this.medidas);
+    return new Promise((ok) => {
+      const t = setTimeout(() => ok(undefined), ms);
+      this.esperandoMedidas.push((m) => {
+        clearTimeout(t);
+        ok(m);
+      });
+    });
   }
 
   private escribirCuadro(r: ServerResponse, jpeg: Buffer) {
@@ -120,6 +158,18 @@ export class Estudio {
       res.write(`data: ${JSON.stringify(this.estado)}\n\n`);
       this.sse.add(res);
       req.on("close", () => this.sse.delete(res));
+      return;
+    }
+    if (p === "/__estudio/medidas" && req.method === "POST") {
+      const cuerpo = await leerCuerpo(req);
+      try {
+        const m = JSON.parse(cuerpo) as Medidas;
+        this.medidas = m;
+        for (const f of this.esperandoMedidas.splice(0)) f(m);
+        res.writeHead(204).end();
+      } catch {
+        res.writeHead(400).end();
+      }
       return;
     }
     if (p === "/__estudio/monitor.mjpg") {
@@ -178,4 +228,16 @@ export class Estudio {
       req.pipe(sale);
     });
   }
+}
+
+function leerCuerpo(req: IncomingMessage, max = 1_000_000): Promise<string> {
+  return new Promise((ok, mal) => {
+    let s = "";
+    req.on("data", (d: Buffer) => {
+      s += d.toString();
+      if (s.length > max) mal(new Error("cuerpo demasiado grande"));
+    });
+    req.on("end", () => ok(s));
+    req.on("error", mal);
+  });
 }

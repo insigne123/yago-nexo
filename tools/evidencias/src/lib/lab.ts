@@ -2,21 +2,81 @@
  * Acceso al laboratorio desde los guiones: tokens de Keycloak (personas y aplicaciones), API de la Consola,
  * cliente de WSO2 y utilidades de Docker. Es el mismo laboratorio que usan las verificaciones de
  * tools/lab-bootstrap; nada aquí simula respuestas.
+ *
+ * Modo ensayo (V09): si NEXO_EVIDENCIAS_ENSAYO_URL está definida (la define `grabar --ensayo` antes de cargar
+ * los guiones), las mismas funciones apuntan al servidor de ensayo local (src/lib/ensayo.ts), que imita la
+ * Consola, Keycloak, el gateway y los portales lo suficiente para ejercitar el motor. Docker y SQL no existen
+ * en ensayo: devuelven vacío. Nada grabado en ensayo se publica.
  */
 import { execFileSync } from "node:child_process";
-import { Agent, fetch } from "undici";
+import { Agent, fetch, type Dispatcher } from "undici";
 import { Wso2Client } from "@nexo/wso2-client";
 
-export const CONSOLA_API = process.env.NEXO_CONSOLE_URL ?? "http://localhost:8090/api/v1";
-export const KEYCLOAK = process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo";
+/** URL del servidor de ensayo (solo en modo ensayo). */
+export const ENSAYO = process.env.NEXO_EVIDENCIAS_ENSAYO_URL || undefined;
+export const enEnsayo = () => ENSAYO !== undefined;
+
+/**
+ * Orígenes del laboratorio y su prefijo en el servidor de ensayo. Los guiones y las páginas usan las URL
+ * reales; en ensayo se reescriben aquí (Node) y con page.route() (navegador).
+ */
+export const ORIGENES_LAB: ReadonlyArray<readonly [string, string]> = [
+  ["https://apim:9443", "/wso2"],
+  ["https://apim:8243", "/gateway"],
+  ["http://keycloak:8080", "/keycloak"],
+  ["http://localhost:8090", ""],
+  ["http://localhost:7011", "/chaos-v2"],
+  ["http://localhost:7012", "/chaos-v1"],
+];
+
+/** Reescribe una URL del laboratorio a su equivalente en el servidor de ensayo (o la deja igual). */
+export function reescribirUrlEnsayo(url: string, base: string | undefined = ENSAYO): string {
+  if (!base) return url;
+  for (const [origen, prefijo] of ORIGENES_LAB) {
+    if (url === origen || url.startsWith(`${origen}/`) || url.startsWith(`${origen}?`)) return `${base}${prefijo}${url.slice(origen.length)}`;
+  }
+  return url;
+}
+
+/** Expresión para page.route(): cualquier URL de un origen del laboratorio. */
+export const URL_LAB = /^(https:\/\/apim:(9443|8243)|http:\/\/keycloak:8080|http:\/\/localhost:(8090|7011|7012))(\/|\?|$)/;
+
+/** Dispatcher que, en ensayo, reescribe los orígenes del laboratorio hacia el servidor de ensayo. */
+function despachador(base: Agent): Dispatcher {
+  if (!ENSAYO) return base;
+  const destino = new URL(ENSAYO);
+  return base.compose(
+    (despachar) => (opts, handler) => {
+      const origen = typeof opts.origin === "string" ? opts.origin.replace(/\/$/, "") : opts.origin ? opts.origin.toString().replace(/\/$/, "") : "";
+      const par = ORIGENES_LAB.find(([o]) => o === origen);
+      if (!par) return despachar(opts, handler);
+      return despachar({ ...opts, origin: destino.origin, path: `${par[1]}${opts.path}`, headers: opts.headers }, handler);
+    },
+  );
+}
+
+const base = (): string => ENSAYO ?? "";
+export const CONSOLA_API = ENSAYO ? `${base()}/api/v1` : (process.env.NEXO_CONSOLE_URL ?? "http://localhost:8090/api/v1");
+export const KEYCLOAK = ENSAYO ? `${base()}/keycloak/realms/nexo` : (process.env.KEYCLOAK_URL ?? "http://keycloak:8080/realms/nexo");
 export const CLAVE_LAB = () => process.env.NEXO_LAB_USER_PASSWORD ?? "Nexo-Lab-2026!";
-export const GATEWAY = "https://apim:8243";
-export const inseguro = new Agent({ connect: { rejectUnauthorized: false } });
+export const GATEWAY = ENSAYO ? `${base()}/gateway` : "https://apim:8243";
+export const WSO2 = ENSAYO ? `${base()}/wso2` : (process.env.NEXO_WSO2_URL ?? "https://apim:9443");
+export const inseguro: Dispatcher = despachador(new Agent({ connect: { rejectUnauthorized: false } }));
 export const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * En ensayo, también las llamadas de los guiones con fetch() sin dispatcher propio (p. ej. la falla inyectable
+ * de D-04) van al servidor de ensayo. Lo llama grabar.ts al activar el modo ensayo.
+ */
+export async function instalarDespachadorEnsayo(): Promise<void> {
+  if (!ENSAYO) return;
+  const { setGlobalDispatcher } = await import("undici");
+  setGlobalDispatcher(despachador(new Agent()));
+}
 
 export function wso2(): Wso2Client {
   return new Wso2Client({
-    baseUrl: "https://apim:9443",
+    baseUrl: WSO2,
     auth: { type: "basic", username: "admin", password: process.env.APIM_ADMIN_PASSWORD ?? "admin" },
     tls: { rejectUnauthorized: false },
   });
@@ -84,7 +144,8 @@ export async function consola<T = unknown>(token: string, metodo: string, ruta: 
 
 /** Llamada a una API a través del gateway de WSO2. */
 export async function gateway(url: string, init: { metodo?: string; token?: string; cuerpo?: unknown; headers?: Record<string, string> } = {}) {
-  const res = await fetch(url.startsWith("http") ? url : `${GATEWAY}${url}`, {
+  const destino = url.startsWith("http") ? reescribirUrlEnsayo(url) : `${GATEWAY}${url}`;
+  const res = await fetch(destino, {
     method: init.metodo ?? "GET",
     dispatcher: inseguro,
     headers: {
@@ -105,6 +166,10 @@ export async function gateway(url: string, init: { metodo?: string; token?: stri
 }
 
 export function docker(...args: string[]): string {
+  if (ENSAYO) {
+    console.log(`  (ensayo) docker ${args.join(" ")}: no hay laboratorio, se omite`);
+    return "";
+  }
   return execFileSync("docker", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
@@ -112,6 +177,10 @@ export const contenedor = (servicio: string) => `nexo-lab-${servicio}-1`;
 
 /** Consulta SQL puntual a la base de la Consola (psql dentro del contenedor de PostgreSQL). */
 export function sqlConsola(sql: string): string {
+  if (ENSAYO) {
+    console.log(`  (ensayo) SQL omitido: ${sql.slice(0, 80)}`);
+    return "";
+  }
   return execFileSync(
     "docker",
     ["exec", "-e", `PGPASSWORD=${process.env.NEXO_DB_PASSWORD ?? ""}`, contenedor("postgres"), "psql", "-U", "nexo", "-d", "nexo", "-h", "localhost", "-tAc", sql],

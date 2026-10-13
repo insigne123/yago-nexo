@@ -1,7 +1,7 @@
 import Link from "@docusaurus/Link";
 import Heading from "@theme/Heading";
 import Layout from "@theme/Layout";
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import indice from "@site/src/data/evidencias.json";
 import release from "@site/src/data/release.json";
@@ -9,7 +9,19 @@ import rendimiento from "@site/src/data/rendimiento.json";
 
 import styles from "./evidencias.module.css";
 
-/** Una demostración registrada (lo genera tools/evidencias en cada grabación). */
+/** Un capítulo del video (uno por paso del guion). */
+interface Capitulo {
+  n: number;
+  title: string;
+  start_s: number;
+  end_s: number;
+}
+
+/**
+ * Una demostración registrada (lo genera tools/evidencias en cada grabación; formato descrito en
+ * src/data/evidencias.schema.json). Los campos opcionales solo existen en el formato vigente (MP4 con música,
+ * subtítulos y capítulos); las entradas del formato anterior (WebM) no los tienen.
+ */
 interface Evidencia {
   id: string;
   title: string;
@@ -21,13 +33,30 @@ interface Evidencia {
   size_bytes?: number;
   version: string;
   commit: string;
+  tools_commit?: string;
   recorded_at: string;
   environment: string;
   result: string;
   checks?: Array<{ texto: string; ok: boolean; detalle?: string }>;
+  width?: number;
+  height?: number;
+  fps?: number;
+  steps_file?: string;
+  subtitles?: string;
+  chapters_file?: string;
+  chapters?: Capitulo[];
+  video_stream_md5?: string;
+  without_music?: { file: string; sha256: string; size_bytes?: number };
+  music?: { style: string; variant: number; author: string; integrated_lufs?: number };
+  layers?: string[];
+  rehearsal?: boolean;
 }
 
-const evidencias = (indice as { evidencias: Evidencia[] }).evidencias;
+// Una grabación de ensayo nunca se publica (tools/evidencias ya las rechaza; esto es una segunda barrera).
+const evidencias = (indice as { evidencias: Evidencia[] }).evidencias.filter((e) => e.rehearsal !== true);
+const conMusica = evidencias.some((e) => e.video_stream_md5);
+// Capas que se dibujan en vivo durante la captura (la música se agrega después y se describe aparte).
+const capasEnVivo = [...new Set(evidencias.flatMap((e) => e.layers ?? []))].filter((c) => !/m[uú]sica/i.test(c));
 
 /** Resumen del informe de rendimiento (lo genera tools/lab-bootstrap/src/rendimiento.ts; ver resultados.json). */
 interface Fase {
@@ -91,7 +120,11 @@ function TablaFases({ fases }: { fases: Fase[] }): ReactNode {
   );
 }
 
-const duracion = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+/** m:ss */
+const duracion = (s: number) => {
+  const t = Math.round(s);
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+};
 
 const fecha = (iso: string) =>
   new Intl.DateTimeFormat("es-CL", { dateStyle: "long", timeStyle: "short", timeZone: "America/Santiago" }).format(
@@ -100,8 +133,26 @@ const fecha = (iso: string) =>
 
 const megas = (b?: number) => (b ? `${(b / 1048576).toLocaleString("es-CL", { maximumFractionDigits: 1 })} MB` : "");
 
+const esMp4 = (f: string) => f.endsWith(".mp4");
+
 function Tarjeta({ e }: { e: Evidencia }): ReactNode {
   const url = `/evidencias/${e.file}`;
+  const video = useRef<HTMLVideoElement>(null);
+  const [actual, setActual] = useState(0);
+  const capitulos = e.chapters ?? [];
+  const ir = (c: Capitulo) => {
+    const v = video.current;
+    if (!v) return;
+    v.currentTime = c.start_s;
+    setActual(c.n);
+    void v.play().catch(() => undefined);
+  };
+  const alAvanzar = () => {
+    const t = video.current?.currentTime ?? 0;
+    const c = capitulos.find((x) => t >= x.start_s && t < x.end_s);
+    setActual(c?.n ?? 0);
+  };
+  const formato = esMp4(e.file) ? "MP4" : "WebM";
   return (
     <article className={styles.tarjeta} id={e.file.replace(/\.\w+$/, "").replace(/^[A-Z]+-\d+_/, "")}>
       <Heading as="h2" className={styles.titulo}>
@@ -109,14 +160,42 @@ function Tarjeta({ e }: { e: Evidencia }): ReactNode {
       </Heading>
       <p className={styles.afirmacion}>{e.claim}</p>
       <video
+        ref={video}
         className={styles.video}
         controls
         preload="metadata"
-        src={url}
+        playsInline
         poster={e.poster ? `/evidencias/${e.poster}` : undefined}
+        onTimeUpdate={capitulos.length ? alAvanzar : undefined}
       >
-        Su navegador no reproduce WebM; <a href={url}>descargue el video</a>.
+        <source src={url} type={esMp4(e.file) ? "video/mp4" : "video/webm"} />
+        {e.subtitles && (
+          <track kind="subtitles" src={`/evidencias/${e.subtitles}`} srcLang="es" label="Español: pasos del guion" />
+        )}
+        {e.chapters_file && (
+          <track kind="chapters" src={`/evidencias/${e.chapters_file}`} srcLang="es" label="Capítulos" />
+        )}
+        Su navegador no reproduce este video; <a href={url}>descárguelo</a>.
       </video>
+      {capitulos.length > 0 && (
+        <nav className={styles.capitulos} aria-label={`Capítulos: ${e.title}`}>
+          <p className={styles.capitulosTitulo}>Capítulos</p>
+          <ol>
+            {capitulos.map((c) => (
+              <li key={c.n}>
+                <button
+                  type="button"
+                  className={c.n === actual ? styles.capituloActual : undefined}
+                  aria-current={c.n === actual ? "true" : undefined}
+                  onClick={() => ir(c)}
+                >
+                  <span className={styles.tiempo}>{duracion(c.start_s)}</span> {c.title}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
       <p className={styles.resultado}>
         <strong>Resultado medido: </strong>
         {e.result}
@@ -129,18 +208,82 @@ function Tarjeta({ e }: { e: Evidencia }): ReactNode {
         <dt>Versión</dt>
         <dd>
           Yago Nexo {e.version} · commit <code>{e.commit}</code>
+          {e.tools_commit && (
+            <>
+              {" "}
+              · herramientas de grabación: commit <code>{e.tools_commit}</code>
+            </>
+          )}
         </dd>
         <dt>Ambiente</dt>
         <dd>{e.environment}</dd>
+        {e.width && e.height && (
+          <>
+            <dt>Formato</dt>
+            <dd>
+              {formato} · H.264 {e.width}×{e.height}
+              {e.fps ? ` a ${e.fps} cuadros/s` : ""}
+              {e.music ? " · audio AAC" : ""}
+            </dd>
+          </>
+        )}
+        {e.layers && e.layers.length > 0 && (
+          <>
+            <dt>Capas agregadas</dt>
+            <dd>{e.layers.join(", ")}</dd>
+          </>
+        )}
+        {e.music && (
+          <>
+            <dt>Música</dt>
+            <dd>
+              Original, generada por código (estilo {e.music.style}, variante {e.music.variant}); sin muestras ni audio
+              de terceros
+            </dd>
+          </>
+        )}
         <dt>SHA-256</dt>
         <dd>
           <code className={styles.hash}>{e.sha256}</code>
         </dd>
+        {e.video_stream_md5 && (
+          <>
+            <dt>Flujo de video (MD5)</dt>
+            <dd>
+              <code className={styles.hash}>{e.video_stream_md5}</code>
+              <span className={styles.nota}> · el mismo antes y después de agregar la música</span>
+            </dd>
+          </>
+        )}
+        {e.without_music && (
+          <>
+            <dt>SHA-256 sin música</dt>
+            <dd>
+              <code className={styles.hash}>{e.without_music.sha256}</code>
+            </dd>
+          </>
+        )}
       </dl>
       <p className={styles.acciones}>
         <a className="button button--primary button--sm" href={url} download>
-          Descargar el video (WebM{e.size_bytes ? `, ${megas(e.size_bytes)}` : ""})
+          Descargar el video ({formato}
+          {e.size_bytes ? `, ${megas(e.size_bytes)}` : ""})
         </a>
+        {e.subtitles && (
+          <a className="button button--secondary button--sm" href={`/evidencias/${e.subtitles}`} download>
+            Subtítulos (WebVTT)
+          </a>
+        )}
+        {e.chapters_file && (
+          <a className="button button--secondary button--sm" href={`/evidencias/${e.chapters_file}`} download>
+            Capítulos (WebVTT)
+          </a>
+        )}
+        {e.steps_file && (
+          <a className="button button--secondary button--sm" href={`/evidencias/${e.steps_file}`} download>
+            Pasos y comprobaciones (JSON)
+          </a>
+        )}
       </p>
       {e.checks && e.checks.length > 0 && (
         <details className={styles.verificaciones}>
@@ -185,21 +328,57 @@ export default function Evidencias(): ReactNode {
           </p>
           <ul>
             <li>
-              Linux: <code>sha256sum archivo.webm</code>, o con todos los videos en la misma carpeta que
-              SHA256SUMS.txt: <code>sha256sum -c SHA256SUMS.txt</code>
+              Linux: <code>sha256sum archivo</code>, o con todos los videos en la misma carpeta que SHA256SUMS.txt:{" "}
+              <code>sha256sum -c SHA256SUMS.txt</code>
             </li>
             <li>
-              macOS: <code>shasum -a 256 archivo.webm</code>
+              macOS: <code>shasum -a 256 archivo</code>
             </li>
             <li>
-              Windows (PowerShell): <code>Get-FileHash .\archivo.webm -Algorithm SHA256</code>
+              Windows (PowerShell): <code>Get-FileHash .\archivo -Algorithm SHA256</code>
             </li>
           </ul>
+          {conMusica && (
+            <p>
+              En los videos con música, la imagen se codifica una sola vez y la música se agrega después copiando el
+              flujo de video sin recodificarlo. Para comprobarlo, calcule el MD5 del flujo de video con{" "}
+              <code>ffmpeg -i archivo.mp4 -map 0:v -c copy -f md5 -</code>: debe coincidir con el «flujo de video
+              (MD5)» de la ficha, que se midió también sobre el archivo antes de agregar la música.
+            </p>
+          )}
           <p>
             El commit indicado en cada ficha identifica el código exacto con que se grabó. El laboratorio está descrito
             en <Link to="/docs/laboratorio">Laboratorio</Link>.
           </p>
         </section>
+
+        {(conMusica || capasEnVivo.length > 0) && (
+          <section className={styles.verificar} aria-labelledby="capas">
+            <Heading as="h2" id="capas">
+              Qué se agrega sobre la grabación
+            </Heading>
+            <ul>
+              {capasEnVivo.length > 0 && (
+                <li>
+                  Se dibujan en vivo durante la captura: {capasEnVivo.join(", ")}. No hay edición posterior de la
+                  imagen: ni cortes, ni aceleración, ni cuadros agregados.
+                </li>
+              )}
+              {evidencias.some((e) => e.subtitles) && (
+                <li>
+                  Subtítulos y capítulos WebVTT generados desde el guion de pasos del video, con sus tiempos (se
+                  activan en el reproductor y se pueden descargar).
+                </li>
+              )}
+              {conMusica && (
+                <li>
+                  Música original generada por código (síntesis propia, sin muestras ni audio de terceros), a −18
+                  LUFS. Se agrega sin recodificar la imagen.
+                </li>
+              )}
+            </ul>
+          </section>
+        )}
 
         <section aria-labelledby="rendimiento">
           <Heading as="h2" id="rendimiento">
